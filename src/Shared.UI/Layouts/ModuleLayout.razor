@@ -1,0 +1,116 @@
+@inherits LayoutComponentBase
+@inject IJSRuntime JSRuntime
+
+<MudThemeProvider @ref="_themeProvider" Theme="@KuestenCodeTheme.Theme" IsDarkMode="@_isDarkMode" />
+<MudPopoverProvider />
+<MudDialogProvider />
+<MudSnackbarProvider />
+
+<MudLayout>
+    <MudAppBar Elevation="1">
+        <MudIconButton Icon="@Icons.Material.Filled.Menu"
+                       Color="Color.Inherit"
+                       Edge="Edge.Start"
+                       OnClick="@ToggleDrawer" />
+        <MudStack Row="false" Spacing="0" Class="ml-3">
+            <MudText Typo="Typo.h5">@Title</MudText>
+            @if (!string.IsNullOrEmpty(Subtitle))
+            {
+                <MudText Typo="Typo.caption">@Subtitle</MudText>
+            }
+        </MudStack>
+        <MudSpacer />
+        @AppBarContent
+        <MudTooltip Text="@(_isDarkMode ? "Hell-Modus" : "Dunkel-Modus")">
+            <MudIconButton Icon="@(_isDarkMode ? Icons.Material.Filled.LightMode : Icons.Material.Filled.DarkMode)"
+                           Color="Color.Inherit"
+                           OnClick="@ToggleDarkMode" />
+        </MudTooltip>
+    </MudAppBar>
+
+    <MudDrawer @bind-Open="_drawerOpen" ClipMode="DrawerClipMode.Always" Elevation="2">
+        @NavMenuContent
+    </MudDrawer>
+
+    <MudMainContent>
+        <MudContainer MaxWidth="@MaxWidth" Class="my-4 pt-4">
+            @TopContent
+            @Body
+        </MudContainer>
+    </MudMainContent>
+</MudLayout>
+
+@code {
+    private bool _drawerOpen = true;
+    private bool _isDarkMode = false;
+    private MudThemeProvider? _themeProvider;
+
+    /// <summary>
+    /// The title displayed in the app bar.
+    /// </summary>
+    [Parameter]
+    public string Title { get; set; } = "Kuestencode";
+
+    /// <summary>
+    /// Optional subtitle displayed below the title.
+    /// </summary>
+    [Parameter]
+    public string? Subtitle { get; set; }
+
+    /// <summary>
+    /// Content for the navigation menu drawer.
+    /// </summary>
+    [Parameter]
+    public RenderFragment? NavMenuContent { get; set; }
+
+    /// <summary>
+    /// Additional content for the app bar (e.g., buttons, user menu).
+    /// </summary>
+    [Parameter]
+    public RenderFragment? AppBarContent { get; set; }
+
+    /// <summary>
+    /// Content displayed at the top of the main content area (e.g., warnings).
+    /// </summary>
+    [Parameter]
+    public RenderFragment? TopContent { get; set; }
+
+    /// <summary>
+    /// Maximum width for the main content container.
+    /// </summary>
+    [Parameter]
+    public MaxWidth MaxWidth { get; set; } = MaxWidth.Large;
+
+    /// <summary>
+    /// Key used for storing dark mode preference in localStorage.
+    /// </summary>
+    [Parameter]
+    public string DarkModeStorageKey { get; set; } = "darkMode";
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            // Load saved theme preference from localStorage
+            var isDarkModeStored = await JSRuntime.InvokeAsync<string>("localStorage.getItem", DarkModeStorageKey);
+            if (!string.IsNullOrEmpty(isDarkModeStored) && bool.TryParse(isDarkModeStored, out bool storedValue))
+            {
+                _isDarkMode = storedValue;
+                StateHasChanged();
+            }
+        }
+    }
+
+    private void ToggleDrawer()
+    {
+        _drawerOpen = !_drawerOpen;
+    }
+
+    private async Task ToggleDarkMode()
+    {
+        _isDarkMode = !_isDarkMode;
+
+        // Save preference to localStorage
+        await JSRuntime.InvokeVoidAsync("localStorage.setItem", DarkModeStorageKey, _isDarkMode.ToString());
+    }
+}

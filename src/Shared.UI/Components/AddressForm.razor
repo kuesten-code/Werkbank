@@ -1,0 +1,58 @@
+@using Kuestencode.Core.Models
+
+<MudStack Spacing="3">
+    <MudTextField @bind-Value="Address.Street"
+                  Label="Straße und Hausnummer"
+                  Variant="Variant.Outlined"
+                  Required="true"
+                  RequiredError="Adresse ist erforderlich"
+                  Disabled="@Disabled" />
+
+    <MudStack Row="true" Spacing="2">
+        <MudTextField @bind-Value="Address.PostalCode"
+                      Label="PLZ"
+                      Variant="Variant.Outlined"
+                      Required="true"
+                      RequiredError="PLZ ist erforderlich"
+                      Style="max-width: 150px;"
+                      Disabled="@Disabled" />
+
+        <MudTextField @bind-Value="Address.City"
+                      Label="Stadt"
+                      Variant="Variant.Outlined"
+                      Required="true"
+                      RequiredError="Stadt ist erforderlich"
+                      Disabled="@Disabled" />
+    </MudStack>
+
+    <MudSelect @bind-Value="Address.Country"
+               Label="Land"
+               Variant="Variant.Outlined"
+               Required="true"
+               Disabled="@Disabled">
+        <MudSelectItem Value="@("Deutschland")">Deutschland</MudSelectItem>
+        <MudSelectItem Value="@("Österreich")">Österreich</MudSelectItem>
+        <MudSelectItem Value="@("Schweiz")">Schweiz</MudSelectItem>
+        <MudSelectItem Value="@("Frankreich")">Frankreich</MudSelectItem>
+        <MudSelectItem Value="@("Niederlande")">Niederlande</MudSelectItem>
+        <MudSelectItem Value="@("Belgien")">Belgien</MudSelectItem>
+        <MudSelectItem Value="@("Luxemburg")">Luxemburg</MudSelectItem>
+        <MudSelectItem Value="@("Italien")">Italien</MudSelectItem>
+        <MudSelectItem Value="@("Spanien")">Spanien</MudSelectItem>
+        <MudSelectItem Value="@("Polen")">Polen</MudSelectItem>
+    </MudSelect>
+</MudStack>
+
+@code {
+    [Parameter]
+    public Address Address { get; set; } = new();
+
+    [Parameter]
+    public EventCallback<Address> AddressChanged { get; set; }
+
+    [Parameter]
+    public bool Disabled { get; set; } = false;
+
+    [Parameter]
+    public string Title { get; set; } = string.Empty;
+}

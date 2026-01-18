@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>Kuestencode.Core</RootNamespace>
+    <AssemblyName>Kuestencode.Core</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Email/SMTP Support -->
+    <PackageReference Include="MailKit" Version="4.9.0" />
+    <PackageReference Include="MimeKit" Version="4.9.0" />
+
+    <!-- Data Annotations for Validation -->
+    <PackageReference Include="System.ComponentModel.Annotations" Version="5.0.0" />
+
+    <!-- Logging Abstractions -->
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="9.0.0" />
+
+    <!-- Dependency Injection -->
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="9.0.0" />
+  </ItemGroup>
+
+</Project>

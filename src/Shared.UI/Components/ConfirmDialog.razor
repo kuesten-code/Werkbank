@@ -1,0 +1,66 @@
+<MudDialog>
+    <DialogContent>
+        <MudStack Spacing="2">
+            @if (!string.IsNullOrEmpty(Icon))
+            {
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                    <MudIcon Icon="@Icon" Color="@IconColor" Size="Size.Large" />
+                    <MudText Typo="Typo.body1">@ContentText</MudText>
+                </MudStack>
+            }
+            else
+            {
+                <MudText Typo="Typo.body1">@ContentText</MudText>
+            }
+
+            @if (!string.IsNullOrEmpty(WarningText))
+            {
+                <MudAlert Severity="Severity.Warning" Dense="true">
+                    @WarningText
+                </MudAlert>
+            }
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel" Variant="Variant.Text">@CancelButtonText</MudButton>
+        <MudButton OnClick="Confirm"
+                   Variant="Variant.Filled"
+                   Color="@ConfirmButtonColor"
+                   StartIcon="@ConfirmButtonIcon">
+            @ConfirmButtonText
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter]
+    public IMudDialogInstance MudDialog { get; set; } = null!;
+
+    [Parameter]
+    public string ContentText { get; set; } = "Möchten Sie fortfahren?";
+
+    [Parameter]
+    public string? WarningText { get; set; }
+
+    [Parameter]
+    public string? Icon { get; set; }
+
+    [Parameter]
+    public Color IconColor { get; set; } = Color.Default;
+
+    [Parameter]
+    public string ConfirmButtonText { get; set; } = "Bestätigen";
+
+    [Parameter]
+    public string? ConfirmButtonIcon { get; set; }
+
+    [Parameter]
+    public Color ConfirmButtonColor { get; set; } = Color.Primary;
+
+    [Parameter]
+    public string CancelButtonText { get; set; } = "Abbrechen";
+
+    private void Cancel() => MudDialog.Cancel();
+
+    private void Confirm() => MudDialog.Close(DialogResult.Ok(true));
+}

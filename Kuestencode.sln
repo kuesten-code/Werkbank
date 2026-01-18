@@ -1,0 +1,84 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.5.2.0
+MinimumVisualStudioVersion = 10.0.40219.1
+
+# Core Library
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kuestencode.Core", "src\Core\Kuestencode.Core.csproj", "{A1B2C3D4-1111-2222-3333-444444444444}"
+EndProject
+
+# Shared UI Library
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kuestencode.Shared.UI", "src\Shared.UI\Kuestencode.Shared.UI.csproj", "{A1B2C3D4-5555-6666-7777-888888888888}"
+EndProject
+
+# Faktura Module
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kuestencode.Faktura", "src\Modules\Faktura\Kuestencode.Faktura.csproj", "{A1B2C3D4-9999-AAAA-BBBB-CCCCCCCCCCCC}"
+EndProject
+
+# Test Projects
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kuestencode.Core.Tests", "tests\Kuestencode.Core.Tests\Kuestencode.Core.Tests.csproj", "{B2C3D4E5-1111-2222-3333-444444444444}"
+EndProject
+
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kuestencode.Faktura.Tests", "tests\Kuestencode.Faktura.Tests\Kuestencode.Faktura.Tests.csproj", "{B2C3D4E5-5555-6666-7777-888888888888}"
+EndProject
+
+# Solution Folders
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{EEEE1111-2222-3333-4444-555555555555}"
+EndProject
+
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Core", "Core", "{EEEE2222-3333-4444-5555-666666666666}"
+EndProject
+
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Shared.UI", "Shared.UI", "{EEEE3333-4444-5555-6666-777777777777}"
+EndProject
+
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Modules", "Modules", "{EEEE4444-5555-6666-7777-888888888888}"
+EndProject
+
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{EEEE5555-6666-7777-8888-999999999999}"
+EndProject
+
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{A1B2C3D4-1111-2222-3333-444444444444}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A1B2C3D4-1111-2222-3333-444444444444}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A1B2C3D4-1111-2222-3333-444444444444}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A1B2C3D4-1111-2222-3333-444444444444}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A1B2C3D4-5555-6666-7777-888888888888}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A1B2C3D4-5555-6666-7777-888888888888}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A1B2C3D4-5555-6666-7777-888888888888}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A1B2C3D4-5555-6666-7777-888888888888}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A1B2C3D4-9999-AAAA-BBBB-CCCCCCCCCCCC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A1B2C3D4-9999-AAAA-BBBB-CCCCCCCCCCCC}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A1B2C3D4-9999-AAAA-BBBB-CCCCCCCCCCCC}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A1B2C3D4-9999-AAAA-BBBB-CCCCCCCCCCCC}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B2C3D4E5-1111-2222-3333-444444444444}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B2C3D4E5-1111-2222-3333-444444444444}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B2C3D4E5-1111-2222-3333-444444444444}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B2C3D4E5-1111-2222-3333-444444444444}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B2C3D4E5-5555-6666-7777-888888888888}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B2C3D4E5-5555-6666-7777-888888888888}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B2C3D4E5-5555-6666-7777-888888888888}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B2C3D4E5-5555-6666-7777-888888888888}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{EEEE2222-3333-4444-5555-666666666666} = {EEEE1111-2222-3333-4444-555555555555}
+		{EEEE3333-4444-5555-6666-777777777777} = {EEEE1111-2222-3333-4444-555555555555}
+		{EEEE4444-5555-6666-7777-888888888888} = {EEEE1111-2222-3333-4444-555555555555}
+		{A1B2C3D4-1111-2222-3333-444444444444} = {EEEE2222-3333-4444-5555-666666666666}
+		{A1B2C3D4-5555-6666-7777-888888888888} = {EEEE3333-4444-5555-6666-777777777777}
+		{A1B2C3D4-9999-AAAA-BBBB-CCCCCCCCCCCC} = {EEEE4444-5555-6666-7777-888888888888}
+		{B2C3D4E5-1111-2222-3333-444444444444} = {EEEE5555-6666-7777-8888-999999999999}
+		{B2C3D4E5-5555-6666-7777-888888888888} = {EEEE5555-6666-7777-8888-999999999999}
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {F1A2B3C4-D5E6-7890-ABCD-EF1234567890}
+	EndGlobalSection
+EndGlobal

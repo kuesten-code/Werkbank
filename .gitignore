@@ -55,3 +55,7 @@ appsettings.Staging.json
 
 # PostgreSQL data directory
 data/
+
+# Data folders in source (keys, postgres backups)
+**/Data/keys/
+**/Data/postgres/

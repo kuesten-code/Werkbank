@@ -1,0 +1,82 @@
+@using Kuestencode.Core.Models
+@using Kuestencode.Core.Interfaces
+
+<MudAutocomplete T="Customer"
+                 Label="@Label"
+                 @bind-Value="SelectedCustomer"
+                 SearchFunc="SearchCustomers"
+                 ToStringFunc="@(c => c?.Name ?? string.Empty)"
+                 Variant="Variant.Outlined"
+                 Dense="@Dense"
+                 Disabled="@Disabled"
+                 Required="@Required"
+                 RequiredError="@RequiredError"
+                 Clearable="true"
+                 ResetValueOnEmptyText="true"
+                 CoerceText="true"
+                 CoerceValue="false"
+                 ShowProgressIndicator="true">
+    <ItemTemplate Context="customer">
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+            <MudIcon Icon="@Icons.Material.Filled.Person" Size="Size.Small" />
+            <MudStack Spacing="0">
+                <MudText Typo="Typo.body1">@customer.Name</MudText>
+                <MudText Typo="Typo.caption" Color="Color.Secondary">
+                    @customer.CustomerNumber - @customer.City
+                </MudText>
+            </MudStack>
+        </MudStack>
+    </ItemTemplate>
+    <NoItemsTemplate>
+        <MudText Typo="Typo.body2" Class="pa-2">Keine Kunden gefunden</MudText>
+    </NoItemsTemplate>
+</MudAutocomplete>
+
+@code {
+    [Parameter]
+    public string Label { get; set; } = "Kunde";
+
+    [Parameter]
+    public Customer? SelectedCustomer { get; set; }
+
+    [Parameter]
+    public EventCallback<Customer?> SelectedCustomerChanged { get; set; }
+
+    [Parameter]
+    public bool Dense { get; set; } = false;
+
+    [Parameter]
+    public bool Disabled { get; set; } = false;
+
+    [Parameter]
+    public bool Required { get; set; } = false;
+
+    [Parameter]
+    public string RequiredError { get; set; } = "Kunde ist erforderlich";
+
+    [Parameter]
+    public IEnumerable<Customer> Customers { get; set; } = Enumerable.Empty<Customer>();
+
+    private async Task<IEnumerable<Customer>> SearchCustomers(string value, CancellationToken token)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return Customers.Take(10);
+        }
+
+        var searchTerm = value.ToLower();
+        return Customers
+            .Where(c =>
+                c.Name.ToLower().Contains(searchTerm) ||
+                c.CustomerNumber.ToLower().Contains(searchTerm) ||
+                (c.City?.ToLower().Contains(searchTerm) ?? false) ||
+                (c.Email?.ToLower().Contains(searchTerm) ?? false))
+            .Take(10);
+    }
+
+    private async Task OnCustomerSelected(Customer? customer)
+    {
+        SelectedCustomer = customer;
+        await SelectedCustomerChanged.InvokeAsync(customer);
+    }
+}

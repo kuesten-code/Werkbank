@@ -1,0 +1,216 @@
+@using Kuestencode.Core.Interfaces
+
+<MudDialog>
+    <DialogContent>
+        <MudStack Spacing="3">
+            @if (!string.IsNullOrEmpty(Title))
+            {
+                <MudText Typo="Typo.h6">@Title</MudText>
+            }
+
+            <MudTextField @bind-Value="_recipientEmail"
+                          Label="Empfänger E-Mail"
+                          Variant="Variant.Outlined"
+                          Required="true"
+                          Validation="@(new Func<string, string?>(ValidateEmail))"
+                          Immediate="true" />
+
+            @if (ShowSubject)
+            {
+                <MudTextField @bind-Value="_subject"
+                              Label="Betreff"
+                              Variant="Variant.Outlined"
+                              Required="true" />
+            }
+
+            <MudTextField @bind-Value="_message"
+                          Label="@MessageLabel"
+                          Variant="Variant.Outlined"
+                          Lines="4"
+                          Placeholder="@MessagePlaceholder" />
+
+            @if (ShowCcBcc)
+            {
+                <MudExpansionPanels>
+                    <MudExpansionPanel Text="Weitere Empfänger (optional)">
+                        <MudStack Spacing="2">
+                            <MudTextField @bind-Value="_ccEmails"
+                                          Label="CC (Kopie)"
+                                          Variant="Variant.Outlined"
+                                          Placeholder="email1@beispiel.de, email2@beispiel.de"
+                                          HelperText="Mehrere Adressen mit Komma trennen"
+                                          Validation="@(new Func<string, string?>(ValidateEmailList))" />
+
+                            <MudTextField @bind-Value="_bccEmails"
+                                          Label="BCC (Blindkopie)"
+                                          Variant="Variant.Outlined"
+                                          Placeholder="email@beispiel.de"
+                                          HelperText="Empfänger sehen diese Adressen nicht"
+                                          Validation="@(new Func<string, string?>(ValidateEmailList))" />
+                        </MudStack>
+                    </MudExpansionPanel>
+                </MudExpansionPanels>
+            }
+
+            @ChildContent
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel" Variant="Variant.Text">Abbrechen</MudButton>
+        <MudButton OnClick="Send"
+                   Variant="Variant.Filled"
+                   Color="Color.Primary"
+                   Disabled="@(_sending || !IsValidEmail(_recipientEmail))"
+                   StartIcon="@Icons.Material.Filled.Send">
+            @if (_sending)
+            {
+                <MudProgressCircular Size="Size.Small" Indeterminate="true" />
+                <span class="ml-2">Wird versendet...</span>
+            }
+            else
+            {
+                <span>@SendButtonText</span>
+            }
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter]
+    public IMudDialogInstance MudDialog { get; set; } = null!;
+
+    [Parameter]
+    public string? Title { get; set; }
+
+    [Parameter]
+    public string? InitialRecipient { get; set; }
+
+    [Parameter]
+    public string? InitialSubject { get; set; }
+
+    [Parameter]
+    public string? InitialMessage { get; set; }
+
+    [Parameter]
+    public bool ShowSubject { get; set; } = false;
+
+    [Parameter]
+    public bool ShowCcBcc { get; set; } = true;
+
+    [Parameter]
+    public string MessageLabel { get; set; } = "Nachricht (optional)";
+
+    [Parameter]
+    public string MessagePlaceholder { get; set; } = "Fügen Sie hier eine Nachricht ein";
+
+    [Parameter]
+    public string SendButtonText { get; set; } = "Versenden";
+
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+
+    [Parameter]
+    public EventCallback<EmailComposerResult> OnSend { get; set; }
+
+    private string _recipientEmail = string.Empty;
+    private string _subject = string.Empty;
+    private string _message = string.Empty;
+    private string _ccEmails = string.Empty;
+    private string _bccEmails = string.Empty;
+    private bool _sending = false;
+
+    protected override void OnInitialized()
+    {
+        _recipientEmail = InitialRecipient ?? string.Empty;
+        _subject = InitialSubject ?? string.Empty;
+        _message = InitialMessage ?? string.Empty;
+    }
+
+    private void Cancel()
+    {
+        MudDialog.Cancel();
+    }
+
+    private async Task Send()
+    {
+        if (string.IsNullOrWhiteSpace(_recipientEmail) || !IsValidEmail(_recipientEmail))
+            return;
+
+        var ccValidation = ValidateEmailList(_ccEmails);
+        var bccValidation = ValidateEmailList(_bccEmails);
+
+        if (ccValidation != null || bccValidation != null)
+            return;
+
+        _sending = true;
+        StateHasChanged();
+
+        try
+        {
+            var result = new EmailComposerResult
+            {
+                RecipientEmail = _recipientEmail.Trim(),
+                Subject = _subject.Trim(),
+                Message = string.IsNullOrWhiteSpace(_message) ? null : _message.Trim(),
+                CcEmails = string.IsNullOrWhiteSpace(_ccEmails) ? null : _ccEmails.Trim(),
+                BccEmails = string.IsNullOrWhiteSpace(_bccEmails) ? null : _bccEmails.Trim()
+            };
+
+            await OnSend.InvokeAsync(result);
+            MudDialog.Close(DialogResult.Ok(result));
+        }
+        catch
+        {
+            _sending = false;
+            StateHasChanged();
+            throw;
+        }
+    }
+
+    private string? ValidateEmail(string email)
+    {
+        if (string.IsNullOrWhiteSpace(email))
+            return "E-Mail-Adresse ist erforderlich";
+
+        if (!IsValidEmail(email))
+            return "Ungültige E-Mail-Adresse";
+
+        return null;
+    }
+
+    private string? ValidateEmailList(string emailString)
+    {
+        if (string.IsNullOrWhiteSpace(emailString))
+            return null;
+
+        var emails = emailString
+            .Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries)
+            .Select(e => e.Trim())
+            .Where(e => !string.IsNullOrWhiteSpace(e))
+            .ToList();
+
+        foreach (var email in emails)
+        {
+            if (!IsValidEmail(email))
+                return $"Ungültige E-Mail-Adresse: {email}";
+        }
+
+        return null;
+    }
+
+    private bool IsValidEmail(string email)
+    {
+        if (string.IsNullOrWhiteSpace(email))
+            return false;
+
+        try
+        {
+            var addr = new System.Net.Mail.MailAddress(email);
+            return addr.Address == email;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+}
