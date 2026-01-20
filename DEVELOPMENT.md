@@ -1,18 +1,21 @@
-# Küstencode Faktura
+# Küstencode Werkbank
 
-Eine professionelle Rechnungsverwaltungsanwendung mit umfassenden Features für Rechnungserstellung, Kundenverwaltung und XRechnung-Export.
+Eine modulare Business-Software-Suite für kleine und mittelständische Unternehmen. Die Werkbank besteht aus einem gemeinsamen Kern und unabhängig aktivierbaren Modulen.
 
-## Funktionsumfang
+## Module
 
+### Faktura (aktiv)
 - **Rechnungsverwaltung** - Erstellen, bearbeiten und verwalten von Rechnungen
 - **Kundenverwaltung** - Vollständige Verwaltung von Kundendaten
 - **Firmenprofil** - Konfigurierbare Firmeninformationen
-- **PDF-Generierung** - Automatische PDF-Erstellung mit QuestPDF und iText7
+- **PDF-Generierung** - Automatische PDF-Erstellung mit QuestPDF
 - **XRechnung-Export** - Standardkonforme XRechnung-Dateien für B2B und Behörden
 - **E-Mail-Versand** - Rechnungsversand per E-Mail (MailKit)
 - **QR-Code-Integration** - QR-Codes auf Rechnungen
 - **Dashboard** - Übersicht über offene und überfällige Rechnungen
-- **Vorschau-System** - Live-Vorschau von Rechnungen vor dem Export
+
+### Weitere Module (geplant)
+- **Projekte** - Projektplanung, Lasten-/Pflichtenheft, Kunden-Projektstand
 
 ## Technologie-Stack
 
@@ -25,11 +28,10 @@ Eine professionelle Rechnungsverwaltungsanwendung mit umfassenden Features für 
 ### UI Framework
 - **MudBlazor 8.0** - Material Design UI-Framework
 
-### PDF & Dokumente
-- **QuestPDF 2025.12.0** - Moderne PDF-Generierung
-- **iText7 8.0.5** - PDF-Verarbeitung
-- **QRCoder 1.7.0** - QR-Code-Generierung
-- **SkiaSharp 3.116.1** - Grafikverarbeitung
+### PDF & Dokumente (Modul: Faktura)
+- **QuestPDF** - Moderne PDF-Generierung
+- **iText7** - PDF-Verarbeitung
+- **QRCoder** - QR-Code-Generierung
 
 ### E-Mail
 - **MailKit 4.9.0** - E-Mail-Versand
@@ -75,13 +77,13 @@ Eine professionelle Rechnungsverwaltungsanwendung mit umfassenden Features für 
 
 2. **Datenbank Migrationen anwenden**
    ```bash
-   dotnet ef database update
+   dotnet ef database update --project src/Modules/Faktura/Kuestencode.Faktura.csproj
    ```
 
 3. **Anwendung starten**
    ```bash
    dotnet restore
-   dotnet run
+   dotnet run --project src/Modules/Faktura/Kuestencode.Faktura.csproj
    ```
 
 Die Anwendung ist verfügbar unter: `https://localhost:5001` oder `http://localhost:5000`
@@ -89,36 +91,43 @@ Die Anwendung ist verfügbar unter: `https://localhost:5001` oder `http://localh
 ## Projektstruktur
 
 ```
-K-stencode_Faktura/
-├── Data/                       # DbContext und Datenbank-Konfiguration
-│   └── ApplicationDbContext.cs
-├── Models/                     # Datenmodelle
-│   ├── Invoice.cs             # Rechnungsmodell
-│   ├── Customer.cs            # Kundenmodell
-│   └── Company.cs             # Firmenmodell
-├── Services/                   # Business-Logik Services
-│   ├── InvoiceService.cs      # Rechnungsverwaltung
-│   ├── CustomerService.cs     # Kundenverwaltung
-│   ├── CompanyService.cs      # Firmenverwaltung
-│   ├── PdfGeneratorService.cs # PDF-Generierung
-│   ├── XRechnungService.cs    # XRechnung-Export
-│   ├── EmailService.cs        # E-Mail-Versand
-│   ├── DashboardService.cs    # Dashboard-Daten
-│   ├── PreviewService.cs      # Vorschau-System
-│   └── InvoiceOverdueService.cs
-├── Pages/                      # Razor Pages
-│   └── Index.razor            # Hauptseite
-├── Shared/                     # Wiederverwendbare Komponenten
-│   ├── MainLayout.razor
-│   └── NavMenu.razor
-├── Validation/                 # Validierungslogik
-├── wwwroot/                    # Statische Dateien
-├── images/                     # Bilder und Assets
-├── Program.cs                  # Anwendungs-Einstiegspunkt
-├── docker-compose.yml          # Multi-Container-Setup
-├── Dockerfile                  # Container-Image
-└── InvoiceApp.csproj          # Projektdatei
+Kuestencode.Werkbank/
+├── src/
+│   ├── Core/                           # Kuestencode.Core - Shared Logik
+│   │   ├── Enums/                      # Gemeinsame Enumerationen
+│   │   ├── Extensions/                 # Extension Methods
+│   │   ├── Interfaces/                 # Shared Interfaces
+│   │   ├── Models/                     # Basis-Datenmodelle
+│   │   ├── Services/                   # Gemeinsame Services (z.B. Email)
+│   │   └── Validation/                 # Validierungsattribute
+│   │
+│   ├── Shared.UI/                      # Kuestencode.Shared.UI - UI-Komponenten
+│   │   ├── Components/                 # Wiederverwendbare Blazor-Komponenten
+│   │   ├── Layouts/                    # Gemeinsame Layouts
+│   │   └── wwwroot/                    # Shared Static Assets
+│   │
+│   └── Modules/
+│       └── Faktura/                    # Kuestencode.Faktura
+│           ├── Data/                   # DbContext, Repositories
+│           ├── Migrations/             # EF Core Migrations
+│           ├── Models/                 # Faktura-spezifische Models
+│           ├── Pages/                  # Razor Pages
+│           ├── Services/               # Faktura-Services
+│           │   ├── Email/
+│           │   └── Pdf/
+│           ├── Shared/                 # Modul-interne Komponenten
+│           └── wwwroot/
+│
+├── tests/
+│   ├── Kuestencode.Core.Tests/
+│   └── Kuestencode.Faktura.Tests/
+│
+├── Kuestencode.Werkbank.sln
+├── docker-compose.yml
+└── Dockerfile
 ```
+
+Siehe [ARCHITECTURE.md](ARCHITECTURE.md) für Details zur modularen Architektur.
 
 ## Konfiguration
 
@@ -186,17 +195,17 @@ Bei Verwendung von Docker werden Migrationen automatisch beim Start des Containe
 
 **Neue Migration erstellen:**
 ```bash
-dotnet ef migrations add <MigrationName>
+dotnet ef migrations add <MigrationName> --project src/Modules/Faktura/Kuestencode.Faktura.csproj
 ```
 
 **Migration anwenden:**
 ```bash
-dotnet ef database update
+dotnet ef database update --project src/Modules/Faktura/Kuestencode.Faktura.csproj
 ```
 
 **Migration rückgängig machen:**
 ```bash
-dotnet ef database update <PreviousMigrationName>
+dotnet ef database update <PreviousMigrationName> --project src/Modules/Faktura/Kuestencode.Faktura.csproj
 ```
 
 **Hinweis:** Für lokale Entwicklung müssen Sie sicherstellen, dass die dotnet-ef Tools installiert sind:

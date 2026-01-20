@@ -53,9 +53,12 @@ appsettings.Staging.json
 *.db-shm
 *.db-wal
 
-# PostgreSQL data directory
-data/
+# PostgreSQL data directory (root level)
+/data/
 
-# Data folders in source (keys, postgres backups)
+# Data folders in source (keys, postgres backups, but not source code)
 **/Data/keys/
 **/Data/postgres/
+
+# Allow Data folders with source code
+!**/src/**/Data/

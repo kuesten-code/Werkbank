@@ -1,0 +1,45 @@
+@page "/"
+
+<PageTitle>Dashboard - Küstencode Werkbank</PageTitle>
+
+<MudText Typo="Typo.h4" GutterBottom="true">Willkommen zur Küstencode Werkbank</MudText>
+
+<MudGrid>
+    <MudItem xs="12" md="6">
+        <MudPaper Class="pa-4" Elevation="2">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3">
+                <MudIcon Icon="@Icons.Material.Filled.People" Size="Size.Large" Color="Color.Primary" />
+                <MudStack Spacing="0">
+                    <MudText Typo="Typo.h6">Kunden</MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">Kundenstammdaten verwalten</MudText>
+                </MudStack>
+            </MudStack>
+            <MudButton Href="/customers" Variant="Variant.Text" Color="Color.Primary" Class="mt-3">
+                Zur Kundenverwaltung
+            </MudButton>
+        </MudPaper>
+    </MudItem>
+
+    <MudItem xs="12" md="6">
+        <MudPaper Class="pa-4" Elevation="2">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3">
+                <MudIcon Icon="@Icons.Material.Filled.Business" Size="Size.Large" Color="Color.Primary" />
+                <MudStack Spacing="0">
+                    <MudText Typo="Typo.h6">Firmendaten</MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">Ihre Unternehmensdaten pflegen</MudText>
+                </MudStack>
+            </MudStack>
+            <MudButton Href="/settings/company" Variant="Variant.Text" Color="Color.Primary" Class="mt-3">
+                Zu den Firmendaten
+            </MudButton>
+        </MudPaper>
+    </MudItem>
+</MudGrid>
+
+<MudText Typo="Typo.h5" Class="mt-6 mb-3">Module</MudText>
+
+<MudAlert Severity="Severity.Info" Class="mb-4">
+    Module werden hier angezeigt, sobald sie aktiviert sind.
+</MudAlert>
+
+@* Hier werden später die aktiven Module angezeigt *@

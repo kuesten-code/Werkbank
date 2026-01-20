@@ -1,0 +1,22 @@
+<MudNavMenu>
+    <MudNavLink Href="/" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Dashboard">
+        Dashboard
+    </MudNavLink>
+
+    <MudNavGroup Title="Stammdaten" Icon="@Icons.Material.Filled.Storage" Expanded="true">
+        <MudNavLink Href="/customers" Icon="@Icons.Material.Filled.People">
+            Kunden
+        </MudNavLink>
+        <MudNavLink Href="/settings/company" Icon="@Icons.Material.Filled.Business">
+            Firmendaten
+        </MudNavLink>
+    </MudNavGroup>
+
+    <MudNavGroup Title="Einstellungen" Icon="@Icons.Material.Filled.Settings" Expanded="false">
+        <MudNavLink Href="/settings/email" Icon="@Icons.Material.Filled.Email">
+            E-Mail
+        </MudNavLink>
+    </MudNavGroup>
+
+    @* Module werden hier dynamisch eingefügt *@
+</MudNavMenu>

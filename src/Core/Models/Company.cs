@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using Kuestencode.Core.Enums;
 using Kuestencode.Core.Validation;
 
 namespace Kuestencode.Core.Models;
@@ -10,6 +11,8 @@ namespace Kuestencode.Core.Models;
 /// </summary>
 public class Company : BaseEntity
 {
+    // === Grunddaten ===
+
     [Required(ErrorMessage = "Vollständiger Name ist erforderlich")]
     [MaxLength(200)]
     [FullName]
@@ -35,6 +38,8 @@ public class Company : BaseEntity
     [MaxLength(100)]
     public string Country { get; set; } = "Deutschland";
 
+    // === Steuer & Recht ===
+
     [Required(ErrorMessage = "Steuernummer ist erforderlich")]
     [MaxLength(50)]
     public string TaxNumber { get; set; } = string.Empty;
@@ -43,6 +48,8 @@ public class Company : BaseEntity
     public string? VatId { get; set; }
 
     public bool IsKleinunternehmer { get; set; } = true;
+
+    // === Bankverbindung ===
 
     [Required(ErrorMessage = "Bankname ist erforderlich")]
     [MaxLength(100)]
@@ -59,6 +66,8 @@ public class Company : BaseEntity
     [MaxLength(200)]
     public string? AccountHolder { get; set; }
 
+    // === Kontakt ===
+
     [Required(ErrorMessage = "Email ist erforderlich")]
     [EmailAddress(ErrorMessage = "Ungültige Email-Adresse")]
     [MaxLength(100)]
@@ -71,6 +80,8 @@ public class Company : BaseEntity
     [Url(ErrorMessage = "Ungültige URL")]
     public string? Website { get; set; }
 
+    // === Rechnungseinstellungen ===
+
     public int DefaultPaymentTermDays { get; set; } = 14;
 
     [MaxLength(10)]
@@ -79,17 +90,20 @@ public class Company : BaseEntity
     [MaxLength(1000)]
     public string? FooterText { get; set; }
 
-    // Logo stored as binary data
+    // === Logo ===
+
     public byte[]? LogoData { get; set; }
 
     [MaxLength(100)]
     public string? LogoContentType { get; set; }
 
-    // Electronic address for XRechnung/PEPPOL
+    // === XRechnung/PEPPOL ===
+
     public string? EndpointId { get; set; }
     public string? EndpointSchemeId { get; set; }
 
-    // SMTP Email Settings
+    // === SMTP Email Settings ===
+
     [MaxLength(200)]
     public string? SmtpHost { get; set; }
 
@@ -101,7 +115,7 @@ public class Company : BaseEntity
     public string? SmtpUsername { get; set; }
 
     [MaxLength(500)]
-    public string? SmtpPassword { get; set; } // Encrypted
+    public string? SmtpPassword { get; set; }
 
     [EmailAddress(ErrorMessage = "Ungültige Email-Adresse")]
     [MaxLength(200)]
@@ -113,11 +127,50 @@ public class Company : BaseEntity
     [MaxLength(2000)]
     public string? EmailSignature { get; set; }
 
+    // === Email Design Settings ===
+
+    public EmailLayout EmailLayout { get; set; } = EmailLayout.Klar;
+
+    [MaxLength(7)]
+    public string EmailPrimaryColor { get; set; } = "#0F2A3D";
+
+    [MaxLength(7)]
+    public string EmailAccentColor { get; set; } = "#3FA796";
+
+    [MaxLength(500)]
+    public string? EmailGreeting { get; set; }
+
+    [MaxLength(500)]
+    public string? EmailClosing { get; set; }
+
+    // === PDF Design Settings ===
+
+    public PdfLayout PdfLayout { get; set; } = PdfLayout.Klar;
+
+    [MaxLength(7)]
+    public string PdfPrimaryColor { get; set; } = "#1f3a5f";
+
+    [MaxLength(7)]
+    public string PdfAccentColor { get; set; } = "#3FA796";
+
+    [MaxLength(500)]
+    public string? PdfHeaderText { get; set; }
+
+    [MaxLength(1000)]
+    public string? PdfFooterText { get; set; }
+
+    [MaxLength(500)]
+    public string? PdfPaymentNotice { get; set; }
+
+    // === Computed Properties ===
+
     /// <summary>
     /// Returns the display name (BusinessName if set, otherwise OwnerFullName).
     /// </summary>
     [NotMapped]
     public string DisplayName => !string.IsNullOrWhiteSpace(BusinessName) ? BusinessName : OwnerFullName;
+
+    // === Methods ===
 
     /// <summary>
     /// Returns the full formatted address.
