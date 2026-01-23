@@ -6,6 +6,8 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>Kuestencode.Faktura</RootNamespace>
     <AssemblyName>Kuestencode.Faktura</AssemblyName>
+    <IsPackable>false</IsPackable>
+    <OutputType>Exe</OutputType>
   </PropertyGroup>
 
   <ItemGroup>
@@ -36,12 +38,24 @@
 
     <!-- UI Framework -->
     <PackageReference Include="MudBlazor" Version="8.0.0" />
+
+    <!-- Swagger (API-Dokumentation) -->
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="7.2.0" />
   </ItemGroup>
 
   <ItemGroup>
     <!-- Project References -->
     <ProjectReference Include="..\..\Core\Kuestencode.Core.csproj" />
     <ProjectReference Include="..\..\Shared.UI\Kuestencode.Shared.UI.csproj" />
+    <ProjectReference Include="..\..\Kuestencode.Shared.Contracts\Kuestencode.Shared.Contracts.csproj" />
+    <ProjectReference Include="..\..\Kuestencode.Shared.ApiClients\Kuestencode.Shared.ApiClients.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="appsettings.api.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </None>
   </ItemGroup>
 
 </Project>

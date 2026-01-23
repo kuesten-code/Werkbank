@@ -1,6 +1,9 @@
+using Kuestencode.Core.Enums;
+using Kuestencode.Core.Models;
 using Kuestencode.Faktura.Data.Repositories;
 using Kuestencode.Faktura.Models;
 using Kuestencode.Faktura.Services.Email;
+using Kuestencode.Shared.ApiClients;
 
 namespace Kuestencode.Faktura.Services;
 
@@ -10,20 +13,20 @@ namespace Kuestencode.Faktura.Services;
 public class EmailService : IEmailService
 {
     private readonly IInvoiceRepository _invoiceRepository;
-    private readonly ICompanyService _companyService;
+    private readonly IHostApiClient _hostApiClient;
     private readonly IEmailMessageBuilder _messageBuilder;
     private readonly ISmtpClient _smtpClient;
     private readonly ILogger<EmailService> _logger;
 
     public EmailService(
         IInvoiceRepository invoiceRepository,
-        ICompanyService companyService,
+        IHostApiClient hostApiClient,
         IEmailMessageBuilder messageBuilder,
         ISmtpClient smtpClient,
         ILogger<EmailService> logger)
     {
         _invoiceRepository = invoiceRepository;
-        _companyService = companyService;
+        _hostApiClient = hostApiClient;
         _messageBuilder = messageBuilder;
         _smtpClient = smtpClient;
         _logger = logger;
@@ -44,8 +47,33 @@ public class EmailService : IEmailService
                 throw new ArgumentException("Empfänger-E-Mail-Adresse ist erforderlich", nameof(recipientEmail));
             }
 
-            // Load company with email settings
-            var company = await _companyService.GetCompanyAsync();
+            // Load company with email settings via Host API
+            var companyDto = await _hostApiClient.GetCompanyAsync();
+            if (companyDto == null)
+            {
+                throw new InvalidOperationException("Firmendaten nicht gefunden");
+            }
+
+            var company = new Company
+            {
+                Id = companyDto.Id,
+                OwnerFullName = companyDto.OwnerFullName,
+                BusinessName = companyDto.BusinessName,
+                Email = companyDto.Email,
+                SmtpHost = companyDto.SmtpHost,
+                SmtpPort = companyDto.SmtpPort,
+                SmtpUseSsl = companyDto.SmtpUseSsl,
+                SmtpUsername = companyDto.SmtpUsername,
+                SmtpPassword = companyDto.SmtpPassword,
+                EmailSenderEmail = companyDto.EmailSenderEmail,
+                EmailSenderName = companyDto.EmailSenderName,
+                EmailSignature = companyDto.EmailSignature,
+                EmailLayout = Enum.Parse<EmailLayout>(companyDto.EmailLayout),
+                EmailPrimaryColor = companyDto.EmailPrimaryColor,
+                EmailAccentColor = companyDto.EmailAccentColor,
+                EmailGreeting = companyDto.EmailGreeting,
+                EmailClosing = companyDto.EmailClosing
+            };
 
             // Load invoice with details
             var invoice = await _invoiceRepository.GetWithDetailsAsync(invoiceId);

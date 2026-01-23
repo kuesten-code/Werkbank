@@ -1,21 +1,33 @@
 using Kuestencode.Faktura.Models;
+using Kuestencode.Shared.ApiClients;
 using Microsoft.EntityFrameworkCore;
 
 namespace Kuestencode.Faktura.Data.Repositories;
 
 public class InvoiceRepository : Repository<Invoice>, IInvoiceRepository
 {
-    public InvoiceRepository(ApplicationDbContext context) : base(context)
+    private readonly IHostApiClient _hostApiClient;
+
+    public InvoiceRepository(
+        FakturaDbContext context,
+        IHostApiClient hostApiClient) : base(context)
     {
+        _hostApiClient = hostApiClient;
     }
 
     public async Task<Invoice?> GetByInvoiceNumberAsync(string invoiceNumber)
     {
-        return await _dbSet
-            .Include(i => i.Customer)
+        var invoice = await _dbSet
             .Include(i => i.Items)
             .Include(i => i.DownPayments)
             .FirstOrDefaultAsync(i => i.InvoiceNumber == invoiceNumber);
+
+        if (invoice != null)
+        {
+            await LoadCustomerAsync(invoice);
+        }
+
+        return invoice;
     }
 
     public async Task<bool> InvoiceNumberExistsAsync(string invoiceNumber)
@@ -26,8 +38,8 @@ public class InvoiceRepository : Repository<Invoice>, IInvoiceRepository
 
     public async Task<string> GenerateInvoiceNumberAsync()
     {
-        // Hole das Rechnungsprefix aus den Firmenstammdaten
-        var company = await _context.Companies.FirstOrDefaultAsync();
+        // Hole das Rechnungsprefix aus den Firmenstammdaten via Host API
+        var company = await _hostApiClient.GetCompanyAsync();
         var prefix = !string.IsNullOrWhiteSpace(company?.InvoiceNumberPrefix)
             ? company.InvoiceNumberPrefix.Trim()
             : string.Empty;
@@ -73,32 +85,35 @@ public class InvoiceRepository : Repository<Invoice>, IInvoiceRepository
 
     public async Task<IEnumerable<Invoice>> GetByCustomerIdAsync(int customerId)
     {
-        return await _dbSet
-            .Include(i => i.Customer)
+        var invoices = await _dbSet
             .Include(i => i.Items)
             .Include(i => i.DownPayments)
             .Where(i => i.CustomerId == customerId)
             .OrderByDescending(i => i.InvoiceDate)
             .ToListAsync();
+
+        await LoadCustomersAsync(invoices);
+        return invoices;
     }
 
     public async Task<IEnumerable<Invoice>> GetByStatusAsync(InvoiceStatus status)
     {
-        return await _dbSet
-            .Include(i => i.Customer)
+        var invoices = await _dbSet
             .Include(i => i.Items)
             .Include(i => i.DownPayments)
             .Where(i => i.Status == status)
             .OrderByDescending(i => i.InvoiceDate)
             .ToListAsync();
+
+        await LoadCustomersAsync(invoices);
+        return invoices;
     }
 
     public async Task<IEnumerable<Invoice>> GetOverdueInvoicesAsync()
     {
         var today = DateTime.Today;
 
-        return await _dbSet
-            .Include(i => i.Customer)
+        var invoices = await _dbSet
             .Include(i => i.Items)
             .Include(i => i.DownPayments)
             .Where(i => i.Status == InvoiceStatus.Sent &&
@@ -106,29 +121,98 @@ public class InvoiceRepository : Repository<Invoice>, IInvoiceRepository
                        i.DueDate.Value < today)
             .OrderBy(i => i.DueDate)
             .ToListAsync();
+
+        await LoadCustomersAsync(invoices);
+        return invoices;
     }
 
     public async Task<Invoice?> GetWithDetailsAsync(int id)
     {
-        return await _dbSet
-            .Include(i => i.Customer)
+        var invoice = await _dbSet
             .Include(i => i.Items.OrderBy(item => item.Position))
             .Include(i => i.DownPayments)
             .FirstOrDefaultAsync(i => i.Id == id);
+
+        if (invoice != null)
+        {
+            await LoadCustomerAsync(invoice);
+        }
+
+        return invoice;
     }
 
     public override async Task<IEnumerable<Invoice>> GetAllAsync()
     {
-        return await _dbSet
-            .Include(i => i.Customer)
+        var invoices = await _dbSet
             .Include(i => i.Items)
             .Include(i => i.DownPayments)
             .OrderByDescending(i => i.InvoiceDate)
             .ToListAsync();
+
+        await LoadCustomersAsync(invoices);
+        return invoices;
     }
 
     public override async Task<Invoice?> GetByIdAsync(int id)
     {
         return await GetWithDetailsAsync(id);
+    }
+
+    /// <summary>
+    /// Lädt den Kunden für eine einzelne Rechnung via Host API.
+    /// </summary>
+    private async Task LoadCustomerAsync(Invoice invoice)
+    {
+        var customerDto = await _hostApiClient.GetCustomerAsync(invoice.CustomerId);
+        if (customerDto != null)
+        {
+            invoice.Customer = new Core.Models.Customer
+            {
+                Id = customerDto.Id,
+                CustomerNumber = customerDto.CustomerNumber,
+                Name = customerDto.Name,
+                Address = customerDto.Address,
+                PostalCode = customerDto.PostalCode,
+                City = customerDto.City,
+                Country = customerDto.Country,
+                Email = customerDto.Email,
+                Phone = customerDto.Phone,
+                Notes = customerDto.Notes
+            };
+        }
+    }
+
+    /// <summary>
+    /// Lädt Kunden für mehrere Rechnungen effizient via Host API.
+    /// </summary>
+    private async Task LoadCustomersAsync(IEnumerable<Invoice> invoices)
+    {
+        var customerIds = invoices.Select(i => i.CustomerId).Distinct().ToList();
+
+        // Alle Kunden via Host API laden
+        var allCustomerDtos = await _hostApiClient.GetAllCustomersAsync();
+        var customerDict = allCustomerDtos
+            .Where(c => customerIds.Contains(c.Id))
+            .ToDictionary(c => c.Id, c => new Core.Models.Customer
+            {
+                Id = c.Id,
+                CustomerNumber = c.CustomerNumber,
+                Name = c.Name,
+                Address = c.Address,
+                PostalCode = c.PostalCode,
+                City = c.City,
+                Country = c.Country,
+                Email = c.Email,
+                Phone = c.Phone,
+                Notes = c.Notes
+            });
+
+        foreach (var invoice in invoices)
+        {
+            if (customerDict.TryGetValue(invoice.CustomerId, out var customer))
+            {
+                invoice.Customer = customer;
+            }
+        }
     }
 }

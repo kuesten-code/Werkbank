@@ -1,3 +1,4 @@
+@using Kuestencode.Core.Interfaces
 @page "/invoices/details/{Id:int}"
 @using Kuestencode.Faktura.Services
 @using Kuestencode.Faktura.Models
@@ -6,7 +7,7 @@
 @inject IPdfGeneratorService PdfGeneratorService
 @inject IXRechnungService XRechnungService
 @inject ICompanyService CompanyService
-@inject IEmailService EmailService
+@inject Kuestencode.Faktura.Services.IEmailService EmailService
 @inject NavigationManager NavigationManager
 @inject ISnackbar Snackbar
 @inject IJSRuntime JSRuntime

@@ -1,4 +1,4 @@
-using Kuestencode.Faktura.Models;
+using Kuestencode.Core.Models;
 using MimeKit;
 
 namespace Kuestencode.Faktura.Services.Email;

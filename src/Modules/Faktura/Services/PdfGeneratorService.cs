@@ -1,7 +1,10 @@
+using Kuestencode.Core.Enums;
+using Kuestencode.Core.Models;
 using Kuestencode.Faktura.Data;
 using Kuestencode.Faktura.Models;
 using Kuestencode.Faktura.Services.Pdf;
 using Kuestencode.Faktura.Services.Pdf.Layouts;
+using Kuestencode.Shared.ApiClients;
 using Microsoft.EntityFrameworkCore;
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
@@ -15,16 +18,19 @@ namespace Kuestencode.Faktura.Services;
 /// </summary>
 public class PdfGeneratorService : IPdfGeneratorService
 {
-    private readonly ApplicationDbContext _context;
+    private readonly FakturaDbContext _context;
+    private readonly IHostApiClient _hostApiClient;
     private readonly IWebHostEnvironment _environment;
     private readonly IServiceProvider _serviceProvider;
 
     public PdfGeneratorService(
-        ApplicationDbContext context,
+        FakturaDbContext context,
+        IHostApiClient hostApiClient,
         IWebHostEnvironment environment,
         IServiceProvider serviceProvider)
     {
         _context = context;
+        _hostApiClient = hostApiClient;
         _environment = environment;
         _serviceProvider = serviceProvider;
 
@@ -35,7 +41,6 @@ public class PdfGeneratorService : IPdfGeneratorService
     public byte[] GenerateInvoicePdf(int invoiceId)
     {
         var invoice = _context.Invoices
-            .Include(i => i.Customer)
             .Include(i => i.Items)
             .Include(i => i.DownPayments)
             .FirstOrDefault(i => i.Id == invoiceId);
@@ -45,11 +50,59 @@ public class PdfGeneratorService : IPdfGeneratorService
             throw new InvalidOperationException("Rechnung nicht gefunden");
         }
 
-        var company = _context.Companies.FirstOrDefault();
-        if (company == null)
+        // Lade Customer und Company via Host API
+        var customerDto = _hostApiClient.GetCustomerAsync(invoice.CustomerId).Result;
+        if (customerDto != null)
+        {
+            invoice.Customer = new Customer
+            {
+                Id = customerDto.Id,
+                CustomerNumber = customerDto.CustomerNumber,
+                Name = customerDto.Name,
+                Address = customerDto.Address,
+                PostalCode = customerDto.PostalCode,
+                City = customerDto.City,
+                Country = customerDto.Country,
+                Email = customerDto.Email,
+                Phone = customerDto.Phone,
+                Notes = customerDto.Notes
+            };
+        }
+
+        var companyDto = _hostApiClient.GetCompanyAsync().Result;
+        if (companyDto == null)
         {
             throw new InvalidOperationException("Firmendaten nicht gefunden");
         }
+
+        var company = new Company
+        {
+            Id = companyDto.Id,
+            OwnerFullName = companyDto.OwnerFullName,
+            BusinessName = companyDto.BusinessName,
+            Address = companyDto.Address,
+            PostalCode = companyDto.PostalCode,
+            City = companyDto.City,
+            Country = companyDto.Country,
+            TaxNumber = companyDto.TaxNumber,
+            VatId = companyDto.VatId,
+            IsKleinunternehmer = companyDto.IsKleinunternehmer,
+            BankName = companyDto.BankName,
+            BankAccount = companyDto.BankAccount,
+            Bic = companyDto.Bic,
+            AccountHolder = companyDto.AccountHolder,
+            Email = companyDto.Email,
+            Phone = companyDto.Phone,
+            Website = companyDto.Website,
+            LogoData = companyDto.LogoData,
+            LogoContentType = companyDto.LogoContentType,
+            PdfLayout = Enum.Parse<PdfLayout>(companyDto.PdfLayout),
+            PdfPrimaryColor = companyDto.PdfPrimaryColor,
+            PdfAccentColor = companyDto.PdfAccentColor,
+            PdfHeaderText = companyDto.PdfHeaderText,
+            PdfFooterText = companyDto.PdfFooterText,
+            PdfPaymentNotice = companyDto.PdfPaymentNotice
+        };
 
         return GeneratePdfWithCompany(invoice, company);
     }

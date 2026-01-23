@@ -1,0 +1,342 @@
+@page "/settings/email"
+@using System.ComponentModel.DataAnnotations
+@using Kuestencode.Core.Interfaces
+@inject ICompanyService CompanyService
+@inject ISnackbar Snackbar
+
+<PageTitle>Email Settings - Kuestencode Werkbank</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Medium" Class="mt-4">
+    <MudPaper Elevation="2" Class="pa-4">
+        <MudText Typo="Typo.h4" GutterBottom="true">Email Settings</MudText>
+        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">
+            Konfigurieren Sie den SMTP Versand fuer ausgehende Emails.
+        </MudText>
+
+        @if (_loading)
+        {
+            <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+        }
+        else
+        {
+            <EditForm Model="@_model" OnValidSubmit="HandleSubmit">
+                <DataAnnotationsValidator />
+
+                @if (!string.IsNullOrEmpty(_errorMessage))
+                {
+                    <MudAlert Severity="Severity.Error" Class="my-2">@_errorMessage</MudAlert>
+                }
+
+                @if (IsConfigured())
+                {
+                    <MudAlert Severity="Severity.Success" Class="mb-4">
+                        SMTP ist konfiguriert.
+                    </MudAlert>
+                }
+                else
+                {
+                    <MudAlert Severity="Severity.Warning" Class="mb-4">
+                        SMTP ist nicht vollstaendig konfiguriert.
+                    </MudAlert>
+                }
+
+                <MudText Typo="Typo.h6" Class="mt-4 mb-2">SMTP Server</MudText>
+                <MudGrid>
+                    <MudItem xs="12" sm="8">
+                        <MudTextField Label="SMTP Host"
+                                     @bind-Value="_model.SmtpHost"
+                                     For="@(() => _model.SmtpHost)"
+                                     Required="true"
+                                     Placeholder="smtp.example.com" />
+                    </MudItem>
+                    <MudItem xs="12" sm="4">
+                        <MudNumericField T="int?" Label="SMTP Port"
+                                        @bind-Value="_model.SmtpPort"
+                                        For="@(() => _model.SmtpPort)"
+                                        Required="true"
+                                        Min="1" Max="65535" />
+                    </MudItem>
+                    <MudItem xs="12">
+                        <MudCheckBox @bind-Value="_model.SmtpUseSsl"
+                                    Label="SSL/TLS verwenden"
+                                    Color="Color.Primary" />
+                    </MudItem>
+                </MudGrid>
+
+                <MudText Typo="Typo.h6" Class="mt-4 mb-2">Authentifizierung</MudText>
+                <MudGrid>
+                    <MudItem xs="12" sm="6">
+                        <MudTextField Label="Benutzername"
+                                     @bind-Value="_model.SmtpUsername"
+                                     For="@(() => _model.SmtpUsername)"
+                                     Required="true" />
+                    </MudItem>
+                    <MudItem xs="12" sm="6">
+                        <MudTextField Label="Passwort"
+                                     @bind-Value="_model.SmtpPassword"
+                                     For="@(() => _model.SmtpPassword)"
+                                     Required="true"
+                                     InputType="InputType.Password" />
+                    </MudItem>
+                </MudGrid>
+
+                <MudText Typo="Typo.h6" Class="mt-4 mb-2">Absender</MudText>
+                <MudGrid>
+                    <MudItem xs="12" sm="6">
+                        <MudTextField Label="Absender Email"
+                                     @bind-Value="_model.SenderEmail"
+                                     For="@(() => _model.SenderEmail)"
+                                     Required="true"
+                                     InputType="InputType.Email" />
+                    </MudItem>
+                    <MudItem xs="12" sm="6">
+                        <MudTextField Label="Absender Name"
+                                     @bind-Value="_model.SenderName"
+                                     For="@(() => _model.SenderName)"
+                                     Placeholder="z.B. Ihr Firmenname" />
+                    </MudItem>
+                    <MudItem xs="12">
+                        <MudTextField Label="Email Signatur (optional)"
+                                     @bind-Value="_model.Signature"
+                                     For="@(() => _model.Signature)"
+                                     Lines="4"
+                                     Placeholder="Mit freundlichen Gruessen&#10;Ihr Team" />
+                    </MudItem>
+                </MudGrid>
+
+                <MudStack Row="true" Justify="Justify.SpaceBetween" Class="mt-6">
+                    <MudButton Variant="Variant.Text" Color="Color.Default" OnClick="ResetForm">
+                        Zuruecksetzen
+                    </MudButton>
+                    <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary"
+                              Disabled="@_saving">
+                        @if (_saving)
+                        {
+                            <MudProgressCircular Class="ms-n1" Size="Size.Small" Indeterminate="true" />
+                            <MudText Class="ms-2">Speichern...</MudText>
+                        }
+                        else
+                        {
+                            <MudText>Speichern</MudText>
+                        }
+                    </MudButton>
+                </MudStack>
+            </EditForm>
+
+            <MudDivider Class="my-6" />
+
+            <!-- Hilfe-Sektion -->
+            <MudExpansionPanels MultiExpansion="true" Class="mt-8">
+                <MudExpansionPanel Text="Wie finde ich meine SMTP-Daten?" @bind-IsExpanded="_helpExpanded">
+                    <MudText Typo="Typo.body2" Class="mb-3">Gaengige E-Mail-Anbieter und ihre SMTP-Einstellungen:</MudText>
+
+                    <MudSimpleTable Dense="true" Hover="true" Bordered="true">
+                        <thead>
+                            <tr>
+                                <th>Anbieter</th>
+                                <th>SMTP-Server</th>
+                                <th>Port</th>
+                                <th>SSL</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><strong>Gmail</strong></td>
+                                <td>smtp.gmail.com</td>
+                                <td>587</td>
+                                <td>Ja</td>
+                            </tr>
+                            <tr>
+                                <td><strong>GMX</strong></td>
+                                <td>smtp.gmx.de</td>
+                                <td>587</td>
+                                <td>Ja</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Web.de</strong></td>
+                                <td>smtp.web.de</td>
+                                <td>587</td>
+                                <td>Ja</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Posteo</strong></td>
+                                <td>posteo.de</td>
+                                <td>587</td>
+                                <td>Ja</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Strato</strong></td>
+                                <td>smtp.strato.de</td>
+                                <td>465</td>
+                                <td>Ja</td>
+                            </tr>
+                            <tr>
+                                <td><strong>1&1/IONOS</strong></td>
+                                <td>smtp.ionos.de</td>
+                                <td>587</td>
+                                <td>Ja</td>
+                            </tr>
+                        </tbody>
+                    </MudSimpleTable>
+
+                    <MudAlert Severity="Severity.Warning" Class="mt-4">
+                        <strong>Wichtig: App-Passwoerter verwenden!</strong><br />
+                        Aus Sicherheitsgruenden akzeptieren viele E-Mail-Anbieter keine normalen Passwoerter mehr fuer externe Anwendungen. Sie benoetigen stattdessen ein <strong>App-Passwort</strong>:
+                        <br /><br />
+                        <strong>Gmail / Google Workspace:</strong><br />
+                        1. Gehen Sie zu <a href="https://myaccount.google.com/security" target="_blank">myaccount.google.com/security</a><br />
+                        2. Aktivieren Sie die 2-Faktor-Authentifizierung (falls noch nicht aktiviert)<br />
+                        3. Suchen Sie nach "App-Passwoerter" oder gehen Sie zu <a href="https://myaccount.google.com/apppasswords" target="_blank">myaccount.google.com/apppasswords</a><br />
+                        4. Erstellen Sie ein neues App-Passwort fuer "Mail"<br />
+                        5. Verwenden Sie das generierte 16-stellige Passwort (ohne Leerzeichen) im Passwort-Feld oben<br />
+                        <br />
+                        <strong>Outlook / Microsoft 365 / Hotmail:</strong><br />
+                        1. Gehen Sie zu <a href="https://account.microsoft.com/security" target="_blank">account.microsoft.com/security</a><br />
+                        2. Aktivieren Sie die zweistufige Ueberpruefung (falls noch nicht aktiviert)<br />
+                        3. Klicken Sie auf "Erweiterte Sicherheitsoptionen"<br />
+                        4. Unter "App-Kennwoerter" klicken Sie auf "Neues App-Kennwort erstellen"<br />
+                        5. Verwenden Sie das generierte Passwort im Passwort-Feld oben<br />
+                        <br />
+                        <strong>GMX / Web.de:</strong><br />
+                        Bei GMX und Web.de koennen Sie Ihr normales Passwort verwenden. Stellen Sie sicher, dass IMAP/POP3 in den E-Mail-Einstellungen aktiviert ist.
+                    </MudAlert>
+                </MudExpansionPanel>
+            </MudExpansionPanels>
+        }
+    </MudPaper>
+</MudContainer>
+
+@code {
+    private Company _company = new();
+    private EmailSettingsModel _model = new();
+    private bool _loading = true;
+    private bool _saving = false;
+    private bool _helpExpanded = false;
+    private string? _errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _company = await CompanyService.GetCompanyAsync();
+            _model = EmailSettingsModel.FromCompany(_company);
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Fehler beim Laden: {ex.Message}";
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task HandleSubmit()
+    {
+        _saving = true;
+        _errorMessage = null;
+
+        try
+        {
+            ApplyToCompany(_company, _model);
+            await CompanyService.UpdateCompanyAsync(_company);
+            Snackbar.Add("Email Settings gespeichert", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Fehler beim Speichern: {ex.Message}";
+            Snackbar.Add("Fehler beim Speichern der Email Settings", Severity.Error);
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private async Task ResetForm()
+    {
+        _loading = true;
+        try
+        {
+            _company = await CompanyService.GetCompanyAsync();
+            _model = EmailSettingsModel.FromCompany(_company);
+            Snackbar.Add("Formular zurueckgesetzt", Severity.Info);
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Fehler beim Zuruecksetzen: {ex.Message}";
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private static void ApplyToCompany(Company company, EmailSettingsModel model)
+    {
+        company.SmtpHost = model.SmtpHost;
+        company.SmtpPort = model.SmtpPort;
+        company.SmtpUseSsl = model.SmtpUseSsl;
+        company.SmtpUsername = model.SmtpUsername;
+        company.SmtpPassword = model.SmtpPassword;
+        company.EmailSenderEmail = model.SenderEmail;
+        company.EmailSenderName = model.SenderName;
+        company.EmailSignature = model.Signature;
+    }
+
+    private bool IsConfigured()
+    {
+        return !string.IsNullOrWhiteSpace(_model.SmtpHost) &&
+               _model.SmtpPort.HasValue &&
+               !string.IsNullOrWhiteSpace(_model.SmtpUsername) &&
+               !string.IsNullOrWhiteSpace(_model.SmtpPassword) &&
+               !string.IsNullOrWhiteSpace(_model.SenderEmail);
+    }
+
+    private class EmailSettingsModel
+    {
+        [Required(ErrorMessage = "SMTP Host ist erforderlich")]
+        [MaxLength(200)]
+        public string SmtpHost { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "SMTP Port ist erforderlich")]
+        [Range(1, 65535, ErrorMessage = "Port muss zwischen 1 und 65535 liegen")]
+        public int? SmtpPort { get; set; } = 587;
+
+        public bool SmtpUseSsl { get; set; } = true;
+
+        [Required(ErrorMessage = "Benutzername ist erforderlich")]
+        [MaxLength(200)]
+        public string SmtpUsername { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "Passwort ist erforderlich")]
+        [MaxLength(500)]
+        public string SmtpPassword { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "Absender Email ist erforderlich")]
+        [EmailAddress(ErrorMessage = "Ungueltige Email-Adresse")]
+        [MaxLength(200)]
+        public string SenderEmail { get; set; } = string.Empty;
+
+        [MaxLength(200)]
+        public string? SenderName { get; set; }
+
+        [MaxLength(2000)]
+        public string? Signature { get; set; }
+
+        public static EmailSettingsModel FromCompany(Company company)
+        {
+            return new EmailSettingsModel
+            {
+                SmtpHost = company.SmtpHost ?? string.Empty,
+                SmtpPort = company.SmtpPort ?? 587,
+                SmtpUseSsl = company.SmtpUseSsl,
+                SmtpUsername = company.SmtpUsername ?? string.Empty,
+                SmtpPassword = company.SmtpPassword ?? string.Empty,
+                SenderEmail = company.EmailSenderEmail ?? string.Empty,
+                SenderName = company.EmailSenderName,
+                Signature = company.EmailSignature
+            };
+        }
+    }
+}

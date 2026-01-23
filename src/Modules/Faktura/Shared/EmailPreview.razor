@@ -58,9 +58,9 @@
         {
             var templateName = Company.EmailLayout switch
             {
-                EmailLayout.Klar => "EmailTemplateKlar.html",
-                EmailLayout.Strukturiert => "EmailTemplateStrukturiert.html",
-                EmailLayout.Betont => "EmailTemplateBetont.html",
+                EmailLayout.Klar => Path.Combine(Environment.WebRootPath, "templates", "EmailTemplateKlar.html"),
+                EmailLayout.Strukturiert => Path.Combine(Environment.WebRootPath, "templates", "EmailTemplateStrukturiert.html"),
+                EmailLayout.Betont => Path.Combine(Environment.WebRootPath, "templates", "EmailTemplateBetont.html"),
                 _ => "EmailTemplateKlar.html"
             };
 

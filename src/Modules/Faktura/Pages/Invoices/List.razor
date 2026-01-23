@@ -201,17 +201,17 @@
 
     private void CreateInvoice()
     {
-        NavigationManager.NavigateTo("/invoices/create");
+        NavigationManager.NavigateTo("/faktura/invoices/create");
     }
 
     private void ViewInvoice(int id)
     {
-        NavigationManager.NavigateTo($"/invoices/details/{id}");
+        NavigationManager.NavigateTo($"/faktura/invoices/details/{id}");
     }
 
     private void EditInvoice(int id)
     {
-        NavigationManager.NavigateTo($"/invoices/edit/{id}");
+        NavigationManager.NavigateTo($"/faktura/invoices/edit/{id}");
     }
 
     private async Task MarkAsPaid(Invoice invoice)

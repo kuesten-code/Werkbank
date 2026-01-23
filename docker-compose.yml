@@ -1,3 +1,5 @@
+name: kuestencode_faktura
+
 services:
   postgres:
     image: postgres:16
@@ -19,22 +21,47 @@ services:
     networks:
       - kuestencode_network
 
-  faktura:
+  host:
     build:
       context: .
-      dockerfile: Dockerfile
-    container_name: kuestencode_faktura
+      dockerfile: src/Host/Dockerfile
+    container_name: kuestencode_host
     ports:
       - "8080:8080"
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
       - ASPNETCORE_URLS=http://+:8080
-      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=invoiceapp_dev;Username=postgres;Password=dev_password
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=kuestencode_dev;Username=postgres;Password=dev_password
+      - ServiceUrls__Faktura=http://faktura:8081
+      - APPLY_MIGRATIONS=true
     volumes:
       - ./data/keys:/app/data/keys
     depends_on:
       postgres:
         condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - kuestencode_network
+
+  faktura:
+    build:
+      context: .
+      dockerfile: src/Modules/Faktura/Dockerfile
+    container_name: kuestencode_faktura
+    ports:
+      - "8081:8081"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:8081
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=kuestencode_dev;Username=postgres;Password=dev_password
+      - ServiceUrls__Host=http://host:8080
+      - ServiceUrls__Self=http://faktura:8081
+      - APPLY_MIGRATIONS=true
+    depends_on:
+      postgres:
+        condition: service_healthy
+      host:
+        condition: service_started
     restart: unless-stopped
     networks:
       - kuestencode_network

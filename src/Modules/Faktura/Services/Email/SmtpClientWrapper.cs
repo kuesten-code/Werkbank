@@ -1,4 +1,4 @@
-using Kuestencode.Faktura.Models;
+using Kuestencode.Core.Models;
 using MailKit.Net.Smtp;
 using MailKit.Security;
 using MimeKit;

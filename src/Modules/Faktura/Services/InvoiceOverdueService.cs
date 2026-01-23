@@ -43,7 +43,7 @@ public class InvoiceOverdueService : BackgroundService
     private async Task CheckAndUpdateOverdueInvoicesAsync()
     {
         using var scope = _serviceProvider.CreateScope();
-        var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var context = scope.ServiceProvider.GetRequiredService<FakturaDbContext>();
 
         var now = DateTime.UtcNow;
 

@@ -26,18 +26,16 @@ public static class FakturaModule
     /// <returns>The service collection for chaining</returns>
     public static IServiceCollection AddFakturaModule(this IServiceCollection services, IConfiguration configuration)
     {
-        // Add DbContext with PostgreSQL
-        services.AddDbContext<ApplicationDbContext>(options =>
+        // Add DbContext with PostgreSQL (Faktura-Schema)
+        services.AddDbContext<FakturaDbContext>(options =>
             options.UseNpgsql(configuration.GetConnectionString("DefaultConnection")));
 
         // Register Repositories
         services.AddScoped(typeof(FakturaRepo.IRepository<>), typeof(Repository<>));
-        services.AddScoped<ICustomerRepository, CustomerRepository>();
         services.AddScoped<IInvoiceRepository, InvoiceRepository>();
 
-        // Register Core Services (Company, Customer)
-        services.AddScoped<Services.ICompanyService, CompanyService>();
-        services.AddScoped<Services.ICustomerService, CustomerService>();
+        // HINWEIS: Company und Customer Services kommen aus dem Host-Projekt
+        // und müssen dort registriert werden
 
         // Register Faktura Services
         services.AddScoped<IInvoiceService, InvoiceService>();
@@ -78,7 +76,7 @@ public static class FakturaModule
     public static async Task ApplyMigrationsAsync(IServiceProvider serviceProvider)
     {
         using var scope = serviceProvider.CreateScope();
-        var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var context = scope.ServiceProvider.GetRequiredService<FakturaDbContext>();
         await context.Database.MigrateAsync();
     }
 }

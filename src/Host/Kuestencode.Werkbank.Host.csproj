@@ -32,12 +32,17 @@
 
     <!-- UI Framework -->
     <PackageReference Include="MudBlazor" Version="8.0.0" />
+
+    <!-- Reverse Proxy -->
+    <PackageReference Include="Yarp.ReverseProxy" Version="2.2.0" />
   </ItemGroup>
 
   <ItemGroup>
     <!-- Project References -->
     <ProjectReference Include="..\Core\Kuestencode.Core.csproj" />
     <ProjectReference Include="..\Shared.UI\Kuestencode.Shared.UI.csproj" />
+    <ProjectReference Include="..\Kuestencode.Shared.Contracts\Kuestencode.Shared.Contracts.csproj" />
+    <ProjectReference Include="..\Kuestencode.Shared.ApiClients\Kuestencode.Shared.ApiClients.csproj" />
   </ItemGroup>
 
 </Project>

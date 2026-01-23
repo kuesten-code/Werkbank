@@ -1,10 +1,11 @@
+@using Kuestencode.Core.Interfaces
 @page "/invoices/create"
 @using Kuestencode.Faktura.Services
 @using Kuestencode.Faktura.Models
 @inject IInvoiceService InvoiceService
 @inject ICustomerService CustomerService
 @inject ICompanyService CompanyService
-@inject IEmailService EmailService
+@inject Kuestencode.Faktura.Services.IEmailService EmailService
 @inject NavigationManager NavigationManager
 @inject ISnackbar Snackbar
 @inject IDialogService DialogService

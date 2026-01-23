@@ -1,3 +1,4 @@
+using Kuestencode.Core.Models;
 using Kuestencode.Faktura.Models;
 using QuestPDF.Fluent;
 using QuestPDF.Infrastructure;

@@ -1,3 +1,4 @@
+using Kuestencode.Core.Interfaces;
 using Kuestencode.Faktura.Data;
 using Kuestencode.Faktura.Models;
 using Kuestencode.Faktura.Models.Dashboard;
@@ -7,20 +8,23 @@ namespace Kuestencode.Faktura.Services;
 
 public class DashboardService : IDashboardService
 {
-    private readonly ApplicationDbContext _context;
+    private readonly FakturaDbContext _context;
     private readonly IPdfGeneratorService _pdfGenerator;
     private readonly ICompanyService _companyService;
+    private readonly ICustomerService _customerService;
     private readonly ILogger<DashboardService> _logger;
 
     public DashboardService(
-        ApplicationDbContext context,
+        FakturaDbContext context,
         IPdfGeneratorService pdfGenerator,
         ICompanyService companyService,
+        ICustomerService customerService,
         ILogger<DashboardService> logger)
     {
         _context = context;
         _pdfGenerator = pdfGenerator;
         _companyService = companyService;
+        _customerService = customerService;
         _logger = logger;
     }
 
@@ -199,10 +203,11 @@ public class DashboardService : IDashboardService
             if (activities.Count < take)
             {
                 var remaining = take - activities.Count;
-                var recentCustomers = await _context.Customers
+                var allCustomers = await _customerService.GetAllAsync();
+                var recentCustomers = allCustomers
                     .OrderByDescending(c => c.CreatedAt)
                     .Take(remaining)
-                    .ToListAsync();
+                    .ToList();
 
                 foreach (var customer in recentCustomers)
                 {

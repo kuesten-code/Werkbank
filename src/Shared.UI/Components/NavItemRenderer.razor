@@ -1,0 +1,74 @@
+@using Kuestencode.Shared.Contracts.Navigation
+@using MudBlazor
+@inject NavigationManager NavigationManager
+
+@if (Item.Type == NavItemType.Divider)
+{
+    <MudDivider Class="my-2" />
+}
+else if (Item.Type == NavItemType.Group)
+{
+    <MudNavGroup Title="@Item.Label" Icon="@GetIcon(Item.Icon)" Expanded="@IsExpanded(Item)">
+        @foreach (var child in Item.Children)
+        {
+            <NavItemRenderer Item="child" CurrentUri="CurrentUri" />
+        }
+    </MudNavGroup>
+}
+else
+{
+    <MudNavLink Href="@Item.Href" Icon="@GetIcon(Item.Icon)">
+        @Item.Label
+    </MudNavLink>
+}
+
+@code {
+    [Parameter]
+    public NavItemDto Item { get; set; } = default!;
+
+    [Parameter]
+    public string? CurrentUri { get; set; }
+
+    private string GetIcon(string? iconName)
+    {
+        return iconName switch
+        {
+            "Dashboard" => Icons.Material.Filled.Dashboard,
+            "Receipt" => Icons.Material.Filled.Receipt,
+            "Settings" => Icons.Material.Filled.Settings,
+            "Palette" => Icons.Material.Filled.Palette,
+            "PictureAsPdf" => Icons.Material.Filled.PictureAsPdf,
+            "Email" => Icons.Material.Filled.Email,
+            "People" => Icons.Material.Filled.People,
+            "Business" => Icons.Material.Filled.Business,
+            "Storage" => Icons.Material.Filled.Storage,
+            _ => Icons.Material.Filled.Circle
+        };
+    }
+
+    private bool IsExpanded(NavItemDto item)
+    {
+        if (item.Type != NavItemType.Group || item.Children.Count == 0)
+        {
+            return false;
+        }
+
+        var currentUri = CurrentUri ?? NavigationManager.Uri;
+        if (string.IsNullOrWhiteSpace(currentUri))
+        {
+            return false;
+        }
+
+        return item.Children.Any(child => IsMatch(currentUri, child.Href));
+    }
+
+    private static bool IsMatch(string currentUri, string href)
+    {
+        if (string.IsNullOrWhiteSpace(href))
+        {
+            return false;
+        }
+
+        return currentUri.Contains(href, StringComparison.OrdinalIgnoreCase);
+    }
+}

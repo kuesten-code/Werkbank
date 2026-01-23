@@ -1,3 +1,5 @@
+using Kuestencode.Core.Interfaces;
+using Kuestencode.Core.Models;
 using Kuestencode.Faktura.Models;
 using System.Globalization;
 using System.Text;

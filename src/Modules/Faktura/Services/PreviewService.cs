@@ -1,3 +1,4 @@
+using Kuestencode.Core.Models;
 using Kuestencode.Faktura.Models;
 
 namespace Kuestencode.Faktura.Services;

@@ -13,22 +13,9 @@ Faktura-Modul (Rechnungsverwaltung) für die Kuestencode-Plattform.
 - GiroCode QR-Codes für Überweisungen
 - Dashboard mit Statistiken
 
-## Installation
+## Installation (Microservice)
 
-### Als Modul in bestehender Anwendung
-
-```csharp
-// In Program.cs
-builder.Services.AddFakturaModule(builder.Configuration);
-
-// Optional: Migrations anwenden
-if (applyMigrations)
-{
-    await FakturaModule.ApplyMigrationsAsync(app.Services);
-}
-```
-
-### Standalone
+Run Faktura as its own service and let the Host route to it via reverse proxy.
 
 ```bash
 cd src/Modules/Faktura
@@ -68,8 +55,8 @@ Kuestencode.Faktura/
 │   └── Settings/
 ├── Shared/
 │   └── Faktura-spezifische Components
-├── FakturaModule.cs      # Service-Registrierung
-└── Program.cs            # Standalone Entry Point
+├── FakturaModule.cs      # Service registration
+└── ProgramApi.cs         # Service entry point (Microservice mode)
 ```
 
 ## Models
@@ -103,16 +90,19 @@ Kuestencode.Faktura/
 - `ICustomerService` → `CustomerService` (Faktura-Implementierung)
 - `IEmailService` → Basis E-Mail-Funktionen
 
-## Konfiguration
+## Configuration
 
-### appsettings.json
+### appsettings.api.json
 
 ```json
 {
   "ConnectionStrings": {
     "DefaultConnection": "Host=localhost;Port=5432;Database=faktura;Username=postgres;Password=..."
   },
-  "APPLY_MIGRATIONS": true
+  "APPLY_MIGRATIONS": true,
+  "ServiceUrls": {
+    "Host": "http://localhost:8080"
+  }
 }
 ```
 
@@ -136,17 +126,9 @@ using Kuestencode.Faktura.Models;     // Invoice, InvoiceItem, etc.
 using Kuestencode.Faktura.Services;   // InvoiceService, XRechnungService, etc.
 ```
 
-### Service-Registrierung
+### Service registration
 
-```csharp
-// Vorher (in Program.cs)
-builder.Services.AddScoped<ICompanyService, CompanyService>();
-builder.Services.AddScoped<IInvoiceService, InvoiceService>();
-// ... viele weitere Zeilen
-
-// Nachher
-builder.Services.AddFakturaModule(builder.Configuration);
-```
+Service registration happens inside the Faktura service process. The Host only forwards requests via reverse proxy in microservice mode.
 
 ## E-Mail-Formate
 

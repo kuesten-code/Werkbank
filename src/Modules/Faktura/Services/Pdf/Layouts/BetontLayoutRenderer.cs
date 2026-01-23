@@ -1,3 +1,4 @@
+using Kuestencode.Core.Models;
 using Kuestencode.Faktura.Models;
 using Kuestencode.Faktura.Services.Pdf.Components;
 using QuestPDF.Fluent;

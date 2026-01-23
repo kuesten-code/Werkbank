@@ -1,38 +1,48 @@
+@using Kuestencode.Shared.ApiClients
+@using Kuestencode.Shared.Contracts.Navigation
+@inject IHostApiClient HostApiClient
 @inject NavigationManager NavigationManager
+@implements IDisposable
 
 <MudNavMenu>
-    <MudNavLink Href="/" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Home">
-        Übersicht
-    </MudNavLink>
-    <MudNavLink Href="/invoices" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Receipt">
-        Fakturen
-    </MudNavLink>
-    <MudNavLink Href="/customers" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.People">
-        Kunden
-    </MudNavLink>
-    <MudNavGroup Title="Einstellungen" Icon="@Icons.Material.Filled.Settings" Expanded="@_settingsExpanded">
-        <MudNavLink Href="/settings/company" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Business">
-            Firmenstammdaten
-        </MudNavLink>
-        <MudNavLink Href="/settings/email" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Email">
-            E-Mail-Versand
-        </MudNavLink>
-        <MudNavLink Href="/settings/email-anpassung" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Palette">
-            E-Mail-Anpassung
-        </MudNavLink>
-        <MudNavLink Href="/settings/pdf-anpassung" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.PictureAsPdf">
-            PDF-Anpassung
-        </MudNavLink>
-    </MudNavGroup>
+    @if (_loading)
+    {
+        <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+    }
+    else if (_navItems.Count == 0)
+    {
+        <MudText Typo="Typo.caption" Color="Color.Secondary">Navigation nicht verfuegbar</MudText>
+    }
+    else
+    {
+        @foreach (var navItem in _navItems)
+        {
+            <NavItemRenderer Item="navItem" CurrentUri="@_currentUri" />
+        }
+    }
 </MudNavMenu>
 
 @code {
-    private bool _settingsExpanded = false;
+    private List<NavItemDto> _navItems = new();
+    private bool _loading = true;
+    private string _currentUri = string.Empty;
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
-        // Expand settings group if on a settings page
-        var uri = NavigationManager.Uri;
-        _settingsExpanded = uri.Contains("/settings/");
+        _currentUri = NavigationManager.Uri;
+        NavigationManager.LocationChanged += HandleLocationChanged;
+        _navItems = await HostApiClient.GetNavigationAsync();
+        _loading = false;
+    }
+
+    private void HandleLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
+    {
+        _currentUri = e.Location;
+        StateHasChanged();
+    }
+
+    public void Dispose()
+    {
+        NavigationManager.LocationChanged -= HandleLocationChanged;
     }
 }

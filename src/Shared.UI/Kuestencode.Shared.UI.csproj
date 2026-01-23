@@ -22,6 +22,7 @@
   <ItemGroup>
     <!-- Reference to Core project -->
     <ProjectReference Include="..\Core\Kuestencode.Core.csproj" />
+    <ProjectReference Include="..\Kuestencode.Shared.Contracts\Kuestencode.Shared.Contracts.csproj" />
   </ItemGroup>
 
 </Project>

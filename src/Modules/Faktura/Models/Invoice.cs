@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using Kuestencode.Core.Models;
 
 namespace Kuestencode.Faktura.Models;
 
@@ -58,7 +59,10 @@ public class Invoice
     public decimal? DiscountValue { get; set; }
 
     // Navigation Properties
-    public Customer Customer { get; set; } = null!;
+    // Customer ist in einem anderen Schema (host) - wird separat geladen
+    [NotMapped]
+    public Customer? Customer { get; set; }
+
     public List<InvoiceItem> Items { get; set; } = new();
     public List<DownPayment> DownPayments { get; set; } = new();
 
