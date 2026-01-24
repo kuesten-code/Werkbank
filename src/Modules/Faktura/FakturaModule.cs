@@ -60,6 +60,7 @@ public static class FakturaModule
         services.AddScoped<StrukturiertLayoutRenderer>();
         services.AddScoped<BetontLayoutRenderer>();
         services.AddScoped<IPdfGeneratorService, PdfGeneratorService>();
+        services.AddScoped<IPdfMergeService, PdfMergeService>();
 
         // Register Singleton Services
         services.AddSingleton<PasswordEncryptionService>();

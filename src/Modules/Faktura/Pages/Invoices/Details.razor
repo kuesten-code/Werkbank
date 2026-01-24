@@ -8,6 +8,7 @@
 @inject IXRechnungService XRechnungService
 @inject ICompanyService CompanyService
 @inject Kuestencode.Faktura.Services.IEmailService EmailService
+@inject Kuestencode.Faktura.Services.Pdf.IPdfMergeService PdfMergeService
 @inject NavigationManager NavigationManager
 @inject ISnackbar Snackbar
 @inject IJSRuntime JSRuntime
@@ -635,7 +636,8 @@
         {
             // Generate PDF
             var pdfBytes = PdfGeneratorService.GenerateInvoicePdf(_invoice.Id);
-            var base64 = Convert.ToBase64String(pdfBytes);
+            var mergedPdfBytes = PdfMergeService.MergeForPrint(pdfBytes, _invoice.Attachments);
+            var base64 = Convert.ToBase64String(mergedPdfBytes);
 
             // Open print dialog
             await JSRuntime.InvokeVoidAsync("printPdf", base64);

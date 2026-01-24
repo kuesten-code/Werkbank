@@ -58,6 +58,47 @@
                 };
             }
         }
+
+        async function printPdfSequence(base64List) {
+            if (!Array.isArray(base64List) || base64List.length === 0) {
+                return;
+            }
+
+            for (const base64Data of base64List) {
+                await new Promise((resolve) => {
+                    const pdfData = atob(base64Data);
+                    const bytes = new Uint8Array(pdfData.length);
+                    for (let i = 0; i < pdfData.length; i++) {
+                        bytes[i] = pdfData.charCodeAt(i);
+                    }
+                    const blob = new Blob([bytes], { type: 'application/pdf' });
+                    const url = URL.createObjectURL(blob);
+
+                    const printWindow = window.open(url, '_blank');
+                    if (!printWindow) {
+                        resolve();
+                        return;
+                    }
+
+                    const cleanup = () => {
+                        try {
+                            printWindow.close();
+                        } catch { }
+                        resolve();
+                    };
+
+                    printWindow.onload = function () {
+                        try {
+                            printWindow.focus();
+                            printWindow.print();
+                        } catch { }
+                    };
+
+                    printWindow.onafterprint = cleanup;
+                    setTimeout(cleanup, 10000);
+                });
+            }
+        }
     </script>
 </body>
 </html>

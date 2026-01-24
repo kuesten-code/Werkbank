@@ -248,14 +248,7 @@ public abstract class BasePdfLayout : IPdfLayoutRenderer
         for (var i = 0; i < lines.Length; i++)
         {
             var line = lines[i].Length == 0 ? " " : lines[i];
-            if (i == 0)
-            {
-                text.Span(line).FontSize(fontSize);
-            }
-            else
-            {
-                text.Line(line).FontSize(fontSize);
-            }
+            text.Line(line).FontSize(fontSize);
         }
     }
 }
