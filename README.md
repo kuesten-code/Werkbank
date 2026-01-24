@@ -1,4 +1,8 @@
-# Küstencode Faktura
+# Küstencode Werkbank
+
+## Module
+
+### Faktura
 
 Küstencode Faktura ist ein selbst gehostetes Rechnungsprogramm für
 Selbstständige und kleine Unternehmen.
@@ -6,7 +10,7 @@ Selbstständige und kleine Unternehmen.
 Es konzentriert sich auf saubere Fakturierung und E-Rechnungen
 (XRechnung, ZUGFeRD) – ohne Cloud, ohne Abo, ohne unnötige Komplexität.
 
-## Was Küstencode Faktura kann
+#### Was Küstencode Faktura kann
 
 - Rechnungen erstellen und verwalten
 - PDF-Rechnungen und E-Rechnungen (XRechnung, ZUGFeRD)
@@ -16,7 +20,7 @@ Es konzentriert sich auf saubere Fakturierung und E-Rechnungen
 - GiroCode-QR-Codes für Überweisungen
 - Übersicht über offene und überfällige Rechnungen
 
-## Was Küstencode Faktura bewusst nicht ist
+#### Was Küstencode Faktura bewusst nicht ist
 
 - kein Buchhaltungs- oder ERP-System
 - keine Steueranmeldung
@@ -35,3 +39,4 @@ Küstencode Faktura wird als Docker-Compose-Stack betrieben
 ### Starten
 ```bash
 docker compose up -d
+```
