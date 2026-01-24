@@ -65,6 +65,7 @@ public class Invoice
 
     public List<InvoiceItem> Items { get; set; } = new();
     public List<DownPayment> DownPayments { get; set; } = new();
+    public List<InvoiceAttachment> Attachments { get; set; } = new();
 
     // Computed Properties
     [NotMapped]

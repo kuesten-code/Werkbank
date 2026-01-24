@@ -3,6 +3,7 @@ using Kuestencode.Core.Models;
 using MailKit.Net.Smtp;
 using MailKit.Security;
 using MimeKit;
+using Kuestencode.Werkbank.Host.Services;
 
 namespace Kuestencode.Werkbank.Host.Services.Email;
 
@@ -14,15 +15,18 @@ public class EmailEngine : IEmailEngine
     private readonly ICompanyService _companyService;
     private readonly IEnumerable<IEmailTemplateProvider> _templateProviders;
     private readonly ILogger<EmailEngine> _logger;
+    private readonly PasswordEncryptionService _passwordEncryption;
 
     public EmailEngine(
         ICompanyService companyService,
         IEnumerable<IEmailTemplateProvider> templateProviders,
-        ILogger<EmailEngine> logger)
+        ILogger<EmailEngine> logger,
+        PasswordEncryptionService passwordEncryption)
     {
         _companyService = companyService;
         _templateProviders = templateProviders;
         _logger = logger;
+        _passwordEncryption = passwordEncryption;
     }
 
     public async Task<bool> SendEmailAsync(
@@ -119,10 +123,11 @@ public class EmailEngine : IEmailEngine
                 company.SmtpPort.Value,
                 secureSocketOptions);
 
+            var decryptedPassword = _passwordEncryption.Decrypt(company.SmtpPassword ?? string.Empty);
             if (!string.IsNullOrWhiteSpace(company.SmtpUsername) &&
-                !string.IsNullOrWhiteSpace(company.SmtpPassword))
+                !string.IsNullOrWhiteSpace(decryptedPassword))
             {
-                await client.AuthenticateAsync(company.SmtpUsername, company.SmtpPassword);
+                await client.AuthenticateAsync(company.SmtpUsername, decryptedPassword);
             }
 
             await client.DisconnectAsync(true);
@@ -212,10 +217,11 @@ public class EmailEngine : IEmailEngine
             company.SmtpPort!.Value,
             secureSocketOptions);
 
+        var decryptedPassword = _passwordEncryption.Decrypt(company.SmtpPassword ?? string.Empty);
         if (!string.IsNullOrWhiteSpace(company.SmtpUsername) &&
-            !string.IsNullOrWhiteSpace(company.SmtpPassword))
+            !string.IsNullOrWhiteSpace(decryptedPassword))
         {
-            await client.AuthenticateAsync(company.SmtpUsername, company.SmtpPassword);
+            await client.AuthenticateAsync(company.SmtpUsername, decryptedPassword);
         }
 
         await client.SendAsync(message);

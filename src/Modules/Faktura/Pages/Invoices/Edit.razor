@@ -91,6 +91,7 @@
                         <MudTd DataLabel="Beschreibung">
                             <MudTextField @bind-Value="item.Description" Margin="Margin.Dense"
                                          Variant="Variant.Outlined" Required="true"
+                                         Lines="3" AutoGrow="true"
                                          OnBlur="RecalculateTotals" />
                         </MudTd>
                         <MudTd DataLabel="Menge" Style="text-align: right">
@@ -598,7 +599,7 @@
             var statusText = asDraft ? "als Entwurf gespeichert" : "versendet";
             Snackbar.Add($"Faktura {_invoice.InvoiceNumber} wurde {statusText}.", Severity.Success);
 
-            NavigationManager.NavigateTo($"/invoices/details/{_invoice.Id}");
+            NavigationManager.NavigateTo($"/faktura/invoices/details/{_invoice.Id}");
         }
         catch (Exception ex)
         {
@@ -612,6 +613,6 @@
 
     private void Cancel()
     {
-        NavigationManager.NavigateTo($"/invoices");
+        NavigationManager.NavigateTo($"/faktura/invoices");
     }
 }

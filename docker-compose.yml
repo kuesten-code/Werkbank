@@ -57,6 +57,8 @@ services:
       - ServiceUrls__Host=http://host:8080
       - ServiceUrls__Self=http://faktura:8081
       - APPLY_MIGRATIONS=true
+    volumes:
+      - ./data/keys:/app/data/keys
     depends_on:
       postgres:
         condition: service_healthy

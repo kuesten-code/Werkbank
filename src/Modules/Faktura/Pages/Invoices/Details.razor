@@ -144,7 +144,9 @@
                         </HeaderContent>
                         <RowTemplate Context="item">
                             <MudTd DataLabel="Pos.">@item.Position</MudTd>
-                            <MudTd DataLabel="Beschreibung">@item.Description</MudTd>
+                            <MudTd DataLabel="Beschreibung">
+                                <MudText Style="white-space: pre-line;">@item.Description</MudText>
+                            </MudTd>
                             <MudTd DataLabel="Menge" Style="text-align: right">@item.Quantity.ToString("N3", _culture)</MudTd>
                             <MudTd DataLabel="Einzelpreis" Style="text-align: right">@item.UnitPrice.ToString("C2", _culture)</MudTd>
                             <MudTd DataLabel="Gesamt" Style="text-align: right">@item.TotalNet.ToString("C2", _culture)</MudTd>
@@ -152,11 +154,11 @@
                     </MudTable>
                 </MudItem>
 
-                <!-- Abschläge -->
+                <!-- Abschl&auml;ge -->
                 @if (_invoice.DownPayments.Any())
                 {
                     <MudItem xs="12" Class="mt-4">
-                        <MudText Typo="Typo.h6" GutterBottom="true">Abschläge</MudText>
+                        <MudText Typo="Typo.h6" GutterBottom="true">Abschl&auml;ge</MudText>
                         <MudTable Items="@_invoice.DownPayments" Dense="true" Hover="true" Elevation="0">
                             <HeaderContent>
                                 <MudTh>Beschreibung</MudTh>
@@ -164,7 +166,9 @@
                                 <MudTh Style="text-align: right">Datum</MudTh>
                             </HeaderContent>
                             <RowTemplate Context="downPayment">
-                                <MudTd DataLabel="Beschreibung">@downPayment.Description</MudTd>
+                                <MudTd DataLabel="Beschreibung">
+                                    <MudText Style="white-space: pre-line;">@downPayment.Description</MudText>
+                                </MudTd>
                                 <MudTd DataLabel="Betrag" Style="text-align: right">@downPayment.Amount.ToString("C2", _culture)</MudTd>
                                 <MudTd DataLabel="Datum" Style="text-align: right">
                                     @(downPayment.PaymentDate.HasValue ? downPayment.PaymentDate.Value.ToString("dd.MM.yyyy") : "-")
@@ -172,10 +176,37 @@
                             </RowTemplate>
                             <FooterContent>
                                 <MudTh></MudTh>
-                                <MudTh Style="text-align: right"><strong>Summe Abschläge:</strong></MudTh>
+                                <MudTh Style="text-align: right"><strong>Summe Abschl&auml;ge:</strong></MudTh>
                                 <MudTh Style="text-align: right"><strong>@_invoice.TotalDownPayments.ToString("C2", _culture)</strong></MudTh>
                             </FooterContent>
                         </MudTable>
+                    </MudItem>
+                }
+
+                <!-- Anh&auml;nge -->
+                @if (_invoice.Attachments.Any())
+                {
+                    <MudItem xs="12" Class="mt-4">
+                        <MudText Typo="Typo.h6" GutterBottom="true">Anh&auml;nge</MudText>
+                        <MudSimpleTable Dense="true" Hover="true" Bordered="true">
+                            <thead>
+                                <tr>
+                                    <th>Datei</th>
+                                    <th>Typ</th>
+                                    <th>Gr&ouml;&szlig;e</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var attachment in _invoice.Attachments)
+                                {
+                                    <tr>
+                                        <td>@attachment.FileName</td>
+                                        <td>@attachment.ContentType</td>
+                                        <td>@FormatFileSize(attachment.FileSize)</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </MudSimpleTable>
                     </MudItem>
                 }
 
@@ -210,7 +241,7 @@
                             @if (_invoice.TotalDownPayments > 0)
                             {
                                 <MudStack Row="true" Justify="Justify.SpaceBetween">
-                                    <MudText>Abschläge:</MudText>
+                                    <MudText>Abschl&auml;ge:</MudText>
                                     <MudText Color="Color.Error">-@_invoice.TotalDownPayments.ToString("C2", _culture)</MudText>
                                 </MudStack>
                                 <MudDivider DividerType="DividerType.FullWidth" Style="border-width: 2px;" />
@@ -245,7 +276,7 @@
                     <MudStack Row="true" Justify="Justify.SpaceBetween">
                         <MudButton Variant="Variant.Filled" Color="Color.Default"
                                   StartIcon="@Icons.Material.Filled.ArrowBack"
-                                  OnClick="@(() => NavigationManager.NavigateTo("/invoices"))">
+                                  OnClick="@(() => NavigationManager.NavigateTo("/faktura/invoices"))">
                             Zurück zur Übersicht
                         </MudButton>
 
@@ -254,7 +285,7 @@
                             {
                                 <MudButton Variant="Variant.Filled" Color="Color.Primary"
                                           StartIcon="@Icons.Material.Filled.Edit"
-                                          OnClick="@(() => NavigationManager.NavigateTo($"/invoices/edit/{_invoice.Id}"))">
+                                          OnClick="@(() => NavigationManager.NavigateTo($"/faktura/invoices/edit/{_invoice.Id}"))">
                                     Bearbeiten
                                 </MudButton>
                             }
@@ -356,7 +387,7 @@
         if (queryParams.TryGetValue("action", out var action) && action == "send")
         {
             // Navigiere zu bereinigter URL
-            NavigationManager.NavigateTo($"/invoices/details/{Id}", replace: true);
+            NavigationManager.NavigateTo($"/faktura/invoices/details/{Id}", replace: true);
 
             // Warte kurz damit die Navigation abgeschlossen ist
             await Task.Delay(100);
@@ -626,5 +657,23 @@
         {
             Snackbar.Add($"Fehler beim Drucken: {ex.Message}", Severity.Error);
         }
+    }
+
+    private static string FormatFileSize(long size)
+    {
+        const long kb = 1024;
+        const long mb = 1024 * 1024;
+
+        if (size >= mb)
+        {
+            return $"{size / (double)mb:F1} MB";
+        }
+
+        if (size >= kb)
+        {
+            return $"{size / (double)kb:F1} KB";
+        }
+
+        return $"{size} B";
     }
 }

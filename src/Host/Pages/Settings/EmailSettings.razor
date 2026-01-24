@@ -2,6 +2,7 @@
 @using System.ComponentModel.DataAnnotations
 @using Kuestencode.Core.Interfaces
 @inject ICompanyService CompanyService
+@inject IEmailEngine EmailEngine
 @inject ISnackbar Snackbar
 
 <PageTitle>Email Settings - Kuestencode Werkbank</PageTitle>
@@ -75,7 +76,7 @@
                         <MudTextField Label="Passwort"
                                      @bind-Value="_model.SmtpPassword"
                                      For="@(() => _model.SmtpPassword)"
-                                     Required="true"
+                                     HelperText="Leer lassen, um das aktuelle Passwort zu behalten."
                                      InputType="InputType.Password" />
                     </MudItem>
                 </MudGrid>
@@ -108,18 +109,33 @@
                     <MudButton Variant="Variant.Text" Color="Color.Default" OnClick="ResetForm">
                         Zuruecksetzen
                     </MudButton>
-                    <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary"
-                              Disabled="@_saving">
-                        @if (_saving)
-                        {
-                            <MudProgressCircular Class="ms-n1" Size="Size.Small" Indeterminate="true" />
-                            <MudText Class="ms-2">Speichern...</MudText>
-                        }
-                        else
-                        {
-                            <MudText>Speichern</MudText>
-                        }
-                    </MudButton>
+                    <MudStack Row="true" Spacing="2">
+                        <MudButton Variant="Variant.Outlined" Color="Color.Primary"
+                                  Disabled="@_testing"
+                                  OnClick="TestConnection">
+                            @if (_testing)
+                            {
+                                <MudProgressCircular Class="ms-n1" Size="Size.Small" Indeterminate="true" />
+                                <MudText Class="ms-2">Teste...</MudText>
+                            }
+                            else
+                            {
+                                <MudText>Verbindung testen</MudText>
+                            }
+                        </MudButton>
+                        <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary"
+                                  Disabled="@_saving">
+                            @if (_saving)
+                            {
+                                <MudProgressCircular Class="ms-n1" Size="Size.Small" Indeterminate="true" />
+                                <MudText Class="ms-2">Speichern...</MudText>
+                            }
+                            else
+                            {
+                                <MudText>Speichern</MudText>
+                            }
+                        </MudButton>
+                    </MudStack>
                 </MudStack>
             </EditForm>
 
@@ -211,7 +227,9 @@
     private EmailSettingsModel _model = new();
     private bool _loading = true;
     private bool _saving = false;
+    private bool _testing = false;
     private bool _helpExpanded = false;
+    private bool _hasStoredPassword = false;
     private string? _errorMessage;
 
     protected override async Task OnInitializedAsync()
@@ -219,6 +237,7 @@
         try
         {
             _company = await CompanyService.GetCompanyAsync();
+            _hasStoredPassword = !string.IsNullOrWhiteSpace(_company.SmtpPassword);
             _model = EmailSettingsModel.FromCompany(_company);
         }
         catch (Exception ex)
@@ -238,8 +257,19 @@
 
         try
         {
+            if (!_hasStoredPassword && string.IsNullOrWhiteSpace(_model.SmtpPassword))
+            {
+                _errorMessage = "Passwort ist erforderlich";
+                return;
+            }
+
             ApplyToCompany(_company, _model);
             await CompanyService.UpdateCompanyAsync(_company);
+            if (!string.IsNullOrWhiteSpace(_model.SmtpPassword))
+            {
+                _hasStoredPassword = true;
+                _model.SmtpPassword = string.Empty;
+            }
             Snackbar.Add("Email Settings gespeichert", Severity.Success);
         }
         catch (Exception ex)
@@ -259,6 +289,7 @@
         try
         {
             _company = await CompanyService.GetCompanyAsync();
+            _hasStoredPassword = !string.IsNullOrWhiteSpace(_company.SmtpPassword);
             _model = EmailSettingsModel.FromCompany(_company);
             Snackbar.Add("Formular zurueckgesetzt", Severity.Info);
         }
@@ -272,13 +303,43 @@
         }
     }
 
+    private async Task TestConnection()
+    {
+        _testing = true;
+        _errorMessage = null;
+
+        try
+        {
+            var (success, errorMessage) = await EmailEngine.TestConnectionAsync();
+            if (success)
+            {
+                Snackbar.Add("SMTP Verbindung erfolgreich getestet.", Severity.Success);
+            }
+            else
+            {
+                Snackbar.Add(errorMessage ?? "SMTP Verbindung fehlgeschlagen.", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Fehler beim Verbindungstest: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _testing = false;
+        }
+    }
+
     private static void ApplyToCompany(Company company, EmailSettingsModel model)
     {
         company.SmtpHost = model.SmtpHost;
         company.SmtpPort = model.SmtpPort;
         company.SmtpUseSsl = model.SmtpUseSsl;
         company.SmtpUsername = model.SmtpUsername;
-        company.SmtpPassword = model.SmtpPassword;
+        if (!string.IsNullOrWhiteSpace(model.SmtpPassword))
+        {
+            company.SmtpPassword = model.SmtpPassword;
+        }
         company.EmailSenderEmail = model.SenderEmail;
         company.EmailSenderName = model.SenderName;
         company.EmailSignature = model.Signature;
@@ -289,7 +350,7 @@
         return !string.IsNullOrWhiteSpace(_model.SmtpHost) &&
                _model.SmtpPort.HasValue &&
                !string.IsNullOrWhiteSpace(_model.SmtpUsername) &&
-               !string.IsNullOrWhiteSpace(_model.SmtpPassword) &&
+               (_hasStoredPassword || !string.IsNullOrWhiteSpace(_model.SmtpPassword)) &&
                !string.IsNullOrWhiteSpace(_model.SenderEmail);
     }
 
@@ -309,7 +370,6 @@
         [MaxLength(200)]
         public string SmtpUsername { get; set; } = string.Empty;
 
-        [Required(ErrorMessage = "Passwort ist erforderlich")]
         [MaxLength(500)]
         public string SmtpPassword { get; set; } = string.Empty;
 
@@ -332,7 +392,7 @@
                 SmtpPort = company.SmtpPort ?? 587,
                 SmtpUseSsl = company.SmtpUseSsl,
                 SmtpUsername = company.SmtpUsername ?? string.Empty,
-                SmtpPassword = company.SmtpPassword ?? string.Empty,
+                SmtpPassword = string.Empty,
                 SenderEmail = company.EmailSenderEmail ?? string.Empty,
                 SenderName = company.EmailSenderName,
                 Signature = company.EmailSignature

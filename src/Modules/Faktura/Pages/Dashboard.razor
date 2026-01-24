@@ -1,4 +1,4 @@
-@page "/"
+@page "/faktura"
 @using Kuestencode.Faktura.Services
 @using Kuestencode.Faktura.Models.Dashboard
 @using Microsoft.AspNetCore.Components.Routing
@@ -117,7 +117,7 @@
                 <MudItem xs="6" sm="3">
                     <MudPaper Elevation="0" Style="cursor: pointer; padding: 8px; transition: background-color 0.2s;"
                              Class="metric-card"
-                             @onclick="@(() => NavigationManager.NavigateTo("/invoices?status=sent"))">
+                            @onclick="@(() => NavigationManager.NavigateTo("/faktura/invoices?status=sent"))">
                         <MudStack Spacing="1">
                             <MudText Typo="Typo.caption" Color="Color.Secondary">Versendete Fakturen</MudText>
                             <MudText Typo="Typo.h4">@_summary.OpenInvoices</MudText>
@@ -127,7 +127,7 @@
                 <MudItem xs="6" sm="3">
                     <MudPaper Elevation="0" Style="cursor: pointer; padding: 8px; transition: background-color 0.2s;"
                              Class="metric-card"
-                             @onclick="@(() => NavigationManager.NavigateTo("/invoices?status=overdue"))">
+                            @onclick="@(() => NavigationManager.NavigateTo("/faktura/invoices?status=overdue"))">
                         <MudStack Spacing="1">
                             <MudText Typo="Typo.caption" Color="Color.Secondary">Überfällige Fakturen</MudText>
                             <MudText Typo="Typo.h4" Color="@(_summary.OverdueInvoices > 0 ? Color.Error : Color.Default)">
@@ -139,7 +139,7 @@
                 <MudItem xs="6" sm="3">
                     <MudPaper Elevation="0" Style="cursor: pointer; padding: 8px; transition: background-color 0.2s;"
                              Class="metric-card"
-                             @onclick="@(() => NavigationManager.NavigateTo("/invoices?status=draft"))">
+                            @onclick="@(() => NavigationManager.NavigateTo("/faktura/invoices?status=draft"))">
                         <MudStack Spacing="1">
                             <MudText Typo="Typo.caption" Color="Color.Secondary">Entwürfe</MudText>
                             <MudText Typo="Typo.h4">@_summary.DraftInvoices</MudText>
@@ -149,7 +149,7 @@
                 <MudItem xs="6" sm="3">
                     <MudPaper Elevation="0" Style="cursor: pointer; padding: 8px; transition: background-color 0.2s;"
                              Class="metric-card"
-                             @onclick="@(() => NavigationManager.NavigateTo("/invoices?range=thisMonth"))">
+                            @onclick="@(() => NavigationManager.NavigateTo("/faktura/invoices?range=thisMonth"))">
                         <MudStack Spacing="1">
                             <MudText Typo="Typo.caption" Color="Color.Secondary">Umsatz (aktueller Monat)</MudText>
                             <MudText Typo="Typo.h4">@_summary.RevenueThisMonth.ToString("C0", _culture)</MudText>

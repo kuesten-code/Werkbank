@@ -3,6 +3,7 @@
 @using MudBlazor
 @inject IXRechnungService XRechnungService
 @inject ISnackbar Snackbar
+@inject ILogger<SendEmailDialog> Logger
 
 <MudDialog>
     <DialogContent>
@@ -268,21 +269,36 @@
         _sending = true;
         StateHasChanged();
 
+        Logger.LogInformation("SendEmailDialog: send start (InvoiceId={InvoiceId})", Invoice?.Id);
+
         try
         {
-            await OnSend.InvokeAsync((
+            var sendTask = OnSend.InvokeAsync((
                 _recipientEmail.Trim(),
                 string.IsNullOrWhiteSpace(_customMessage) ? null : _customMessage.Trim(),
                 _selectedFormat,
                 string.IsNullOrWhiteSpace(_ccEmails) ? null : _ccEmails.Trim(),
                 string.IsNullOrWhiteSpace(_bccEmails) ? null : _bccEmails.Trim()));
+
+            var completed = await Task.WhenAny(sendTask, Task.Delay(TimeSpan.FromSeconds(30)));
+            if (completed != sendTask)
+            {
+                Logger.LogWarning("SendEmailDialog: send timeout (InvoiceId={InvoiceId})", Invoice?.Id);
+                Snackbar.Add("E-Mail-Versand dauert zu lange. Bitte SMTP-Host/Port/SSL pruefen.", Severity.Warning);
+                _sending = false;
+                StateHasChanged();
+                return;
+            }
+
+            await sendTask;
             MudDialog.Close(DialogResult.Ok(true));
         }
-        catch
+        catch (Exception ex)
         {
+            Logger.LogError(ex, "SendEmailDialog: send failed (InvoiceId={InvoiceId})", Invoice?.Id);
+            Snackbar.Add($"Fehler beim Versenden der E-Mail: {ex.Message}", Severity.Error);
             _sending = false;
             StateHasChanged();
-            throw;
         }
     }
 

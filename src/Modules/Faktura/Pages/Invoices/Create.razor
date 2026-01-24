@@ -2,6 +2,7 @@
 @page "/invoices/create"
 @using Kuestencode.Faktura.Services
 @using Kuestencode.Faktura.Models
+@using System.IO
 @inject IInvoiceService InvoiceService
 @inject ICustomerService CustomerService
 @inject ICompanyService CompanyService
@@ -83,6 +84,7 @@
                     <MudTd DataLabel="Beschreibung">
                         <MudTextField @bind-Value="item.Description" Margin="Margin.Dense"
                                      Variant="Variant.Outlined" Required="true"
+                                     Lines="3" AutoGrow="true"
                                      OnBlur="RecalculateTotals" />
                     </MudTd>
                     <MudTd DataLabel="Menge" Style="text-align: right">
@@ -201,6 +203,56 @@
                 Abschlag hinzufügen
             </MudButton>
 
+            <!-- Anhänge (optional) -->
+            <MudText Typo="Typo.h6" Class="mt-6 mb-2">Anhänge (optional)</MudText>
+            <MudPaper Elevation="0" Class="pa-3">
+                <MudFileUpload T="IReadOnlyList<IBrowserFile>"
+                               Accept=".pdf,.csv"
+                               MaximumFileCount="10"
+                               FilesChanged="HandleAttachmentUpload">
+                    <ActivatorContent>
+                        <MudButton Variant="Variant.Filled"
+                                   Color="Color.Primary"
+                                   StartIcon="@Icons.Material.Filled.AttachFile"
+                                   Size="Size.Small">
+                            Datei(en) auswählen
+                        </MudButton>
+                    </ActivatorContent>
+                </MudFileUpload>
+
+                <MudText Typo="Typo.caption" Class="mt-2" Color="Color.Secondary">
+                    Erlaubt: PDF und CSV. Maximal 10 Dateien, je 10 MB.
+                </MudText>
+
+                @if (_invoice.Attachments.Count > 0)
+                {
+                    <MudSimpleTable Dense="true" Hover="true" Bordered="true" Class="mt-3">
+                        <thead>
+                            <tr>
+                                <th>Datei</th>
+                                <th>Typ</th>
+                                <th>Größe</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var attachment in _invoice.Attachments)
+                            {
+                                <tr>
+                                    <td>@attachment.FileName</td>
+                                    <td>@attachment.ContentType</td>
+                                    <td>@FormatFileSize(attachment.FileSize)</td>
+                                    <td style="text-align: right;">
+                                        <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small"
+                                                      Color="Color.Error" OnClick="@(() => RemoveAttachment(attachment))" />
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </MudSimpleTable>
+                }
+            </MudPaper>
+
             <!-- Summen -->
             <MudPaper Elevation="2" Class="pa-4 mt-6" Style="max-width: 400px; margin-left: auto;">
                 <MudText Typo="Typo.h6" GutterBottom="true">Summen</MudText>
@@ -310,6 +362,12 @@
     private bool _enableDiscount = false;
     private bool _discountWarning = false;
     private System.Globalization.CultureInfo _culture = new System.Globalization.CultureInfo("de-DE");
+    private const long MaxAttachmentSize = 10 * 1024 * 1024;
+    private static readonly HashSet<string> AllowedAttachmentExtensions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".pdf",
+        ".csv"
+    };
 
     protected override async Task OnInitializedAsync()
     {
@@ -555,7 +613,7 @@
             Snackbar.Add($"Rechnung {_invoice.InvoiceNumber} wurde erfolgreich erstellt.",
                 Severity.Success);
 
-            NavigationManager.NavigateTo("/invoices");
+            NavigationManager.NavigateTo("/faktura/invoices");
         }
         catch (Exception ex)
         {
@@ -615,7 +673,7 @@
             [nameof(SendEmailDialog.Invoice)] = invoice,
             [nameof(SendEmailDialog.CustomerEmail)] = _selectedCustomer?.Email,
             [nameof(SendEmailDialog.OnSend)] =
-                EventCallback.Factory.Create<(string Email, string? Message, EmailAttachmentFormat Format)>(
+                EventCallback.Factory.Create<(string Email, string? Message, EmailAttachmentFormat Format, string? CcEmails, string? BccEmails)>(
                     this, SendInvoiceEmail)
         };
 
@@ -623,12 +681,12 @@
         var dialog = await DialogService.ShowAsync<SendEmailDialog>("E-Mail versenden", parameters, options);
         var result = await dialog.Result;
 
-        // zurück zur Rechnungsliste
+        // zurueck zur Rechnungsliste
         _saving = false;
-        NavigationManager.NavigateTo("/invoices");
+        NavigationManager.NavigateTo("/faktura/invoices");
     }
 
-    private async Task SendInvoiceEmail((string Email, string? Message, EmailAttachmentFormat Format) data)
+    private async Task SendInvoiceEmail((string Email, string? Message, EmailAttachmentFormat Format, string? CcEmails, string? BccEmails) data)
     {
         if (_invoice == null) return;
 
@@ -638,7 +696,9 @@
                 _invoice.Id,
                 data.Email,
                 data.Message,
-                data.Format);
+                data.Format,
+                data.CcEmails,
+                data.BccEmails);
 
             if (success)
             {
@@ -664,6 +724,68 @@
 
     private void Cancel()
     {
-        NavigationManager.NavigateTo("/invoices");
+        NavigationManager.NavigateTo("/faktura/invoices");
+    }
+
+    private async Task HandleAttachmentUpload(IReadOnlyList<IBrowserFile> files)
+    {
+        foreach (var file in files)
+        {
+            var extension = Path.GetExtension(file.Name);
+            if (!AllowedAttachmentExtensions.Contains(extension))
+            {
+                Snackbar.Add($"Dateityp nicht erlaubt: {file.Name}", Severity.Error);
+                continue;
+            }
+
+            if (file.Size > MaxAttachmentSize)
+            {
+                Snackbar.Add($"Datei zu gro&szlig;: {file.Name}", Severity.Error);
+                continue;
+            }
+
+            try
+            {
+                using var memoryStream = new MemoryStream();
+                await file.OpenReadStream(MaxAttachmentSize).CopyToAsync(memoryStream);
+
+                _invoice.Attachments.Add(new InvoiceAttachment
+                {
+                    FileName = file.Name,
+                    ContentType = string.IsNullOrWhiteSpace(file.ContentType)
+                        ? "application/octet-stream"
+                        : file.ContentType,
+                    FileSize = file.Size,
+                    Data = memoryStream.ToArray()
+                });
+            }
+            catch (Exception ex)
+            {
+                Snackbar.Add($"Fehler beim Upload: {file.Name} ({ex.Message})", Severity.Error);
+            }
+        }
+    }
+
+    private void RemoveAttachment(InvoiceAttachment attachment)
+    {
+        _invoice.Attachments.Remove(attachment);
+    }
+
+    private static string FormatFileSize(long size)
+    {
+        const long kb = 1024;
+        const long mb = 1024 * 1024;
+
+        if (size >= mb)
+        {
+            return $"{size / (double)mb:F1} MB";
+        }
+
+        if (size >= kb)
+        {
+            return $"{size / (double)kb:F1} KB";
+        }
+
+        return $"{size} B";
     }
 }

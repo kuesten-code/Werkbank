@@ -17,9 +17,9 @@ public class HostApiClient : IHostApiClient
     {
         try
         {
-            var response = await _httpClient.GetAsync("/api/company");
+            var response = await _httpClient.GetAsync("/api/company").ConfigureAwait(false);
             if (!response.IsSuccessStatusCode) return null;
-            return await response.Content.ReadFromJsonAsync<CompanyDto>();
+            return await response.Content.ReadFromJsonAsync<CompanyDto>().ConfigureAwait(false);
         }
         catch
         {
@@ -29,7 +29,7 @@ public class HostApiClient : IHostApiClient
 
     public async Task UpdateCompanyAsync(UpdateCompanyRequest request)
     {
-        var response = await _httpClient.PutAsJsonAsync("/api/company", request);
+        var response = await _httpClient.PutAsJsonAsync("/api/company", request).ConfigureAwait(false);
         response.EnsureSuccessStatusCode();
     }
 
@@ -37,9 +37,9 @@ public class HostApiClient : IHostApiClient
     {
         try
         {
-            var response = await _httpClient.GetAsync($"/api/customer/{customerId}");
+            var response = await _httpClient.GetAsync($"/api/customer/{customerId}").ConfigureAwait(false);
             if (!response.IsSuccessStatusCode) return null;
-            return await response.Content.ReadFromJsonAsync<CustomerDto>();
+            return await response.Content.ReadFromJsonAsync<CustomerDto>().ConfigureAwait(false);
         }
         catch
         {
@@ -51,9 +51,9 @@ public class HostApiClient : IHostApiClient
     {
         try
         {
-            var response = await _httpClient.GetAsync("/api/customer");
+            var response = await _httpClient.GetAsync("/api/customer").ConfigureAwait(false);
             response.EnsureSuccessStatusCode();
-            return await response.Content.ReadFromJsonAsync<List<CustomerDto>>() ?? [];
+            return await response.Content.ReadFromJsonAsync<List<CustomerDto>>().ConfigureAwait(false) ?? [];
         }
         catch
         {
@@ -65,9 +65,9 @@ public class HostApiClient : IHostApiClient
     {
         try
         {
-            var response = await _httpClient.GetAsync("/api/navigation");
+            var response = await _httpClient.GetAsync("/api/navigation").ConfigureAwait(false);
             response.EnsureSuccessStatusCode();
-            return await response.Content.ReadFromJsonAsync<List<NavItemDto>>() ?? [];
+            return await response.Content.ReadFromJsonAsync<List<NavItemDto>>().ConfigureAwait(false) ?? [];
         }
         catch
         {

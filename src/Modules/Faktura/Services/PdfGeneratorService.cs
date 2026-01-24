@@ -22,17 +22,20 @@ public class PdfGeneratorService : IPdfGeneratorService
     private readonly IHostApiClient _hostApiClient;
     private readonly IWebHostEnvironment _environment;
     private readonly IServiceProvider _serviceProvider;
+    private readonly ILogger<PdfGeneratorService> _logger;
 
     public PdfGeneratorService(
         FakturaDbContext context,
         IHostApiClient hostApiClient,
         IWebHostEnvironment environment,
-        IServiceProvider serviceProvider)
+        IServiceProvider serviceProvider,
+        ILogger<PdfGeneratorService> logger)
     {
         _context = context;
         _hostApiClient = hostApiClient;
         _environment = environment;
         _serviceProvider = serviceProvider;
+        _logger = logger;
 
         // QuestPDF License configuration for community use
         QuestPDF.Settings.License = LicenseType.Community;
@@ -40,6 +43,8 @@ public class PdfGeneratorService : IPdfGeneratorService
 
     public byte[] GenerateInvoicePdf(int invoiceId)
     {
+        _logger.LogInformation("PdfGenerator: start (InvoiceId={InvoiceId})", invoiceId);
+
         var invoice = _context.Invoices
             .Include(i => i.Items)
             .Include(i => i.DownPayments)
@@ -51,6 +56,7 @@ public class PdfGeneratorService : IPdfGeneratorService
         }
 
         // Lade Customer und Company via Host API
+        _logger.LogInformation("PdfGenerator: loading customer (InvoiceId={InvoiceId}, CustomerId={CustomerId})", invoiceId, invoice.CustomerId);
         var customerDto = _hostApiClient.GetCustomerAsync(invoice.CustomerId).Result;
         if (customerDto != null)
         {
@@ -69,6 +75,7 @@ public class PdfGeneratorService : IPdfGeneratorService
             };
         }
 
+        _logger.LogInformation("PdfGenerator: loading company (InvoiceId={InvoiceId})", invoiceId);
         var companyDto = _hostApiClient.GetCompanyAsync().Result;
         if (companyDto == null)
         {
@@ -104,6 +111,7 @@ public class PdfGeneratorService : IPdfGeneratorService
             PdfPaymentNotice = companyDto.PdfPaymentNotice
         };
 
+        _logger.LogInformation("PdfGenerator: rendering pdf (InvoiceId={InvoiceId})", invoiceId);
         return GeneratePdfWithCompany(invoice, company);
     }
 
@@ -111,6 +119,7 @@ public class PdfGeneratorService : IPdfGeneratorService
     {
         // Select the appropriate layout renderer based on company settings
         var layoutRenderer = GetLayoutRenderer(company.PdfLayout);
+        var sw = System.Diagnostics.Stopwatch.StartNew();
 
         var document = Document.Create(container =>
         {
@@ -126,7 +135,13 @@ public class PdfGeneratorService : IPdfGeneratorService
             });
         });
 
-        return document.GeneratePdf();
+        var pdfBytes = document.GeneratePdf();
+        _logger.LogInformation(
+            "PdfGenerator: done (InvoiceId={InvoiceId}, Size={Size}, Ms={Ms})",
+            invoice.Id,
+            pdfBytes.Length,
+            sw.ElapsedMilliseconds);
+        return pdfBytes;
     }
 
     public async Task<string> GenerateAndSaveAsync(int invoiceId)

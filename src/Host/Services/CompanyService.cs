@@ -12,10 +12,12 @@ namespace Kuestencode.Werkbank.Host.Services;
 public class CompanyService : ICompanyService
 {
     private readonly HostDbContext _context;
+    private readonly PasswordEncryptionService _passwordEncryption;
 
-    public CompanyService(HostDbContext context)
+    public CompanyService(HostDbContext context, PasswordEncryptionService passwordEncryption)
     {
         _context = context;
+        _passwordEncryption = passwordEncryption;
     }
 
     public async Task<Company> GetCompanyAsync()
@@ -100,7 +102,11 @@ public class CompanyService : ICompanyService
         existing.SmtpPort = company.SmtpPort;
         existing.SmtpUseSsl = company.SmtpUseSsl;
         existing.SmtpUsername = company.SmtpUsername;
-        existing.SmtpPassword = company.SmtpPassword;
+        if (!string.IsNullOrWhiteSpace(company.SmtpPassword))
+        {
+            var plaintext = _passwordEncryption.Decrypt(company.SmtpPassword);
+            existing.SmtpPassword = _passwordEncryption.Encrypt(plaintext);
+        }
         existing.EmailSenderEmail = company.EmailSenderEmail;
         existing.EmailSenderName = company.EmailSenderName;
         existing.EmailSignature = company.EmailSignature;

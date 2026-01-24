@@ -42,12 +42,18 @@ public class EmailService : IEmailService
     {
         try
         {
+            _logger.LogInformation(
+                "EmailService: start send (InvoiceId={InvoiceId}, Recipient={Recipient})",
+                invoiceId,
+                recipientEmail);
+
             if (string.IsNullOrWhiteSpace(recipientEmail))
             {
                 throw new ArgumentException("Empfänger-E-Mail-Adresse ist erforderlich", nameof(recipientEmail));
             }
 
             // Load company with email settings via Host API
+            _logger.LogInformation("EmailService: loading company settings (InvoiceId={InvoiceId})", invoiceId);
             var companyDto = await _hostApiClient.GetCompanyAsync();
             if (companyDto == null)
             {
@@ -76,6 +82,7 @@ public class EmailService : IEmailService
             };
 
             // Load invoice with details
+            _logger.LogInformation("EmailService: loading invoice (InvoiceId={InvoiceId})", invoiceId);
             var invoice = await _invoiceRepository.GetWithDetailsAsync(invoiceId);
             if (invoice == null)
             {
@@ -83,6 +90,7 @@ public class EmailService : IEmailService
             }
 
             // Build email message using dedicated builder
+            _logger.LogInformation("EmailService: building message (InvoiceId={InvoiceId})", invoiceId);
             var message = await _messageBuilder.BuildInvoiceEmailAsync(
                 invoice,
                 company,
@@ -93,6 +101,7 @@ public class EmailService : IEmailService
                 bccEmails);
 
             // Send email using SMTP client
+            _logger.LogInformation("EmailService: sending via SMTP (InvoiceId={InvoiceId})", invoiceId);
             await _smtpClient.SendAsync(message, company);
 
             // Update invoice with email tracking

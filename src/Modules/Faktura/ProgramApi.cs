@@ -83,19 +83,25 @@ public class ProgramApi
         var app = builder.Build();
 
         // Apply migrations
-        var applyMigrations = builder.Configuration.GetValue("APPLY_MIGRATIONS", true);
+        var applyMigrationsSetting = builder.Configuration["APPLY_MIGRATIONS"];
+        var applyMigrations = string.IsNullOrWhiteSpace(applyMigrationsSetting) ||
+                              !string.Equals(applyMigrationsSetting, "false", StringComparison.OrdinalIgnoreCase);
+
+        var migrationLogger = app.Services.GetRequiredService<ILogger<ProgramApi>>();
+        migrationLogger.LogInformation("APPLY_MIGRATIONS='{ApplyMigrationsSetting}' => ApplyMigrations={ApplyMigrations}",
+            applyMigrationsSetting ?? "<null>", applyMigrations);
+
         if (applyMigrations)
         {
-            var logger = app.Services.GetRequiredService<ILogger<ProgramApi>>();
             try
             {
-                logger.LogInformation("Applying Faktura database migrations...");
+                migrationLogger.LogInformation("Applying Faktura database migrations...");
                 await FakturaModule.ApplyMigrationsAsync(app.Services);
-                logger.LogInformation("Faktura database migrations applied successfully.");
+                migrationLogger.LogInformation("Faktura database migrations applied successfully.");
             }
             catch (Exception ex)
             {
-                logger.LogError(ex, "An error occurred while applying Faktura migrations.");
+                migrationLogger.LogError(ex, "An error occurred while applying Faktura migrations.");
                 throw;
             }
         }

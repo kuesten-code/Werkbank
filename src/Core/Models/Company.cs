@@ -9,7 +9,7 @@ namespace Kuestencode.Core.Models;
 /// Represents company/business information.
 /// This is the central entity for company data across all modules.
 /// </summary>
-public class Company : BaseEntity
+public class Company : BaseEntity, IValidatableObject
 {
     // === Grunddaten ===
 
@@ -40,7 +40,6 @@ public class Company : BaseEntity
 
     // === Steuer & Recht ===
 
-    [Required(ErrorMessage = "Steuernummer ist erforderlich")]
     [MaxLength(50)]
     public string TaxNumber { get; set; } = string.Empty;
 
@@ -205,5 +204,15 @@ public class Company : BaseEntity
                !string.IsNullOrWhiteSpace(Email) &&
                !string.IsNullOrWhiteSpace(BankName) &&
                !string.IsNullOrWhiteSpace(BankAccount);
+    }
+
+    public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
+    {
+        if (string.IsNullOrWhiteSpace(TaxNumber) && string.IsNullOrWhiteSpace(VatId))
+        {
+            yield return new ValidationResult(
+                "Bitte Steuernummer oder USt-IdNr. angeben.",
+                new[] { nameof(TaxNumber), nameof(VatId) });
+        }
     }
 }

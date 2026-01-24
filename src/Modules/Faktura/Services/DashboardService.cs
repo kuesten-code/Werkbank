@@ -175,7 +175,6 @@ public class DashboardService : IDashboardService
 
             // Get recent invoices (created or status changed)
             var recentInvoices = await _context.Invoices
-                .Include(i => i.Customer)
                 .OrderByDescending(i => i.UpdatedAt)
                 .Take(take)
                 .ToListAsync();
@@ -195,7 +194,7 @@ public class DashboardService : IDashboardService
                 {
                     Text = activityText,
                     Date = invoice.UpdatedAt,
-                    Url = $"/invoices/details/{invoice.Id}"
+                    Url = $"/faktura/invoices/details/{invoice.Id}"
                 });
             }
 

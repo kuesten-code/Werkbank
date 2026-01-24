@@ -26,6 +26,7 @@ public class FakturaDbContext : DbContext
     public DbSet<Invoice> Invoices { get; set; } = null!;
     public DbSet<InvoiceItem> InvoiceItems { get; set; } = null!;
     public DbSet<DownPayment> DownPayments { get; set; } = null!;
+    public DbSet<InvoiceAttachment> InvoiceAttachments { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -57,6 +58,11 @@ public class FakturaDbContext : DbContext
                 .HasForeignKey(e => e.InvoiceId)
                 .OnDelete(DeleteBehavior.Cascade);
 
+            entity.HasMany(e => e.Attachments)
+                .WithOne(e => e.Invoice)
+                .HasForeignKey(e => e.InvoiceId)
+                .OnDelete(DeleteBehavior.Cascade);
+
             // Customer Navigation Property ignorieren (Cross-Schema)
             entity.Ignore(e => e.Customer);
         });
@@ -76,6 +82,17 @@ public class FakturaDbContext : DbContext
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Amount).HasPrecision(18, 2);
             entity.Property(e => e.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
+        });
+
+        // InvoiceAttachment Configuration
+        modelBuilder.Entity<InvoiceAttachment>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.FileName).HasMaxLength(255).IsRequired();
+            entity.Property(e => e.ContentType).HasMaxLength(100).IsRequired();
+            entity.Property(e => e.FileSize).IsRequired();
+            entity.Property(e => e.Data).IsRequired();
+            entity.Property(e => e.UploadedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
         });
     }
 

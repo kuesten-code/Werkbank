@@ -26,20 +26,36 @@ public class SmtpClientWrapper : ISmtpClient
         ValidateCompanySettings(company);
 
         using var client = new SmtpClient();
+        client.Timeout = 15000;
         var decryptedPassword = _passwordEncryption.Decrypt(company.SmtpPassword!);
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
 
-        await client.ConnectAsync(
-            company.SmtpHost,
-            company.SmtpPort!.Value,
-            company.SmtpUseSsl ? SecureSocketOptions.StartTls : SecureSocketOptions.None);
-
-        if (!string.IsNullOrWhiteSpace(company.SmtpUsername) && !string.IsNullOrWhiteSpace(decryptedPassword))
+        try
         {
-            await client.AuthenticateAsync(company.SmtpUsername, decryptedPassword);
-        }
+            _logger.LogInformation(
+                "SMTP connect to {Host}:{Port} (UseSsl={UseSsl})",
+                company.SmtpHost,
+                company.SmtpPort,
+                company.SmtpUseSsl);
 
-        await client.SendAsync(message);
-        await client.DisconnectAsync(true);
+            await client.ConnectAsync(
+                company.SmtpHost,
+                company.SmtpPort!.Value,
+                company.SmtpUseSsl ? SecureSocketOptions.Auto : SecureSocketOptions.None,
+                cts.Token);
+
+            if (!string.IsNullOrWhiteSpace(company.SmtpUsername) && !string.IsNullOrWhiteSpace(decryptedPassword))
+            {
+                await client.AuthenticateAsync(company.SmtpUsername, decryptedPassword, cts.Token);
+            }
+
+            await client.SendAsync(message, cts.Token);
+            await client.DisconnectAsync(true, cts.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            throw new TimeoutException("SMTP-Versand hat zu lange gedauert. Bitte SMTP-Host/Port/SSL pruefen.");
+        }
     }
 
     public async Task<(bool success, string? errorMessage)> TestConnectionAsync(Company company)
@@ -52,14 +68,17 @@ public class SmtpClientWrapper : ISmtpClient
             }
 
             using var client = new SmtpClient();
+            client.Timeout = 10000;
             var decryptedPassword = _passwordEncryption.Decrypt(company.SmtpPassword!);
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(20));
 
             try
             {
                 await client.ConnectAsync(
                     company.SmtpHost,
                     company.SmtpPort!.Value,
-                    company.SmtpUseSsl ? SecureSocketOptions.StartTls : SecureSocketOptions.None);
+                    company.SmtpUseSsl ? SecureSocketOptions.Auto : SecureSocketOptions.None,
+                    cts.Token);
             }
             catch (Exception)
             {
@@ -70,16 +89,16 @@ public class SmtpClientWrapper : ISmtpClient
             {
                 try
                 {
-                    await client.AuthenticateAsync(company.SmtpUsername, decryptedPassword);
+                    await client.AuthenticateAsync(company.SmtpUsername, decryptedPassword, cts.Token);
                 }
                 catch (Exception)
                 {
-                    await client.DisconnectAsync(true);
+                    await client.DisconnectAsync(true, cts.Token);
                     return (false, "Anmeldung fehlgeschlagen. Bitte prüfen Sie Benutzername und Passwort.");
                 }
             }
 
-            await client.DisconnectAsync(true);
+            await client.DisconnectAsync(true, cts.Token);
 
             _logger.LogInformation("SMTP E-Mail-Konfigurationstest erfolgreich");
             return (true, null);

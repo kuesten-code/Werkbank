@@ -146,8 +146,8 @@ public class XRechnungService : IXRechnungService
             if (string.IsNullOrWhiteSpace(company.Country))
                 missingFields.Add("Firmen Land");
 
-            if (string.IsNullOrWhiteSpace(company.TaxNumber))
-                missingFields.Add("Steuernummer");
+            if (string.IsNullOrWhiteSpace(company.TaxNumber) && string.IsNullOrWhiteSpace(company.VatId))
+                missingFields.Add("Steuernummer oder USt-IdNr.");
 
             if (string.IsNullOrWhiteSpace(company.BankAccount))
                 missingFields.Add("IBAN");

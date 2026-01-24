@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.DataProtection;
 
-namespace Kuestencode.Faktura.Services;
+namespace Kuestencode.Werkbank.Host.Services;
 
 public class PasswordEncryptionService
 {
@@ -30,7 +30,7 @@ public class PasswordEncryptionService
         }
         catch
         {
-            // Fallback for plain text values stored by the host.
+            // Fallback for legacy/plain text values.
             return cipherText;
         }
     }

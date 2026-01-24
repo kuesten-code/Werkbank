@@ -29,18 +29,18 @@ public class HostNavigationService : IHostNavigationService
             },
             new NavItemDto
             {
-                Label = "Stammdaten",
-                Icon = "Storage",
+                Label = "Kunden",
+                Href = "/customers",
+                Icon = "People",
+                Type = NavItemType.Link
+            },
+            new NavItemDto
+            {
+                Label = "Einstellungen",
+                Icon = "Settings",
                 Type = NavItemType.Group,
                 Children = new List<NavItemDto>
                 {
-                    new NavItemDto
-                    {
-                        Label = "Kunden",
-                        Href = "/customers",
-                        Icon = "People",
-                        Type = NavItemType.Link
-                    },
                     new NavItemDto
                     {
                         Label = "Firmendaten",

@@ -3,6 +3,7 @@ using Kuestencode.Core.Enums;
 using Kuestencode.Core.Interfaces;
 using Kuestencode.Core.Models;
 using Kuestencode.Shared.Contracts.Host;
+using Kuestencode.Werkbank.Host.Services;
 
 namespace Kuestencode.Werkbank.Host.Controllers;
 
@@ -11,10 +12,12 @@ namespace Kuestencode.Werkbank.Host.Controllers;
 public class CompanyController : ControllerBase
 {
     private readonly ICompanyService _companyService;
+    private readonly PasswordEncryptionService _passwordEncryption;
 
-    public CompanyController(ICompanyService companyService)
+    public CompanyController(ICompanyService companyService, PasswordEncryptionService passwordEncryption)
     {
         _companyService = companyService;
+        _passwordEncryption = passwordEncryption;
     }
 
     [HttpGet]
@@ -122,7 +125,7 @@ public class CompanyController : ControllerBase
             SmtpPort = company.SmtpPort,
             SmtpUseSsl = company.SmtpUseSsl,
             SmtpUsername = company.SmtpUsername,
-            SmtpPassword = company.SmtpPassword,
+            SmtpPassword = _passwordEncryption.Decrypt(company.SmtpPassword ?? string.Empty),
             EmailSenderEmail = company.EmailSenderEmail,
             EmailSenderName = company.EmailSenderName,
             EmailSignature = company.EmailSignature,

@@ -48,7 +48,11 @@ public abstract class BasePdfLayout : IPdfLayoutRenderer
                 {
                     // Bei Kleinunternehmern muss der vollständige bürgerliche Name im Footer stehen
                     leftColumn.Item().Text(company.OwnerFullName).FontSize(8).FontColor(TextSecondaryColor);
-                    leftColumn.Item().Text($"Steuernr.: {company.TaxNumber}").FontSize(8).FontColor(TextSecondaryColor);
+                    var taxLine = GetTaxIdentifierLine(company);
+                    if (!string.IsNullOrWhiteSpace(taxLine))
+                    {
+                        leftColumn.Item().Text(taxLine).FontSize(8).FontColor(TextSecondaryColor);
+                    }
                 });
 
                 row.RelativeItem().AlignCenter().Column(centerColumn =>
@@ -168,7 +172,7 @@ public abstract class BasePdfLayout : IPdfLayoutRenderer
         table.Cell().Background(bgColor).Padding(5)
             .Text(item.Position.ToString()).FontSize(9);
         table.Cell().Background(bgColor).Padding(5)
-            .Text(item.Description).FontSize(9);
+            .Text(text => AppendMultilineText(text, item.Description, 9));
         table.Cell().Background(bgColor).Padding(5).AlignRight()
             .Text(item.Quantity.ToString("N3", GermanCulture)).FontSize(9);
         table.Cell().Background(bgColor).Padding(5).AlignRight()
@@ -182,7 +186,7 @@ public abstract class BasePdfLayout : IPdfLayoutRenderer
         table.Cell().Background(bgColor).BorderBottom(1).BorderColor(DividerColor).Padding(5)
             .Text(item.Position.ToString()).FontSize(9);
         table.Cell().Background(bgColor).BorderBottom(1).BorderColor(DividerColor).Padding(5)
-            .Text(item.Description).FontSize(9);
+            .Text(text => AppendMultilineText(text, item.Description, 9));
         table.Cell().Background(bgColor).BorderBottom(1).BorderColor(DividerColor).Padding(5).AlignRight()
             .Text(item.Quantity.ToString("N3", GermanCulture)).FontSize(9);
         table.Cell().Background(bgColor).BorderBottom(1).BorderColor(DividerColor).Padding(5).AlignRight()
@@ -216,5 +220,42 @@ public abstract class BasePdfLayout : IPdfLayoutRenderer
 
         var textStyle = column.Item().PaddingTop(20).Text(text).FontSize(10);
         if (bold) textStyle.Bold();
+    }
+
+    private static string? GetTaxIdentifierLine(Company company)
+    {
+        if (!string.IsNullOrWhiteSpace(company.VatId))
+        {
+            return $"USt-IdNr.: {company.VatId}";
+        }
+
+        if (!string.IsNullOrWhiteSpace(company.TaxNumber))
+        {
+            return $"Steuernr.: {company.TaxNumber}";
+        }
+
+        return null;
+    }
+
+    private static void AppendMultilineText(TextDescriptor text, string value, float fontSize)
+    {
+        if (string.IsNullOrEmpty(value))
+        {
+            return;
+        }
+
+        var lines = value.Replace("\r\n", "\n").Replace("\r", "\n").Split('\n');
+        for (var i = 0; i < lines.Length; i++)
+        {
+            var line = lines[i].Length == 0 ? " " : lines[i];
+            if (i == 0)
+            {
+                text.Span(line).FontSize(fontSize);
+            }
+            else
+            {
+                text.Line(line).FontSize(fontSize);
+            }
+        }
     }
 }
