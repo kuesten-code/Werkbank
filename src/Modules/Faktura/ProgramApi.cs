@@ -155,11 +155,17 @@ public class ProgramApi
             var selfUrl = config.GetValue<string>("ServiceUrls:Self") ?? "http://localhost:8081";
             using var client = new HttpClient { BaseAddress = new Uri(hostUrl) };
 
+            var moduleVersion = config["MODULE_VERSION"]
+                ?? config["IMAGE_TAG"]
+                ?? config["DOCKER_IMAGE_TAG"]
+                ?? "dev";
+
             var moduleInfo = new ModuleInfoDto
             {
                 ModuleName = "Faktura",
-                DisplayName = "Faktura (Rechnungen)",
-                Version = "1.0.0",
+                DisplayName = "Faktura",
+                Version = moduleVersion,
+                LogoUrl = "/faktura/company/logos/Faktura_Logo.png",
                 HealthCheckUrl = $"{selfUrl}/faktura/health",
                 NavigationItems = new List<NavItemDto>
                 {

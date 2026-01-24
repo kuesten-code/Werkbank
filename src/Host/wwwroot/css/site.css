@@ -66,3 +66,39 @@ html, body {
 .loading-progress-text:after {
     content: var(--blazor-load-percentage-text, "Laden...");
 }
+
+.module-card {
+    border: 1px solid transparent;
+    transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+}
+
+.module-card-vertical {
+    position: relative;
+    min-height: 180px;
+}
+
+.module-card-version {
+    position: absolute;
+    bottom: 0.6rem;
+    left: 0.75rem;
+}
+
+.module-card-link {
+    color: inherit;
+    cursor: pointer;
+    display: block;
+    text-decoration: none;
+}
+
+.module-card-link:hover,
+.module-card-link:focus {
+    text-decoration: none;
+}
+
+.module-card-link * {
+    text-decoration: none;
+}
+
+.module-card-link:hover .module-card {
+    border-color: var(--mud-palette-secondary);
+}

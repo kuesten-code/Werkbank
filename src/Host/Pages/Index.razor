@@ -38,8 +38,64 @@
 
 <MudText Typo="Typo.h5" Class="mt-6 mb-3">Module</MudText>
 
-<MudAlert Severity="Severity.Info" Class="mb-4">
-    Module werden hier angezeigt, sobald sie aktiviert sind.
-</MudAlert>
-
-@* Hier werden später die aktiven Module angezeigt *@
+@if (!_modules.Any())
+{
+    <MudAlert Severity="Severity.Info" Class="mb-4">
+        Module werden hier angezeigt, sobald sie registriert sind.
+    </MudAlert>
+}
+else
+{
+    <MudGrid>
+        @foreach (var module in _modules)
+        {
+            var moduleHref = GetModuleHref(module);
+            <MudItem xs="12" sm="6" md="4">
+                @if (!string.IsNullOrWhiteSpace(moduleHref))
+                {
+                    <MudLink Href="@moduleHref" Class="module-card-link">
+                        <MudPaper Class="module-card module-card-vertical pa-3" Elevation="2">
+                            <MudStack AlignItems="AlignItems.Center" Spacing="2">
+                                @if (!string.IsNullOrWhiteSpace(module.LogoUrl))
+                                {
+                                    <MudImage Src="@module.LogoUrl"
+                                              Alt="@module.DisplayName"
+                                              Style="width: 200px; height: 200px; object-fit: contain;" />
+                                }
+                                else
+                                {
+                                    <MudIcon Icon="@Icons.Material.Filled.Apps" Size="Size.Large" Color="Color.Primary" />
+                                }
+                                <MudText Typo="Typo.subtitle1" Align="Align.Center">@module.DisplayName</MudText>
+                            </MudStack>
+                            <MudText Typo="Typo.caption" Color="Color.Secondary" Class="module-card-version">
+                                @module.Version
+                            </MudText>
+                        </MudPaper>
+                    </MudLink>
+                }
+                else
+                {
+                    <MudPaper Class="module-card module-card-vertical pa-3" Elevation="2">
+                        <MudStack AlignItems="AlignItems.Center" Spacing="2">
+                            @if (!string.IsNullOrWhiteSpace(module.LogoUrl))
+                            {
+                                <MudImage Src="@module.LogoUrl"
+                                          Alt="@module.DisplayName"
+                                          Style="width: 248px; height: 248px; object-fit: contain;" />
+                            }
+                            else
+                            {
+                                <MudIcon Icon="@Icons.Material.Filled.Apps" Size="Size.Large" Color="Color.Primary" />
+                            }
+                            <MudText Typo="Typo.subtitle1" Align="Align.Center">@module.DisplayName</MudText>
+                        </MudStack>
+                        <MudText Typo="Typo.caption" Color="Color.Secondary" Class="module-card-version">
+                            @module.Version
+                        </MudText>
+                    </MudPaper>
+                }
+            </MudItem>
+        }
+    </MudGrid>
+}

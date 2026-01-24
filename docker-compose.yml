@@ -56,6 +56,7 @@ services:
       - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=kuestencode_dev;Username=postgres;Password=dev_password
       - ServiceUrls__Host=http://host:8080
       - ServiceUrls__Self=http://faktura:8081
+      - MODULE_VERSION=1.1.0
       - APPLY_MIGRATIONS=true
     volumes:
       - ./data/keys:/app/data/keys
