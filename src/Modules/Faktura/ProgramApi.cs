@@ -23,6 +23,7 @@ public class ProgramApi
         var builder = WebApplication.CreateBuilder(args);
         builder.WebHost.UseStaticWebAssets();
         builder.Configuration.AddJsonFile("appsettings.api.json", optional: true, reloadOnChange: true);
+        builder.Configuration.AddEnvironmentVariables();
 
         // Add Blazor Server + Razor Pages
         builder.Services.AddRazorPages();

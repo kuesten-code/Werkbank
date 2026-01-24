@@ -56,9 +56,13 @@ appsettings.Staging.json
 # PostgreSQL data directory (root level)
 /data/
 
+# Installation bundle
+/Installation/
+
 # Data folders in source (keys, postgres backups, but not source code)
 **/Data/keys/
 **/Data/postgres/
 
 # Allow Data folders with source code
 !**/src/**/Data/
+Kuestencode_Werkbank.zip
