@@ -2,7 +2,7 @@
 @using Kuestencode.Faktura.Services
 @inject IWebHostEnvironment Environment
 
-<div style="border: 1px solid #e5e7eb; border-radius: 4px; height: 100%; min-height: 600px; overflow-y: auto; background-color: #f9fafb; padding: 12px;">
+<div class="email-preview-surface">
     @if (_loading)
     {
         <div style="display: flex; align-items: center; justify-content: center; height: 100%; min-height: 600px;">
@@ -15,7 +15,7 @@
     }
     else
     {
-        <div style="background-color: white; box-shadow: 0 1px 3px rgba(0,0,0,0.1); padding: 24px;">
+        <div class="email-preview-frame">
             @((MarkupString)_previewHtml)
         </div>
     }

@@ -1,0 +1,31 @@
+.email-preview-surface {
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
+  height: 100%;
+  min-height: 600px;
+  overflow-y: auto;
+  background-color: #f9fafb;
+  padding: 12px;
+  color-scheme: light;
+}
+
+.email-preview-frame {
+  background-color: #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  padding: 24px;
+  color: #1a1a1a;
+}
+
+.email-preview-frame ::deep body {
+  background-color: #ffffff;
+  color: inherit;
+}
+
+.email-preview-frame ::deep p,
+.email-preview-frame ::deep span,
+.email-preview-frame ::deep div,
+.email-preview-frame ::deep td,
+.email-preview-frame ::deep th,
+.email-preview-frame ::deep li {
+  color: inherit;
+}
