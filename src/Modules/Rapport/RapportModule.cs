@@ -1,8 +1,11 @@
+using Kuestencode.Core.Interfaces;
 using Kuestencode.Rapport.Data;
 using Kuestencode.Rapport.Data.Repositories;
+using Kuestencode.Rapport.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using RapportRepo = Kuestencode.Rapport.Data.Repositories;
 
 namespace Kuestencode.Rapport;
@@ -27,6 +30,11 @@ public static class RapportModule
 
         // Register repositories
         services.AddScoped(typeof(RapportRepo.IRepository<>), typeof(Repository<>));
+        services.AddScoped<TimeEntryRepository>();
+        services.AddScoped<TimerService>();
+
+        // Fallback project service
+        services.TryAddScoped<IProjectService, MockProjectService>();
 
         return services;
     }

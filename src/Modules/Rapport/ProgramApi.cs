@@ -1,4 +1,5 @@
 using System.Net.Http.Json;
+using Kuestencode.Core.Interfaces;
 using Kuestencode.Rapport;
 using Kuestencode.Rapport.Services;
 using Kuestencode.Shared.ApiClients;
@@ -69,6 +70,9 @@ public class ProgramApi
             client.BaseAddress = new Uri(hostUrl);
             client.Timeout = TimeSpan.FromSeconds(30);
         });
+
+        // Add API-based implementations of Host services (Customer)
+        builder.Services.AddScoped<ICustomerService, ApiCustomerService>();
 
         // Add Rapport Services (includes DbContext, Repositories, etc.)
         builder.Services.AddRapportModule(builder.Configuration);
