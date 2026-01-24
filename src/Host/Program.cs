@@ -47,8 +47,16 @@ builder.Services.AddHttpClient<IFakturaApiClient, FakturaApiClient>(client =>
     client.BaseAddress = new Uri(fakturaUrl);
 });
 
-// Add YARP Reverse Proxy for Faktura module
+// Add HttpClient fuer Rapport-API
+builder.Services.AddHttpClient<IRapportApiClient, RapportApiClient>(client =>
+{
+    var rapportUrl = builder.Configuration.GetValue<string>("ServiceUrls:Rapport") ?? "http://localhost:8082";
+    client.BaseAddress = new Uri(rapportUrl);
+});
+
+// Add YARP Reverse Proxy for Faktura and Rapport modules
 var fakturaServiceUrl = builder.Configuration.GetValue<string>("ServiceUrls:Faktura") ?? "http://localhost:8081";
+var rapportServiceUrl = builder.Configuration.GetValue<string>("ServiceUrls:Rapport") ?? "http://localhost:8082";
 builder.Services.AddReverseProxy()
     .LoadFromMemory(
         routes: new[]
@@ -70,6 +78,24 @@ builder.Services.AddReverseProxy()
                 {
                     Path = "/_faktura/{**catch-all}"
                 }
+            },
+            new Yarp.ReverseProxy.Configuration.RouteConfig
+            {
+                RouteId = "rapport-route",
+                ClusterId = "rapport-cluster",
+                Match = new Yarp.ReverseProxy.Configuration.RouteMatch
+                {
+                    Path = "/rapport/{**catch-all}"
+                }
+            },
+            new Yarp.ReverseProxy.Configuration.RouteConfig
+            {
+                RouteId = "rapport-blazor-route",
+                ClusterId = "rapport-cluster",
+                Match = new Yarp.ReverseProxy.Configuration.RouteMatch
+                {
+                    Path = "/_rapport/{**catch-all}"
+                }
             }
         },
         clusters: new[]
@@ -80,6 +106,14 @@ builder.Services.AddReverseProxy()
                 Destinations = new Dictionary<string, Yarp.ReverseProxy.Configuration.DestinationConfig>
                 {
                     { "faktura", new Yarp.ReverseProxy.Configuration.DestinationConfig { Address = fakturaServiceUrl } }
+                }
+            },
+            new Yarp.ReverseProxy.Configuration.ClusterConfig
+            {
+                ClusterId = "rapport-cluster",
+                Destinations = new Dictionary<string, Yarp.ReverseProxy.Configuration.DestinationConfig>
+                {
+                    { "rapport", new Yarp.ReverseProxy.Configuration.DestinationConfig { Address = rapportServiceUrl } }
                 }
             }
         });

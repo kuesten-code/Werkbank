@@ -1,0 +1,43 @@
+using Kuestencode.Rapport.Data;
+using Kuestencode.Rapport.Data.Repositories;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using RapportRepo = Kuestencode.Rapport.Data.Repositories;
+
+namespace Kuestencode.Rapport;
+
+/// <summary>
+/// Module definition for the Rapport module.
+/// Provides extension methods for service registration.
+/// </summary>
+public static class RapportModule
+{
+    /// <summary>
+    /// Adds all Rapport module services to the service collection.
+    /// </summary>
+    /// <param name="services">The service collection</param>
+    /// <param name="configuration">The configuration</param>
+    /// <returns>The service collection for chaining</returns>
+    public static IServiceCollection AddRapportModule(this IServiceCollection services, IConfiguration configuration)
+    {
+        // Add DbContext with PostgreSQL (Rapport schema)
+        services.AddDbContext<RapportDbContext>(options =>
+            options.UseNpgsql(configuration.GetConnectionString("DefaultConnection")));
+
+        // Register repositories
+        services.AddScoped(typeof(RapportRepo.IRepository<>), typeof(Repository<>));
+
+        return services;
+    }
+
+    /// <summary>
+    /// Applies pending database migrations.
+    /// </summary>
+    public static async Task ApplyMigrationsAsync(IServiceProvider serviceProvider)
+    {
+        using var scope = serviceProvider.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<RapportDbContext>();
+        await context.Database.MigrateAsync();
+    }
+}
