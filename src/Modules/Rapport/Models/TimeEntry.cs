@@ -1,14 +1,14 @@
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using Kuestencode.Core.Models;
 
 namespace Kuestencode.Rapport.Models;
 
 /// <summary>
-/// Zeiterfassung fuer einen Kunden.
+/// Zeiterfassung für einen Kunden.
 /// REGEL: Kunde ist PFLICHT. Projekt ist OPTIONAL.
-/// - Wenn Projekt gewaehlt: CustomerId kommt vom Projekt
-/// - Wenn kein Projekt: CustomerId wird direkt gewaehlt
+/// - Wenn Projekt gewählt: CustomerId kommt vom Projekt
+/// - Wenn kein Projekt: CustomerId wird direkt gewählt
 /// </summary>
 public class TimeEntry : BaseEntity
 {
@@ -68,6 +68,16 @@ public class TimeEntry : BaseEntity
     /// </summary>
     [Required]
     public TimeEntryStatus Status { get; set; } = TimeEntryStatus.Running;
+
+    /// <summary>
+    /// Marks the entry as deleted without removing it from the database.
+    /// </summary>
+    public bool IsDeleted { get; set; } = false;
+
+    /// <summary>
+    /// Timestamp for soft deletion.
+    /// </summary>
+    public DateTime? DeletedAt { get; set; }
 
     /// <summary>
     /// Computed duration of the entry.

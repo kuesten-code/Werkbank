@@ -1,4 +1,4 @@
-using Kuestencode.Core.Interfaces;
+﻿using Kuestencode.Core.Interfaces;
 using Kuestencode.Rapport.Data;
 using Kuestencode.Rapport.Data.Repositories;
 using Kuestencode.Rapport.Services;
@@ -49,3 +49,5 @@ public static class RapportModule
         await context.Database.MigrateAsync();
     }
 }
+
+

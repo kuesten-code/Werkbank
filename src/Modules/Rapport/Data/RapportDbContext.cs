@@ -1,4 +1,4 @@
-using Kuestencode.Core.Models;
+﻿using Kuestencode.Core.Models;
 using Kuestencode.Rapport.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
@@ -39,6 +39,7 @@ public class RapportDbContext : DbContext
 
         modelBuilder.Entity<TimeEntry>(entity =>
         {
+            entity.HasQueryFilter(e => !e.IsDeleted);
             entity.HasKey(e => e.Id);
             entity.HasIndex(e => e.StartTime);
             entity.HasIndex(e => e.CustomerId);
@@ -52,7 +53,9 @@ public class RapportDbContext : DbContext
             entity.Property(e => e.CustomerName).HasMaxLength(200);
             entity.Property(e => e.ProjectName).HasMaxLength(200);
             entity.Property(e => e.IsManual).HasDefaultValue(false);
+            entity.Property(e => e.IsDeleted).HasDefaultValue(false);
             entity.Property(e => e.Status).IsRequired();
         });
     }
 }
+

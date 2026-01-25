@@ -1,3 +1,4 @@
+﻿using System.Linq;
 using Kuestencode.Rapport.Models;
 using Microsoft.EntityFrameworkCore;
 
@@ -80,5 +81,27 @@ public class TimeEntryRepository : Repository<TimeEntry>
         return entries
             .Select(e => (e.EndTime ?? now) - e.StartTime)
             .Sum(ts => ts.TotalHours);
+    }
+
+    /// <summary>
+    /// Returns a queryable for time entries.
+    /// </summary>
+    public IQueryable<TimeEntry> Query()
+    {
+        return _dbSet.AsQueryable();
+    }
+
+    /// <summary>
+    /// Returns entries that overlap the given time range.
+    /// </summary>
+    public async Task<List<TimeEntry>> GetOverlappingEntriesAsync(DateTime start, DateTime end, int? excludeId = null)
+    {
+        var query = _dbSet.Where(e => e.StartTime < end && (e.EndTime ?? DateTime.UtcNow) > start);
+        if (excludeId.HasValue)
+        {
+            query = query.Where(e => e.Id != excludeId.Value);
+        }
+
+        return await query.ToListAsync();
     }
 }

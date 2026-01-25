@@ -1,0 +1,24 @@
+﻿.timer-pulse {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: #2ecc71;
+    box-shadow: 0 0 0 rgba(46, 204, 113, 0.6);
+    animation: pulse 1.8s infinite;
+}
+
+.timer-duration {
+    font-variant-numeric: tabular-nums;
+}
+
+@keyframes pulse {
+    0% {
+        box-shadow: 0 0 0 0 rgba(46, 204, 113, 0.6);
+    }
+    70% {
+        box-shadow: 0 0 0 12px rgba(46, 204, 113, 0.0);
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(46, 204, 113, 0.0);
+    }
+}

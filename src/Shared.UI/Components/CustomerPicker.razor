@@ -1,9 +1,11 @@
-@using Kuestencode.Core.Models
+﻿@using Kuestencode.Core.Models
 @using Kuestencode.Core.Interfaces
 
 <MudAutocomplete T="Customer"
                  Label="@Label"
-                 @bind-Value="SelectedCustomer"
+                 Value="@SelectedCustomer"
+                 ValueChanged="OnCustomerSelected"
+                 ValueExpression="(() => SelectedCustomer)"
                  SearchFunc="SearchCustomers"
                  ToStringFunc="@(c => c?.Name ?? string.Empty)"
                  Variant="Variant.Outlined"

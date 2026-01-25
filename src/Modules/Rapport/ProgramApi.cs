@@ -1,4 +1,4 @@
-using System.Net.Http.Json;
+﻿using System.Net.Http.Json;
 using Kuestencode.Core.Interfaces;
 using Kuestencode.Rapport;
 using Kuestencode.Rapport.Services;
@@ -73,6 +73,9 @@ public class ProgramApi
 
         // Add API-based implementations of Host services (Customer)
         builder.Services.AddScoped<ICustomerService, ApiCustomerService>();
+
+        // Add Rapport application services
+        builder.Services.AddScoped<TimeEntryService>();
 
         // Add Rapport Services (includes DbContext, Repositories, etc.)
         builder.Services.AddRapportModule(builder.Configuration);
@@ -171,6 +174,29 @@ public class ProgramApi
                         Href = "/rapport",
                         Icon = "Dashboard",
                         Type = NavItemType.Link
+                    },
+                    new NavItemDto
+                    {
+                        Label = "Zeiteinträge",
+                        Icon = "Schedule",
+                        Type = NavItemType.Group,
+                        Children = new List<NavItemDto>
+                        {
+                            new NavItemDto
+                            {
+                                Label = "Übersicht",
+                                Href = "/rapport/time-entries",
+                                Icon = "List",
+                                Type = NavItemType.Link
+                            },
+                            new NavItemDto
+                            {
+                                Label = "Manueller Eintrag",
+                                Href = "/rapport/time-entries/create",
+                                Icon = "Add",
+                                Type = NavItemType.Link
+                            }
+                        }
                     }
                 }
             };
@@ -191,3 +217,6 @@ public class ProgramApi
         }
     }
 }
+
+
+
