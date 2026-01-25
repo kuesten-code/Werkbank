@@ -32,6 +32,7 @@ public static class RapportModule
         services.AddScoped(typeof(RapportRepo.IRepository<>), typeof(Repository<>));
         services.AddScoped<TimeEntryRepository>();
         services.AddScoped<TimerService>();
+        services.AddScoped<DashboardService>();
 
         // Fallback project service
         services.TryAddScoped<IProjectService, MockProjectService>();
@@ -49,6 +50,8 @@ public static class RapportModule
         await context.Database.MigrateAsync();
     }
 }
+
+
 
 
 

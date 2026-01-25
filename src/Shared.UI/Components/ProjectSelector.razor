@@ -1,0 +1,75 @@
+﻿@using Kuestencode.Core.Interfaces
+
+<MudStack Spacing="1">
+    @if (!IsAvailable)
+    {
+        <MudAlert Severity="Severity.Info" Dense="true">
+            Projekt-Modul ist nicht verfügbar.
+            @if (!string.IsNullOrWhiteSpace(UnavailableHref))
+            {
+                <MudLink Href="@UnavailableHref" Class="ml-1">Modul-Einstellungen öffnen</MudLink>
+            }
+        </MudAlert>
+    }
+    else if (Projects.Count == 0)
+    {
+        <MudText Typo="Typo.caption" Color="Color.Secondary">Keine Projekte verfügbar.</MudText>
+    }
+    else
+    {
+        <MudSelect T="int?" Label="Projekt" Variant="Variant.Outlined" Clearable="true"
+                   Value="SelectedProjectId" ValueChanged="OnSelectedProjectChanged">
+            <MudSelectItem T="int?" Value="@(null)">Kein Projekt</MudSelectItem>
+            @foreach (var project in Projects)
+            {
+                <MudSelectItem T="int?" Value="project.Id">@FormatProject(project)</MudSelectItem>
+            }
+        </MudSelect>
+
+        @if (SelectedProjectId.HasValue)
+        {
+            var selectedProject = Projects.FirstOrDefault(p => p.Id == SelectedProjectId.Value);
+            if (selectedProject != null)
+            {
+                <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mt-1">
+                    Kunde: @selectedProject.CustomerName (wird automatisch zugeordnet)
+                </MudText>
+            }
+        }
+    }
+</MudStack>
+
+@code {
+    [Parameter]
+    public List<IProject> Projects { get; set; } = new();
+
+    [Parameter]
+    public bool IsAvailable { get; set; } = true;
+
+    [Parameter]
+    public int? SelectedProjectId { get; set; }
+
+    [Parameter]
+    public EventCallback<int?> SelectedProjectIdChanged { get; set; }
+
+    [Parameter]
+    public string? UnavailableHref { get; set; } = "/settings/modules";
+
+    private async Task OnSelectedProjectChanged(int? value)
+    {
+        SelectedProjectId = value;
+        await SelectedProjectIdChanged.InvokeAsync(value);
+    }
+
+    private string FormatProject(IProject project)
+    {
+        var label = $"{project.Name} - {project.CustomerName}";
+        if (!string.IsNullOrWhiteSpace(project.ProjectNumber))
+        {
+            label += $" ({project.ProjectNumber})";
+        }
+
+        return label;
+    }
+}
+

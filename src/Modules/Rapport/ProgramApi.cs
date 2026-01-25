@@ -1,4 +1,4 @@
-using System.Net.Http.Json;
+Ôªøusing System.Net.Http.Json;
 using Kuestencode.Core.Interfaces;
 using Kuestencode.Rapport;
 using Kuestencode.Rapport.Services;
@@ -76,6 +76,7 @@ public class ProgramApi
 
         // Add Rapport application services
         builder.Services.AddScoped<TimeEntryService>();
+        builder.Services.AddScoped<DashboardService>();
 
         // Add Rapport Services (includes DbContext, Repositories, etc.)
         builder.Services.AddRapportModule(builder.Configuration);
@@ -177,14 +178,14 @@ public class ProgramApi
                     },
                     new NavItemDto
                     {
-                        Label = "Zeiteintr‰ge",
+                        Label = "Zeiteintr√§ge",
                         Icon = "AccessTime",
                         Type = NavItemType.Group,
                         Children = new List<NavItemDto>
                         {
                             new NavItemDto
                             {
-                                Label = "‹bersicht",
+                                Label = "√úbersicht",
                                 Href = "/rapport/time-entries",
                                 Icon = "Schedule",
                                 Type = NavItemType.Link
@@ -224,6 +225,10 @@ public class ProgramApi
         }
     }
 }
+
+
+
+
 
 
 

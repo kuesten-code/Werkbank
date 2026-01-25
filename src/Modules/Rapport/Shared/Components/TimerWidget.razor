@@ -36,35 +36,18 @@
         <MudStack Spacing="3">
             <MudGrid>
                 <MudItem xs="12" md="6">
-                    <MudSelect T="IProject" Label="Projekt" Variant="Variant.Outlined"
-                               Clearable="true"
-                               @bind-Value="_selectedProject"
-                               @bind-Value:after="OnProjectChanged">
-                        @if (_projects.Count == 0)
-                        {
-                            <MudSelectItem T="IProject" Value="null" Disabled="true">Keine Projekte verfügbar</MudSelectItem>
-                        }
-                        else
-                        {
-                            @foreach (var project in _projects)
-                            {
-                                <MudSelectItem T="IProject" Value="project">@GetProjectLabel(project)</MudSelectItem>
-                            }
-                        }
-                    </MudSelect>
-                    @if (_selectedProject != null)
-                    {
-                        <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mt-1">
-                            Gehört zu Kunde: @_selectedProject.CustomerName
-                        </MudText>
-                    }
+                    <ProjectSelector Projects="_projects"
+                                     IsAvailable="_projectsAvailable"
+                                     SelectedProjectId="_selectedProjectId"
+                                     SelectedProjectIdChanged="OnProjectSelected"
+                                     UnavailableHref="/settings/modules" />
                 </MudItem>
                 <MudItem xs="12" md="6">
                     <CustomerPicker Customers="_customers"
                                     SelectedCustomer="_selectedCustomer"
                                     SelectedCustomerChanged="OnCustomerChanged"
-                                    Disabled="@(_selectedProject != null)"
-                                    Required="@(_selectedProject == null)"
+                                    Disabled="@(_selectedProjectId.HasValue)"
+                                    Required="@(!_selectedProjectId.HasValue)"
                                     RequiredError="Kunde ist erforderlich" />
                 </MudItem>
             </MudGrid>
@@ -84,6 +67,8 @@
     private List<IProject> _projects = new();
     private Customer? _selectedCustomer;
     private IProject? _selectedProject;
+    private int? _selectedProjectId;
+    private bool _projectsAvailable;
     private bool _isLoading = true;
     private string? _description;
     private TimeEntry? _runningEntry;
@@ -105,7 +90,15 @@
         try
         {
             _customers = await CustomerService.GetAllAsync();
-            _projects = (await ProjectService.GetAllProjectsAsync()).ToList();
+            _projectsAvailable = await ProjectService.IsAvailableAsync();
+            if (_projectsAvailable)
+            {
+                _projects = (await ProjectService.GetAllProjectsAsync()).ToList();
+            }
+            else
+            {
+                _projects = new List<IProject>();
+            }
         }
         finally
         {
@@ -113,13 +106,13 @@
         }
     }
 
-    private string GetProjectLabel(IProject project)
+    private Task OnProjectSelected(int? projectId)
     {
-        return $"{project.Name} - {project.CustomerName}";
-    }
+        _selectedProjectId = projectId;
+        _selectedProject = projectId.HasValue
+            ? _projects.FirstOrDefault(p => p.Id == projectId.Value)
+            : null;
 
-    private Task OnProjectChanged()
-    {
         if (_selectedProject == null)
         {
             _selectedCustomer = null;
@@ -149,7 +142,7 @@
 
     private async Task StartTimerAsync()
     {
-        if (_selectedProject == null && _selectedCustomer == null)
+        if (!_selectedProjectId.HasValue && _selectedCustomer == null)
         {
             Snackbar.Add("Bitte wähle einen Kunden oder ein Projekt.", Severity.Warning);
             return;
@@ -157,8 +150,8 @@
 
         try
         {
-            var projectId = _selectedProject?.Id;
-            var customerId = _selectedProject == null ? _selectedCustomer?.Id : (int?)null;
+            var projectId = _selectedProjectId;
+            var customerId = !_selectedProjectId.HasValue ? _selectedCustomer?.Id : (int?)null;
 
             _runningEntry = await TimerService.StartTimerAsync(projectId, customerId, _description);
             UpdateRunningDisplay();
@@ -230,7 +223,7 @@
         _timerCts?.Dispose();
     }
 
-        private async Task OpenStopDialog()
+    private async Task OpenStopDialog()
     {
         if (_runningEntry == null)
         {
@@ -264,8 +257,4 @@
         return $"{totalHours:00}:{duration.Minutes:00}:{duration.Seconds:00}";
     }
 }
-
-
-
-
 

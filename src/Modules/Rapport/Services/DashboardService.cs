@@ -59,7 +59,10 @@ public class DashboardService
     {
         IQueryable<TimeEntry> query = _timeEntryRepository.Query();
 
-        query = query.Where(e => e.StartTime >= from && e.StartTime <= to);
+        var fromUtc = ToUtc(from);
+        var toUtc = ToUtc(to);
+
+        query = query.Where(e => e.StartTime >= fromUtc && e.StartTime <= toUtc);
 
         if (customerIds != null && customerIds.Any())
         {
@@ -125,4 +128,17 @@ public class DashboardService
 
         return result;
     }
+
+    private static DateTime ToUtc(DateTime value)
+    {
+        return value.Kind switch
+        {
+            DateTimeKind.Utc => value,
+            DateTimeKind.Local => value.ToUniversalTime(),
+            _ => DateTime.SpecifyKind(value, DateTimeKind.Local).ToUniversalTime()
+        };
+    }
 }
+
+
+

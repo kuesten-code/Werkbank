@@ -45,22 +45,8 @@ public class TimerService
 
             if (projectId.HasValue)
             {
-                var project = await _projectService.GetProjectByIdAsync(projectId.Value);
-                if (project == null)
-                {
-                    throw new ValidationException("Selected project was not found.");
-                }
-
-                resolvedCustomerId = project.CustomerId;
-                resolvedProjectName = project.Name;
-
-                var customer = await _customerService.GetByIdAsync(resolvedCustomerId);
-                if (customer == null)
-                {
-                    throw new ValidationException("Customer not found.");
-                }
-
-                resolvedCustomerName = project.CustomerName;
+                (resolvedCustomerId, resolvedCustomerName, resolvedProjectName) =
+                    await ResolveProjectDetailsAsync(projectId.Value);
             }
             else
             {
@@ -169,5 +155,27 @@ public class TimerService
     {
         var entry = await _timeEntryRepository.GetRunningEntryAsync();
         return entry != null;
+    }
+
+    private async Task<(int customerId, string customerName, string projectName)> ResolveProjectDetailsAsync(int projectId)
+    {
+        var project = await _projectService.GetProjectByIdAsync(projectId);
+        if (project == null)
+        {
+            throw new ValidationException("Selected project was not found.");
+        }
+
+        if (project.CustomerId <= 0)
+        {
+            throw new ValidationException("Selected project has no customer.");
+        }
+
+        var customer = await _customerService.GetByIdAsync(project.CustomerId);
+        if (customer == null)
+        {
+            throw new ValidationException("Customer not found.");
+        }
+
+        return (project.CustomerId, project.CustomerName, project.Name);
     }
 }

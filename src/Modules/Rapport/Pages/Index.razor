@@ -1,8 +1,8 @@
-@page "/"
+ï»¿@page "/"
 @using Kuestencode.Rapport.Models.Reports
 @inject DashboardService DashboardService
 
-<PageTitle>Zeiterfassung - Küstencode Rapport</PageTitle>
+<PageTitle>Zeiterfassung - KÃ¼stencode Rapport</PageTitle>
 
 <MudContainer MaxWidth="MaxWidth.Large" Class="mt-4" @key="@_refreshKey">
     <MudText Typo="Typo.h4" GutterBottom="true">Zeiterfassung</MudText>
@@ -10,7 +10,7 @@
     <TimerWidget />
 
     <MudPaper Class="pa-4 mt-4" Elevation="1">
-        <MudText Typo="Typo.h6" GutterBottom="true">Übersicht</MudText>
+        <MudText Typo="Typo.h6" GutterBottom="true">Ãœbersicht</MudText>
 
         @if (_loadingSummary)
         {
@@ -19,7 +19,7 @@
         else if (_summaryError)
         {
             <MudAlert Severity="Severity.Info" Dense="true">
-                Übersicht konnte nicht geladen werden.
+                Ãœbersicht konnte nicht geladen werden.
             </MudAlert>
         }
         else
@@ -54,7 +54,7 @@
                     <MudItem xs="6" sm="3">
                         <MudPaper Elevation="0" Class="metric-card" Style="padding: 8px;">
                             <MudStack Spacing="1">
-                                <MudText Typo="Typo.caption" Color="Color.Secondary">Heute für</MudText>
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">Heute fÃ¼r</MudText>
                                 <MudText Typo="Typo.body1">@_singleCustomerTodayName</MudText>
                                 <MudText Typo="Typo.h5">@FormatHours(_singleCustomerTodayHours)</MudText>
                             </MudStack>
@@ -80,7 +80,7 @@
         }
         else if (_topCustomers.Count == 0)
         {
-            <MudText Typo="Typo.body2" Color="Color.Secondary">Keine Einträge in dieser Woche.</MudText>
+            <MudText Typo="Typo.body2" Color="Color.Secondary">Keine EintrÃ¤ge in dieser Woche.</MudText>
         }
         else
         {
@@ -192,3 +192,5 @@
         return $"{hours:0.##} h";
     }
 }
+
+

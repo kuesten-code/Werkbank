@@ -1,4 +1,4 @@
-@page "/reports"
+ï»¿@page "/reports"
 @using System.Text
 @using Kuestencode.Rapport.Models.Reports
 @inject DashboardService DashboardService
@@ -7,7 +7,7 @@
 @inject ISnackbar Snackbar
 @inject IJSRuntime JSRuntime
 
-<PageTitle>Auswertungen - Küstencode Rapport</PageTitle>
+<PageTitle>Auswertungen - KÃ¼stencode Rapport</PageTitle>
 
 <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-4">
     <MudText Typo="Typo.h4">Auswertungen</MudText>
@@ -48,16 +48,16 @@
             </MudItem>
         }
         <MudItem xs="12">
-            <MudRadioGroup T="string" @bind-SelectedOption="_grouping">
-                <MudRadio T="string" Option="Customer">Nach Kunde</MudRadio>
-                <MudRadio T="string" Option="Project">Nach Projekt</MudRadio>
-                <MudRadio T="string" Option="CustomerProject">Nach Kunde ? Projekte</MudRadio>
-                <MudRadio T="string" Option="Day">Nach Tag</MudRadio>
+            <MudRadioGroup T="string" @bind-Value="_grouping">
+                <MudRadio T="string" Value="@("Customer")">Nach Kunde</MudRadio>
+                <MudRadio T="string" Value="@("Project")">Nach Projekt</MudRadio>
+                <MudRadio T="string" Value="@("CustomerProject")">Nach Kunde â†’ Projekte</MudRadio>
+                <MudRadio T="string" Value="@("Day")">Nach Tag</MudRadio>
             </MudRadioGroup>
         </MudItem>
         <MudItem xs="12" Class="d-flex gap-2">
             <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="LoadReportAsync">Filter anwenden</MudButton>
-            <MudButton Variant="Variant.Text" OnClick="ResetFilters">Zurücksetzen</MudButton>
+            <MudButton Variant="Variant.Text" OnClick="ResetFilters">ZurÃ¼cksetzen</MudButton>
         </MudItem>
     </MudGrid>
 </MudPaper>
@@ -75,23 +75,23 @@
     }
     else if (_entries.Count == 0)
     {
-        <MudText Typo="Typo.body2" Color="Color.Secondary">Keine Einträge im gewählten Zeitraum.</MudText>
+        <MudText Typo="Typo.body2" Color="Color.Secondary">Keine EintrÃ¤ge im gewÃ¤hlten Zeitraum.</MudText>
     }
     else
     {
         @if (_grouping == "CustomerProject")
         {
-            <MudTreeView>
+            <MudTreeView T="string">
                 @foreach (var customer in _customerTree)
                 {
-                    <MudTreeViewItem Text="@GetCustomerTreeLabel(customer)">
+                    <MudTreeViewItem T="string" Text="@GetCustomerTreeLabel(customer)" Value="@GetCustomerTreeLabel(customer)">
                         @foreach (var project in customer.Projects)
                         {
-                            <MudTreeViewItem Text="@GetProjectTreeLabel(project)" />
+                            <MudTreeViewItem T="string" Text="@GetProjectTreeLabel(project)" Value="@GetProjectTreeLabel(project)" />
                         }
                         @if (customer.WithoutProjectHours > 0)
                         {
-                            <MudTreeViewItem Text="@GetWithoutProjectLabel(customer)" />
+                            <MudTreeViewItem T="string" Text="@GetWithoutProjectLabel(customer)" Value="@GetWithoutProjectLabel(customer)" />
                         }
                     </MudTreeViewItem>
                 }
@@ -103,7 +103,7 @@
                 <HeaderContent>
                     <MudTh>Kunde</MudTh>
                     <MudTh>Stunden</MudTh>
-                    <MudTh>Einträge</MudTh>
+                    <MudTh>EintrÃ¤ge</MudTh>
                 </HeaderContent>
                 <RowTemplate>
                     <MudTd>@context.CustomerName</MudTd>
@@ -169,11 +169,29 @@
 
     protected override async Task OnInitializedAsync()
     {
-        _customers = await CustomerService.GetAllAsync();
-        _projectsAvailable = await ProjectService.IsAvailableAsync();
-        if (_projectsAvailable)
+        try
         {
-            _projects = (await ProjectService.GetAllProjectsAsync()).ToList();
+            _customers = await CustomerService.GetAllAsync();
+        }
+        catch
+        {
+            _error = true;
+            _loading = false;
+            return;
+        }
+
+        try
+        {
+            _projectsAvailable = await ProjectService.IsAvailableAsync();
+            if (_projectsAvailable)
+            {
+                _projects = (await ProjectService.GetAllProjectsAsync()).ToList();
+            }
+        }
+        catch
+        {
+            _projectsAvailable = false;
+            _projects = new List<IProject>();
         }
 
         await LoadReportAsync();
@@ -340,11 +358,11 @@
 
             sb.Append(CsvField(startLocal.ToString("dd.MM.yyyy"))).Append(';')
               .Append(CsvField(startLocal.ToString("HH:mm"))).Append(';')
-              .Append(CsvField(endLocal?.ToString("HH:mm") ?? "läuft")).Append(';')
+              .Append(CsvField(endLocal?.ToString("HH:mm") ?? "lÃ¤uft")).Append(';')
               .Append(CsvField(duration.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture))).Append(';')
-              .Append(CsvField(entry.CustomerName ?? ""))).Append(';')
-              .Append(CsvField(entry.ProjectName ?? ""))).Append(';')
-              .Append(CsvField(entry.Description ?? ""))).Append(';')
+              .Append(CsvField(entry.CustomerName ?? "")).Append(';')
+              .Append(CsvField(entry.ProjectName ?? "")).Append(';')
+              .Append(CsvField(entry.Description ?? "")).Append(';')
               .Append(CsvField(type)).AppendLine();
         }
 
@@ -457,3 +475,12 @@
         public decimal Hours { get; set; }
     }
 }
+
+
+
+
+
+
+
+
+

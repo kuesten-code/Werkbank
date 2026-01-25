@@ -36,6 +36,7 @@
         {
             <MudItem xs="12" md="6">
                 <MudSelect T="IProject" Label="Projekte" Variant="Variant.Outlined" MultiSelection="true"
+                           Disabled="@_onlyWithoutProject"
                            SelectedValues="_selectedProjects"
                            SelectedValuesChanged="OnProjectsChanged">
                     @foreach (var project in _projects)
@@ -43,6 +44,9 @@
                         <MudSelectItem T="IProject" Value="project">@GetProjectLabel(project)</MudSelectItem>
                     }
                 </MudSelect>
+            </MudItem>
+            <MudItem xs="12" md="6">
+                <MudCheckBox T="bool" @bind-Checked="_onlyWithoutProject" @bind-Checked:after="OnWithoutProjectChanged" Label="Nur ohne Projekt (für gewählte Kunden)" />
             </MudItem>
         }
         <MudItem xs="12" Class="d-flex gap-2">
@@ -93,6 +97,7 @@
 @code {
     private List<TimeEntry> _entries = new();
     private List<Customer> _customers = new();
+    private List<IProject> _allProjects = new();
     private List<IProject> _projects = new();
     private List<Customer> _selectedCustomers = new();
     private List<IProject> _selectedProjects = new();
@@ -100,6 +105,7 @@
     private DateTime? _toDate;
     private string _typeFilter = "Alle";
     private bool _projectsAvailable;
+    private bool _onlyWithoutProject;
 
     protected override async Task OnInitializedAsync()
     {
@@ -107,7 +113,8 @@
         _projectsAvailable = await ProjectService.IsAvailableAsync();
         if (_projectsAvailable)
         {
-            _projects = (await ProjectService.GetAllProjectsAsync()).ToList();
+            _allProjects = (await ProjectService.GetAllProjectsAsync()).ToList();
+            UpdateProjectOptions();
         }
 
         await LoadEntriesAsync();
@@ -124,11 +131,12 @@
 
         var customerIds = _selectedCustomers.Select(c => c.Id).ToList();
         var projectIds = _selectedProjects.Select(p => p.Id).ToList();
+        var onlyWithoutProject = _onlyWithoutProject ? true : (bool?)null;
 
-        _entries = await TimeEntryService.GetEntriesAsync(_fromDate, _toDate, customerIds, projectIds, manualOnly);
+        _entries = await TimeEntryService.GetEntriesAsync(_fromDate, _toDate, customerIds, projectIds, manualOnly, onlyWithoutProject);
     }
 
-        private async Task DeleteEntryAsync(int id)
+    private async Task DeleteEntryAsync(int id)
     {
         var parameters = new DialogParameters
         {
@@ -169,13 +177,16 @@
         _toDate = null;
         _selectedCustomers.Clear();
         _selectedProjects.Clear();
+        _onlyWithoutProject = false;
         _typeFilter = "Alle";
+        UpdateProjectOptions();
         await LoadEntriesAsync();
     }
 
     private Task OnCustomersChanged(IEnumerable<Customer> customers)
     {
         _selectedCustomers = customers.ToList();
+        UpdateProjectOptions();
         return Task.CompletedTask;
     }
 
@@ -183,6 +194,35 @@
     {
         _selectedProjects = projects.ToList();
         return Task.CompletedTask;
+    }
+
+    private Task OnWithoutProjectChanged()
+    {
+        if (_onlyWithoutProject)
+        {
+            _selectedProjects.Clear();
+        }
+
+        return Task.CompletedTask;
+    }
+
+    private void UpdateProjectOptions()
+    {
+        if (!_projectsAvailable)
+        {
+            _projects = new List<IProject>();
+            _selectedProjects.Clear();
+            return;
+        }
+
+        var customerIds = _selectedCustomers.Select(c => c.Id).ToHashSet();
+        _projects = customerIds.Count == 0
+            ? _allProjects.ToList()
+            : _allProjects.Where(p => customerIds.Contains(p.CustomerId)).ToList();
+
+        _selectedProjects = _selectedProjects
+            .Where(p => _projects.Any(active => active.Id == p.Id))
+            .ToList();
     }
 
     private string GetCustomerLabel(Customer customer)
@@ -201,6 +241,7 @@
         return $"{totalHours:00}:{duration.Minutes:00}:{duration.Seconds:00}";
     }
 }
+
 
 
 

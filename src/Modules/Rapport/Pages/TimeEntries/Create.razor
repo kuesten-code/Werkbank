@@ -22,35 +22,18 @@
             <MudTimePicker Label="Endzeit" @bind-Time="_endTime" @bind-Time:after="UpdateDuration" Variant="Variant.Outlined" />
         </MudItem>
         <MudItem xs="12" md="6">
-            <MudSelect T="IProject" Label="Projekt" Variant="Variant.Outlined"
-                       Clearable="true"
-                       @bind-Value="_selectedProject"
-                       @bind-Value:after="OnProjectChanged">
-                @if (_projects.Count == 0)
-                {
-                    <MudSelectItem T="IProject" Value="null" Disabled="true">Keine Projekte verfügbar</MudSelectItem>
-                }
-                else
-                {
-                    @foreach (var project in _projects)
-                    {
-                        <MudSelectItem T="IProject" Value="project">@GetProjectLabel(project)</MudSelectItem>
-                    }
-                }
-            </MudSelect>
-            @if (_selectedProject != null)
-            {
-                <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mt-1">
-                    Gehört zu Kunde: @_selectedProject.CustomerName
-                </MudText>
-            }
+            <ProjectSelector Projects="_projects"
+                             IsAvailable="_projectsAvailable"
+                             SelectedProjectId="_selectedProjectId"
+                             SelectedProjectIdChanged="OnProjectSelected"
+                             UnavailableHref="/settings/modules" />
         </MudItem>
         <MudItem xs="12" md="6">
             <CustomerPicker Customers="_customers"
                             SelectedCustomer="_selectedCustomer"
                             SelectedCustomerChanged="OnCustomerChanged"
-                            Disabled="@(_selectedProject != null)"
-                            Required="@(_selectedProject == null)"
+                            Disabled="@(_selectedProjectId.HasValue)"
+                            Required="@(!_selectedProjectId.HasValue)"
                             RequiredError="Kunde ist erforderlich" />
         </MudItem>
         <MudItem xs="12">
@@ -76,23 +59,33 @@
     private string? _description;
     private List<Customer> _customers = new();
     private List<IProject> _projects = new();
+    private bool _projectsAvailable;
     private Customer? _selectedCustomer;
     private IProject? _selectedProject;
+    private int? _selectedProjectId;
     private string _durationDisplay = "00:00:00";
 
     protected override async Task OnInitializedAsync()
     {
         _customers = await CustomerService.GetAllAsync();
-        _projects = (await ProjectService.GetAllProjectsAsync()).ToList();
+        _projectsAvailable = await ProjectService.IsAvailableAsync();
+        if (_projectsAvailable)
+        {
+            _projects = (await ProjectService.GetAllProjectsAsync()).ToList();
+        }
+        else
+        {
+            _projects = new List<IProject>();
+        }
     }
 
-    private string GetProjectLabel(IProject project)
+    private Task OnProjectSelected(int? projectId)
     {
-        return $"{project.Name} - {project.CustomerName}";
-    }
+        _selectedProjectId = projectId;
+        _selectedProject = projectId.HasValue
+            ? _projects.FirstOrDefault(p => p.Id == projectId.Value)
+            : null;
 
-    private Task OnProjectChanged()
-    {
         if (_selectedProject == null)
         {
             _selectedCustomer = null;
@@ -128,7 +121,7 @@
             return;
         }
 
-        if (_selectedProject == null && _selectedCustomer == null)
+        if (!_selectedProjectId.HasValue && _selectedCustomer == null)
         {
             Snackbar.Add("Bitte wähle einen Kunden oder ein Projekt.", Severity.Warning);
             return;
@@ -146,8 +139,8 @@
             await TimeEntryService.CreateManualEntryAsync(
                 startUtc,
                 endUtc,
-                _selectedProject?.Id,
-                _selectedProject == null ? _selectedCustomer?.Id : null,
+                _selectedProjectId,
+                _selectedProjectId.HasValue ? null : _selectedCustomer?.Id,
                 _description);
 
             Snackbar.Add("Eintrag wurde gespeichert.", Severity.Success);
@@ -190,7 +183,4 @@
         return $"{totalHours:00}:{duration.Minutes:00}:{duration.Seconds:00}";
     }
 }
-
-
-
 

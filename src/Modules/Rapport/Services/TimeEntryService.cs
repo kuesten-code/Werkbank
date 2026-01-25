@@ -1,4 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 using Kuestencode.Core.Interfaces;
 using Kuestencode.Rapport.Data.Repositories;
 using Kuestencode.Rapport.Models;
@@ -122,18 +122,22 @@ public class TimeEntryService
         DateTime? to,
         IEnumerable<int>? customerIds,
         IEnumerable<int>? projectIds,
-        bool? manualOnly)
+        bool? manualOnly,
+        bool? onlyWithoutProject = null)
     {
         IQueryable<TimeEntry> query = _timeEntryRepository.Query();
 
-        if (from.HasValue)
+        DateTime? fromUtc = from.HasValue ? ToUtc(from.Value) : null;
+        DateTime? toUtc = to.HasValue ? ToUtc(to.Value) : null;
+
+        if (fromUtc.HasValue)
         {
-            query = query.Where(e => e.StartTime >= from.Value);
+            query = query.Where(e => e.StartTime >= fromUtc.Value);
         }
 
-        if (to.HasValue)
+        if (toUtc.HasValue)
         {
-            query = query.Where(e => e.StartTime <= to.Value);
+            query = query.Where(e => e.StartTime <= toUtc.Value);
         }
 
         if (customerIds != null && customerIds.Any())
@@ -141,7 +145,11 @@ public class TimeEntryService
             query = query.Where(e => customerIds.Contains(e.CustomerId));
         }
 
-        if (projectIds != null && projectIds.Any())
+        if (onlyWithoutProject == true)
+        {
+            query = query.Where(e => e.ProjectId == null);
+        }
+        else if (projectIds != null && projectIds.Any())
         {
             query = query.Where(e => e.ProjectId.HasValue && projectIds.Contains(e.ProjectId.Value));
         }
@@ -181,19 +189,7 @@ public class TimeEntryService
     {
         if (projectId.HasValue)
         {
-            var project = await _projectService.GetProjectByIdAsync(projectId.Value);
-            if (project == null)
-            {
-                throw new ValidationException("Selected project was not found.");
-            }
-
-            var customer = await _customerService.GetByIdAsync(project.CustomerId);
-            if (customer == null)
-            {
-                throw new ValidationException("Customer not found.");
-            }
-
-            return (project.CustomerId, project.CustomerName, project.Name);
+            return await ResolveProjectDetailsAsync(projectId.Value);
         }
 
         if (!customerId.HasValue)
@@ -210,6 +206,38 @@ public class TimeEntryService
         return (directCustomer.Id, directCustomer.Name, null);
     }
 
+    private async Task<(int customerId, string? customerName, string? projectName)> ResolveProjectDetailsAsync(int projectId)
+    {
+        var project = await _projectService.GetProjectByIdAsync(projectId);
+        if (project == null)
+        {
+            throw new ValidationException("Selected project was not found.");
+        }
+
+        if (project.CustomerId <= 0)
+        {
+            throw new ValidationException("Selected project has no customer.");
+        }
+
+        var customer = await _customerService.GetByIdAsync(project.CustomerId);
+        if (customer == null)
+        {
+            throw new ValidationException("Customer not found.");
+        }
+
+        return (project.CustomerId, project.CustomerName, project.Name);
+    }
+
+    private static DateTime ToUtc(DateTime value)
+    {
+        return value.Kind switch
+        {
+            DateTimeKind.Utc => value,
+            DateTimeKind.Local => value.ToUniversalTime(),
+            _ => DateTime.SpecifyKind(value, DateTimeKind.Local).ToUniversalTime()
+        };
+    }
+
     private async Task EnsureNoOverlapAsync(DateTime start, DateTime end, int? excludeId)
     {
         var overlaps = await _timeEntryRepository.GetOverlappingEntriesAsync(start, end, excludeId);
@@ -219,6 +247,4 @@ public class TimeEntryService
         }
     }
 }
-
-
 
