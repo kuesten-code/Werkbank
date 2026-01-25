@@ -1,7 +1,194 @@
 @page "/"
+@using Kuestencode.Rapport.Models.Reports
+@inject DashboardService DashboardService
 
-<PageTitle>Rapport Dashboard</PageTitle>
+<PageTitle>Zeiterfassung - Küstencode Rapport</PageTitle>
 
-<MudText Typo="Typo.h4" GutterBottom="true">Rapport Dashboard</MudText>
+<MudContainer MaxWidth="MaxWidth.Large" Class="mt-4" @key="@_refreshKey">
+    <MudText Typo="Typo.h4" GutterBottom="true">Zeiterfassung</MudText>
 
-<TimerWidget />
+    <TimerWidget />
+
+    <MudPaper Class="pa-4 mt-4" Elevation="1">
+        <MudText Typo="Typo.h6" GutterBottom="true">Übersicht</MudText>
+
+        @if (_loadingSummary)
+        {
+            <MudProgressLinear Color="Color.Primary" Indeterminate="true" Class="my-2" />
+        }
+        else if (_summaryError)
+        {
+            <MudAlert Severity="Severity.Info" Dense="true">
+                Übersicht konnte nicht geladen werden.
+            </MudAlert>
+        }
+        else
+        {
+            <MudGrid Spacing="3">
+                <MudItem xs="6" sm="3">
+                    <MudPaper Elevation="0" Class="metric-card" Style="padding: 8px;">
+                        <MudStack Spacing="1">
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">Heute gesamt</MudText>
+                            <MudText Typo="Typo.h4">@FormatHours(_hoursToday)</MudText>
+                        </MudStack>
+                    </MudPaper>
+                </MudItem>
+                <MudItem xs="6" sm="3">
+                    <MudPaper Elevation="0" Class="metric-card" Style="padding: 8px;">
+                        <MudStack Spacing="1">
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">Diese Woche gesamt</MudText>
+                            <MudText Typo="Typo.h4">@FormatHours(_hoursWeek)</MudText>
+                        </MudStack>
+                    </MudPaper>
+                </MudItem>
+                <MudItem xs="6" sm="3">
+                    <MudPaper Elevation="0" Class="metric-card" Style="padding: 8px;">
+                        <MudStack Spacing="1">
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">Kunden heute</MudText>
+                            <MudText Typo="Typo.h4">@_customersToday</MudText>
+                        </MudStack>
+                    </MudPaper>
+                </MudItem>
+                @if (!string.IsNullOrWhiteSpace(_singleCustomerTodayName))
+                {
+                    <MudItem xs="6" sm="3">
+                        <MudPaper Elevation="0" Class="metric-card" Style="padding: 8px;">
+                            <MudStack Spacing="1">
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">Heute für</MudText>
+                                <MudText Typo="Typo.body1">@_singleCustomerTodayName</MudText>
+                                <MudText Typo="Typo.h5">@FormatHours(_singleCustomerTodayHours)</MudText>
+                            </MudStack>
+                        </MudPaper>
+                    </MudItem>
+                }
+            </MudGrid>
+        }
+    </MudPaper>
+
+    <MudPaper Class="pa-4 mt-4 mb-4" Elevation="1">
+        <MudText Typo="Typo.h6" GutterBottom="true">Top Kunden diese Woche</MudText>
+
+        @if (_loadingTop)
+        {
+            <MudProgressLinear Color="Color.Primary" Indeterminate="true" Class="my-2" />
+        }
+        else if (_topError)
+        {
+            <MudAlert Severity="Severity.Info" Dense="true">
+                Auswertung konnte nicht geladen werden.
+            </MudAlert>
+        }
+        else if (_topCustomers.Count == 0)
+        {
+            <MudText Typo="Typo.body2" Color="Color.Secondary">Keine Einträge in dieser Woche.</MudText>
+        }
+        else
+        {
+            <MudStack Spacing="2">
+                @foreach (var customer in _topCustomers)
+                {
+                    <MudPaper Class="pa-3" Elevation="0" Style="border: 1px solid #E5E7EB;">
+                        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                            <MudText Typo="Typo.body1">@customer.CustomerName</MudText>
+                            <MudText Typo="Typo.body2">@FormatHours(customer.TotalHours)</MudText>
+                        </MudStack>
+                    </MudPaper>
+                }
+            </MudStack>
+        }
+    </MudPaper>
+</MudContainer>
+
+<style>
+    .metric-card:hover {
+        background-color: rgba(0, 0, 0, 0.02);
+    }
+</style>
+
+@code {
+    private bool _loadingSummary = true;
+    private bool _summaryError;
+    private bool _loadingTop = true;
+    private bool _topError;
+    private int _refreshKey;
+
+    private decimal _hoursToday;
+    private decimal _hoursWeek;
+    private int _customersToday;
+    private string? _singleCustomerTodayName;
+    private decimal _singleCustomerTodayHours;
+
+    private List<CustomerHoursDto> _topCustomers = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDataAsync();
+    }
+
+    private async Task LoadDataAsync()
+    {
+        _loadingSummary = true;
+        _loadingTop = true;
+        _summaryError = false;
+        _topError = false;
+        _refreshKey++;
+
+        try
+        {
+            var now = DateTime.UtcNow;
+            var todayStart = now.Date;
+            var weekStart = StartOfWeek(now);
+
+            var todayByCustomer = await DashboardService.GetHoursByCustomerAsync(todayStart, now);
+            _hoursToday = todayByCustomer.Values.Sum(c => c.TotalHours);
+            _customersToday = todayByCustomer.Values.Count(c => c.TotalHours > 0);
+
+            if (_customersToday == 1)
+            {
+                var item = todayByCustomer.Values.First();
+                _singleCustomerTodayName = item.CustomerName;
+                _singleCustomerTodayHours = item.TotalHours;
+            }
+            else
+            {
+                _singleCustomerTodayName = null;
+                _singleCustomerTodayHours = 0;
+            }
+
+            var weekByCustomer = await DashboardService.GetHoursByCustomerAsync(weekStart, now);
+            _hoursWeek = weekByCustomer.Values.Sum(c => c.TotalHours);
+
+            _loadingSummary = false;
+        }
+        catch
+        {
+            _summaryError = true;
+            _loadingSummary = false;
+        }
+
+        try
+        {
+            var now = DateTime.UtcNow;
+            var weekStart = StartOfWeek(now);
+            _topCustomers = await DashboardService.GetTopCustomersAsync(weekStart, now, 5);
+            _topCustomers = _topCustomers.Where(c => c.TotalHours > 0).ToList();
+            _loadingTop = false;
+        }
+        catch
+        {
+            _topError = true;
+            _loadingTop = false;
+        }
+    }
+
+    private static DateTime StartOfWeek(DateTime date)
+    {
+        var diff = (7 + (date.DayOfWeek - DayOfWeek.Monday)) % 7;
+        return date.Date.AddDays(-diff);
+    }
+
+    private static string FormatHours(decimal hours)
+    {
+        return $"{hours:0.##} h";
+    }
+}

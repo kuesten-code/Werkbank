@@ -1,4 +1,4 @@
-Ôªøusing System.Net.Http.Json;
+using System.Net.Http.Json;
 using Kuestencode.Core.Interfaces;
 using Kuestencode.Rapport;
 using Kuestencode.Rapport.Services;
@@ -172,31 +172,38 @@ public class ProgramApi
                     {
                         Label = "Rapport",
                         Href = "/rapport",
-                        Icon = "Dashboard",
+                        Icon = "AccessTime",
                         Type = NavItemType.Link
                     },
                     new NavItemDto
                     {
-                        Label = "Zeiteintr√§ge",
-                        Icon = "Schedule",
+                        Label = "Zeiteintr‰ge",
+                        Icon = "AccessTime",
                         Type = NavItemType.Group,
                         Children = new List<NavItemDto>
                         {
                             new NavItemDto
                             {
-                                Label = "√úbersicht",
+                                Label = "‹bersicht",
                                 Href = "/rapport/time-entries",
-                                Icon = "List",
+                                Icon = "Schedule",
                                 Type = NavItemType.Link
                             },
                             new NavItemDto
                             {
                                 Label = "Manueller Eintrag",
                                 Href = "/rapport/time-entries/create",
-                                Icon = "Add",
+                                Icon = "WatchLater",
                                 Type = NavItemType.Link
                             }
                         }
+                    },
+                    new NavItemDto
+                    {
+                        Label = "Auswertungen",
+                        Href = "/rapport/reports",
+                        Icon = "Timelapse",
+                        Type = NavItemType.Link
                     }
                 }
             };
@@ -217,6 +224,8 @@ public class ProgramApi
         }
     }
 }
+
+
 
 
 
