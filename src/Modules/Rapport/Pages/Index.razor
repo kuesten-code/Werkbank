@@ -56,7 +56,7 @@
                             <MudStack Spacing="1">
                                 <MudText Typo="Typo.caption" Color="Color.Secondary">Heute für</MudText>
                                 <MudText Typo="Typo.body1">@_singleCustomerTodayName</MudText>
-                                <MudText Typo="Typo.h5">@FormatHours(_singleCustomerTodayHours)</MudText>
+                                <MudText Typo="Typo.h6">@FormatHours(_singleCustomerTodayHours)</MudText>
                             </MudStack>
                         </MudPaper>
                     </MudItem>
@@ -192,5 +192,7 @@
         return $"{hours:0.##} h";
     }
 }
+
+
 
 

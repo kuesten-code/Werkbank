@@ -1,4 +1,4 @@
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 using Kuestencode.Core.Interfaces;
 using Kuestencode.Rapport.Data.Repositories;
 using Kuestencode.Rapport.Models;
@@ -134,9 +134,17 @@ public class TimerService
     /// <summary>
     /// Returns the currently running timer with customer data loaded.
     /// </summary>
-    public Task<TimeEntry?> GetRunningTimerAsync()
+    public async Task<TimeEntry?> GetRunningTimerAsync()
     {
-        return _timeEntryRepository.GetRunningEntryWithCustomerAsync();
+        await _lock.WaitAsync();
+        try
+        {
+            return await _timeEntryRepository.GetRunningEntryWithCustomerAsync();
+        }
+        finally
+        {
+            _lock.Release();
+        }
     }
 
     /// <summary>
@@ -179,3 +187,4 @@ public class TimerService
         return (project.CustomerId, project.CustomerName, project.Name);
     }
 }
+

@@ -6,6 +6,7 @@ using Kuestencode.Shared.ApiClients;
 using Kuestencode.Shared.Contracts.Navigation;
 using Microsoft.AspNetCore.DataProtection;
 using MudBlazor.Services;
+using QuestPDF.Infrastructure;
 
 namespace Kuestencode.Rapport.Api;
 
@@ -17,6 +18,9 @@ public class ProgramApi
 {
     public static async Task Main(string[] args)
     {
+        // QuestPDF License configuration
+        QuestPDF.Settings.License = LicenseType.Community;
+
         var builder = WebApplication.CreateBuilder(args);
         builder.WebHost.UseStaticWebAssets();
         builder.Configuration.AddJsonFile("appsettings.api.json", optional: true, reloadOnChange: true);
@@ -71,8 +75,9 @@ public class ProgramApi
             client.Timeout = TimeSpan.FromSeconds(30);
         });
 
-        // Add API-based implementations of Host services (Customer)
+        // Add API-based implementations of Host services (Customer, Company)
         builder.Services.AddScoped<ICustomerService, ApiCustomerService>();
+        builder.Services.AddScoped<ICompanyService, ApiCompanyService>();
 
         // Add Rapport application services
         builder.Services.AddScoped<TimeEntryService>();
@@ -124,6 +129,8 @@ public class ProgramApi
         app.UseStaticFiles();
         app.UseRouting();
 
+        app.MapRazorPages();
+
         // Map API Controllers
         app.MapControllers();
 
@@ -173,13 +180,13 @@ public class ProgramApi
                     {
                         Label = "Rapport",
                         Href = "/rapport",
-                        Icon = "AccessTime",
+                        Icon = "/rapport/company/logos/Rapport_Logo.png",
                         Type = NavItemType.Link
                     },
                     new NavItemDto
                     {
                         Label = "Zeiteinträge",
-                        Icon = "AccessTime",
+                        Icon = "",
                         Type = NavItemType.Group,
                         Children = new List<NavItemDto>
                         {
@@ -187,23 +194,23 @@ public class ProgramApi
                             {
                                 Label = "Übersicht",
                                 Href = "/rapport/time-entries",
-                                Icon = "Schedule",
+                                Icon = "",
                                 Type = NavItemType.Link
                             },
                             new NavItemDto
                             {
                                 Label = "Manueller Eintrag",
                                 Href = "/rapport/time-entries/create",
-                                Icon = "WatchLater",
+                                Icon = "",
                                 Type = NavItemType.Link
                             }
                         }
                     },
                     new NavItemDto
                     {
-                        Label = "Auswertungen",
+                        Label = "Tätigkeitsnachweise",
                         Href = "/rapport/reports",
-                        Icon = "Timelapse",
+                        Icon = "",
                         Type = NavItemType.Link
                     }
                 }
@@ -225,6 +232,16 @@ public class ProgramApi
         }
     }
 }
+
+
+
+
+
+
+
+
+
+
 
 
 

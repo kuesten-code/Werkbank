@@ -22,22 +22,22 @@ public class HostNavigationService : IHostNavigationService
         {
             new NavItemDto
             {
-                Label = "Übersicht",
+                Label = "Werkbank",
                 Href = "/",
-                Icon = "Dashboard",
+                Icon = "/company/logos/Werkbank_Logo.png",
                 Type = NavItemType.Link
             },
             new NavItemDto
             {
                 Label = "Kunden",
                 Href = "/customers",
-                Icon = "People",
+                Icon = "",
                 Type = NavItemType.Link
             },
             new NavItemDto
             {
                 Label = "Einstellungen",
-                Icon = "Settings",
+                Icon = "",
                 Type = NavItemType.Group,
                 Children = new List<NavItemDto>
                 {
@@ -45,14 +45,14 @@ public class HostNavigationService : IHostNavigationService
                     {
                         Label = "Firmendaten",
                         Href = "/settings/company",
-                        Icon = "Business",
+                        Icon = "",
                         Type = NavItemType.Link
                     },
                     new NavItemDto
                     {
                         Label = "Email Versand",
                         Href = "/settings/email",
-                        Icon = "Email",
+                        Icon = "",
                         Type = NavItemType.Link
                     }
                 }
@@ -60,8 +60,21 @@ public class HostNavigationService : IHostNavigationService
         };
 
         var modules = _moduleRegistry.GetAllModules();
-        foreach (var module in modules)
+        var moduleOrder = modules
+            .Select((module, index) => new
+            {
+                Module = module,
+                Index = index,
+                Priority = GetModulePriority(module.ModuleName)
+            })
+            .OrderBy(entry => entry.Priority.HasValue ? 0 : 1)
+            .ThenBy(entry => entry.Priority ?? int.MaxValue)
+            .ThenBy(entry => entry.Priority.HasValue ? entry.Module.ModuleName : string.Empty)
+            .ThenBy(entry => entry.Priority.HasValue ? 0 : entry.Index);
+
+        foreach (var entry in moduleOrder)
         {
+            var module = entry.Module;
             if (module.NavigationItems.Count == 0)
             {
                 continue;
@@ -72,5 +85,15 @@ public class HostNavigationService : IHostNavigationService
         }
 
         return items;
+    }
+
+    private static int? GetModulePriority(string moduleName)
+    {
+        return moduleName switch
+        {
+            "Faktura" => 1,
+            "Rapport" => 10,
+            _ => null
+        };
     }
 }

@@ -1,4 +1,4 @@
-/* Kuestencode Shared UI Styles */
+﻿/* Kuestencode Shared UI Styles */
 
 /* Print Styles */
 @media print {
@@ -160,3 +160,14 @@
         transform: translateY(0);
     }
 }
+
+.nav-overview-link {
+    font-size: 1.35rem;
+    font-weight: 600;
+}
+
+.nav-group--no-icon > .mud-nav-link .mud-nav-link-text {
+    padding-left: 32px;
+}
+
+

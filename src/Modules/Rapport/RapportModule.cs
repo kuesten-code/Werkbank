@@ -1,4 +1,4 @@
-using Kuestencode.Core.Interfaces;
+﻿using Kuestencode.Core.Interfaces;
 using Kuestencode.Rapport.Data;
 using Kuestencode.Rapport.Data.Repositories;
 using Kuestencode.Rapport.Services;
@@ -31,8 +31,17 @@ public static class RapportModule
         // Register repositories
         services.AddScoped(typeof(RapportRepo.IRepository<>), typeof(Repository<>));
         services.AddScoped<TimeEntryRepository>();
+
+        // Rapport core services
         services.AddScoped<TimerService>();
+        services.AddScoped<TimeEntryService>();
         services.AddScoped<DashboardService>();
+
+        // Timesheet export services
+        services.AddScoped<TimesheetExportService>();
+        services.AddScoped<TimesheetPdfService>();
+        services.AddScoped<TimesheetCsvService>();
+        services.AddScoped<TimesheetEmailService>();
 
         // Fallback project service
         services.TryAddScoped<IProjectService, MockProjectService>();
@@ -50,8 +59,4 @@ public static class RapportModule
         await context.Database.MigrateAsync();
     }
 }
-
-
-
-
 

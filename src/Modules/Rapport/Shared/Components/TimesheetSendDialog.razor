@@ -1,0 +1,241 @@
+﻿@using Kuestencode.Rapport.Models.Timesheets
+@using MudBlazor
+@inject ISnackbar Snackbar
+@inject ILogger<TimesheetSendDialog> Logger
+
+<MudDialog>
+    <DialogContent>
+        <MudStack Spacing="3">
+            <MudText>Tätigkeitsnachweis @if (!string.IsNullOrWhiteSpace(CustomerName)) { <strong>@CustomerName</strong> } per E-Mail versenden</MudText>
+
+            <MudTextField @bind-Value="_recipientEmail"
+                          Label="Empfänger E-Mail"
+                          Variant="Variant.Outlined"
+                          Required="true"
+                          Validation="@(new Func<string, string?>(ValidateEmail))"
+                          Immediate="true" />
+
+            <MudTextField @bind-Value="_customMessage"
+                          Label="Persönliche Nachricht (optional)"
+                          Variant="Variant.Outlined"
+                          Lines="4"
+                          Placeholder="Fügen Sie hier eine persönliche Nachricht ein (optional)" />
+
+            <MudExpansionPanels>
+                <MudExpansionPanel Text="Weitere Empfänger (optional)" IsInitiallyExpanded="@_hasAdditionalRecipients">
+                    <MudStack Spacing="2">
+                        <MudTextField @bind-Value="_ccEmails"
+                                      Label="CC (Kopie)"
+                                      Variant="Variant.Outlined"
+                                      Placeholder="email1@beispiel.de, email2@beispiel.de"
+                                      HelperText="Mehrere Adressen mit Komma trennen"
+                                      Validation="@(new Func<string, string?>(ValidateEmailList))"
+                                      Immediate="false" />
+
+                        <MudTextField @bind-Value="_bccEmails"
+                                      Label="BCC (Blindkopie)"
+                                      Variant="Variant.Outlined"
+                                      Placeholder="email@beispiel.de"
+                                      HelperText="Empfänger sehen diese Adressen nicht"
+                                      Validation="@(new Func<string, string?>(ValidateEmailList))"
+                                      Immediate="false" />
+                    </MudStack>
+                </MudExpansionPanel>
+            </MudExpansionPanels>
+
+            <MudRadioGroup @bind-Value="_selectedFormat" T="TimesheetAttachmentFormat">
+                <MudText Typo="Typo.subtitle2" Class="mb-2">Anhang-Format:</MudText>
+
+                <MudRadio Value="@TimesheetAttachmentFormat.Pdf" Color="Color.Primary">
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                        <MudIcon Icon="@Icons.Material.Filled.PictureAsPdf" Size="Size.Small" />
+                        <MudText>PDF</MudText>
+                    </MudStack>
+                    <MudText Typo="Typo.caption" Class="ml-6">Standard-Tätigkeitsnachweis als PDF</MudText>
+                </MudRadio>
+
+                <MudRadio Value="@TimesheetAttachmentFormat.Csv" Color="Color.Primary">
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                        <MudIcon Icon="@Icons.Material.Filled.TableView" Size="Size.Small" />
+                        <MudText>CSV</MudText>
+                    </MudStack>
+                    <MudText Typo="Typo.caption" Class="ml-6">Tabellarischer Export als CSV</MudText>
+                </MudRadio>
+            </MudRadioGroup>
+
+            <MudAlert Severity="Severity.Info" Dense="true">
+                @if (_selectedFormat == TimesheetAttachmentFormat.Pdf)
+                {
+                    <text>Der Tätigkeitsnachweis wird als PDF-Anhang versendet.</text>
+                }
+                else
+                {
+                    <text>Der Tätigkeitsnachweis wird als CSV-Anhang versendet.</text>
+                }
+            </MudAlert>
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel" Variant="Variant.Text">Abbrechen</MudButton>
+        <MudButton OnClick="Send"
+                   Variant="Variant.Filled"
+                   Color="Color.Primary"
+                   Disabled="@(_sending || !IsValidEmail(_recipientEmail))"
+                   StartIcon="@Icons.Material.Filled.Send">
+            @if (_sending)
+            {
+                <MudProgressCircular Size="Size.Small" Indeterminate="true" />
+                <span class="ml-2">Wird versendet...</span>
+            }
+            else
+            {
+                <span>Versenden</span>
+            }
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter]
+    public IMudDialogInstance MudDialog { get; set; } = null!;
+
+    [Parameter]
+    public string? CustomerName { get; set; }
+
+    [Parameter]
+    public string? CustomerEmail { get; set; }
+
+    [Parameter]
+    public EventCallback<(string Email, string? Message, TimesheetAttachmentFormat Format, string? CcEmails, string? BccEmails)> OnSend { get; set; }
+
+    private string _recipientEmail = string.Empty;
+    private string _customMessage = string.Empty;
+    private string _ccEmails = string.Empty;
+    private string _bccEmails = string.Empty;
+    private bool _sending = false;
+    private TimesheetAttachmentFormat _selectedFormat = TimesheetAttachmentFormat.Pdf;
+    private bool _hasAdditionalRecipients = false;
+
+    protected override Task OnInitializedAsync()
+    {
+        _recipientEmail = CustomerEmail ?? string.Empty;
+        _hasAdditionalRecipients = !string.IsNullOrWhiteSpace(_ccEmails) || !string.IsNullOrWhiteSpace(_bccEmails);
+        return Task.CompletedTask;
+    }
+
+    private void Cancel()
+    {
+        MudDialog.Cancel();
+    }
+
+    private async Task Send()
+    {
+        if (string.IsNullOrWhiteSpace(_recipientEmail) || !IsValidEmail(_recipientEmail))
+        {
+            return;
+        }
+
+        var ccValidation = ValidateEmailList(_ccEmails);
+        var bccValidation = ValidateEmailList(_bccEmails);
+
+        if (ccValidation != null)
+        {
+            Snackbar.Add(ccValidation, Severity.Error);
+            return;
+        }
+
+        if (bccValidation != null)
+        {
+            Snackbar.Add(bccValidation, Severity.Error);
+            return;
+        }
+
+        _sending = true;
+        StateHasChanged();
+
+        Logger.LogInformation("TimesheetSendDialog: send start");
+
+        try
+        {
+            var sendTask = OnSend.InvokeAsync((
+                _recipientEmail.Trim(),
+                string.IsNullOrWhiteSpace(_customMessage) ? null : _customMessage.Trim(),
+                _selectedFormat,
+                string.IsNullOrWhiteSpace(_ccEmails) ? null : _ccEmails.Trim(),
+                string.IsNullOrWhiteSpace(_bccEmails) ? null : _bccEmails.Trim()));
+
+            var completed = await Task.WhenAny(sendTask, Task.Delay(TimeSpan.FromSeconds(30)));
+            if (completed != sendTask)
+            {
+                Logger.LogWarning("TimesheetSendDialog: send timeout");
+                Snackbar.Add("E-Mail-Versand dauert zu lange. Bitte SMTP-Host/Port/SSL prüfen.", Severity.Warning);
+                _sending = false;
+                StateHasChanged();
+                return;
+            }
+
+            await sendTask;
+            MudDialog.Close(DialogResult.Ok(true));
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "TimesheetSendDialog: send failed");
+            Snackbar.Add($"Fehler beim Versenden der E-Mail: {ex.Message}", Severity.Error);
+            _sending = false;
+            StateHasChanged();
+        }
+    }
+
+    private string? ValidateEmail(string email)
+    {
+        if (string.IsNullOrWhiteSpace(email))
+        {
+            return "E-Mail-Adresse ist erforderlich";
+        }
+
+        if (!IsValidEmail(email))
+        {
+            return "Ungültige E-Mail-Adresse";
+        }
+
+        return null;
+    }
+
+    private string? ValidateEmailList(string emailString)
+    {
+        if (string.IsNullOrWhiteSpace(emailString))
+            return null;
+
+        var emails = emailString
+            .Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries)
+            .Select(e => e.Trim())
+            .Where(e => !string.IsNullOrWhiteSpace(e))
+            .ToList();
+
+        foreach (var email in emails)
+        {
+            if (!IsValidEmail(email))
+            {
+                return $"Ungültige E-Mail-Adresse: {email}";
+            }
+        }
+
+        return null;
+    }
+
+    private bool IsValidEmail(string email)
+    {
+        if (string.IsNullOrWhiteSpace(email))
+            return false;
+
+        try
+        {
+            var addr = new System.Net.Mail.MailAddress(email);
+            return addr.Address == email;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+}

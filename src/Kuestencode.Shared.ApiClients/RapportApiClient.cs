@@ -1,3 +1,6 @@
+﻿using System.Net.Http.Json;
+using Kuestencode.Shared.Contracts.Rapport;
+
 namespace Kuestencode.Shared.ApiClients;
 
 public class RapportApiClient : IRapportApiClient
@@ -20,5 +23,19 @@ public class RapportApiClient : IRapportApiClient
         {
             return false;
         }
+    }
+
+    public async Task<byte[]> GenerateTimesheetPdfAsync(TimesheetExportRequestDto request)
+    {
+        var response = await _httpClient.PostAsJsonAsync("/api/timesheets/pdf", request).ConfigureAwait(false);
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadAsByteArrayAsync().ConfigureAwait(false);
+    }
+
+    public async Task<byte[]> GenerateTimesheetCsvAsync(TimesheetExportRequestDto request)
+    {
+        var response = await _httpClient.PostAsJsonAsync("/api/timesheets/csv", request).ConfigureAwait(false);
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadAsByteArrayAsync().ConfigureAwait(false);
     }
 }

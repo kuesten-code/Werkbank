@@ -1,4 +1,4 @@
-// Kuestencode Shared UI JavaScript
+﻿// Kuestencode Shared UI JavaScript
 
 /**
  * Downloads a file from a byte array.
@@ -40,6 +40,27 @@ function openInNewTab(url) {
  */
 function printPage() {
     window.print();
+}
+
+/**
+ * Prints a PDF from a base64 string.
+ * @param {string} base64 - PDF content as base64
+ */
+function printPdfFromBase64(base64) {
+    const pdfData = atob(base64);
+    const bytes = new Uint8Array(pdfData.length);
+    for (let i = 0; i < pdfData.length; i++) {
+        bytes[i] = pdfData.charCodeAt(i);
+    }
+    const blob = new Blob([bytes], { type: 'application/pdf' });
+    const url = URL.createObjectURL(blob);
+
+    const printWindow = window.open(url, '_blank');
+    if (printWindow) {
+        printWindow.onload = function () {
+            printWindow.print();
+        };
+    }
 }
 
 /**
@@ -125,6 +146,7 @@ if (typeof module !== 'undefined' && module.exports) {
         downloadFileFromBase64,
         openInNewTab,
         printPage,
+        printPdfFromBase64,
         copyToClipboard,
         showNotification,
         scrollToElement,

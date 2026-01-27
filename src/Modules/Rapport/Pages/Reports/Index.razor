@@ -1,9 +1,14 @@
 ﻿@page "/reports"
 @using System.Text
 @using Kuestencode.Rapport.Models.Reports
+@using Kuestencode.Rapport.Models.Timesheets
 @inject DashboardService DashboardService
+@inject TimesheetPdfService TimesheetPdfService
+@inject TimesheetCsvService TimesheetCsvService
+@inject TimesheetEmailService TimesheetEmailService
 @inject ICustomerService CustomerService
 @inject IProjectService ProjectService
+@inject IDialogService DialogService
 @inject ISnackbar Snackbar
 @inject IJSRuntime JSRuntime
 
@@ -16,48 +21,55 @@
 </MudStack>
 
 <MudPaper Elevation="1" Class="pa-4 mb-4">
-    <MudText Typo="Typo.h6" GutterBottom="true">Filter</MudText>
+    <MudText Typo="Typo.h6" GutterBottom="true">Tätigkeitsnachweis</MudText>
     <MudGrid>
-        <MudItem xs="12" md="3">
-            <MudDatePicker Label="Von" @bind-Date="_fromDate" Variant="Variant.Outlined" />
+        <MudItem xs="12" md="4">
+            <CustomerPicker Label="Kunde" Customers="_customers"
+                            SelectedCustomer="_timesheetCustomer"
+                            SelectedCustomerChanged="OnTimesheetCustomerChanged"
+                            Disabled="_timesheetCustomerLocked"
+                            Required="true"
+                            RequiredError="Bitte einen Kunden auswählen" />
         </MudItem>
-        <MudItem xs="12" md="3">
-            <MudDatePicker Label="Bis" @bind-Date="_toDate" Variant="Variant.Outlined" />
+        <MudItem xs="12" md="4">
+            <MudDatePicker Label="Von" @bind-Date="_timesheetFromDate" Variant="Variant.Outlined" />
         </MudItem>
-        <MudItem xs="12" md="3">
-            <MudSelect T="Customer" Label="Kunden" Variant="Variant.Outlined" MultiSelection="true"
-                       SelectedValues="_selectedCustomers"
-                       SelectedValuesChanged="OnCustomersChanged">
-                @foreach (var customer in _customers)
-                {
-                    <MudSelectItem T="Customer" Value="customer">@GetCustomerLabel(customer)</MudSelectItem>
-                }
-            </MudSelect>
+        <MudItem xs="12" md="4">
+            <MudDatePicker Label="Bis" @bind-Date="_timesheetToDate" Variant="Variant.Outlined" />
         </MudItem>
         @if (_projectsAvailable)
         {
             <MudItem xs="12" md="6">
-                <MudSelect T="IProject" Label="Projekte" Variant="Variant.Outlined" MultiSelection="true"
-                           SelectedValues="_selectedProjects"
-                           SelectedValuesChanged="OnProjectsChanged">
-                    @foreach (var project in _projects)
-                    {
-                        <MudSelectItem T="IProject" Value="project">@GetProjectLabel(project)</MudSelectItem>
-                    }
-                </MudSelect>
+                <ProjectSelector Projects="_projects"
+                                 IsAvailable="_projectsAvailable"
+                                 SelectedProjectId="_timesheetProjectId"
+                                 SelectedProjectIdChanged="OnTimesheetProjectChanged" />
             </MudItem>
         }
-        <MudItem xs="12">
-            <MudRadioGroup T="string" @bind-Value="_grouping">
-                <MudRadio T="string" Value="@("Customer")">Nach Kunde</MudRadio>
-                <MudRadio T="string" Value="@("Project")">Nach Projekt</MudRadio>
-                <MudRadio T="string" Value="@("CustomerProject")">Nach Kunde → Projekte</MudRadio>
-                <MudRadio T="string" Value="@("Day")">Nach Tag</MudRadio>
-            </MudRadioGroup>
+        <MudItem xs="12" md="3">
+            <MudNumericField T="decimal?" Label="Stundensatz (optional)" Variant="Variant.Outlined"
+                             @bind-Value="_timesheetHourlyRate"
+                             HideSpinButtons="true" Min="0m" Step="1m" />
         </MudItem>
-        <MudItem xs="12" Class="d-flex gap-2">
-            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="LoadReportAsync">Filter anwenden</MudButton>
-            <MudButton Variant="Variant.Text" OnClick="ResetFilters">Zurücksetzen</MudButton>
+        <MudItem xs="12" md="3">
+            <MudTextField Label="Titel" Variant="Variant.Outlined" @bind-Value="_timesheetTitle" />
+        </MudItem>
+        <MudItem xs="12" md="6">
+            <MudTextField Label="Dateiname (optional)" Variant="Variant.Outlined" @bind-Value="_timesheetFileName" />
+        </MudItem>
+        <MudItem xs="12" Class="d-flex flex-wrap gap-2">
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="DownloadTimesheetPdfAsync">
+                PDF herunterladen
+            </MudButton>
+            <MudButton Variant="Variant.Outlined" Color="Color.Primary" OnClick="PrintTimesheetPdfAsync">
+                PDF drucken
+            </MudButton>
+            <MudButton Variant="Variant.Outlined" Color="Color.Secondary" OnClick="DownloadTimesheetCsvAsync">
+                CSV herunterladen
+            </MudButton>
+            <MudButton Variant="Variant.Filled" Color="Color.Secondary" OnClick="OpenTimesheetEmailDialog">
+                Per E-Mail senden
+            </MudButton>
         </MudItem>
     </MudGrid>
 </MudPaper>
@@ -161,6 +173,15 @@
     private DateTime? _fromDate = DateTime.Today.AddDays(-7);
     private DateTime? _toDate = DateTime.Today;
 
+    private Customer? _timesheetCustomer;
+    private int? _timesheetProjectId;
+    private DateTime? _timesheetFromDate = DateTime.Today.AddDays(-7);
+    private DateTime? _timesheetToDate = DateTime.Today;
+    private decimal? _timesheetHourlyRate;
+    private string _timesheetTitle = "Tätigkeitsnachweis";
+    private string? _timesheetFileName;
+    private bool _timesheetCustomerLocked;
+
     private List<TimeEntry> _entries = new();
     private List<CustomerSummaryRow> _customerRows = new();
     private List<ProjectSummaryRow> _projectRows = new();
@@ -245,6 +266,152 @@
     {
         _selectedProjects = projects.ToList();
         return Task.CompletedTask;
+    }
+
+    private Task OnTimesheetCustomerChanged(Customer? customer)
+    {
+        if (_timesheetCustomerLocked)
+        {
+            return Task.CompletedTask;
+        }
+
+        _timesheetCustomer = customer;
+        return Task.CompletedTask;
+    }
+
+    private Task OnTimesheetProjectChanged(int? projectId)
+    {
+        _timesheetProjectId = projectId;
+
+        if (projectId.HasValue)
+        {
+            var project = _projects.FirstOrDefault(p => p.Id == projectId.Value);
+            if (project != null)
+            {
+                _timesheetCustomer = _customers.FirstOrDefault(c => c.Id == project.CustomerId);
+            }
+            _timesheetCustomerLocked = true;
+        }
+        else
+        {
+            _timesheetCustomerLocked = false;
+        }
+
+        return Task.CompletedTask;
+    }
+
+    private async Task DownloadTimesheetPdfAsync()
+    {
+        var request = BuildTimesheetRequest();
+        if (request == null)
+            return;
+
+        var result = await TimesheetPdfService.GenerateAsync(request);
+        await JSRuntime.InvokeVoidAsync(
+            "downloadFileFromBase64",
+            result.FileName,
+            "application/pdf",
+            Convert.ToBase64String(result.Bytes));
+    }
+
+    private async Task PrintTimesheetPdfAsync()
+    {
+        var request = BuildTimesheetRequest();
+        if (request == null)
+            return;
+
+        var result = await TimesheetPdfService.GenerateAsync(request);
+        await JSRuntime.InvokeVoidAsync("printPdfFromBase64", Convert.ToBase64String(result.Bytes));
+    }
+
+    private async Task DownloadTimesheetCsvAsync()
+    {
+        var request = BuildTimesheetRequest();
+        if (request == null)
+            return;
+
+        var result = await TimesheetCsvService.GenerateAsync(request);
+        await JSRuntime.InvokeVoidAsync(
+            "downloadFileFromBase64",
+            result.FileName,
+            "text/csv",
+            Convert.ToBase64String(result.Bytes));
+    }
+
+    private async Task OpenTimesheetEmailDialog()
+    {
+        var request = BuildTimesheetRequest();
+        if (request == null)
+            return;
+
+        var customerEmail = _timesheetCustomer?.Email;
+
+        var parameters = new DialogParameters
+        {
+            [nameof(TimesheetSendDialog.CustomerName)] = _timesheetCustomer?.Name,
+            [nameof(TimesheetSendDialog.CustomerEmail)] = customerEmail,
+            [nameof(TimesheetSendDialog.OnSend)] =
+                EventCallback.Factory.Create<(string Email, string? Message, TimesheetAttachmentFormat Format, string? CcEmails, string? BccEmails)>(
+                    this, data => SendTimesheetEmailAsync(request, data))
+        };
+
+        var options = new DialogOptions { CloseOnEscapeKey = true, MaxWidth = MaxWidth.Small, FullWidth = true };
+        await DialogService.ShowAsync<TimesheetSendDialog>("Tätigkeitsnachweis versenden", parameters, options);
+    }
+
+    private async Task SendTimesheetEmailAsync(
+        Kuestencode.Shared.Contracts.Rapport.TimesheetExportRequestDto request,
+        (string Email, string? Message, TimesheetAttachmentFormat Format, string? CcEmails, string? BccEmails) data)
+    {
+        try
+        {
+            var emailRequest = new TimesheetEmailRequest
+            {
+                CustomerId = request.CustomerId,
+                From = request.From,
+                To = request.To,
+                ProjectId = request.ProjectId,
+                HourlyRate = request.HourlyRate,
+                Title = request.Title,
+                FileName = request.FileName,
+                EntryIds = request.EntryIds,
+                RecipientEmail = data.Email,
+                CustomMessage = data.Message,
+                Format = data.Format,
+                CcEmails = data.CcEmails,
+                BccEmails = data.BccEmails
+            };
+
+            await TimesheetEmailService.SendAsync(emailRequest);
+            Snackbar.Add("Tätigkeitsnachweis wurde erfolgreich versendet.", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Fehler beim Versenden der E-Mail: {ex.Message}", Severity.Error);
+            throw;
+        }
+    }
+
+    private Kuestencode.Shared.Contracts.Rapport.TimesheetExportRequestDto? BuildTimesheetRequest()
+    {
+        if (_timesheetCustomer == null)
+        {
+            Snackbar.Add("Bitte einen Kunden auswählen.", Severity.Warning);
+            return null;
+        }
+
+        var range = NormalizeRange(_timesheetFromDate, _timesheetToDate);
+
+        return new Kuestencode.Shared.Contracts.Rapport.TimesheetExportRequestDto
+        {
+            CustomerId = _timesheetCustomer.Id,
+            From = range.From,
+            To = range.To,
+            ProjectId = _timesheetProjectId,
+            HourlyRate = _timesheetHourlyRate,
+            Title = _timesheetTitle,
+            FileName = string.IsNullOrWhiteSpace(_timesheetFileName) ? null : _timesheetFileName.Trim()
+        };
     }
 
     private void BuildCustomerRows()
@@ -475,12 +642,3 @@
         public decimal Hours { get; set; }
     }
 }
-
-
-
-
-
-
-
-
-
