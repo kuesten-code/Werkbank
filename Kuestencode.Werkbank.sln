@@ -35,6 +35,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Host.Services", "Host.Servi
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kuestencode.Host.Services", "src\Host.Services\Kuestencode.Host.Services.csproj", "{513F56F3-234A-4ACC-8863-E4F086FF46CD}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kuestencode.Rapport.IntegrationTests", "tests\Kuestencode.Rapport.IntegrationTests\Kuestencode.Rapport.IntegrationTests.csproj", "{B56FBA18-1CDF-49B5-8797-532C78562D41}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -153,6 +155,18 @@ Global
 		{513F56F3-234A-4ACC-8863-E4F086FF46CD}.Release|x64.Build.0 = Release|Any CPU
 		{513F56F3-234A-4ACC-8863-E4F086FF46CD}.Release|x86.ActiveCfg = Release|Any CPU
 		{513F56F3-234A-4ACC-8863-E4F086FF46CD}.Release|x86.Build.0 = Release|Any CPU
+		{B56FBA18-1CDF-49B5-8797-532C78562D41}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B56FBA18-1CDF-49B5-8797-532C78562D41}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B56FBA18-1CDF-49B5-8797-532C78562D41}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{B56FBA18-1CDF-49B5-8797-532C78562D41}.Debug|x64.Build.0 = Debug|Any CPU
+		{B56FBA18-1CDF-49B5-8797-532C78562D41}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{B56FBA18-1CDF-49B5-8797-532C78562D41}.Debug|x86.Build.0 = Debug|Any CPU
+		{B56FBA18-1CDF-49B5-8797-532C78562D41}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B56FBA18-1CDF-49B5-8797-532C78562D41}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B56FBA18-1CDF-49B5-8797-532C78562D41}.Release|x64.ActiveCfg = Release|Any CPU
+		{B56FBA18-1CDF-49B5-8797-532C78562D41}.Release|x64.Build.0 = Release|Any CPU
+		{B56FBA18-1CDF-49B5-8797-532C78562D41}.Release|x86.ActiveCfg = Release|Any CPU
+		{B56FBA18-1CDF-49B5-8797-532C78562D41}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -172,6 +186,7 @@ Global
 		{0846E4F0-8688-40E8-9222-C649CD0E0690} = {EEEE1111-2222-3333-4444-555555555555}
 		{34BBC5CE-A39E-7A2A-2A36-A0D4F8578427} = {EEEE1111-2222-3333-4444-555555555555}
 		{513F56F3-234A-4ACC-8863-E4F086FF46CD} = {34BBC5CE-A39E-7A2A-2A36-A0D4F8578427}
+		{B56FBA18-1CDF-49B5-8797-532C78562D41} = {EEEE5555-6666-7777-8888-999999999999}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {F1A2B3C4-D5E6-7890-ABCD-EF1234567890}

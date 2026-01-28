@@ -46,7 +46,7 @@
                 </MudSelect>
             </MudItem>
             <MudItem xs="12" md="6">
-                <MudCheckBox T="bool" @bind-Checked="_onlyWithoutProject" @bind-Checked:after="OnWithoutProjectChanged" Label="Nur ohne Projekt (für gewählte Kunden)" />
+                <MudCheckBox T="bool" @bind-Value="_onlyWithoutProject" @bind-Value:after="OnWithoutProjectChanged" Label="Nur ohne Projekt (für gewählte Kunden)" />
             </MudItem>
         }
         <MudItem xs="12" Class="d-flex gap-2">

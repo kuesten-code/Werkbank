@@ -287,13 +287,14 @@ public partial class Details
 
     private async Task PrintInvoice()
     {
-        if (_invoice == null) return;
+        var invoice = _invoice;
+        if (invoice == null) return;
 
         try
         {
             // Generate PDF
-            var pdfBytes = PdfGeneratorService.GenerateInvoicePdf(_invoice.Id);
-            var mergedPdfBytes = PdfMergeService.MergeForPrint(pdfBytes, _invoice.Attachments);
+            var pdfBytes = PdfGeneratorService.GenerateInvoicePdf(invoice.Id);
+            var mergedPdfBytes = PdfMergeService.MergeForPrint(pdfBytes, invoice.Attachments);
             var base64 = Convert.ToBase64String(mergedPdfBytes);
 
             // Open print dialog
@@ -305,14 +306,9 @@ public partial class Details
             var dialog = await DialogService.ShowAsync<PrintConfirmationDialog>("Rechnung gedruckt?", parameters, options);
             var result = await dialog.Result;
 
-            if (!result.Canceled)
+            if (result is not null && !result.Canceled)
             {
-                if (_invoice == null)
-                {
-                    return;
-                }
-
-                await InvoiceService.MarkAsPrintedAsync(_invoice.Id);
+                await InvoiceService.MarkAsPrintedAsync(invoice.Id);
                 Snackbar.Add("Rechnung als gedruckt markiert", Severity.Success);
                 await LoadInvoice(); // Reload to update print tracking info
             }
