@@ -16,6 +16,7 @@ using Kuestencode.Faktura.Services;
 using Kuestencode.Faktura.Shared;
 using Kuestencode.Faktura.Shared.Components;
 using Kuestencode.Shared.ApiClients;
+using Kuestencode.Shared.Contracts.Navigation;
 using Kuestencode.Shared.Contracts.Rapport;
 
 namespace Kuestencode.Faktura.Pages.Invoices;
@@ -24,6 +25,9 @@ public partial class Create
 {
     [Inject]
     public IRapportApiClient RapportApiClient { get; set; } = null!;
+
+    [Inject]
+    public IHostApiClient HostApiClient { get; set; } = null!;
 
     private bool _customerError;
     private string? _customerErrorText;
@@ -60,6 +64,7 @@ public partial class Create
     private TimesheetAttachmentFormat _timesheetFormat = TimesheetAttachmentFormat.Pdf;
     private bool _timesheetGenerating;
     private bool _timesheetAttachmentAdded;
+    private bool _rapportAvailable = true;
 
     protected override async Task OnInitializedAsync()
     {
@@ -71,11 +76,51 @@ public partial class Create
             AddItem();
             SyncTimesheetRange();
             RecalculateTotals();
+            await CheckRapportAvailabilityAsync();
+            if (!_rapportAvailable)
+            {
+                _attachTimesheet = false;
+                _timesheetAttachmentAdded = false;
+            }
         }
         catch (Exception ex)
         {
             _errorMessage = $"Fehler beim Initialisieren: {ex.Message}";
         }
+    }
+
+
+    private async Task CheckRapportAvailabilityAsync()
+    {
+        try
+        {
+            var navItems = await HostApiClient.GetNavigationAsync();
+            _rapportAvailable = navItems.Any(IsRapportNavItem);
+        }
+        catch
+        {
+            _rapportAvailable = false;
+        }
+    }
+
+    private static bool IsRapportNavItem(NavItemDto item)
+    {
+        if (!string.IsNullOrWhiteSpace(item.Href) && item.Href.StartsWith("/rapport", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        if (string.Equals(item.Label, "Rapport", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        if (item.Children is { Count: > 0 })
+        {
+            return item.Children.Any(IsRapportNavItem);
+        }
+
+        return false;
     }
 
     private async Task<IEnumerable<Customer>> SearchCustomers(string value, CancellationToken token)
@@ -310,7 +355,8 @@ public partial class Create
             if (_selectedCustomer != null)
                 _invoice.CustomerId = _selectedCustomer.Id;
 
-            _invoice.InvoiceDate = DateTime.SpecifyKind(_invoiceDate.Value, DateTimeKind.Utc);
+            var invoiceDate = _invoiceDate ?? throw new InvalidOperationException("Rechnungsdatum fehlt.");
+            _invoice.InvoiceDate = DateTime.SpecifyKind(invoiceDate, DateTimeKind.Utc);
             _invoice.ServicePeriodStart = _servicePeriodStart.HasValue ? DateTime.SpecifyKind(_servicePeriodStart.Value, DateTimeKind.Utc) : null;
             _invoice.ServicePeriodEnd   = _servicePeriodEnd.HasValue ? DateTime.SpecifyKind(_servicePeriodEnd.Value, DateTimeKind.Utc) : null;
             _invoice.DueDate            = _dueDate.HasValue ? DateTime.SpecifyKind(_dueDate.Value, DateTimeKind.Utc) : null;
@@ -364,7 +410,8 @@ public partial class Create
             if (_selectedCustomer != null)
                 _invoice.CustomerId = _selectedCustomer.Id;
 
-            _invoice.InvoiceDate = DateTime.SpecifyKind(_invoiceDate.Value, DateTimeKind.Utc);
+            var invoiceDate = _invoiceDate ?? throw new InvalidOperationException("Rechnungsdatum fehlt.");
+            _invoice.InvoiceDate = DateTime.SpecifyKind(invoiceDate, DateTimeKind.Utc);
             _invoice.ServicePeriodStart = _servicePeriodStart.HasValue ? DateTime.SpecifyKind(_servicePeriodStart.Value, DateTimeKind.Utc) : null;
             _invoice.ServicePeriodEnd   = _servicePeriodEnd.HasValue ? DateTime.SpecifyKind(_servicePeriodEnd.Value, DateTimeKind.Utc) : null;
             _invoice.DueDate            = _dueDate.HasValue ? DateTime.SpecifyKind(_dueDate.Value, DateTimeKind.Utc) : null;
@@ -509,6 +556,12 @@ public partial class Create
         if (_timesheetAttachmentAdded)
         {
             return true;
+        }
+
+        if (!_rapportAvailable)
+        {
+            Snackbar.Add("Rapport Modul ist nicht registriert. Tätigkeitsnachweis kann nicht angehängt werden.", Severity.Warning);
+            return false;
         }
 
         if (_selectedCustomer == null)

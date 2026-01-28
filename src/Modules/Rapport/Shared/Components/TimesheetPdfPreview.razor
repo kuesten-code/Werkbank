@@ -1,47 +1,45 @@
-@using Kuestencode.Faktura.Models
-@using Kuestencode.Faktura.Services
-@inject IPdfGeneratorService PdfGeneratorService
-@inject IPreviewService PreviewService
+@using Kuestencode.Rapport.Models
+@using Kuestencode.Rapport.Services
+@using Kuestencode.Shared.UI.Components
+@inject TimesheetPreviewService PreviewService
 
 <PdfPreviewFrame PdfBytes="@_pdfBytes" Loading="@_loading" Error="@_error" />
 
 @code {
     [Parameter]
-    public Company Company { get; set; } = default!;
+    public RapportSettings Settings { get; set; } = RapportSettings.CreateDefault();
 
     private bool _loading = true;
     private string _error = string.Empty;
     private byte[]? _pdfBytes;
     private System.Threading.Timer? _debounceTimer;
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
-        GeneratePreview();
+        await GeneratePreviewAsync();
     }
 
     protected override void OnParametersSet()
     {
-        // Debounce preview updates
         _debounceTimer?.Dispose();
         _debounceTimer = new System.Threading.Timer(_ =>
         {
-            InvokeAsync(() =>
+            _ = InvokeAsync(async () =>
             {
-                GeneratePreview();
+                await GeneratePreviewAsync();
                 StateHasChanged();
             });
         }, null, 500, Timeout.Infinite);
     }
 
-    private void GeneratePreview()
+    private async Task GeneratePreviewAsync()
     {
         _loading = true;
         _error = string.Empty;
 
         try
         {
-            var sampleInvoice = PreviewService.GenerateSampleInvoice(Company);
-            _pdfBytes = PdfGeneratorService.GeneratePdfWithCompany(sampleInvoice, Company);
+            _pdfBytes = await PreviewService.GeneratePreviewAsync(Settings);
         }
         catch (Exception ex)
         {

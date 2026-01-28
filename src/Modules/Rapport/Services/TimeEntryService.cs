@@ -14,15 +14,21 @@ public class TimeEntryService
     private readonly TimeEntryRepository _timeEntryRepository;
     private readonly IProjectService _projectService;
     private readonly ICustomerService _customerService;
+    private readonly SettingsService _settingsService;
+    private readonly TimeRoundingService _roundingService;
 
     public TimeEntryService(
         TimeEntryRepository timeEntryRepository,
         IProjectService projectService,
-        ICustomerService customerService)
+        ICustomerService customerService,
+        SettingsService settingsService,
+        TimeRoundingService roundingService)
     {
         _timeEntryRepository = timeEntryRepository;
         _projectService = projectService;
         _customerService = customerService;
+        _settingsService = settingsService;
+        _roundingService = roundingService;
     }
 
     public async Task<TimeEntry> CreateManualEntryAsync(
@@ -33,6 +39,7 @@ public class TimeEntryService
         string? description)
     {
         ValidateManualEntryTimes(start, end);
+        (start, end) = await ApplyManualRoundingAsync(start, end);
 
         var (resolvedCustomerId, resolvedCustomerName, resolvedProjectName) =
             await ResolveCustomerAndProjectAsync(projectId, customerId);
@@ -65,6 +72,7 @@ public class TimeEntryService
         string? description)
     {
         ValidateManualEntryTimes(start, end);
+        (start, end) = await ApplyManualRoundingAsync(start, end);
 
         var entry = await _timeEntryRepository.GetByIdAsync(id);
         if (entry == null)
@@ -226,6 +234,26 @@ public class TimeEntryService
         }
 
         return (project.CustomerId, project.CustomerName, project.Name);
+    }
+
+
+    private async Task<(DateTime Start, DateTime End)> ApplyManualRoundingAsync(DateTime start, DateTime end)
+    {
+        var settings = await _settingsService.GetSettingsAsync();
+        if (settings.RoundingMinutes <= 0)
+        {
+            return (start, end);
+        }
+
+        var rounded = _roundingService.RoundDuration(end - start, settings.RoundingMinutes);
+        var roundedEnd = start.Add(rounded);
+        var now = DateTime.UtcNow;
+        if (roundedEnd > now)
+        {
+            roundedEnd = now;
+        }
+
+        return (start, roundedEnd);
     }
 
     private static DateTime ToUtc(DateTime value)

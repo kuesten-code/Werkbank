@@ -1,6 +1,7 @@
 ﻿@using System.ComponentModel.DataAnnotations
 @page "/time-entries/create"
 @inject TimeEntryService TimeEntryService
+@inject SettingsService SettingsService
 @inject ICustomerService CustomerService
 @inject IProjectService ProjectService
 @inject ISnackbar Snackbar
@@ -60,6 +61,7 @@
     private List<Customer> _customers = new();
     private List<IProject> _projects = new();
     private bool _projectsAvailable;
+    private RapportSettings? _settings;
     private Customer? _selectedCustomer;
     private IProject? _selectedProject;
     private int? _selectedProjectId;
@@ -67,6 +69,7 @@
 
     protected override async Task OnInitializedAsync()
     {
+        _settings = await SettingsService.GetSettingsAsync();
         _customers = await CustomerService.GetAllAsync();
         _projectsAvailable = await ProjectService.IsAvailableAsync();
         if (_projectsAvailable)
@@ -76,6 +79,11 @@
         else
         {
             _projects = new List<IProject>();
+        }
+
+        if (_settings.DefaultProjectId.HasValue && _projectsAvailable)
+        {
+            await OnProjectSelected(_settings.DefaultProjectId);
         }
     }
 

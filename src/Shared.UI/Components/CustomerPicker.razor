@@ -3,9 +3,7 @@
 
 <MudAutocomplete T="Customer"
                  Label="@Label"
-                 Value="@SelectedCustomer"
-                 ValueChanged="OnCustomerSelected"
-                 ValueExpression="(() => SelectedCustomer)"
+                 @bind-Value="BoundCustomer"
                  SearchFunc="SearchCustomers"
                  ToStringFunc="@(c => c?.Name ?? string.Empty)"
                  Variant="Variant.Outlined"
@@ -59,26 +57,35 @@
     [Parameter]
     public IEnumerable<Customer> Customers { get; set; } = Enumerable.Empty<Customer>();
 
-    private async Task<IEnumerable<Customer>> SearchCustomers(string value, CancellationToken token)
+    private Task<IEnumerable<Customer>> SearchCustomers(string value, CancellationToken token)
     {
         if (string.IsNullOrWhiteSpace(value))
         {
-            return Customers.Take(10);
+            return Task.FromResult(Customers.Take(10));
         }
 
         var searchTerm = value.ToLower();
-        return Customers
+        var result = Customers
             .Where(c =>
                 c.Name.ToLower().Contains(searchTerm) ||
                 c.CustomerNumber.ToLower().Contains(searchTerm) ||
                 (c.City?.ToLower().Contains(searchTerm) ?? false) ||
                 (c.Email?.ToLower().Contains(searchTerm) ?? false))
             .Take(10);
+
+        return Task.FromResult(result);
     }
 
-    private async Task OnCustomerSelected(Customer? customer)
+    private Customer? BoundCustomer
     {
-        SelectedCustomer = customer;
-        await SelectedCustomerChanged.InvokeAsync(customer);
+        get => SelectedCustomer;
+        set
+        {
+            if (!Equals(SelectedCustomer, value))
+            {
+                SelectedCustomer = value;
+                _ = SelectedCustomerChanged.InvokeAsync(value);
+            }
+        }
     }
 }

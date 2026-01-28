@@ -24,7 +24,7 @@
                           Placeholder="Fügen Sie hier eine persönliche Nachricht ein (optional)" />
 
             <MudExpansionPanels>
-                <MudExpansionPanel Text="Weitere Empfänger (optional)" IsInitiallyExpanded="@_hasAdditionalRecipients">
+                <MudExpansionPanel Text="Weitere Empfänger (optional)" Expanded="@_hasAdditionalRecipients">
                     <MudStack Spacing="2">
                         <MudTextField @bind-Value="_ccEmails"
                                       Label="CC (Kopie)"
@@ -103,7 +103,7 @@
             {
                 <MudAlert Severity="Severity.Warning" Dense="true" Class="mt-2">
                     <MudText Typo="Typo.body2"><strong>XRechnung-Validierung fehlgeschlagen:</strong></MudText>
-                    <MudList T="string" Dense="true" DisablePadding="true">
+                    <MudList T="string" Dense="true" Class="pa-0">
                         @foreach (var error in _validationErrors)
                         {
                             <MudListItem T="string" Dense="true">

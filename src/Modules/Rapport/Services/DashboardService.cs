@@ -11,10 +11,14 @@ namespace Kuestencode.Rapport.Services;
 public class DashboardService
 {
     private readonly TimeEntryRepository _timeEntryRepository;
+    private readonly SettingsService _settingsService;
+    private readonly TimeRoundingService _roundingService;
 
-    public DashboardService(TimeEntryRepository timeEntryRepository)
+    public DashboardService(TimeEntryRepository timeEntryRepository, SettingsService settingsService, TimeRoundingService roundingService)
     {
         _timeEntryRepository = timeEntryRepository;
+        _settingsService = settingsService;
+        _roundingService = roundingService;
     }
 
     /// <summary>
@@ -23,7 +27,8 @@ public class DashboardService
     public async Task<Dictionary<int, CustomerHoursDto>> GetHoursByCustomerAsync(DateTime from, DateTime to)
     {
         var entries = await GetEntriesAsync(from, to, null, null);
-        return BuildCustomerAggregation(entries);
+        var roundingMinutes = await GetRoundingMinutesAsync();
+        return BuildCustomerAggregation(entries, roundingMinutes, _roundingService);
     }
 
     /// <summary>
@@ -32,7 +37,8 @@ public class DashboardService
     public async Task<CustomerHoursDto?> GetHoursByCustomerAndProjectAsync(int customerId, DateTime from, DateTime to)
     {
         var entries = await GetEntriesAsync(from, to, new[] { customerId }, null);
-        var aggregation = BuildCustomerAggregation(entries);
+        var roundingMinutes = await GetRoundingMinutesAsync();
+        var aggregation = BuildCustomerAggregation(entries, roundingMinutes, _roundingService);
         return aggregation.TryGetValue(customerId, out var dto) ? dto : null;
     }
 
@@ -77,7 +83,14 @@ public class DashboardService
         return await query.OrderBy(e => e.StartTime).ToListAsync();
     }
 
-    private static Dictionary<int, CustomerHoursDto> BuildCustomerAggregation(List<TimeEntry> entries)
+
+    private async Task<int> GetRoundingMinutesAsync()
+    {
+        var settings = await _settingsService.GetSettingsAsync();
+        return settings.RoundingMinutes;
+    }
+
+    private static Dictionary<int, CustomerHoursDto> BuildCustomerAggregation(List<TimeEntry> entries, int roundingMinutes, TimeRoundingService roundingService)
     {
         var now = DateTime.UtcNow;
         var result = new Dictionary<int, CustomerHoursDto>();
@@ -95,6 +108,10 @@ public class DashboardService
             }
 
             var duration = (entry.EndTime ?? now) - entry.StartTime;
+            if (roundingMinutes > 0)
+            {
+                duration = roundingService.RoundDuration(duration, roundingMinutes);
+            }
             var hours = (decimal)duration.TotalHours;
             dto.TotalHours += hours;
 

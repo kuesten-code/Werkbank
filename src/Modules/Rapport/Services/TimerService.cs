@@ -14,15 +14,21 @@ public class TimerService
     private readonly TimeEntryRepository _timeEntryRepository;
     private readonly IProjectService _projectService;
     private readonly ICustomerService _customerService;
+    private readonly SettingsService _settingsService;
+    private readonly TimeRoundingService _roundingService;
 
     public TimerService(
         TimeEntryRepository timeEntryRepository,
         IProjectService projectService,
-        ICustomerService customerService)
+        ICustomerService customerService,
+        SettingsService settingsService,
+        TimeRoundingService roundingService)
     {
         _timeEntryRepository = timeEntryRepository;
         _projectService = projectService;
         _customerService = customerService;
+        _settingsService = settingsService;
+        _roundingService = roundingService;
     }
 
     /// <summary>
@@ -116,6 +122,14 @@ public class TimerService
 
             entry.EndTime = now;
             entry.Status = TimeEntryStatus.Stopped;
+
+
+            var settings = await _settingsService.GetSettingsAsync();
+            if (settings.RoundingMinutes > 0)
+            {
+                var rounded = _roundingService.RoundDuration(now - entry.StartTime, settings.RoundingMinutes);
+                entry.EndTime = entry.StartTime.Add(rounded);
+            }
 
             if (!string.IsNullOrWhiteSpace(finalDescription))
             {

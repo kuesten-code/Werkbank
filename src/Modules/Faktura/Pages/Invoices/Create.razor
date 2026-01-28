@@ -210,6 +210,10 @@
             <MudText Typo="Typo.h6" Class="mt-6 mb-2">Anhänge (optional)</MudText>
             <MudPaper Elevation="0" Class="pa-3 mb-3">
                 <MudCheckBox @bind-Value="_attachTimesheet" Label="Tätigkeitsnachweis anhängen" Color="Color.Primary" />
+                @if (!_rapportAvailable)
+                {
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">Rapport Modul ist nicht registriert. Tätigkeitsnachweis kann nicht angehängt werden.</MudText>
+                }
                 @if (_attachTimesheet)
                 {
                     <MudGrid Class="mt-2">

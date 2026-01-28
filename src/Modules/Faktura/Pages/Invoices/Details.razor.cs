@@ -307,6 +307,11 @@ public partial class Details
 
             if (!result.Canceled)
             {
+                if (_invoice == null)
+                {
+                    return;
+                }
+
                 await InvoiceService.MarkAsPrintedAsync(_invoice.Id);
                 Snackbar.Add("Rechnung als gedruckt markiert", Severity.Success);
                 await LoadInvoice(); // Reload to update print tracking info

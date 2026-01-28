@@ -3,6 +3,8 @@
 @using Kuestencode.Rapport.Models.Reports
 @using Kuestencode.Rapport.Models.Timesheets
 @inject DashboardService DashboardService
+@inject SettingsService SettingsService
+@inject TimeRoundingService TimeRoundingService
 @inject TimesheetPdfService TimesheetPdfService
 @inject TimesheetCsvService TimesheetCsvService
 @inject TimesheetEmailService TimesheetEmailService
@@ -46,11 +48,20 @@
                                  SelectedProjectIdChanged="OnTimesheetProjectChanged" />
             </MudItem>
         }
-        <MudItem xs="12" md="3">
-            <MudNumericField T="decimal?" Label="Stundensatz (optional)" Variant="Variant.Outlined"
-                             @bind-Value="_timesheetHourlyRate"
-                             HideSpinButtons="true" Min="0m" Step="1m" />
-        </MudItem>
+        @if (_settings?.ShowHourlyRateInPdf == true)
+        {
+            <MudItem xs="12" md="3">
+                <MudNumericField T="decimal?" Label="Stundensatz (optional)" Variant="Variant.Outlined"
+                                 @bind-Value="_timesheetHourlyRate"
+                                 HideSpinButtons="true" Min="0m" Step="1m" />
+            </MudItem>
+        }
+        else
+        {
+            <MudItem xs="12" md="3">
+                <MudText Typo="Typo.caption" Color="Color.Secondary">Stundensatz wird laut Einstellungen nicht im PDF angezeigt.</MudText>
+            </MudItem>
+        }
         <MudItem xs="12" md="3">
             <MudTextField Label="Titel" Variant="Variant.Outlined" @bind-Value="_timesheetTitle" />
         </MudItem>
@@ -160,6 +171,8 @@
 @code {
     private const string DefaultGrouping = "Customer";
 
+    private RapportSettings? _settings;
+    private int _roundingMinutes;
     private bool _loading = true;
     private bool _error;
     private string _grouping = DefaultGrouping;
@@ -192,6 +205,12 @@
     {
         try
         {
+            _settings = await SettingsService.GetSettingsAsync();
+            _roundingMinutes = _settings.RoundingMinutes;
+            if (_settings.DefaultHourlyRate > 0)
+            {
+                _timesheetHourlyRate = _settings.DefaultHourlyRate;
+            }
             _customers = await CustomerService.GetAllAsync();
         }
         catch
@@ -511,7 +530,7 @@
             Convert.ToBase64String(bytes));
     }
 
-    private static string BuildCsv(IEnumerable<TimeEntry> entries)
+    private string BuildCsv(IEnumerable<TimeEntry> entries)
     {
         var sb = new StringBuilder();
         sb.AppendLine("Datum;Start;Ende;Dauer;Kunde;Projekt;Beschreibung;Typ");
@@ -551,10 +570,15 @@
         return (fromValue, toValue);
     }
 
-    private static decimal GetHours(TimeEntry entry)
+    private decimal GetHours(TimeEntry entry)
     {
         var end = entry.EndTime ?? DateTime.UtcNow;
-        return (decimal)(end - entry.StartTime).TotalHours;
+        var duration = end - entry.StartTime;
+        if (_roundingMinutes > 0)
+        {
+            duration = TimeRoundingService.RoundDuration(duration, _roundingMinutes);
+        }
+        return (decimal)duration.TotalHours;
     }
 
     private static string CsvField(string value)

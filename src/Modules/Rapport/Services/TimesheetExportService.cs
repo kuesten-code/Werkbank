@@ -16,15 +16,21 @@ public class TimesheetExportService
     private readonly TimeEntryRepository _timeEntryRepository;
     private readonly ICustomerService _customerService;
     private readonly IProjectService _projectService;
+    private readonly SettingsService _settingsService;
+    private readonly TimeRoundingService _roundingService;
 
     public TimesheetExportService(
         TimeEntryRepository timeEntryRepository,
         ICustomerService customerService,
-        IProjectService projectService)
+        IProjectService projectService,
+        SettingsService settingsService,
+        TimeRoundingService roundingService)
     {
         _timeEntryRepository = timeEntryRepository;
         _customerService = customerService;
         _projectService = projectService;
+        _settingsService = settingsService;
+        _roundingService = roundingService;
     }
 
     public async Task<TimesheetDto> BuildAsync(TimesheetExportRequestDto request)
@@ -65,13 +71,14 @@ public class TimesheetExportService
         }
 
         var entries = await LoadEntriesAsync(request, projectId);
+        var settings = await _settingsService.GetSettingsAsync();
 
         var dto = new TimesheetDto
         {
             Title = string.IsNullOrWhiteSpace(request.Title) ? "Tätigkeitsnachweis" : request.Title.Trim(),
             From = request.From,
             To = request.To,
-            HourlyRate = request.HourlyRate,
+            HourlyRate = request.HourlyRate ?? (settings.DefaultHourlyRate > 0 ? settings.DefaultHourlyRate : (decimal?)null),
             Customer = new TimesheetCustomerInfoDto
             {
                 Name = customer.Name,
@@ -104,6 +111,10 @@ public class TimesheetExportService
             foreach (var entry in group.OrderBy(e => e.StartTime))
             {
                 var duration = (entry.EndTime ?? now) - entry.StartTime;
+                if (settings.RoundingMinutes > 0)
+                {
+                    duration = _roundingService.RoundDuration(duration, settings.RoundingMinutes);
+                }
                 groupDto.Entries.Add(new TimesheetEntryDto
                 {
                     Date = entry.StartTime.Date,
@@ -120,9 +131,18 @@ public class TimesheetExportService
             dto.Groups.Add(groupDto);
         }
 
-        if (dto.HourlyRate.HasValue)
+        if (!settings.ShowHourlyRateInPdf)
+        {
+            dto.HourlyRate = null;
+            dto.TotalAmount = null;
+        }
+        else if (settings.CalculateTotalAmount && dto.HourlyRate.HasValue)
         {
             dto.TotalAmount = dto.TotalHours * dto.HourlyRate.Value;
+        }
+        else
+        {
+            dto.TotalAmount = null;
         }
 
         return dto;

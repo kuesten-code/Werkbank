@@ -16,6 +16,7 @@ using Kuestencode.Faktura.Services;
 using Kuestencode.Faktura.Shared;
 using Kuestencode.Faktura.Shared.Components;
 using Kuestencode.Shared.ApiClients;
+using Kuestencode.Shared.Contracts.Navigation;
 using Kuestencode.Shared.Contracts.Rapport;
 
 namespace Kuestencode.Faktura.Pages.Invoices;
@@ -27,6 +28,9 @@ public partial class Edit
 
     [Inject]
     public IRapportApiClient RapportApiClient { get; set; } = null!;
+
+    [Inject]
+    public IHostApiClient HostApiClient { get; set; } = null!;
 
     private bool _customerError;
     private string? _customerErrorText;
@@ -63,6 +67,7 @@ public partial class Edit
     private TimesheetAttachmentFormat _timesheetFormat = TimesheetAttachmentFormat.Pdf;
     private bool _timesheetGenerating;
     private bool _timesheetAttachmentAdded;
+    private bool _rapportAvailable = true;
 
     protected override async Task OnInitializedAsync()
     {
@@ -93,6 +98,12 @@ public partial class Edit
             _hasDiscount = _invoice.DiscountType != DiscountType.None;
 
             SyncTimesheetRange();
+            await CheckRapportAvailabilityAsync();
+            if (!_rapportAvailable)
+            {
+                _attachTimesheet = false;
+                _timesheetAttachmentAdded = false;
+            }
             RecalculateTotals();
         }
         catch (Exception ex)
@@ -103,6 +114,40 @@ public partial class Edit
         {
             _loading = false;
         }
+    }
+
+
+    private async Task CheckRapportAvailabilityAsync()
+    {
+        try
+        {
+            var navItems = await HostApiClient.GetNavigationAsync();
+            _rapportAvailable = navItems.Any(IsRapportNavItem);
+        }
+        catch
+        {
+            _rapportAvailable = false;
+        }
+    }
+
+    private static bool IsRapportNavItem(NavItemDto item)
+    {
+        if (!string.IsNullOrWhiteSpace(item.Href) && item.Href.StartsWith("/rapport", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        if (string.Equals(item.Label, "Rapport", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        if (item.Children is { Count: > 0 })
+        {
+            return item.Children.Any(IsRapportNavItem);
+        }
+
+        return false;
     }
 
     private async Task<IEnumerable<Customer>> SearchCustomers(string value, CancellationToken token)
@@ -444,6 +489,12 @@ public partial class Edit
         if (_timesheetAttachmentAdded)
         {
             return true;
+        }
+
+        if (!_rapportAvailable)
+        {
+            Snackbar.Add("Rapport Modul ist nicht registriert. Tätigkeitsnachweis kann nicht angehängt werden.", Severity.Warning);
+            return false;
         }
 
         if (_invoice == null || _selectedCustomer == null)

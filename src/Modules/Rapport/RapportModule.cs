@@ -33,13 +33,19 @@ public static class RapportModule
         services.AddScoped<TimeEntryRepository>();
 
         // Rapport core services
+        services.AddScoped<SettingsService>();
+        services.AddScoped<TimeRoundingService>();
         services.AddScoped<TimerService>();
         services.AddScoped<TimeEntryService>();
         services.AddScoped<DashboardService>();
 
+        // Background services
+        services.AddHostedService<AutoStopTimerHostedService>();
+
         // Timesheet export services
         services.AddScoped<TimesheetExportService>();
         services.AddScoped<TimesheetPdfService>();
+        services.AddScoped<TimesheetPreviewService>();
         services.AddScoped<TimesheetCsvService>();
         services.AddScoped<TimesheetEmailService>();
 

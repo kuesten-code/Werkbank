@@ -1,6 +1,7 @@
 ﻿@page "/"
 @using Kuestencode.Rapport.Models.Reports
 @inject DashboardService DashboardService
+@inject SettingsService SettingsService
 
 <PageTitle>Zeiterfassung - Küstencode Rapport</PageTitle>
 
@@ -106,6 +107,7 @@
 </style>
 
 @code {
+    private RapportSettings? _settings;
     private bool _loadingSummary = true;
     private bool _summaryError;
     private bool _loadingTop = true;
@@ -122,6 +124,7 @@
 
     protected override async Task OnInitializedAsync()
     {
+        _settings = await SettingsService.GetSettingsAsync();
         await LoadDataAsync();
     }
 
@@ -181,9 +184,10 @@
         }
     }
 
-    private static DateTime StartOfWeek(DateTime date)
+    private DateTime StartOfWeek(DateTime date)
     {
-        var diff = (7 + (date.DayOfWeek - DayOfWeek.Monday)) % 7;
+        var start = _settings?.StartOfWeek ?? DayOfWeek.Monday;
+        var diff = (7 + (date.DayOfWeek - start)) % 7;
         return date.Date.AddDays(-diff);
     }
 

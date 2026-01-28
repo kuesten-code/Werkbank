@@ -2,9 +2,11 @@
 @using Kuestencode.Core.Interfaces
 @using Kuestencode.Core.Models
 @using Kuestencode.Shared.UI.Components
+@using Kuestencode.Rapport.Models
 @inject ICustomerService CustomerService
 @inject IProjectService ProjectService
 @inject TimerService TimerService
+@inject SettingsService SettingsService
 @inject IDialogService DialogService
 @inject ISnackbar Snackbar
 @implements IDisposable
@@ -63,6 +65,7 @@
 </MudPaper>
 
 @code {
+    private RapportSettings? _settings;
     private List<Customer> _customers = new();
     private List<IProject> _projects = new();
     private Customer? _selectedCustomer;
@@ -98,6 +101,12 @@
             else
             {
                 _projects = new List<IProject>();
+            }
+
+            _settings = await SettingsService.GetSettingsAsync();
+            if (_settings.DefaultProjectId.HasValue && _projectsAvailable)
+            {
+                await OnProjectSelected(_settings.DefaultProjectId);
             }
         }
         finally

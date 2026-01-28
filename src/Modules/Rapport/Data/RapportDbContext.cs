@@ -24,6 +24,7 @@ public class RapportDbContext : DbContext
     }
 
     public DbSet<TimeEntry> TimeEntries { get; set; } = null!;
+    public DbSet<RapportSettings> Settings { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -37,7 +38,18 @@ public class RapportDbContext : DbContext
             entity.ToTable("Customers", "host", table => table.ExcludeFromMigrations());
         });
 
-        modelBuilder.Entity<TimeEntry>(entity =>
+        
+        modelBuilder.Entity<RapportSettings>(entity =>
+        {
+            entity.ToTable("Settings");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.PdfPrimaryColor).HasMaxLength(20);
+            entity.Property(e => e.PdfAccentColor).HasMaxLength(20);
+            entity.Property(e => e.PdfHeaderText).HasMaxLength(500);
+            entity.Property(e => e.PdfFooterText).HasMaxLength(1000);
+        });
+
+modelBuilder.Entity<TimeEntry>(entity =>
         {
             entity.HasQueryFilter(e => !e.IsDeleted);
             entity.HasKey(e => e.Id);

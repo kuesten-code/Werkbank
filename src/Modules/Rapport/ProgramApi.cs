@@ -212,6 +212,13 @@ public class ProgramApi
                         Href = "/rapport/reports",
                         Icon = "",
                         Type = NavItemType.Link
+                    },
+                    new NavItemDto
+                    {
+                        Label = "Einstellungen",
+                        Href = "/rapport/settings",
+                        Icon = "",
+                        Type = NavItemType.Link
                     }
                 }
             };
