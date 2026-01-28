@@ -113,4 +113,3 @@ Detaillierte Dokumentation: [ARCHITECTURE.md](ARCHITECTURE.md)
 ## Lizenz
 
 MIT License – Copyright 2026 Kevin Schulze
-
