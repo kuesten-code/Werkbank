@@ -26,7 +26,6 @@ Zeiterfassung und Tätigkeitsdokumentation für projektbasiertes Arbeiten.
 - Timer-basierte Zeiterfassung mit Kunden- und Projektzuordnung
 - Manuelle Zeiteinträge erstellen und bearbeiten
 - Tätigkeitsnachweise als PDF und CSV exportieren
-- Berichte per E-Mail versenden
 - Einstellungen mit Live-Vorschau für PDF-Layout
 - Integration mit Faktura (Tätigkeiten an Rechnungen anhängen)
 
