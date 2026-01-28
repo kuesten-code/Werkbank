@@ -1,4 +1,4 @@
-using Kuestencode.Core.Interfaces;
+﻿using Kuestencode.Core.Interfaces;
 using Kuestencode.Faktura;
 using Kuestencode.Faktura.Services;
 using Kuestencode.Shared.ApiClients;
@@ -71,6 +71,14 @@ public class ProgramApi
         {
             var hostUrl = builder.Configuration.GetValue<string>("ServiceUrls:Host") ?? "http://localhost:8080";
             client.BaseAddress = new Uri(hostUrl);
+            client.Timeout = TimeSpan.FromSeconds(30);
+        });
+
+        // Rapport API Client (Timesheet export)
+        builder.Services.AddHttpClient<IRapportApiClient, RapportApiClient>(client =>
+        {
+            var rapportUrl = builder.Configuration.GetValue<string>("ServiceUrls:Rapport") ?? "http://localhost:8082";
+            client.BaseAddress = new Uri(rapportUrl);
             client.Timeout = TimeSpan.FromSeconds(30);
         });
 
@@ -174,20 +182,20 @@ public class ProgramApi
                     {
                         Label = "Faktura",
                         Href = "/faktura",
-                        Icon = "Dashboard",
+                        Icon = "/faktura/company/logos/Faktura_Logo.png",
                         Type = NavItemType.Link
                     },
                     new NavItemDto
                     {
                         Label = "Rechnungen",
                         Href = "/faktura/invoices",
-                        Icon = "Receipt",
+                        Icon = "",
                         Type = NavItemType.Link
                     },
                     new NavItemDto
                     {
                         Label = "Faktura Einstellungen",
-                        Icon = "Settings",
+                        Icon = "",
                         Type = NavItemType.Group,
                         Children = new List<NavItemDto>
                         {
@@ -195,14 +203,14 @@ public class ProgramApi
                             {
                                 Label = "E-Mail-Anpassung",
                                 Href = "/faktura/settings/email-anpassung",
-                                Icon = "Palette",
+                                Icon = "",
                                 Type = NavItemType.Link
                             },
                             new NavItemDto
                             {
                                 Label = "PDF-Anpassung",
                                 Href = "/faktura/settings/pdf-anpassung",
-                                Icon = "PictureAsPdf",
+                                Icon = "",
                                 Type = NavItemType.Link
                             }
                         }
@@ -226,3 +234,4 @@ public class ProgramApi
         }
     }
 }
+

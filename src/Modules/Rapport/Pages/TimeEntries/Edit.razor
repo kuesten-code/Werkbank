@@ -1,0 +1,231 @@
+﻿@using System.ComponentModel.DataAnnotations
+@page "/time-entries/edit/{Id:int}"
+@inject TimeEntryService TimeEntryService
+@inject SettingsService SettingsService
+@inject ICustomerService CustomerService
+@inject IProjectService ProjectService
+@inject ISnackbar Snackbar
+@inject NavigationManager NavigationManager
+
+<PageTitle>Eintrag bearbeiten - Küstencode Rapport</PageTitle>
+
+<MudText Typo="Typo.h4" GutterBottom="true">Eintrag bearbeiten</MudText>
+
+@if (_isLoading)
+{
+    <MudProgressCircular Indeterminate="true" Color="Color.Primary" />
+}
+else if (_entry == null)
+{
+    <MudText Typo="Typo.subtitle1">Eintrag nicht gefunden.</MudText>
+    <MudButton Variant="Variant.Text" OnClick="Cancel">Zurück</MudButton>
+}
+else
+{
+    <MudPaper Elevation="2" Class="pa-6">
+        <MudGrid>
+            <MudItem xs="12" md="6">
+                <MudDatePicker Label="Datum" @bind-Date="_date" Variant="Variant.Outlined" />
+            </MudItem>
+            <MudItem xs="12" md="3">
+                <MudTimePicker Label="Startzeit" @bind-Time="_startTime" @bind-Time:after="UpdateDuration" Variant="Variant.Outlined" />
+            </MudItem>
+            <MudItem xs="12" md="3">
+                <MudTimePicker Label="Endzeit" @bind-Time="_endTime" @bind-Time:after="UpdateDuration" Variant="Variant.Outlined" />
+            </MudItem>
+            <MudItem xs="12" md="6">
+                <ProjectSelector Projects="_projects"
+                                 IsAvailable="_projectsAvailable"
+                                 SelectedProjectId="_selectedProjectId"
+                                 SelectedProjectIdChanged="OnProjectSelected"
+                                 UnavailableHref="/settings/modules" />
+            </MudItem>
+            <MudItem xs="12" md="6">
+                <CustomerPicker Customers="_customers"
+                                SelectedCustomer="_selectedCustomer"
+                                SelectedCustomerChanged="OnCustomerChanged"
+                                Disabled="@(_selectedProjectId.HasValue)"
+                                Required="@(!_selectedProjectId.HasValue)"
+                                RequiredError="Kunde ist erforderlich" />
+            </MudItem>
+            <MudItem xs="12">
+                <MudTextField T="string" Label="Beschreibung" Variant="Variant.Outlined"
+                              @bind-Value="_description" />
+            </MudItem>
+            <MudItem xs="12">
+                <MudText Typo="Typo.subtitle2">Dauer: @_durationDisplay</MudText>
+            </MudItem>
+            <MudItem xs="12" Class="d-flex gap-2">
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveAsync">
+                    Speichern
+                </MudButton>
+                <MudButton Variant="Variant.Text" OnClick="Cancel">Abbrechen</MudButton>
+            </MudItem>
+        </MudGrid>
+    </MudPaper>
+}
+
+@code {
+    [Parameter]
+    public int Id { get; set; }
+
+    private TimeEntry? _entry;
+    private bool _isLoading = true;
+    private DateTime? _date;
+    private TimeSpan? _startTime;
+    private TimeSpan? _endTime;
+    private string? _description;
+    private List<Customer> _customers = new();
+    private List<IProject> _projects = new();
+    private bool _projectsAvailable;
+    private RapportSettings? _settings;
+    private Customer? _selectedCustomer;
+    private IProject? _selectedProject;
+    private int? _selectedProjectId;
+    private string _durationDisplay = "00:00:00";
+
+    protected override async Task OnInitializedAsync()
+    {
+        _settings = await SettingsService.GetSettingsAsync();
+        _customers = await CustomerService.GetAllAsync();
+        _projectsAvailable = await ProjectService.IsAvailableAsync();
+        if (_projectsAvailable)
+        {
+            _projects = (await ProjectService.GetAllProjectsAsync()).ToList();
+        }
+        else
+        {
+            _projects = new List<IProject>();
+        }
+
+        if (_settings.DefaultProjectId.HasValue && _projectsAvailable && !_selectedProjectId.HasValue)
+        {
+            await OnProjectSelected(_settings.DefaultProjectId);
+        }
+
+        _entry = await TimeEntryService.GetEntryAsync(Id);
+        if (_entry != null)
+        {
+            var startLocal = _entry.StartTime.ToLocalTime();
+            _date = startLocal.Date;
+            _startTime = startLocal.TimeOfDay;
+
+            if (_entry.EndTime.HasValue)
+            {
+                var endLocal = _entry.EndTime.Value.ToLocalTime();
+                _endTime = endLocal.TimeOfDay;
+                _durationDisplay = FormatDuration(endLocal - startLocal);
+            }
+
+            _description = _entry.Description;
+
+            _selectedProjectId = _entry.ProjectId;
+            await OnProjectSelected(_selectedProjectId);
+
+            if (!_selectedProjectId.HasValue)
+            {
+                _selectedCustomer = _customers.FirstOrDefault(c => c.Id == _entry.CustomerId);
+            }
+        }
+
+        _isLoading = false;
+    }
+
+    private Task OnProjectSelected(int? projectId)
+    {
+        _selectedProjectId = projectId;
+        _selectedProject = projectId.HasValue
+            ? _projects.FirstOrDefault(p => p.Id == projectId.Value)
+            : null;
+
+        if (_selectedProject == null)
+        {
+            _selectedCustomer = null;
+            return Task.CompletedTask;
+        }
+
+        var match = _customers.FirstOrDefault(c => c.Id == _selectedProject.CustomerId);
+        _selectedCustomer = match ?? new Customer
+        {
+            Id = _selectedProject.CustomerId,
+            Name = _selectedProject.CustomerName,
+            CustomerNumber = "-",
+            Address = string.Empty,
+            PostalCode = string.Empty,
+            City = string.Empty,
+            Country = string.Empty
+        };
+
+        return Task.CompletedTask;
+    }
+
+    private Task OnCustomerChanged(Customer? customer)
+    {
+        _selectedCustomer = customer;
+        return Task.CompletedTask;
+    }
+
+    private async Task SaveAsync()
+    {
+        if (_date == null || _startTime == null || _endTime == null)
+        {
+            Snackbar.Add("Bitte Datum sowie Start- und Endzeit auswählen.", Severity.Warning);
+            return;
+        }
+
+        if (!_selectedProjectId.HasValue && _selectedCustomer == null)
+        {
+            Snackbar.Add("Bitte wähle einen Kunden oder ein Projekt.", Severity.Warning);
+            return;
+        }
+
+        var startLocal = _date.Value.Date + _startTime.Value;
+        var endLocal = _date.Value.Date + _endTime.Value;
+        var startUtc = DateTime.SpecifyKind(startLocal, DateTimeKind.Local).ToUniversalTime();
+        var endUtc = DateTime.SpecifyKind(endLocal, DateTimeKind.Local).ToUniversalTime();
+
+        _durationDisplay = FormatDuration(endLocal - startLocal);
+
+        try
+        {
+            await TimeEntryService.UpdateEntryAsync(
+                Id,
+                startUtc,
+                endUtc,
+                _selectedProjectId,
+                _selectedProjectId.HasValue ? null : _selectedCustomer?.Id,
+                _description);
+
+            Snackbar.Add("Eintrag wurde aktualisiert.", Severity.Success);
+            NavigationManager.NavigateTo("/time-entries");
+        }
+        catch (ValidationException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+    }
+
+    private void Cancel()
+    {
+        NavigationManager.NavigateTo("/time-entries");
+    }
+
+    private void UpdateDuration()
+    {
+        if (_date == null || _startTime == null || _endTime == null)
+        {
+            _durationDisplay = "00:00:00";
+            return;
+        }
+
+        var duration = _endTime.Value - _startTime.Value;
+        _durationDisplay = duration <= TimeSpan.Zero ? "00:00:00" : FormatDuration(duration);
+    }
+
+    private static string FormatDuration(TimeSpan duration)
+    {
+        var totalHours = (int)duration.TotalHours;
+        return $"{totalHours:00}:{duration.Minutes:00}:{duration.Seconds:00}";
+    }
+}
+

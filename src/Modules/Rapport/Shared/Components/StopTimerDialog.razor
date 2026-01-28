@@ -1,0 +1,79 @@
+﻿@using Kuestencode.Rapport.Models
+@using MudBlazor
+@inject TimerService TimerService
+@inject ISnackbar Snackbar
+@inherits ComponentBase
+
+<MudDialog>
+    <DialogContent>
+        <MudStack Spacing="2">
+            <MudText Typo="Typo.subtitle1">@GetHeader()</MudText>
+            <MudText Typo="Typo.h4">@_durationDisplay</MudText>
+            <MudTextField T="string" Label="Beschreibung" Variant="Variant.Outlined"
+                          @bind-Value="_finalDescription" />
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        <MudButton Variant="Variant.Text" OnClick="Cancel">Verwerfen</MudButton>
+        <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="StopTimerAsync">Speichern</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter]
+    public IMudDialogInstance DialogInstance { get; set; } = default!;
+
+    [Parameter]
+    public TimeEntry Entry { get; set; } = default!;
+
+    [Parameter]
+    public TimeSpan Duration { get; set; }
+
+    private string? _finalDescription;
+    private string _durationDisplay = "00:00:00";
+
+    protected override void OnInitialized()
+    {
+        _finalDescription = Entry.Description;
+        _durationDisplay = FormatDuration(Duration);
+    }
+
+    private string GetHeader()
+    {
+        var customer = Entry.CustomerName ?? "Unbekannter Kunde";
+        if (!string.IsNullOrWhiteSpace(Entry.ProjectName))
+        {
+            return $"Timer für {customer} - {Entry.ProjectName}";
+        }
+
+        return $"Timer für {customer}";
+    }
+
+    private async Task StopTimerAsync()
+    {
+        try
+        {
+            var stopped = await TimerService.StopTimerAsync(Entry.Id, _finalDescription);
+            DialogInstance.Close(DialogResult.Ok(stopped));
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+    }
+
+    private void Cancel()
+    {
+        DialogInstance.Cancel();
+    }
+
+    private static string FormatDuration(TimeSpan duration)
+    {
+        var totalHours = (int)duration.TotalHours;
+        return $"{totalHours:00}:{duration.Minutes:00}:{duration.Seconds:00}";
+    }
+}
+
+
+
+

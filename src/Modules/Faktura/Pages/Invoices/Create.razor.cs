@@ -1,6 +1,7 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Components;
@@ -14,11 +15,20 @@ using Kuestencode.Faktura.Models;
 using Kuestencode.Faktura.Services;
 using Kuestencode.Faktura.Shared;
 using Kuestencode.Faktura.Shared.Components;
+using Kuestencode.Shared.ApiClients;
+using Kuestencode.Shared.Contracts.Navigation;
+using Kuestencode.Shared.Contracts.Rapport;
 
 namespace Kuestencode.Faktura.Pages.Invoices;
 
 public partial class Create
 {
+    [Inject]
+    public IRapportApiClient RapportApiClient { get; set; } = null!;
+
+    [Inject]
+    public IHostApiClient HostApiClient { get; set; } = null!;
+
     private bool _customerError;
     private string? _customerErrorText;
     private MudAutocomplete<Customer>? _customerAuto;
@@ -44,6 +54,18 @@ public partial class Create
         ".csv"
     };
 
+    private bool _attachTimesheet;
+    private bool _timesheetUseInvoicePeriod = true;
+    private DateTime? _timesheetFromDate;
+    private DateTime? _timesheetToDate;
+    private decimal? _timesheetHourlyRate;
+    private string _timesheetTitle = "Tätigkeitsnachweis";
+    private string? _timesheetFileName;
+    private TimesheetAttachmentFormat _timesheetFormat = TimesheetAttachmentFormat.Pdf;
+    private bool _timesheetGenerating;
+    private bool _timesheetAttachmentAdded;
+    private bool _rapportAvailable = true;
+
     protected override async Task OnInitializedAsync()
     {
         try
@@ -52,12 +74,53 @@ public partial class Create
             _customers = await CustomerService.GetAllAsync();
             _company = await CompanyService.GetCompanyAsync();
             AddItem();
+            SyncTimesheetRange();
             RecalculateTotals();
+            await CheckRapportAvailabilityAsync();
+            if (!_rapportAvailable)
+            {
+                _attachTimesheet = false;
+                _timesheetAttachmentAdded = false;
+            }
         }
         catch (Exception ex)
         {
             _errorMessage = $"Fehler beim Initialisieren: {ex.Message}";
         }
+    }
+
+
+    private async Task CheckRapportAvailabilityAsync()
+    {
+        try
+        {
+            var navItems = await HostApiClient.GetNavigationAsync();
+            _rapportAvailable = navItems.Any(IsRapportNavItem);
+        }
+        catch
+        {
+            _rapportAvailable = false;
+        }
+    }
+
+    private static bool IsRapportNavItem(NavItemDto item)
+    {
+        if (!string.IsNullOrWhiteSpace(item.Href) && item.Href.StartsWith("/rapport", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        if (string.Equals(item.Label, "Rapport", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        if (item.Children is { Count: > 0 })
+        {
+            return item.Children.Any(IsRapportNavItem);
+        }
+
+        return false;
     }
 
     private async Task<IEnumerable<Customer>> SearchCustomers(string value, CancellationToken token)
@@ -123,6 +186,22 @@ public partial class Create
             _invoice.DiscountValue = 0;
         }
         RecalculateTotals();
+    }
+
+    private void OnServicePeriodChanged()
+    {
+        if (_timesheetUseInvoicePeriod)
+        {
+            SyncTimesheetRange();
+        }
+    }
+
+    private void SyncTimesheetRange()
+    {
+        var from = _servicePeriodStart ?? _invoiceDate ?? DateTime.Today;
+        var to = _servicePeriodEnd ?? _servicePeriodStart ?? _invoiceDate ?? DateTime.Today;
+        _timesheetFromDate = from;
+        _timesheetToDate = to;
     }
 
     private string GetDiscountLabel()
@@ -276,10 +355,21 @@ public partial class Create
             if (_selectedCustomer != null)
                 _invoice.CustomerId = _selectedCustomer.Id;
 
-            _invoice.InvoiceDate = DateTime.SpecifyKind(_invoiceDate.Value, DateTimeKind.Utc);
+            var invoiceDate = _invoiceDate ?? throw new InvalidOperationException("Rechnungsdatum fehlt.");
+            _invoice.InvoiceDate = DateTime.SpecifyKind(invoiceDate, DateTimeKind.Utc);
             _invoice.ServicePeriodStart = _servicePeriodStart.HasValue ? DateTime.SpecifyKind(_servicePeriodStart.Value, DateTimeKind.Utc) : null;
             _invoice.ServicePeriodEnd   = _servicePeriodEnd.HasValue ? DateTime.SpecifyKind(_servicePeriodEnd.Value, DateTimeKind.Utc) : null;
             _invoice.DueDate            = _dueDate.HasValue ? DateTime.SpecifyKind(_dueDate.Value, DateTimeKind.Utc) : null;
+
+            if (_attachTimesheet)
+            {
+                var ok = await EnsureTimesheetAttachmentAsync();
+                if (!ok)
+                {
+                    _saving = false;
+                    return;
+                }
+            }
 
             _invoice.Status = asDraft ? InvoiceStatus.Draft : InvoiceStatus.Sent;
 
@@ -320,10 +410,21 @@ public partial class Create
             if (_selectedCustomer != null)
                 _invoice.CustomerId = _selectedCustomer.Id;
 
-            _invoice.InvoiceDate = DateTime.SpecifyKind(_invoiceDate.Value, DateTimeKind.Utc);
+            var invoiceDate = _invoiceDate ?? throw new InvalidOperationException("Rechnungsdatum fehlt.");
+            _invoice.InvoiceDate = DateTime.SpecifyKind(invoiceDate, DateTimeKind.Utc);
             _invoice.ServicePeriodStart = _servicePeriodStart.HasValue ? DateTime.SpecifyKind(_servicePeriodStart.Value, DateTimeKind.Utc) : null;
             _invoice.ServicePeriodEnd   = _servicePeriodEnd.HasValue ? DateTime.SpecifyKind(_servicePeriodEnd.Value, DateTimeKind.Utc) : null;
             _invoice.DueDate            = _dueDate.HasValue ? DateTime.SpecifyKind(_dueDate.Value, DateTimeKind.Utc) : null;
+
+            if (_attachTimesheet)
+            {
+                var ok = await EnsureTimesheetAttachmentAsync();
+                if (!ok)
+                {
+                    _saving = false;
+                    return;
+                }
+            }
 
             _invoice.Status = InvoiceStatus.Sent;
 
@@ -356,7 +457,7 @@ public partial class Create
         var dialog = await DialogService.ShowAsync<SendEmailDialog>("E-Mail versenden", parameters, options);
         var result = await dialog.Result;
 
-        // zurueck zur Rechnungsliste
+        // zurück zur Rechnungsliste
         _saving = false;
         NavigationManager.NavigateTo("/faktura/invoices");
     }
@@ -415,7 +516,7 @@ public partial class Create
 
             if (file.Size > MaxAttachmentSize)
             {
-                Snackbar.Add($"Datei zu gro&szlig;: {file.Name}", Severity.Error);
+                Snackbar.Add($"Datei zu groß: {file.Name}", Severity.Error);
                 continue;
             }
 
@@ -441,6 +542,127 @@ public partial class Create
         }
     }
 
+    private async Task CreateTimesheetAttachmentAsync()
+    {
+        var ok = await EnsureTimesheetAttachmentAsync();
+        if (ok)
+        {
+            Snackbar.Add("Tätigkeitsnachweis wurde als Anhang hinzugefügt.", Severity.Success);
+        }
+    }
+
+    private async Task<bool> EnsureTimesheetAttachmentAsync()
+    {
+        if (_timesheetAttachmentAdded)
+        {
+            return true;
+        }
+
+        if (!_rapportAvailable)
+        {
+            Snackbar.Add("Rapport Modul ist nicht registriert. Tätigkeitsnachweis kann nicht angehängt werden.", Severity.Warning);
+            return false;
+        }
+
+        if (_selectedCustomer == null)
+        {
+            Snackbar.Add("Bitte zuerst einen Kunden auswählen.", Severity.Warning);
+            return false;
+        }
+
+        if (_timesheetUseInvoicePeriod)
+        {
+            SyncTimesheetRange();
+        }
+
+        if (!_timesheetFromDate.HasValue || !_timesheetToDate.HasValue)
+        {
+            Snackbar.Add("Bitte einen Zeitraum für den Tätigkeitsnachweis auswählen.", Severity.Warning);
+            return false;
+        }
+
+        var request = new TimesheetExportRequestDto
+        {
+            CustomerId = _selectedCustomer.Id,
+            From = _timesheetFromDate.Value.Date,
+            To = _timesheetToDate.Value.Date.AddDays(1).AddTicks(-1),
+            HourlyRate = _timesheetHourlyRate,
+            Title = _timesheetTitle,
+            FileName = string.IsNullOrWhiteSpace(_timesheetFileName) ? null : _timesheetFileName.Trim()
+        };
+
+        _timesheetGenerating = true;
+        try
+        {
+            byte[] bytes;
+            string contentType;
+
+            if (_timesheetFormat == TimesheetAttachmentFormat.Csv)
+            {
+                bytes = await RapportApiClient.GenerateTimesheetCsvAsync(request);
+                contentType = "text/csv";
+            }
+            else
+            {
+                bytes = await RapportApiClient.GenerateTimesheetPdfAsync(request);
+                contentType = "application/pdf";
+            }
+
+            var fileName = BuildTimesheetFileName(request, _selectedCustomer.Name, _timesheetFormat);
+
+            _invoice.Attachments.Add(new InvoiceAttachment
+            {
+                FileName = fileName,
+                ContentType = contentType,
+                FileSize = bytes.Length,
+                Data = bytes
+            });
+
+            _timesheetAttachmentAdded = true;
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Fehler beim Erstellen des Tätigkeitsnachweises: {ex.Message}", Severity.Error);
+            return false;
+        }
+        finally
+        {
+            _timesheetGenerating = false;
+        }
+    }
+
+    private static string BuildTimesheetFileName(TimesheetExportRequestDto request, string customerName, TimesheetAttachmentFormat format)
+    {
+        var extension = format == TimesheetAttachmentFormat.Csv ? ".csv" : ".pdf";
+
+        if (!string.IsNullOrWhiteSpace(request.FileName))
+        {
+            var raw = request.FileName.Trim();
+            if (!raw.EndsWith(extension, StringComparison.OrdinalIgnoreCase))
+            {
+                raw += extension;
+            }
+
+            return SanitizeFileName(raw);
+        }
+
+        var title = string.IsNullOrWhiteSpace(request.Title) ? "Tätigkeitsnachweis" : request.Title.Trim();
+        var period = request.From.ToString("yyyy-MM", CultureInfo.InvariantCulture);
+        var baseName = $"{title}_{customerName}_{period}{extension}";
+        return SanitizeFileName(baseName);
+    }
+
+    private static string SanitizeFileName(string fileName)
+    {
+        foreach (var invalid in Path.GetInvalidFileNameChars())
+        {
+            fileName = fileName.Replace(invalid, '_');
+        }
+
+        return fileName;
+    }
+
     private void RemoveAttachment(InvoiceAttachment attachment)
     {
         _invoice.Attachments.Remove(attachment);
@@ -463,4 +685,13 @@ public partial class Create
 
         return $"{size} B";
     }
+
+    private enum TimesheetAttachmentFormat
+    {
+        Pdf,
+        Csv
+    }
 }
+
+
+

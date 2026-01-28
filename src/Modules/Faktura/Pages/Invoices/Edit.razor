@@ -1,4 +1,4 @@
-@using Kuestencode.Core.Interfaces
+﻿@using Kuestencode.Core.Interfaces
 @page "/invoices/edit/{Id:int}"
 @using Kuestencode.Faktura.Services
 @using Kuestencode.Faktura.Models
@@ -41,6 +41,7 @@
                     </MudItem>
                     <MudItem xs="12" sm="4">
                         <MudDatePicker Label="Rechnungsdatum" @bind-Date="_invoiceDate"
+                                      @bind-Date:after="OnServicePeriodChanged"
                                       DateFormat="dd.MM.yyyy" Required="true" />
                     </MudItem>
                     <MudItem xs="12" sm="4">
@@ -49,11 +50,13 @@
                     </MudItem>
                     <MudItem xs="12" sm="6">
                         <MudDatePicker Label="Leistungszeitraum Von" @bind-Date="_servicePeriodStart"
+                                      @bind-Date:after="OnServicePeriodChanged"
                                       DateFormat="dd.MM.yyyy"
                                       HelperText="Beginn der Leistungserbringung" />
                     </MudItem>
                     <MudItem xs="12" sm="6">
                         <MudDatePicker Label="Leistungszeitraum Bis" @bind-Date="_servicePeriodEnd"
+                                      @bind-Date:after="OnServicePeriodChanged"
                                       DateFormat="dd.MM.yyyy"
                                       HelperText="Ende der Leistungserbringung" />
                     </MudItem>
@@ -197,6 +200,104 @@
                     Abschlag hinzufügen
                 </MudButton>
 
+                <!-- Anhänge (optional) -->
+                <MudText Typo="Typo.h6" Class="mt-6 mb-2">Anhänge (optional)</MudText>
+                <MudPaper Elevation="0" Class="pa-3 mb-3">
+                    <MudCheckBox @bind-Value="_attachTimesheet" Label="Tätigkeitsnachweis anhängen" Color="Color.Primary" />
+                    @if (!_rapportAvailable)
+                    {
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">Rapport Modul ist nicht registriert. Tätigkeitsnachweis kann nicht angehängt werden.</MudText>
+                    }
+                    @if (_attachTimesheet)
+                    {
+                        <MudGrid Class="mt-2">
+                            <MudItem xs="12" md="4">
+                                <MudCheckBox @bind-Value="_timesheetUseInvoicePeriod" @bind-Value:after="OnServicePeriodChanged" Label="Rechnungszeitraum verwenden" />
+                            </MudItem>
+                            <MudItem xs="12" md="4">
+                                <MudDatePicker Label="Von" @bind-Date="_timesheetFromDate" Variant="Variant.Outlined" Disabled="_timesheetUseInvoicePeriod" />
+                            </MudItem>
+                            <MudItem xs="12" md="4">
+                                <MudDatePicker Label="Bis" @bind-Date="_timesheetToDate" Variant="Variant.Outlined" Disabled="_timesheetUseInvoicePeriod" />
+                            </MudItem>
+                            <MudItem xs="12" md="4">
+                                <MudNumericField T="decimal?" Label="Stundensatz (optional)" Variant="Variant.Outlined"
+                                                 @bind-Value="_timesheetHourlyRate" HideSpinButtons="true" Min="0m" Step="1m" />
+                            </MudItem>
+                            <MudItem xs="12" md="4">
+                                <MudTextField Label="Titel" Variant="Variant.Outlined" @bind-Value="_timesheetTitle" />
+                            </MudItem>
+                            <MudItem xs="12" md="4">
+                                <MudTextField Label="Dateiname (optional)" Variant="Variant.Outlined" @bind-Value="_timesheetFileName" />
+                            </MudItem>
+                            <MudItem xs="12">
+                                <MudRadioGroup @bind-Value="_timesheetFormat" T="TimesheetAttachmentFormat">
+                                    <MudRadio Value="@TimesheetAttachmentFormat.Pdf" Color="Color.Primary">PDF</MudRadio>
+                                    <MudRadio Value="@TimesheetAttachmentFormat.Csv" Color="Color.Primary">CSV</MudRadio>
+                                </MudRadioGroup>
+                            </MudItem>
+                            <MudItem xs="12" Class="d-flex gap-2">
+                                <MudButton Variant="Variant.Outlined" Color="Color.Primary" Disabled="@_timesheetGenerating"
+                                          OnClick="CreateTimesheetAttachmentAsync">
+                                    Tätigkeitsnachweis erstellen
+                                </MudButton>
+                                @if (_timesheetGenerating)
+                                {
+                                    <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="ml-2" />
+                                }
+                            </MudItem>
+                        </MudGrid>
+                    }
+                </MudPaper>
+
+                <MudPaper Elevation="0" Class="pa-3">
+                    <MudFileUpload T="IReadOnlyList<IBrowserFile>"
+                                   Accept=".pdf,.csv"
+                                   MaximumFileCount="10"
+                                   FilesChanged="HandleAttachmentUpload">
+                        <ActivatorContent>
+                            <MudButton Variant="Variant.Filled"
+                                       Color="Color.Primary"
+                                       StartIcon="@Icons.Material.Filled.AttachFile"
+                                       Size="Size.Small">
+                                Datei(en) auswählen
+                            </MudButton>
+                        </ActivatorContent>
+                    </MudFileUpload>
+
+                    <MudText Typo="Typo.caption" Class="mt-2" Color="Color.Secondary">
+                        Erlaubt: PDF und CSV. Maximal 10 Dateien, je 10 MB.
+                    </MudText>
+
+                    @if (_invoice.Attachments.Count > 0)
+                    {
+                        <MudSimpleTable Dense="true" Hover="true" Bordered="true" Class="mt-3">
+                            <thead>
+                                <tr>
+                                    <th>Datei</th>
+                                    <th>Typ</th>
+                                    <th>Größe</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var attachment in _invoice.Attachments)
+                                {
+                                    <tr>
+                                        <td>@attachment.FileName</td>
+                                        <td>@attachment.ContentType</td>
+                                        <td>@FormatFileSize(attachment.FileSize)</td>
+                                        <td style="text-align: right;">
+                                            <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small"
+                                                          Color="Color.Error" OnClick="@(() => RemoveAttachment(attachment))" />
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </MudSimpleTable>
+                    }
+                </MudPaper>
+
                 <!-- Summen -->
                 <MudPaper Elevation="2" Class="pa-4 mt-6" Style="max-width: 400px; margin-left: auto;">
                     <MudText Typo="Typo.h6" GutterBottom="true">Summen</MudText>
@@ -294,3 +395,4 @@
         }
     </MudPaper>
 </MudContainer>
+

@@ -1,4 +1,4 @@
-@using Kuestencode.Shared.Contracts.Navigation
+﻿@using Kuestencode.Shared.Contracts.Navigation
 @using MudBlazor
 @inject NavigationManager NavigationManager
 
@@ -8,18 +8,52 @@
 }
 else if (Item.Type == NavItemType.Group)
 {
-    <MudNavGroup Title="@Item.Label" Icon="@GetIcon(Item.Icon)" Expanded="@IsExpanded(Item)">
-        @foreach (var child in Item.Children)
-        {
-            <NavItemRenderer Item="child" CurrentUri="CurrentUri" />
-        }
-    </MudNavGroup>
+    @if (HasIconName(Item.Icon))
+    {
+        <MudNavGroup Title="@Item.Label" Icon="@GetIcon(Item.Icon)" Expanded="@IsExpanded(Item)">
+            @foreach (var child in Item.Children)
+            {
+                <NavItemRenderer Item="child" CurrentUri="CurrentUri" />
+            }
+        </MudNavGroup>
+    }
+    else
+    {
+        <MudNavGroup Title="@Item.Label" Class="nav-group--no-icon" Expanded="@IsExpanded(Item)">
+            @foreach (var child in Item.Children)
+            {
+                <NavItemRenderer Item="child" CurrentUri="CurrentUri" />
+            }
+        </MudNavGroup>
+    }
 }
 else
 {
-    <MudNavLink Href="@Item.Href" Icon="@GetIcon(Item.Icon)">
-        @Item.Label
-    </MudNavLink>
+    if (IsIconUrl(Item.Icon))
+    {
+        <MudNavLink Href="@Item.Href">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                <MudImage Src="@Item.Icon" Alt="@Item.Label" Width="50" Height="50" />
+                <span class="@(IsOverviewItem(Item) ? "nav-overview-link" : "")">@Item.Label</span>
+            </MudStack>
+        </MudNavLink>
+    }
+    else
+    {
+        <MudNavLink Href="@Item.Href">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                @if (HasIconName(Item.Icon))
+                {
+                    <MudIcon Icon="@GetIcon(Item.Icon)" />
+                }
+                else
+                {
+                    <MudIcon Icon="@Icons.Material.Filled.Circle" Style="visibility:hidden;" />
+                }
+                <span class="@(IsOverviewItem(Item) ? "nav-overview-link" : "")">@Item.Label</span>
+            </MudStack>
+        </MudNavLink>
+    }
 }
 
 @code {
@@ -31,6 +65,11 @@ else
 
     private string GetIcon(string? iconName)
     {
+        if (IsIconUrl(iconName))
+        {
+            return Icons.Material.Filled.Circle;
+        }
+
         return iconName switch
         {
             "Dashboard" => Icons.Material.Filled.Dashboard,
@@ -42,8 +81,34 @@ else
             "People" => Icons.Material.Filled.People,
             "Business" => Icons.Material.Filled.Business,
             "Storage" => Icons.Material.Filled.Storage,
+            "AccessTime" => Icons.Material.Filled.AccessTime,
+            "Schedule" => Icons.Material.Filled.Schedule,
+            "WatchLater" => Icons.Material.Filled.WatchLater,
+            "Timelapse" => Icons.Material.Filled.Timelapse,
+            "Edit" => Icons.Material.Filled.Edit,
             _ => Icons.Material.Filled.Circle
         };
+    }
+
+    private static bool IsIconUrl(string? iconName)
+    {
+        if (string.IsNullOrWhiteSpace(iconName))
+        {
+            return false;
+        }
+
+        return iconName.StartsWith("/") || iconName.StartsWith("http", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool HasIconName(string? iconName)
+    {
+        return !string.IsNullOrWhiteSpace(iconName) && !IsIconUrl(iconName);
+    }
+
+    private static bool IsOverviewItem(NavItemDto item)
+    {
+        return string.Equals(item.Label, "Übersicht", StringComparison.OrdinalIgnoreCase)
+            && string.Equals(item.Href, "/", StringComparison.OrdinalIgnoreCase);
     }
 
     private bool IsExpanded(NavItemDto item)

@@ -3,24 +3,7 @@
 @inject IPdfGeneratorService PdfGeneratorService
 @inject IPreviewService PreviewService
 
-<div style="border: 1px solid #e5e7eb; border-radius: 4px; height: 100%; min-height: 600px;">
-    @if (_loading)
-    {
-        <div style="display: flex; align-items: center; justify-content: center; height: 100%; min-height: 600px;">
-            <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
-        </div>
-    }
-    else if (!string.IsNullOrEmpty(_error))
-    {
-        <div style="padding: 20px;">
-            <MudAlert Severity="Severity.Error">@_error</MudAlert>
-        </div>
-    }
-    else
-    {
-        <iframe src="@_pdfDataUrl" style="width: 100%; height: 100%; min-height: 600px; border: none;"></iframe>
-    }
-</div>
+<PdfPreviewFrame PdfBytes="@_pdfBytes" Loading="@_loading" Error="@_error" />
 
 @code {
     [Parameter]
@@ -28,7 +11,7 @@
 
     private bool _loading = true;
     private string _error = string.Empty;
-    private string _pdfDataUrl = string.Empty;
+    private byte[]? _pdfBytes;
     private System.Threading.Timer? _debounceTimer;
 
     protected override void OnInitialized()
@@ -58,9 +41,7 @@
         try
         {
             var sampleInvoice = PreviewService.GenerateSampleInvoice(Company);
-            var pdfBytes = PdfGeneratorService.GeneratePdfWithCompany(sampleInvoice, Company);
-            var base64 = Convert.ToBase64String(pdfBytes);
-            _pdfDataUrl = $"data:application/pdf;base64,{base64}";
+            _pdfBytes = PdfGeneratorService.GeneratePdfWithCompany(sampleInvoice, Company);
         }
         catch (Exception ex)
         {

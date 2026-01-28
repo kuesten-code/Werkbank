@@ -22,8 +22,8 @@ public partial class PdfCustomization
     private Company _company = new();
     private bool _loading = true;
     private bool _saving = false;
-    private MudBlazor.Utilities.MudColor _primaryColorValue;
-    private MudBlazor.Utilities.MudColor _accentColorValue;
+    private MudBlazor.Utilities.MudColor _primaryColorValue = new("#1f3a5f");
+    private MudBlazor.Utilities.MudColor _accentColorValue = new("#3FA796");
 
     protected override async Task OnInitializedAsync()
     {

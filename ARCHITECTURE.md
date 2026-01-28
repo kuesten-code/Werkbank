@@ -302,3 +302,15 @@ spec:
         - name: faktura
           image: kuestencode/faktura:latest
 ```
+
+
+## Kuestencode.Rapport
+
+- Zeiterfassung (Timer + manuelle Eintr?ge)
+- PDF/CSV Export (T?tigkeitsnachweis)
+- Einstellungen inkl. Live-PDF-Vorschau
+- DB-Schema: rapport
+
+## Tests
+
+- tests/Kuestencode.Rapport.IntegrationTests (Integration)

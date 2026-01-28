@@ -1,6 +1,6 @@
 # Migration Guide: InvoiceApp zu Kuestencode Modular
 
-Dieses Dokument beschreibt die Migration von der monolithischen `InvoiceApp` zur modularen `Kuestencode`-Architektur.
+Dieses Dokument beschreibt die Migration von `InvoiceApp` zur modularen `Kuestencode`-Architektur.
 
 ## Übersicht der neuen Struktur
 

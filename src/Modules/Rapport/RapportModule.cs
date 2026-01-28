@@ -1,0 +1,68 @@
+﻿using Kuestencode.Core.Interfaces;
+using Kuestencode.Rapport.Data;
+using Kuestencode.Rapport.Data.Repositories;
+using Kuestencode.Rapport.Services;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using RapportRepo = Kuestencode.Rapport.Data.Repositories;
+
+namespace Kuestencode.Rapport;
+
+/// <summary>
+/// Module definition for the Rapport module.
+/// Provides extension methods for service registration.
+/// </summary>
+public static class RapportModule
+{
+    /// <summary>
+    /// Adds all Rapport module services to the service collection.
+    /// </summary>
+    /// <param name="services">The service collection</param>
+    /// <param name="configuration">The configuration</param>
+    /// <returns>The service collection for chaining</returns>
+    public static IServiceCollection AddRapportModule(this IServiceCollection services, IConfiguration configuration)
+    {
+        // Add DbContext with PostgreSQL (Rapport schema)
+        services.AddDbContext<RapportDbContext>(options =>
+            options.UseNpgsql(configuration.GetConnectionString("DefaultConnection")));
+
+        // Register repositories
+        services.AddScoped(typeof(RapportRepo.IRepository<>), typeof(Repository<>));
+        services.AddScoped<TimeEntryRepository>();
+
+        // Rapport core services
+        services.AddScoped<SettingsService>();
+        services.AddScoped<TimeRoundingService>();
+        services.AddScoped<TimerService>();
+        services.AddScoped<TimeEntryService>();
+        services.AddScoped<DashboardService>();
+
+        // Background services
+        services.AddHostedService<AutoStopTimerHostedService>();
+
+        // Timesheet export services
+        services.AddScoped<TimesheetExportService>();
+        services.AddScoped<TimesheetPdfService>();
+        services.AddScoped<TimesheetPreviewService>();
+        services.AddScoped<TimesheetCsvService>();
+        services.AddScoped<TimesheetEmailService>();
+
+        // Fallback project service
+        services.TryAddScoped<IProjectService, MockProjectService>();
+
+        return services;
+    }
+
+    /// <summary>
+    /// Applies pending database migrations.
+    /// </summary>
+    public static async Task ApplyMigrationsAsync(IServiceProvider serviceProvider)
+    {
+        using var scope = serviceProvider.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<RapportDbContext>();
+        await context.Database.MigrateAsync();
+    }
+}
+

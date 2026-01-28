@@ -1,0 +1,473 @@
+﻿@page "/settings"
+@using System.Globalization
+@using System.Text
+@using Kuestencode.Core.Enums
+@using Kuestencode.Core.Interfaces
+@using Kuestencode.Rapport.Data
+@using Microsoft.EntityFrameworkCore
+@using Microsoft.AspNetCore.Components.Forms
+@using Kuestencode.Rapport.Models
+@using Kuestencode.Rapport.Services
+@using Kuestencode.Shared.UI.Components
+@inject SettingsService SettingsService
+@inject IProjectService ProjectService
+@inject RapportDbContext DbContext
+@inject ISnackbar Snackbar
+@inject IJSRuntime JSRuntime
+
+<PageTitle>Einstellungen - Küstencode Rapport</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="mt-4">
+    <MudText Typo="Typo.h4" GutterBottom="true">Einstellungen</MudText>
+
+    @if (_loading)
+    {
+        <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+    }
+    else
+    {
+        <EditForm Model="_settings">
+            <DataAnnotationsValidator />
+
+            <MudExpansionPanels MultiExpansion="true">
+                <MudExpansionPanel Text="Allgemein" Expanded="true">
+                    <MudGrid Class="mt-2">
+                        <MudItem xs="12" md="6">
+                            <MudSelect T="DayOfWeek" Label="Wochenbeginn" @bind-Value="_settings.StartOfWeek">
+                                @foreach (var day in _weekDays)
+                                {
+                                    <MudSelectItem Value="@day">@GetDayName(day)</MudSelectItem>
+                                }
+                            </MudSelect>
+                        </MudItem>
+                        <MudItem xs="12" md="6">
+                            <ProjectSelector Projects="_projects"
+                                             IsAvailable="_projectsAvailable"
+                                             SelectedProjectId="_settings.DefaultProjectId"
+                                             SelectedProjectIdChanged="OnDefaultProjectChanged"
+                                             UnavailableHref="/settings/modules" />
+                        </MudItem>
+                    </MudGrid>
+                </MudExpansionPanel>
+
+                <MudExpansionPanel Text="Zeiterfassung">
+                    <MudGrid Class="mt-2">
+                        <MudItem xs="12" md="6">
+                            <MudSelect T="int" Label="Rundung" @bind-Value="_settings.RoundingMinutes">
+                                <MudSelectItem Value="0">Keine Rundung</MudSelectItem>
+                                <MudSelectItem Value="5">Auf 5 Minuten runden</MudSelectItem>
+                                <MudSelectItem Value="15">Auf 15 Minuten runden</MudSelectItem>
+                                <MudSelectItem Value="30">Auf 30 Minuten runden</MudSelectItem>
+                            </MudSelect>
+                        </MudItem>
+                        <MudItem xs="12" md="6">
+                            <MudCheckBox @bind-Value="_autoStopEnabled" Label="Timer automatisch stoppen" />
+                            @if (_autoStopEnabled)
+                            {
+                                <MudNumericField T="int?" Label="Auto-Stop nach (Stunden)" Variant="Variant.Outlined"
+                                                 @bind-Value="_autoStopHours" Min="1" Step="1" />
+                            }
+                        </MudItem>
+                        <MudItem xs="12">
+                            <MudCheckBox @bind-Value="_settings.EnableSounds" Label="Sounds aktivieren" />
+                        </MudItem>
+                    </MudGrid>
+                </MudExpansionPanel>
+
+                <MudExpansionPanel Text="PDF-Export">
+                    <MudGrid Class="mt-2">
+                        <MudItem xs="12" md="4">
+                            <MudNumericField T="decimal" Label="Standard-Stundensatz (€)" Variant="Variant.Outlined"
+                                             @bind-Value="_settings.DefaultHourlyRate" Min="0" Step="1" />
+                        </MudItem>
+                        <MudItem xs="12" md="4">
+                            <MudCheckBox @bind-Value="_settings.ShowHourlyRateInPdf" Label="Stundensatz im PDF anzeigen" />
+                        </MudItem>
+                        <MudItem xs="12" md="4">
+                            <MudCheckBox @bind-Value="_settings.CalculateTotalAmount" Label="Betrag berechnen und anzeigen" Disabled="@(!_settings.ShowHourlyRateInPdf)" />
+                        </MudItem>
+                    </MudGrid>
+
+                    <MudDivider Class="my-4" />
+
+                    <MudText Typo="Typo.h6" Class="mb-2">Layout</MudText>
+                    <MudRadioGroup @bind-Value="_settings.PdfLayout">
+                        <MudCard Outlined="true" Class="mb-2" Style="@(_settings.PdfLayout == PdfLayout.Klar ? "border: 2px solid var(--mud-palette-primary);" : string.Empty)">
+                            <MudCardContent>
+                                <MudRadio Value="PdfLayout.Klar" Color="Color.Primary">Klar (Default)</MudRadio>
+                                <MudText Typo="Typo.caption" Color="Color.Secondary" Class="ml-6">Minimalistisch, text-dominiert.</MudText>
+                            </MudCardContent>
+                        </MudCard>
+                        <MudCard Outlined="true" Class="mb-2" Style="@(_settings.PdfLayout == PdfLayout.Strukturiert ? "border: 2px solid var(--mud-palette-primary);" : string.Empty)">
+                            <MudCardContent>
+                                <MudRadio Value="PdfLayout.Strukturiert" Color="Color.Primary">Strukturiert</MudRadio>
+                                <MudText Typo="Typo.caption" Color="Color.Secondary" Class="ml-6">Boxen und Linien für Übersichtlichkeit.</MudText>
+                            </MudCardContent>
+                        </MudCard>
+                        <MudCard Outlined="true" Class="mb-2" Style="@(_settings.PdfLayout == PdfLayout.Betont ? "border: 2px solid var(--mud-palette-primary);" : string.Empty)">
+                            <MudCardContent>
+                                <MudRadio Value="PdfLayout.Betont" Color="Color.Primary">Betont</MudRadio>
+                                <MudText Typo="Typo.caption" Color="Color.Secondary" Class="ml-6">Farbiger Header, visuell stärker.</MudText>
+                            </MudCardContent>
+                        </MudCard>
+                    </MudRadioGroup>
+
+                    <MudText Typo="Typo.h6" Class="mt-4 mb-2">Farben</MudText>
+                    <MudGrid>
+                        <MudItem xs="12" md="6">
+                            <MudText Typo="Typo.subtitle2" Class="mb-1">Primärfarbe</MudText>
+                            <MudColorPicker @bind-Value="_primaryColor" disablealpha="true" ColorPickerMode="ColorPickerMode.RGB" />
+                        </MudItem>
+                        <MudItem xs="12" md="6">
+                            <MudText Typo="Typo.subtitle2" Class="mb-1">Akzentfarbe</MudText>
+                            <MudColorPicker @bind-Value="_accentColor" disablealpha="true" ColorPickerMode="ColorPickerMode.RGB" />
+                        </MudItem>
+                    </MudGrid>
+
+
+                    <MudText Typo="Typo.h6" Class="mt-4 mb-2">Textanpassung</MudText>
+                    <MudGrid>
+                        <MudItem xs="12">
+                            <MudTextField Label="Header-Text" @bind-Value="_settings.PdfHeaderText" Lines="3" MaxLength="500" Counter="500" />
+                        </MudItem>
+                        <MudItem xs="12">
+                            <MudTextField Label="Footer-Text" @bind-Value="_settings.PdfFooterText" Lines="3" MaxLength="1000" Counter="1000" />
+                        </MudItem>
+                    </MudGrid>
+
+                    <MudDivider Class="my-4" />
+                    <MudText Typo="Typo.h6" Class="mb-2">Live-Vorschau</MudText>
+                    <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-2">
+                        Beispiel-Tätigkeitsnachweis mit aktuellen Einstellungen
+                    </MudText>
+                    <div style="max-height: 80vh; overflow-y: auto;">
+                        <TimesheetPdfPreview Settings="_settings" />
+                    </div>                </MudExpansionPanel>
+
+                <MudExpansionPanel Text="Erweitert">
+                    <MudStack Spacing="2">
+                        <MudButton Variant="Variant.Outlined" Color="Color.Primary" OnClick="ExportAllEntriesAsync">
+                            Daten exportieren (CSV)
+                        </MudButton>
+
+                        <MudFileUpload T="IReadOnlyList<IBrowserFile>" Accept=".csv" FilesChanged="ImportEntriesAsync">
+                            <ActivatorContent>
+                                <MudButton Variant="Variant.Outlined" Color="Color.Primary">Daten importieren (CSV)</MudButton>
+                            </ActivatorContent>
+                        </MudFileUpload>
+
+                        <MudDivider Class="my-2" />
+
+                        <MudText Typo="Typo.subtitle2">Alle Daten löschen</MudText>
+                        <MudCheckBox @bind-Value="_confirmDelete1" Label="Ich verstehe, dass alle Zeiteinträge gelöscht werden." />
+                        <MudCheckBox @bind-Value="_confirmDelete2" Label="Dieser Vorgang ist nicht rückgängig zu machen." />
+                        <MudCheckBox @bind-Value="_confirmDelete3" Label="Ich habe ein Backup erstellt." />
+                        <MudTextField Label="Zum Bestätigen LÖSCHEN eingeben" @bind-Value="_deletePhrase" />
+                        <MudButton Variant="Variant.Filled" Color="Color.Error" Disabled="@(!CanDeleteAll)" OnClick="DeleteAllEntriesAsync">
+                            Alle Daten löschen
+                        </MudButton>
+                    </MudStack>
+                </MudExpansionPanel>
+            </MudExpansionPanels>
+
+            <MudDivider Class="my-4" />
+
+            <MudStack Row="true" Justify="Justify.SpaceBetween">
+                <MudButton Variant="Variant.Text" OnClick="ResetAsync">Auf Standard zurücksetzen</MudButton>
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@_saving" OnClick="SaveAsync">
+                    @if (_saving)
+                    {
+                        <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                        <span class="ml-2">Speichern...</span>
+                    }
+                    else
+                    {
+                        <span>Speichern</span>
+                    }
+                </MudButton>
+            </MudStack>
+        </EditForm>
+    }
+</MudContainer>
+
+@code {
+    private RapportSettings _settings = RapportSettings.CreateDefault();
+    private bool _loading = true;
+    private bool _saving;
+
+    private List<IProject> _projects = new();
+    private bool _projectsAvailable;
+    private readonly DayOfWeek[] _weekDays = Enum.GetValues<DayOfWeek>();
+
+    private bool _autoStopEnabled;
+    private int? _autoStopHours;
+
+    private bool _confirmDelete1;
+    private bool _confirmDelete2;
+    private bool _confirmDelete3;
+    private string? _deletePhrase;
+
+    private MudBlazor.Utilities.MudColor _primaryColor = new("#1f3a5f");
+    private MudBlazor.Utilities.MudColor _accentColor = new("#3FA796");
+
+    protected override async Task OnInitializedAsync()
+    {
+        _settings = await SettingsService.GetSettingsAsync();
+        _primaryColor = new MudBlazor.Utilities.MudColor(_settings.PdfPrimaryColor);
+        _accentColor = new MudBlazor.Utilities.MudColor(_settings.PdfAccentColor);
+
+        _autoStopEnabled = _settings.AutoStopTimerAfterHours.HasValue;
+        _autoStopHours = _settings.AutoStopTimerAfterHours;
+
+        try
+        {
+            _projectsAvailable = await ProjectService.IsAvailableAsync();
+            if (_projectsAvailable)
+            {
+                _projects = (await ProjectService.GetAllProjectsAsync()).ToList();
+            }
+        }
+        catch
+        {
+            _projectsAvailable = false;
+            _projects = new List<IProject>();
+        }
+
+        _loading = false;
+    }
+
+    private Task OnDefaultProjectChanged(int? projectId)
+    {
+        _settings.DefaultProjectId = projectId;
+        return Task.CompletedTask;
+    }
+
+    private string GetDayName(DayOfWeek day)
+    {
+        return CultureInfo.GetCultureInfo("de-DE").DateTimeFormat.GetDayName(day);
+    }
+
+    private async Task SaveAsync()
+    {
+        _saving = true;
+        try
+        {
+            _settings.PdfPrimaryColor = _primaryColor.ToString(MudBlazor.Utilities.MudColorOutputFormats.Hex);
+            _settings.PdfAccentColor = _accentColor.ToString(MudBlazor.Utilities.MudColorOutputFormats.Hex);
+
+            if (_autoStopEnabled)
+            {
+                _settings.AutoStopTimerAfterHours = _autoStopHours;
+            }
+            else
+            {
+                _settings.AutoStopTimerAfterHours = null;
+            }
+
+            await SettingsService.UpdateSettingsAsync(_settings);
+            Snackbar.Add("Einstellungen gespeichert.", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Fehler beim Speichern: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private async Task ResetAsync()
+    {
+        await SettingsService.ResetToDefaultAsync();
+        _settings = await SettingsService.GetSettingsAsync();
+        _primaryColor = new MudBlazor.Utilities.MudColor(_settings.PdfPrimaryColor);
+        _accentColor = new MudBlazor.Utilities.MudColor(_settings.PdfAccentColor);
+        _autoStopEnabled = _settings.AutoStopTimerAfterHours.HasValue;
+        _autoStopHours = _settings.AutoStopTimerAfterHours;
+        Snackbar.Add("Einstellungen zurückgesetzt.", Severity.Info);
+    }
+
+    private bool CanDeleteAll => _confirmDelete1 && _confirmDelete2 && _confirmDelete3 && string.Equals(_deletePhrase, "LÖSCHEN", StringComparison.OrdinalIgnoreCase);
+
+    private async Task ExportAllEntriesAsync()
+    {
+        var entries = await DbContext.TimeEntries.AsNoTracking().OrderBy(e => e.StartTime).ToListAsync();
+        if (entries.Count == 0)
+        {
+            Snackbar.Add("Keine Daten zum Export.", Severity.Info);
+            return;
+        }
+
+        var sb = new StringBuilder();
+        sb.AppendLine("StartUtc;EndUtc;CustomerId;CustomerName;ProjectId;ProjectName;Description;IsManual;Status");
+        foreach (var entry in entries)
+        {
+            sb.Append(CsvField(entry.StartTime.ToString("o"))).Append(';')
+              .Append(CsvField(entry.EndTime?.ToString("o") ?? "")).Append(';')
+              .Append(CsvField(entry.CustomerId.ToString(CultureInfo.InvariantCulture))).Append(';')
+              .Append(CsvField(entry.CustomerName ?? "")).Append(';')
+              .Append(CsvField(entry.ProjectId?.ToString(CultureInfo.InvariantCulture) ?? "")).Append(';')
+              .Append(CsvField(entry.ProjectName ?? "")).Append(';')
+              .Append(CsvField(entry.Description ?? "")).Append(';')
+              .Append(CsvField(entry.IsManual.ToString())).Append(';')
+              .Append(CsvField(entry.Status.ToString())).AppendLine();
+        }
+
+        var bytes = Encoding.UTF8.GetBytes(sb.ToString());
+        var fileName = $"rapport-export-{DateTime.Now:yyyyMMdd-HHmm}.csv";
+        await JSRuntime.InvokeVoidAsync("downloadFileFromBase64", fileName, "text/csv", Convert.ToBase64String(bytes));
+    }
+
+    private async Task ImportEntriesAsync(IReadOnlyList<IBrowserFile> files)
+    {
+        var file = files.FirstOrDefault();
+        if (file == null)
+        {
+            return;
+        }
+
+        try
+        {
+            using var reader = new StreamReader(file.OpenReadStream());
+            var content = await reader.ReadToEndAsync();
+            var lines = content.Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries);
+            if (lines.Length <= 1)
+            {
+                Snackbar.Add("Keine gültigen Daten gefunden.", Severity.Warning);
+                return;
+            }
+
+            var imported = 0;
+            foreach (var line in lines.Skip(1))
+            {
+                var parts = SplitCsv(line);
+                if (parts.Count < 9)
+                {
+                    continue;
+                }
+
+                if (!DateTime.TryParse(parts[0], null, DateTimeStyles.RoundtripKind, out var startUtc))
+                {
+                    continue;
+                }
+
+                DateTime? endUtc = null;
+                if (!string.IsNullOrWhiteSpace(parts[1]))
+                {
+                    if (DateTime.TryParse(parts[1], null, DateTimeStyles.RoundtripKind, out var endParsed))
+                    {
+                        endUtc = endParsed;
+                    }
+                }
+
+                if (!int.TryParse(parts[2], NumberStyles.Integer, CultureInfo.InvariantCulture, out var customerId))
+                {
+                    continue;
+                }
+
+                int? projectId = null;
+                if (int.TryParse(parts[4], NumberStyles.Integer, CultureInfo.InvariantCulture, out var projectParsed))
+                {
+                    projectId = projectParsed;
+                }
+
+                var entry = new TimeEntry
+                {
+                    StartTime = startUtc,
+                    EndTime = endUtc,
+                    CustomerId = customerId,
+                    CustomerName = parts[3],
+                    ProjectId = projectId,
+                    ProjectName = string.IsNullOrWhiteSpace(parts[5]) ? null : parts[5],
+                    Description = string.IsNullOrWhiteSpace(parts[6]) ? null : parts[6],
+                    IsManual = bool.TryParse(parts[7], out var manual) && manual,
+                    Status = Enum.TryParse<TimeEntryStatus>(parts[8], out var status) ? status : TimeEntryStatus.Manual
+                };
+
+                DbContext.TimeEntries.Add(entry);
+                imported++;
+            }
+
+            if (imported > 0)
+            {
+                await DbContext.SaveChangesAsync();
+                Snackbar.Add($"{imported} Einträge importiert.", Severity.Success);
+            }
+            else
+            {
+                Snackbar.Add("Keine Einträge importiert.", Severity.Info);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Import fehlgeschlagen: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task DeleteAllEntriesAsync()
+    {
+        try
+        {
+            var count = await DbContext.TimeEntries.CountAsync();
+            if (count == 0)
+            {
+                Snackbar.Add("Keine Daten vorhanden.", Severity.Info);
+                return;
+            }
+
+            await DbContext.Database.ExecuteSqlRawAsync("DELETE FROM rapport.\"TimeEntries\"");
+            Snackbar.Add("Alle Zeiteinträge wurden gelöscht.", Severity.Warning);
+
+            _confirmDelete1 = _confirmDelete2 = _confirmDelete3 = false;
+            _deletePhrase = null;
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Löschen fehlgeschlagen: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private static string CsvField(string value)
+    {
+        if (string.IsNullOrEmpty(value))
+        {
+            return string.Empty;
+        }
+
+        if (value.Contains(';') || value.Contains('"') || value.Contains('\n') || value.Contains('\r'))
+        {
+            return '"' + value.Replace("\"", "\"\"") + '"';
+        }
+
+        return value;
+    }
+
+    private static List<string> SplitCsv(string line)
+    {
+        var result = new List<string>();
+        var sb = new StringBuilder();
+        var inQuotes = false;
+
+        foreach (var ch in line)
+        {
+            if (ch == '"')
+            {
+                inQuotes = !inQuotes;
+                continue;
+            }
+
+            if (ch == ';' && !inQuotes)
+            {
+                result.Add(sb.ToString());
+                sb.Clear();
+                continue;
+            }
+
+            sb.Append(ch);
+        }
+
+        result.Add(sb.ToString());
+        return result;
+    }
+}

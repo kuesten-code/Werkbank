@@ -1,0 +1,58 @@
+@using Kuestencode.Rapport.Models
+@using Kuestencode.Rapport.Services
+@using Kuestencode.Shared.UI.Components
+@inject TimesheetPreviewService PreviewService
+
+<PdfPreviewFrame PdfBytes="@_pdfBytes" Loading="@_loading" Error="@_error" />
+
+@code {
+    [Parameter]
+    public RapportSettings Settings { get; set; } = RapportSettings.CreateDefault();
+
+    private bool _loading = true;
+    private string _error = string.Empty;
+    private byte[]? _pdfBytes;
+    private System.Threading.Timer? _debounceTimer;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await GeneratePreviewAsync();
+    }
+
+    protected override void OnParametersSet()
+    {
+        _debounceTimer?.Dispose();
+        _debounceTimer = new System.Threading.Timer(_ =>
+        {
+            _ = InvokeAsync(async () =>
+            {
+                await GeneratePreviewAsync();
+                StateHasChanged();
+            });
+        }, null, 500, Timeout.Infinite);
+    }
+
+    private async Task GeneratePreviewAsync()
+    {
+        _loading = true;
+        _error = string.Empty;
+
+        try
+        {
+            _pdfBytes = await PreviewService.GeneratePreviewAsync(Settings);
+        }
+        catch (Exception ex)
+        {
+            _error = $"Fehler beim Generieren der Vorschau: {ex.Message}";
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    public void Dispose()
+    {
+        _debounceTimer?.Dispose();
+    }
+}

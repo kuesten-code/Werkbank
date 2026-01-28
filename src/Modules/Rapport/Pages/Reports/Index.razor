@@ -1,0 +1,665 @@
+﻿@page "/reports"
+@using System.Text
+@using Kuestencode.Rapport.Models.Reports
+@using Kuestencode.Rapport.Models.Timesheets
+@inject DashboardService DashboardService
+@inject SettingsService SettingsService
+@inject TimeRoundingService TimeRoundingService
+@inject TimesheetPdfService TimesheetPdfService
+@inject TimesheetCsvService TimesheetCsvService
+@inject TimesheetEmailService TimesheetEmailService
+@inject ICustomerService CustomerService
+@inject IProjectService ProjectService
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+@inject IJSRuntime JSRuntime
+
+<PageTitle>Auswertungen - Küstencode Rapport</PageTitle>
+
+<MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-4">
+    <MudText Typo="Typo.h4">Auswertungen</MudText>
+    <MudSpacer />
+    <MudButton Variant="Variant.Outlined" Color="Color.Primary" OnClick="ExportCsvAsync">CSV exportieren</MudButton>
+</MudStack>
+
+<MudPaper Elevation="1" Class="pa-4 mb-4">
+    <MudText Typo="Typo.h6" GutterBottom="true">Tätigkeitsnachweis</MudText>
+    <MudGrid>
+        <MudItem xs="12" md="4">
+            <CustomerPicker Label="Kunde" Customers="_customers"
+                            SelectedCustomer="_timesheetCustomer"
+                            SelectedCustomerChanged="OnTimesheetCustomerChanged"
+                            Disabled="_timesheetCustomerLocked"
+                            Required="true"
+                            RequiredError="Bitte einen Kunden auswählen" />
+        </MudItem>
+        <MudItem xs="12" md="4">
+            <MudDatePicker Label="Von" @bind-Date="_timesheetFromDate" Variant="Variant.Outlined" />
+        </MudItem>
+        <MudItem xs="12" md="4">
+            <MudDatePicker Label="Bis" @bind-Date="_timesheetToDate" Variant="Variant.Outlined" />
+        </MudItem>
+        @if (_projectsAvailable)
+        {
+            <MudItem xs="12" md="6">
+                <ProjectSelector Projects="_projects"
+                                 IsAvailable="_projectsAvailable"
+                                 SelectedProjectId="_timesheetProjectId"
+                                 SelectedProjectIdChanged="OnTimesheetProjectChanged" />
+            </MudItem>
+        }
+        @if (_settings?.ShowHourlyRateInPdf == true)
+        {
+            <MudItem xs="12" md="3">
+                <MudNumericField T="decimal?" Label="Stundensatz (optional)" Variant="Variant.Outlined"
+                                 @bind-Value="_timesheetHourlyRate"
+                                 HideSpinButtons="true" Min="0m" Step="1m" />
+            </MudItem>
+        }
+        else
+        {
+            <MudItem xs="12" md="3">
+                <MudText Typo="Typo.caption" Color="Color.Secondary">Stundensatz wird laut Einstellungen nicht im PDF angezeigt.</MudText>
+            </MudItem>
+        }
+        <MudItem xs="12" md="3">
+            <MudTextField Label="Titel" Variant="Variant.Outlined" @bind-Value="_timesheetTitle" />
+        </MudItem>
+        <MudItem xs="12" md="6">
+            <MudTextField Label="Dateiname (optional)" Variant="Variant.Outlined" @bind-Value="_timesheetFileName" />
+        </MudItem>
+        <MudItem xs="12" Class="d-flex flex-wrap gap-2">
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="DownloadTimesheetPdfAsync">
+                PDF herunterladen
+            </MudButton>
+            <MudButton Variant="Variant.Outlined" Color="Color.Primary" OnClick="PrintTimesheetPdfAsync">
+                PDF drucken
+            </MudButton>
+            <MudButton Variant="Variant.Outlined" Color="Color.Secondary" OnClick="DownloadTimesheetCsvAsync">
+                CSV herunterladen
+            </MudButton>
+        </MudItem>
+    </MudGrid>
+</MudPaper>
+
+<MudPaper Elevation="1" Class="pa-4">
+    @if (_loading)
+    {
+        <MudProgressLinear Color="Color.Primary" Indeterminate="true" Class="my-2" />
+    }
+    else if (_error)
+    {
+        <MudAlert Severity="Severity.Info" Dense="true">
+            Auswertung konnte nicht geladen werden.
+        </MudAlert>
+    }
+    else if (_entries.Count == 0)
+    {
+        <MudText Typo="Typo.body2" Color="Color.Secondary">Keine Einträge im gewählten Zeitraum.</MudText>
+    }
+    else
+    {
+        @if (_grouping == "CustomerProject")
+        {
+            <MudTreeView T="string">
+                @foreach (var customer in _customerTree)
+                {
+                    <MudTreeViewItem T="string" Text="@GetCustomerTreeLabel(customer)" Value="@GetCustomerTreeLabel(customer)">
+                        @foreach (var project in customer.Projects)
+                        {
+                            <MudTreeViewItem T="string" Text="@GetProjectTreeLabel(project)" Value="@GetProjectTreeLabel(project)" />
+                        }
+                        @if (customer.WithoutProjectHours > 0)
+                        {
+                            <MudTreeViewItem T="string" Text="@GetWithoutProjectLabel(customer)" Value="@GetWithoutProjectLabel(customer)" />
+                        }
+                    </MudTreeViewItem>
+                }
+            </MudTreeView>
+        }
+        else if (_grouping == "Customer")
+        {
+            <MudTable Items="_customerRows" Hover="true">
+                <HeaderContent>
+                    <MudTh>Kunde</MudTh>
+                    <MudTh>Stunden</MudTh>
+                    <MudTh>Einträge</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd>@context.CustomerName</MudTd>
+                    <MudTd>@FormatHours(context.Hours)</MudTd>
+                    <MudTd>@context.EntryCount</MudTd>
+                </RowTemplate>
+            </MudTable>
+        }
+        else if (_grouping == "Project")
+        {
+            <MudTable Items="_projectRows" Hover="true">
+                <HeaderContent>
+                    <MudTh>Projekt</MudTh>
+                    <MudTh>Kunde</MudTh>
+                    <MudTh>Stunden</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd>@context.ProjectName</MudTd>
+                    <MudTd>@context.CustomerName</MudTd>
+                    <MudTd>@FormatHours(context.Hours)</MudTd>
+                </RowTemplate>
+            </MudTable>
+        }
+        else if (_grouping == "Day")
+        {
+            <MudTable Items="_dayRows" Hover="true">
+                <HeaderContent>
+                    <MudTh>Tag</MudTh>
+                    <MudTh>Stunden</MudTh>
+                    <MudTh>Kunden</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd>@context.Day.ToString("dd.MM.yyyy")</MudTd>
+                    <MudTd>@FormatHours(context.Hours)</MudTd>
+                    <MudTd>@context.CustomerCount</MudTd>
+                </RowTemplate>
+            </MudTable>
+        }
+    }
+</MudPaper>
+
+@code {
+    private const string DefaultGrouping = "Customer";
+
+    private RapportSettings? _settings;
+    private int _roundingMinutes;
+    private bool _loading = true;
+    private bool _error;
+    private string _grouping = DefaultGrouping;
+
+    private List<Customer> _customers = new();
+    private List<IProject> _projects = new();
+    private List<Customer> _selectedCustomers = new();
+    private List<IProject> _selectedProjects = new();
+    private bool _projectsAvailable;
+
+    private DateTime? _fromDate = DateTime.Today.AddDays(-7);
+    private DateTime? _toDate = DateTime.Today;
+
+    private Customer? _timesheetCustomer;
+    private int? _timesheetProjectId;
+    private DateTime? _timesheetFromDate = DateTime.Today.AddDays(-7);
+    private DateTime? _timesheetToDate = DateTime.Today;
+    private decimal? _timesheetHourlyRate;
+    private string _timesheetTitle = "Tätigkeitsnachweis";
+    private string? _timesheetFileName;
+    private bool _timesheetCustomerLocked;
+
+    private List<TimeEntry> _entries = new();
+    private List<CustomerSummaryRow> _customerRows = new();
+    private List<ProjectSummaryRow> _projectRows = new();
+    private List<DaySummaryRow> _dayRows = new();
+    private List<CustomerTreeNode> _customerTree = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _settings = await SettingsService.GetSettingsAsync();
+            _roundingMinutes = _settings.RoundingMinutes;
+            if (_settings.DefaultHourlyRate > 0)
+            {
+                _timesheetHourlyRate = _settings.DefaultHourlyRate;
+            }
+            _customers = await CustomerService.GetAllAsync();
+        }
+        catch
+        {
+            _error = true;
+            _loading = false;
+            return;
+        }
+
+        try
+        {
+            _projectsAvailable = await ProjectService.IsAvailableAsync();
+            if (_projectsAvailable)
+            {
+                _projects = (await ProjectService.GetAllProjectsAsync()).ToList();
+            }
+        }
+        catch
+        {
+            _projectsAvailable = false;
+            _projects = new List<IProject>();
+        }
+
+        await LoadReportAsync();
+    }
+
+    private async Task LoadReportAsync()
+    {
+        _loading = true;
+        _error = false;
+
+        try
+        {
+            var range = NormalizeRange(_fromDate, _toDate);
+            var customerIds = _selectedCustomers.Select(c => c.Id).ToList();
+            var projectIds = _selectedProjects.Select(p => p.Id).ToList();
+
+            _entries = await DashboardService.GetEntriesAsync(range.From, range.To, customerIds, projectIds);
+
+            BuildCustomerRows();
+            BuildProjectRows();
+            BuildDayRows();
+            BuildCustomerTree();
+        }
+        catch
+        {
+            _error = true;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task ResetFilters()
+    {
+        _fromDate = DateTime.Today.AddDays(-7);
+        _toDate = DateTime.Today;
+        _selectedCustomers.Clear();
+        _selectedProjects.Clear();
+        _grouping = DefaultGrouping;
+        await LoadReportAsync();
+    }
+
+    private Task OnCustomersChanged(IEnumerable<Customer> customers)
+    {
+        _selectedCustomers = customers.ToList();
+        return Task.CompletedTask;
+    }
+
+    private Task OnProjectsChanged(IEnumerable<IProject> projects)
+    {
+        _selectedProjects = projects.ToList();
+        return Task.CompletedTask;
+    }
+
+    private Task OnTimesheetCustomerChanged(Customer? customer)
+    {
+        if (_timesheetCustomerLocked)
+        {
+            return Task.CompletedTask;
+        }
+
+        _timesheetCustomer = customer;
+        return Task.CompletedTask;
+    }
+
+    private Task OnTimesheetProjectChanged(int? projectId)
+    {
+        _timesheetProjectId = projectId;
+
+        if (projectId.HasValue)
+        {
+            var project = _projects.FirstOrDefault(p => p.Id == projectId.Value);
+            if (project != null)
+            {
+                _timesheetCustomer = _customers.FirstOrDefault(c => c.Id == project.CustomerId);
+            }
+            _timesheetCustomerLocked = true;
+        }
+        else
+        {
+            _timesheetCustomerLocked = false;
+        }
+
+        return Task.CompletedTask;
+    }
+
+    private async Task DownloadTimesheetPdfAsync()
+    {
+        var request = BuildTimesheetRequest();
+        if (request == null)
+            return;
+
+        var result = await TimesheetPdfService.GenerateAsync(request);
+        await JSRuntime.InvokeVoidAsync(
+            "downloadFileFromBase64",
+            result.FileName,
+            "application/pdf",
+            Convert.ToBase64String(result.Bytes));
+    }
+
+    private async Task PrintTimesheetPdfAsync()
+    {
+        var request = BuildTimesheetRequest();
+        if (request == null)
+            return;
+
+        var result = await TimesheetPdfService.GenerateAsync(request);
+        await JSRuntime.InvokeVoidAsync("printPdfFromBase64", Convert.ToBase64String(result.Bytes));
+    }
+
+    private async Task DownloadTimesheetCsvAsync()
+    {
+        var request = BuildTimesheetRequest();
+        if (request == null)
+            return;
+
+        var result = await TimesheetCsvService.GenerateAsync(request);
+        await JSRuntime.InvokeVoidAsync(
+            "downloadFileFromBase64",
+            result.FileName,
+            "text/csv",
+            Convert.ToBase64String(result.Bytes));
+    }
+
+    private async Task OpenTimesheetEmailDialog()
+    {
+        var request = BuildTimesheetRequest();
+        if (request == null)
+            return;
+
+        var customerEmail = _timesheetCustomer?.Email;
+
+        var parameters = new DialogParameters
+        {
+            [nameof(TimesheetSendDialog.CustomerName)] = _timesheetCustomer?.Name,
+            [nameof(TimesheetSendDialog.CustomerEmail)] = customerEmail,
+            [nameof(TimesheetSendDialog.OnSend)] =
+                EventCallback.Factory.Create<(string Email, string? Message, TimesheetAttachmentFormat Format, string? CcEmails, string? BccEmails)>(
+                    this, data => SendTimesheetEmailAsync(request, data))
+        };
+
+        var options = new DialogOptions { CloseOnEscapeKey = true, MaxWidth = MaxWidth.Small, FullWidth = true };
+        await DialogService.ShowAsync<TimesheetSendDialog>("Tätigkeitsnachweis versenden", parameters, options);
+    }
+
+    private async Task SendTimesheetEmailAsync(
+        Kuestencode.Shared.Contracts.Rapport.TimesheetExportRequestDto request,
+        (string Email, string? Message, TimesheetAttachmentFormat Format, string? CcEmails, string? BccEmails) data)
+    {
+        try
+        {
+            var emailRequest = new TimesheetEmailRequest
+            {
+                CustomerId = request.CustomerId,
+                From = request.From,
+                To = request.To,
+                ProjectId = request.ProjectId,
+                HourlyRate = request.HourlyRate,
+                Title = request.Title,
+                FileName = request.FileName,
+                EntryIds = request.EntryIds,
+                RecipientEmail = data.Email,
+                CustomMessage = data.Message,
+                Format = data.Format,
+                CcEmails = data.CcEmails,
+                BccEmails = data.BccEmails
+            };
+
+            await TimesheetEmailService.SendAsync(emailRequest);
+            Snackbar.Add("Tätigkeitsnachweis wurde erfolgreich versendet.", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Fehler beim Versenden der E-Mail: {ex.Message}", Severity.Error);
+            throw;
+        }
+    }
+
+    private Kuestencode.Shared.Contracts.Rapport.TimesheetExportRequestDto? BuildTimesheetRequest()
+    {
+        if (_timesheetCustomer == null)
+        {
+            Snackbar.Add("Bitte einen Kunden auswählen.", Severity.Warning);
+            return null;
+        }
+
+        var range = NormalizeRange(_timesheetFromDate, _timesheetToDate);
+
+        return new Kuestencode.Shared.Contracts.Rapport.TimesheetExportRequestDto
+        {
+            CustomerId = _timesheetCustomer.Id,
+            From = range.From,
+            To = range.To,
+            ProjectId = _timesheetProjectId,
+            HourlyRate = _timesheetHourlyRate,
+            Title = _timesheetTitle,
+            FileName = string.IsNullOrWhiteSpace(_timesheetFileName) ? null : _timesheetFileName.Trim()
+        };
+    }
+
+    private void BuildCustomerRows()
+    {
+        _customerRows = _entries
+            .GroupBy(e => new { e.CustomerId, Name = e.CustomerName ?? "Unbekannter Kunde" })
+            .Select(g => new CustomerSummaryRow
+            {
+                CustomerId = g.Key.CustomerId,
+                CustomerName = g.Key.Name,
+                Hours = g.Sum(GetHours),
+                EntryCount = g.Count()
+            })
+            .OrderByDescending(r => r.Hours)
+            .ToList();
+    }
+
+    private void BuildProjectRows()
+    {
+        _projectRows = _entries
+            .GroupBy(e => new
+            {
+                e.CustomerId,
+                CustomerName = e.CustomerName ?? "Unbekannter Kunde",
+                e.ProjectId,
+                ProjectName = string.IsNullOrWhiteSpace(e.ProjectName) ? "Ohne Projekt" : e.ProjectName
+            })
+            .Select(g => new ProjectSummaryRow
+            {
+                CustomerId = g.Key.CustomerId,
+                CustomerName = g.Key.CustomerName,
+                ProjectId = g.Key.ProjectId,
+                ProjectName = g.Key.ProjectName,
+                Hours = g.Sum(GetHours)
+            })
+            .OrderByDescending(r => r.Hours)
+            .ToList();
+    }
+
+    private void BuildDayRows()
+    {
+        _dayRows = _entries
+            .GroupBy(e => e.StartTime.ToLocalTime().Date)
+            .Select(g => new DaySummaryRow
+            {
+                Day = g.Key,
+                Hours = g.Sum(GetHours),
+                CustomerCount = g.Select(e => e.CustomerId).Distinct().Count()
+            })
+            .OrderByDescending(r => r.Day)
+            .ToList();
+    }
+
+    private void BuildCustomerTree()
+    {
+        _customerTree = _entries
+            .GroupBy(e => new { e.CustomerId, Name = e.CustomerName ?? "Unbekannter Kunde" })
+            .Select(g => new CustomerTreeNode
+            {
+                CustomerId = g.Key.CustomerId,
+                CustomerName = g.Key.Name,
+                TotalHours = g.Sum(GetHours),
+                Projects = g
+                    .Where(e => e.ProjectId.HasValue)
+                    .GroupBy(e => new { e.ProjectId, Name = e.ProjectName ?? "Unbekanntes Projekt" })
+                    .Select(pg => new ProjectTreeNode
+                    {
+                        ProjectId = pg.Key.ProjectId ?? 0,
+                        ProjectName = pg.Key.Name,
+                        Hours = pg.Sum(GetHours)
+                    })
+                    .OrderByDescending(p => p.Hours)
+                    .ToList(),
+                WithoutProjectHours = g
+                    .Where(e => !e.ProjectId.HasValue)
+                    .Sum(GetHours)
+            })
+            .OrderByDescending(c => c.TotalHours)
+            .ToList();
+    }
+
+    private async Task ExportCsvAsync()
+    {
+        if (_entries.Count == 0)
+        {
+            Snackbar.Add("Keine Daten zum Export.", Severity.Info);
+            return;
+        }
+
+        var csv = BuildCsv(_entries);
+        var bytes = Encoding.UTF8.GetBytes(csv);
+        var fileName = $"rapport-zeitdaten-{DateTime.Now:yyyyMMdd-HHmm}.csv";
+        await JSRuntime.InvokeVoidAsync(
+            "downloadFileFromBase64",
+            fileName,
+            "text/csv",
+            Convert.ToBase64String(bytes));
+    }
+
+    private string BuildCsv(IEnumerable<TimeEntry> entries)
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine("Datum;Start;Ende;Dauer;Kunde;Projekt;Beschreibung;Typ");
+
+        foreach (var entry in entries)
+        {
+            var startLocal = entry.StartTime.ToLocalTime();
+            var endLocal = entry.EndTime?.ToLocalTime();
+            var duration = GetHours(entry);
+            var type = entry.IsManual || entry.Status == TimeEntryStatus.Manual ? "Manuell" : "Timer";
+
+            sb.Append(CsvField(startLocal.ToString("dd.MM.yyyy"))).Append(';')
+              .Append(CsvField(startLocal.ToString("HH:mm"))).Append(';')
+              .Append(CsvField(endLocal?.ToString("HH:mm") ?? "läuft")).Append(';')
+              .Append(CsvField(duration.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture))).Append(';')
+              .Append(CsvField(entry.CustomerName ?? "")).Append(';')
+              .Append(CsvField(entry.ProjectName ?? "")).Append(';')
+              .Append(CsvField(entry.Description ?? "")).Append(';')
+              .Append(CsvField(type)).AppendLine();
+        }
+
+        return sb.ToString();
+    }
+
+    private static (DateTime From, DateTime To) NormalizeRange(DateTime? from, DateTime? to)
+    {
+        var fromValue = (from ?? DateTime.Today.AddDays(-7)).Date;
+        var toValue = (to ?? DateTime.Today).Date.AddDays(1).AddTicks(-1);
+
+        if (fromValue > toValue)
+        {
+            var temp = fromValue;
+            fromValue = toValue.Date;
+            toValue = temp.Date.AddDays(1).AddTicks(-1);
+        }
+
+        return (fromValue, toValue);
+    }
+
+    private decimal GetHours(TimeEntry entry)
+    {
+        var end = entry.EndTime ?? DateTime.UtcNow;
+        var duration = end - entry.StartTime;
+        if (_roundingMinutes > 0)
+        {
+            duration = TimeRoundingService.RoundDuration(duration, _roundingMinutes);
+        }
+        return (decimal)duration.TotalHours;
+    }
+
+    private static string CsvField(string value)
+    {
+        if (string.IsNullOrEmpty(value))
+        {
+            return string.Empty;
+        }
+
+        if (value.Contains(';') || value.Contains('"') || value.Contains('\n') || value.Contains('\r'))
+        {
+            return '"' + value.Replace("\"", "\"\"") + '"';
+        }
+
+        return value;
+    }
+
+    private static string FormatHours(decimal hours)
+    {
+        return $"{hours:0.##} h";
+    }
+
+    private static string GetCustomerLabel(Customer customer)
+    {
+        return $"{customer.Name} ({customer.CustomerNumber})";
+    }
+
+    private static string GetProjectLabel(IProject project)
+    {
+        return $"{project.Name} - {project.CustomerName}";
+    }
+
+    private static string GetCustomerTreeLabel(CustomerTreeNode node)
+    {
+        return $"{node.CustomerName} ({FormatHours(node.TotalHours)})";
+    }
+
+    private static string GetProjectTreeLabel(ProjectTreeNode node)
+    {
+        return $"{node.ProjectName} ({FormatHours(node.Hours)})";
+    }
+
+    private static string GetWithoutProjectLabel(CustomerTreeNode node)
+    {
+        return $"Ohne Projekt ({FormatHours(node.WithoutProjectHours)})";
+    }
+
+    private sealed class CustomerSummaryRow
+    {
+        public int CustomerId { get; set; }
+        public string CustomerName { get; set; } = string.Empty;
+        public decimal Hours { get; set; }
+        public int EntryCount { get; set; }
+    }
+
+    private sealed class ProjectSummaryRow
+    {
+        public int CustomerId { get; set; }
+        public string CustomerName { get; set; } = string.Empty;
+        public int? ProjectId { get; set; }
+        public string ProjectName { get; set; } = string.Empty;
+        public decimal Hours { get; set; }
+    }
+
+    private sealed class DaySummaryRow
+    {
+        public DateTime Day { get; set; }
+        public decimal Hours { get; set; }
+        public int CustomerCount { get; set; }
+    }
+
+    private sealed class CustomerTreeNode
+    {
+        public int CustomerId { get; set; }
+        public string CustomerName { get; set; } = string.Empty;
+        public decimal TotalHours { get; set; }
+        public List<ProjectTreeNode> Projects { get; set; } = new();
+        public decimal WithoutProjectHours { get; set; }
+    }
+
+    private sealed class ProjectTreeNode
+    {
+        public int ProjectId { get; set; }
+        public string ProjectName { get; set; } = string.Empty;
+        public decimal Hours { get; set; }
+    }
+}

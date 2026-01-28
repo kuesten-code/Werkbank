@@ -1,0 +1,250 @@
+﻿@page "/time-entries"
+@inject TimeEntryService TimeEntryService
+@inject ICustomerService CustomerService
+@inject IProjectService ProjectService
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+@inject NavigationManager NavigationManager
+
+<PageTitle>Zeiteinträge - Küstencode Rapport</PageTitle>
+
+<MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-4">
+    <MudText Typo="Typo.h4">Zeiteinträge</MudText>
+    <MudSpacer />
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="GoToCreate">Manuellen Eintrag erstellen</MudButton>
+</MudStack>
+
+<MudPaper Elevation="1" Class="pa-4 mb-4">
+    <MudGrid>
+        <MudItem xs="12" md="3">
+            <MudDatePicker Label="Von" @bind-Date="_fromDate" Variant="Variant.Outlined" />
+        </MudItem>
+        <MudItem xs="12" md="3">
+            <MudDatePicker Label="Bis" @bind-Date="_toDate" Variant="Variant.Outlined" />
+        </MudItem>
+        <MudItem xs="12" md="3">
+            <MudSelect T="Customer" Label="Kunden" Variant="Variant.Outlined" MultiSelection="true"
+                       SelectedValues="_selectedCustomers"
+                       SelectedValuesChanged="OnCustomersChanged">
+                @foreach (var customer in _customers)
+                {
+                    <MudSelectItem T="Customer" Value="customer">@GetCustomerLabel(customer)</MudSelectItem>
+                }
+            </MudSelect>
+        </MudItem>
+        @if (_projectsAvailable)
+        {
+            <MudItem xs="12" md="6">
+                <MudSelect T="IProject" Label="Projekte" Variant="Variant.Outlined" MultiSelection="true"
+                           Disabled="@_onlyWithoutProject"
+                           SelectedValues="_selectedProjects"
+                           SelectedValuesChanged="OnProjectsChanged">
+                    @foreach (var project in _projects)
+                    {
+                        <MudSelectItem T="IProject" Value="project">@GetProjectLabel(project)</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="12" md="6">
+                <MudCheckBox T="bool" @bind-Value="_onlyWithoutProject" @bind-Value:after="OnWithoutProjectChanged" Label="Nur ohne Projekt (für gewählte Kunden)" />
+            </MudItem>
+        }
+        <MudItem xs="12" Class="d-flex gap-2">
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="LoadEntriesAsync">Filter anwenden</MudButton>
+            <MudButton Variant="Variant.Text" OnClick="ResetFilters">Zurücksetzen</MudButton>
+        </MudItem>
+    </MudGrid>
+</MudPaper>
+
+<MudTable Items="_entries" Hover="true">
+    <HeaderContent>
+        <MudTh>Datum</MudTh>
+        <MudTh>Zeit</MudTh>
+        <MudTh>Kunde</MudTh>
+        <MudTh>Projekt</MudTh>
+        <MudTh>Dauer</MudTh>
+        <MudTh>Typ</MudTh>
+        <MudTh>Aktionen</MudTh>
+    </HeaderContent>
+    <RowTemplate>
+        <MudTd>@context.StartTime.ToLocalTime().ToString("dd.MM.yyyy")</MudTd>
+        <MudTd>
+            @context.StartTime.ToLocalTime().ToString("HH:mm") -
+            @(context.EndTime?.ToLocalTime().ToString("HH:mm") ?? "...")
+        </MudTd>
+        <MudTd>@(context.CustomerName ?? "—")</MudTd>
+        <MudTd>@(string.IsNullOrWhiteSpace(context.ProjectName) ? "—" : context.ProjectName)</MudTd>
+        <MudTd>@FormatDuration(context.Duration)</MudTd>
+        <MudTd>
+            @if (context.IsManual || context.Status == TimeEntryStatus.Manual)
+            {
+                <MudIcon Icon="@Icons.Material.Filled.Edit" Size="Size.Small" />
+                <span class="ml-1">Manuell</span>
+            }
+            else
+            {
+                <MudIcon Icon="@Icons.Material.Filled.Timer" Size="Size.Small" />
+                <span class="ml-1">Timer</span>
+            }
+        </MudTd>
+        <MudTd>
+            <MudIconButton Icon="@Icons.Material.Filled.Edit" OnClick="@(() => EditEntry(context.Id))" />
+            <MudIconButton Icon="@Icons.Material.Filled.Delete" OnClick="@(() => DeleteEntryAsync(context.Id))" />
+        </MudTd>
+    </RowTemplate>
+</MudTable>
+
+@code {
+    private List<TimeEntry> _entries = new();
+    private List<Customer> _customers = new();
+    private List<IProject> _allProjects = new();
+    private List<IProject> _projects = new();
+    private List<Customer> _selectedCustomers = new();
+    private List<IProject> _selectedProjects = new();
+    private DateTime? _fromDate;
+    private DateTime? _toDate;
+    private string _typeFilter = "Alle";
+    private bool _projectsAvailable;
+    private bool _onlyWithoutProject;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _customers = await CustomerService.GetAllAsync();
+        _projectsAvailable = await ProjectService.IsAvailableAsync();
+        if (_projectsAvailable)
+        {
+            _allProjects = (await ProjectService.GetAllProjectsAsync()).ToList();
+            UpdateProjectOptions();
+        }
+
+        await LoadEntriesAsync();
+    }
+
+    private async Task LoadEntriesAsync()
+    {
+        var manualOnly = _typeFilter switch
+        {
+            "Manuell" => true,
+            "Getrackt" => false,
+            _ => (bool?)null
+        };
+
+        var customerIds = _selectedCustomers.Select(c => c.Id).ToList();
+        var projectIds = _selectedProjects.Select(p => p.Id).ToList();
+        var onlyWithoutProject = _onlyWithoutProject ? true : (bool?)null;
+
+        _entries = await TimeEntryService.GetEntriesAsync(_fromDate, _toDate, customerIds, projectIds, manualOnly, onlyWithoutProject);
+    }
+
+    private async Task DeleteEntryAsync(int id)
+    {
+        var parameters = new DialogParameters
+        {
+            { "ContentText", "Möchtest du diesen Eintrag löschen?" },
+            { "ConfirmButtonText", "Löschen" },
+            { "ConfirmButtonColor", Color.Error },
+            { "CancelButtonText", "Abbrechen" }
+        };
+
+        var dialog = await DialogService.ShowAsync<Kuestencode.Shared.UI.Components.ConfirmDialog>("Bestätigen", parameters);
+        if (dialog is null)
+        {
+            return;
+        }
+
+        var result = await dialog.Result;
+        if (result is not null && !result.Canceled)
+        {
+            await TimeEntryService.SoftDeleteEntryAsync(id);
+            Snackbar.Add("Eintrag wurde gelöscht.", Severity.Success);
+            await LoadEntriesAsync();
+        }
+    }
+
+    private void GoToCreate()
+    {
+        NavigationManager.NavigateTo("/time-entries/create");
+    }
+
+    private void EditEntry(int id)
+    {
+        NavigationManager.NavigateTo($"/time-entries/edit/{id}");
+    }
+
+    private async Task ResetFilters()
+    {
+        _fromDate = null;
+        _toDate = null;
+        _selectedCustomers.Clear();
+        _selectedProjects.Clear();
+        _onlyWithoutProject = false;
+        _typeFilter = "Alle";
+        UpdateProjectOptions();
+        await LoadEntriesAsync();
+    }
+
+    private Task OnCustomersChanged(IEnumerable<Customer> customers)
+    {
+        _selectedCustomers = customers.ToList();
+        UpdateProjectOptions();
+        return Task.CompletedTask;
+    }
+
+    private Task OnProjectsChanged(IEnumerable<IProject> projects)
+    {
+        _selectedProjects = projects.ToList();
+        return Task.CompletedTask;
+    }
+
+    private Task OnWithoutProjectChanged()
+    {
+        if (_onlyWithoutProject)
+        {
+            _selectedProjects.Clear();
+        }
+
+        return Task.CompletedTask;
+    }
+
+    private void UpdateProjectOptions()
+    {
+        if (!_projectsAvailable)
+        {
+            _projects = new List<IProject>();
+            _selectedProjects.Clear();
+            return;
+        }
+
+        var customerIds = _selectedCustomers.Select(c => c.Id).ToHashSet();
+        _projects = customerIds.Count == 0
+            ? _allProjects.ToList()
+            : _allProjects.Where(p => customerIds.Contains(p.CustomerId)).ToList();
+
+        _selectedProjects = _selectedProjects
+            .Where(p => _projects.Any(active => active.Id == p.Id))
+            .ToList();
+    }
+
+    private string GetCustomerLabel(Customer customer)
+    {
+        return $"{customer.Name} ({customer.CustomerNumber})";
+    }
+
+    private string GetProjectLabel(IProject project)
+    {
+        return $"{project.Name} - {project.CustomerName}";
+    }
+
+    private static string FormatDuration(TimeSpan duration)
+    {
+        var totalHours = (int)duration.TotalHours;
+        return $"{totalHours:00}:{duration.Minutes:00}:{duration.Seconds:00}";
+    }
+}
+
+
+
+
+
+
+

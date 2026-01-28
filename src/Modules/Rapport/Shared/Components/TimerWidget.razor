@@ -1,0 +1,269 @@
+﻿@using System.ComponentModel.DataAnnotations
+@using Kuestencode.Core.Interfaces
+@using Kuestencode.Core.Models
+@using Kuestencode.Shared.UI.Components
+@using Kuestencode.Rapport.Models
+@inject ICustomerService CustomerService
+@inject IProjectService ProjectService
+@inject TimerService TimerService
+@inject SettingsService SettingsService
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+@implements IDisposable
+
+<MudPaper Elevation="2" Class="pa-6">
+    <MudText Typo="Typo.h5" GutterBottom="true">Zeiterfassung starten</MudText>
+
+    @if (_isLoading)
+    {
+        <MudProgressCircular Indeterminate="true" Color="Color.Primary" />
+    }
+    else if (_runningEntry != null)
+    {
+        <MudStack Spacing="3">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                <span class="timer-pulse"></span>
+                <MudText Typo="Typo.subtitle1">
+                    Läuft für: @_runningCustomerDisplay
+                </MudText>
+            </MudStack>
+            <MudText Typo="Typo.h3" Class="timer-duration">@_runningDuration</MudText>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="OpenStopDialog">
+                Timer stoppen
+            </MudButton>
+        </MudStack>
+    }
+    else
+    {
+        <MudStack Spacing="3">
+            <MudGrid>
+                <MudItem xs="12" md="6">
+                    <ProjectSelector Projects="_projects"
+                                     IsAvailable="_projectsAvailable"
+                                     SelectedProjectId="_selectedProjectId"
+                                     SelectedProjectIdChanged="OnProjectSelected"
+                                     UnavailableHref="/settings/modules" />
+                </MudItem>
+                <MudItem xs="12" md="6">
+                    <CustomerPicker Customers="_customers"
+                                    SelectedCustomer="_selectedCustomer"
+                                    SelectedCustomerChanged="OnCustomerChanged"
+                                    Disabled="@(_selectedProjectId.HasValue)"
+                                    Required="@(!_selectedProjectId.HasValue)"
+                                    RequiredError="Kunde ist erforderlich" />
+                </MudItem>
+            </MudGrid>
+
+            <MudTextField T="string" Label="Beschreibung" Variant="Variant.Outlined"
+                          @bind-Value="_description" />
+
+            <MudButton Variant="Variant.Filled" Color="Color.Success" OnClick="StartTimerAsync">
+                Timer starten
+            </MudButton>
+        </MudStack>
+    }
+</MudPaper>
+
+@code {
+    private RapportSettings? _settings;
+    private List<Customer> _customers = new();
+    private List<IProject> _projects = new();
+    private Customer? _selectedCustomer;
+    private IProject? _selectedProject;
+    private int? _selectedProjectId;
+    private bool _projectsAvailable;
+    private bool _isLoading = true;
+    private string? _description;
+    private TimeEntry? _runningEntry;
+    private string _runningDuration = "00:00:00";
+    private string _runningCustomerDisplay = string.Empty;
+    private PeriodicTimer? _timer;
+    private CancellationTokenSource? _timerCts;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDataAsync();
+        await RefreshRunningEntryAsync();
+        StartTimerLoop();
+    }
+
+    private async Task LoadDataAsync()
+    {
+        _isLoading = true;
+        try
+        {
+            _customers = await CustomerService.GetAllAsync();
+            _projectsAvailable = await ProjectService.IsAvailableAsync();
+            if (_projectsAvailable)
+            {
+                _projects = (await ProjectService.GetAllProjectsAsync()).ToList();
+            }
+            else
+            {
+                _projects = new List<IProject>();
+            }
+
+            _settings = await SettingsService.GetSettingsAsync();
+            if (_settings.DefaultProjectId.HasValue && _projectsAvailable)
+            {
+                await OnProjectSelected(_settings.DefaultProjectId);
+            }
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private Task OnProjectSelected(int? projectId)
+    {
+        _selectedProjectId = projectId;
+        _selectedProject = projectId.HasValue
+            ? _projects.FirstOrDefault(p => p.Id == projectId.Value)
+            : null;
+
+        if (_selectedProject == null)
+        {
+            _selectedCustomer = null;
+            return Task.CompletedTask;
+        }
+
+        var match = _customers.FirstOrDefault(c => c.Id == _selectedProject.CustomerId);
+        _selectedCustomer = match ?? new Customer
+        {
+            Id = _selectedProject.CustomerId,
+            Name = _selectedProject.CustomerName,
+            CustomerNumber = "-",
+            Address = string.Empty,
+            PostalCode = string.Empty,
+            City = string.Empty,
+            Country = string.Empty
+        };
+
+        return Task.CompletedTask;
+    }
+
+    private Task OnCustomerChanged(Customer? customer)
+    {
+        _selectedCustomer = customer;
+        return Task.CompletedTask;
+    }
+
+    private async Task StartTimerAsync()
+    {
+        if (!_selectedProjectId.HasValue && _selectedCustomer == null)
+        {
+            Snackbar.Add("Bitte wähle einen Kunden oder ein Projekt.", Severity.Warning);
+            return;
+        }
+
+        try
+        {
+            var projectId = _selectedProjectId;
+            var customerId = !_selectedProjectId.HasValue ? _selectedCustomer?.Id : (int?)null;
+
+            _runningEntry = await TimerService.StartTimerAsync(projectId, customerId, _description);
+            UpdateRunningDisplay();
+            _description = null;
+        }
+        catch (ValidationException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+    }
+
+    private async Task RefreshRunningEntryAsync()
+    {
+        _runningEntry = await TimerService.GetRunningTimerAsync();
+        UpdateRunningDisplay();
+    }
+
+    private void UpdateRunningDisplay()
+    {
+        if (_runningEntry == null)
+        {
+            _runningCustomerDisplay = string.Empty;
+            _runningDuration = "00:00:00";
+            return;
+        }
+
+        var customer = _runningEntry.CustomerName ?? "Unbekannter Kunde";
+        if (!string.IsNullOrWhiteSpace(_runningEntry.ProjectName))
+        {
+            _runningCustomerDisplay = $"{customer} - {_runningEntry.ProjectName}";
+        }
+        else
+        {
+            _runningCustomerDisplay = customer;
+        }
+
+        _runningDuration = FormatDuration(_runningEntry.Duration);
+    }
+
+    private void StartTimerLoop()
+    {
+        _timerCts?.Cancel();
+        _timerCts = new CancellationTokenSource();
+        _timer = new PeriodicTimer(TimeSpan.FromSeconds(1));
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                while (await _timer.WaitForNextTickAsync(_timerCts.Token))
+                {
+                    if (_runningEntry != null)
+                    {
+                        _runningDuration = FormatDuration(_runningEntry.Duration);
+                        await InvokeAsync(StateHasChanged);
+                    }
+                }
+            }
+            catch (OperationCanceledException)
+            {
+            }
+        });
+    }
+
+    public void Dispose()
+    {
+        _timerCts?.Cancel();
+        _timer?.Dispose();
+        _timerCts?.Dispose();
+    }
+
+    private async Task OpenStopDialog()
+    {
+        if (_runningEntry == null)
+        {
+            return;
+        }
+
+        var parameters = new DialogParameters
+        {
+            { "Entry", _runningEntry },
+            { "Duration", _runningEntry.Duration }
+        };
+
+        var dialog = await DialogService.ShowAsync<StopTimerDialog>("Timer stoppen", parameters);
+        if (dialog is null)
+        {
+            return;
+        }
+
+        var result = await dialog.Result;
+        if (result is not null && !result.Canceled)
+        {
+            _runningEntry = null;
+            _runningDuration = "00:00:00";
+            _runningCustomerDisplay = string.Empty;
+        }
+    }
+
+    private static string FormatDuration(TimeSpan duration)
+    {
+        var totalHours = (int)duration.TotalHours;
+        return $"{totalHours:00}:{duration.Minutes:00}:{duration.Seconds:00}";
+    }
+}
+

@@ -1,0 +1,24 @@
+<Router AppAssembly="@typeof(App).Assembly">
+    <Found Context="routeData">
+        <RouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)" />
+        <FocusOnNavigate RouteData="@routeData" Selector="h1" />
+    </Found>
+    <NotFound>
+        <PageTitle>Not found</PageTitle>
+        <LayoutView Layout="@typeof(MainLayout)">
+            <MudContainer MaxWidth="MaxWidth.Medium" Class="mt-8">
+                <MudPaper Class="pa-8" Elevation="3">
+                    <MudText Typo="Typo.h4" Align="Align.Center" GutterBottom="true">
+                        404 - Page not found
+                    </MudText>
+                    <MudText Align="Align.Center" Class="mt-4">
+                        The requested page could not be found.
+                    </MudText>
+                    <MudButton Href="/rapport" Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" Class="mt-6">
+                        Back to home
+                    </MudButton>
+                </MudPaper>
+            </MudContainer>
+        </LayoutView>
+    </NotFound>
+</Router>
