@@ -23,6 +23,11 @@
                           Lines="4"
                           Placeholder="Fügen Sie hier eine persönliche Nachricht ein (optional)" />
 
+            <MudCheckBox @bind-Value="_includeClosing"
+                         Label="Mit Abschiedsformel"
+                         Color="Color.Primary"
+                         Dense="true" />
+
             <MudExpansionPanels>
                 <MudExpansionPanel Text="Weitere Empfänger (optional)" Expanded="@_hasAdditionalRecipients">
                     <MudStack Spacing="2">
@@ -183,12 +188,13 @@
     public string? CustomerEmail { get; set; }
 
     [Parameter]
-    public EventCallback<(string Email, string? Message, EmailAttachmentFormat Format, string? CcEmails, string? BccEmails)> OnSend { get; set; }
+    public EventCallback<(string Email, string? Message, EmailAttachmentFormat Format, string? CcEmails, string? BccEmails, bool IncludeClosing)> OnSend { get; set; }
 
     private string _recipientEmail = string.Empty;
     private string _customMessage = string.Empty;
     private string _ccEmails = string.Empty;
     private string _bccEmails = string.Empty;
+    private bool _includeClosing = true;
     private bool _sending = false;
     private EmailAttachmentFormat _selectedFormat = EmailAttachmentFormat.NormalPdf;
     private bool _isXRechnungValid = false;
@@ -278,7 +284,8 @@
                 string.IsNullOrWhiteSpace(_customMessage) ? null : _customMessage.Trim(),
                 _selectedFormat,
                 string.IsNullOrWhiteSpace(_ccEmails) ? null : _ccEmails.Trim(),
-                string.IsNullOrWhiteSpace(_bccEmails) ? null : _bccEmails.Trim()));
+                string.IsNullOrWhiteSpace(_bccEmails) ? null : _bccEmails.Trim(),
+                _includeClosing));
 
             var completed = await Task.WhenAny(sendTask, Task.Delay(TimeSpan.FromSeconds(30)));
             if (completed != sendTask)

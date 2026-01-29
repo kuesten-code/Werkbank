@@ -27,7 +27,8 @@ public class EmailMessageBuilder : IEmailMessageBuilder
         string? customMessage,
         EmailAttachmentFormat format,
         string? ccEmails,
-        string? bccEmails)
+        string? bccEmails,
+        bool includeClosing = true)
     {
         var message = new MimeMessage();
 
@@ -54,8 +55,8 @@ public class EmailMessageBuilder : IEmailMessageBuilder
         // Build email body
         var bodyBuilder = new BodyBuilder
         {
-            HtmlBody = _templateRenderer.RenderHtmlBody(invoice, company, customMessage),
-            TextBody = _templateRenderer.RenderPlainTextBody(invoice, company, customMessage)
+            HtmlBody = _templateRenderer.RenderHtmlBody(invoice, company, customMessage, includeClosing),
+            TextBody = _templateRenderer.RenderPlainTextBody(invoice, company, customMessage, includeClosing)
         };
 
         // Add attachments

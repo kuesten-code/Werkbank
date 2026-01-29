@@ -19,5 +19,6 @@ public interface IEmailMessageBuilder
         string? customMessage,
         EmailAttachmentFormat format,
         string? ccEmails,
-        string? bccEmails);
+        string? bccEmails,
+        bool includeClosing = true);
 }

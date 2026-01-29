@@ -11,6 +11,7 @@ public interface IEmailService
         string? customMessage = null,
         EmailAttachmentFormat format = EmailAttachmentFormat.NormalPdf,
         string? ccEmails = null,
-        string? bccEmails = null);
+        string? bccEmails = null,
+        bool includeClosing = true);
     Task<(bool success, string? errorMessage)> TestEmailConnectionAsync(Company company);
 }

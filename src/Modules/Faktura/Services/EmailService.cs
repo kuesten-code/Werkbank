@@ -38,7 +38,8 @@ public class EmailService : IEmailService
         string? customMessage = null,
         EmailAttachmentFormat format = EmailAttachmentFormat.NormalPdf,
         string? ccEmails = null,
-        string? bccEmails = null)
+        string? bccEmails = null,
+        bool includeClosing = true)
     {
         try
         {
@@ -98,7 +99,8 @@ public class EmailService : IEmailService
                 customMessage,
                 format,
                 ccEmails,
-                bccEmails);
+                bccEmails,
+                includeClosing);
 
             // Send email using SMTP client
             _logger.LogInformation("EmailService: sending via SMTP (InvoiceId={InvoiceId})", invoiceId);

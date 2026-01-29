@@ -449,7 +449,7 @@ public partial class Create
             [nameof(SendEmailDialog.Invoice)] = invoice,
             [nameof(SendEmailDialog.CustomerEmail)] = _selectedCustomer?.Email,
             [nameof(SendEmailDialog.OnSend)] =
-                EventCallback.Factory.Create<(string Email, string? Message, EmailAttachmentFormat Format, string? CcEmails, string? BccEmails)>(
+                EventCallback.Factory.Create<(string Email, string? Message, EmailAttachmentFormat Format, string? CcEmails, string? BccEmails, bool IncludeClosing)>(
                     this, SendInvoiceEmail)
         };
 
@@ -462,7 +462,7 @@ public partial class Create
         NavigationManager.NavigateTo("/faktura/invoices");
     }
 
-    private async Task SendInvoiceEmail((string Email, string? Message, EmailAttachmentFormat Format, string? CcEmails, string? BccEmails) data)
+    private async Task SendInvoiceEmail((string Email, string? Message, EmailAttachmentFormat Format, string? CcEmails, string? BccEmails, bool IncludeClosing) data)
     {
         if (_invoice == null) return;
 
@@ -474,7 +474,8 @@ public partial class Create
                 data.Message,
                 data.Format,
                 data.CcEmails,
-                data.BccEmails);
+                data.BccEmails,
+                data.IncludeClosing);
 
             if (success)
             {

@@ -241,14 +241,14 @@ public partial class Details
         {
             { x => x.Invoice, _invoice },
             { x => x.CustomerEmail, _invoice.Customer?.Email },
-            { x => x.OnSend, EventCallback.Factory.Create<(string Email, string? Message, EmailAttachmentFormat Format, string? CcEmails, string? BccEmails)>(this, SendInvoiceEmail) }
+            { x => x.OnSend, EventCallback.Factory.Create<(string Email, string? Message, EmailAttachmentFormat Format, string? CcEmails, string? BccEmails, bool IncludeClosing)>(this, SendInvoiceEmail) }
         };
 
         var options = new DialogOptions { CloseOnEscapeKey = true, MaxWidth = MaxWidth.Small, FullWidth = true };
         var dialog = await DialogService.ShowAsync<SendEmailDialog>("E-Mail versenden", parameters, options);
     }
 
-    private async Task SendInvoiceEmail((string Email, string? Message, EmailAttachmentFormat Format, string? CcEmails, string? BccEmails) data)
+    private async Task SendInvoiceEmail((string Email, string? Message, EmailAttachmentFormat Format, string? CcEmails, string? BccEmails, bool IncludeClosing) data)
     {
         if (_invoice == null) return;
 
@@ -260,7 +260,8 @@ public partial class Details
                 data.Message,
                 data.Format,
                 data.CcEmails,
-                data.BccEmails);
+                data.BccEmails,
+                data.IncludeClosing);
 
             if (success)
             {

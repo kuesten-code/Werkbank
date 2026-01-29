@@ -21,7 +21,7 @@ public class HtmlEmailTemplateRenderer : IEmailTemplateRenderer
         _logger = logger;
     }
 
-    public string RenderHtmlBody(Invoice invoice, Company company, string? customMessage)
+    public string RenderHtmlBody(Invoice invoice, Company company, string? customMessage, bool includeClosing = true)
     {
         var culture = new CultureInfo("de-DE");
         var paymentAmount = invoice.TotalDownPayments > 0 ? invoice.AmountDue : invoice.TotalGross;
@@ -51,19 +51,25 @@ public class HtmlEmailTemplateRenderer : IEmailTemplateRenderer
         template = template.Replace("{{PRIMARY_COLOR}}", company.EmailPrimaryColor);
         template = template.Replace("{{ACCENT_COLOR}}", company.EmailAccentColor);
 
-        // Prepare greeting and closing
-        var greeting = string.IsNullOrWhiteSpace(company.EmailGreeting)
-            ? "Sehr geehrte Damen und Herren,\n\nanbei erhalten Sie Ihre Rechnung."
-            : company.EmailGreeting;
-
-        var closing = string.IsNullOrWhiteSpace(company.EmailClosing)
-            ? "Mit freundlichen Grüßen\n\n{{Firmenname}}"
-            : company.EmailClosing;
-
+        // Prepare greeting - if custom message is provided, use it as the greeting
+        string greeting;
         if (!string.IsNullOrWhiteSpace(customMessage))
         {
-            greeting = $"{greeting}\n\n{customMessage}";
+            greeting = customMessage;
         }
+        else
+        {
+            greeting = string.IsNullOrWhiteSpace(company.EmailGreeting)
+                ? "Sehr geehrte Damen und Herren,\n\nanbei erhalten Sie Ihre Rechnung."
+                : company.EmailGreeting;
+        }
+
+        // Prepare closing - only include if requested
+        var closing = includeClosing
+            ? (string.IsNullOrWhiteSpace(company.EmailClosing)
+                ? "Mit freundlichen Grüßen\n\n{{Firmenname}}"
+                : company.EmailClosing)
+            : string.Empty;
 
         var firmenname = !string.IsNullOrEmpty(company.BusinessName)
             ? company.BusinessName
@@ -83,7 +89,7 @@ public class HtmlEmailTemplateRenderer : IEmailTemplateRenderer
         return template;
     }
 
-    public string RenderPlainTextBody(Invoice invoice, Company company, string? customMessage)
+    public string RenderPlainTextBody(Invoice invoice, Company company, string? customMessage, bool includeClosing = true)
     {
         var culture = new CultureInfo("de-DE");
         var paymentAmount = invoice.TotalDownPayments > 0 ? invoice.AmountDue : invoice.TotalGross;
@@ -91,13 +97,27 @@ public class HtmlEmailTemplateRenderer : IEmailTemplateRenderer
         var formattedDate = invoice.InvoiceDate.ToString("dd.MM.yyyy", culture);
         var formattedDueDate = invoice.DueDate?.ToString("dd.MM.yyyy", culture) ?? "Sofort fällig";
 
+        // Prepare greeting - if custom message is provided, use it as the greeting
+        string greetingText;
+        if (!string.IsNullOrWhiteSpace(customMessage))
+        {
+            greetingText = customMessage;
+        }
+        else
+        {
+            greetingText = $"Sehr geehrte Damen und Herren,\n\nanbei erhalten Sie die Rechnung {invoice.InvoiceNumber}.";
+        }
+
+        // Prepare closing section
+        var closingText = includeClosing
+            ? $"\n\n{(!string.IsNullOrWhiteSpace(company.EmailSignature) ? company.EmailSignature : "Vielen Dank für Ihren Auftrag!")}\n\n--\n{company.BusinessName ?? company.OwnerFullName}\n{company.Address}\n{company.PostalCode} {company.City}\n{(!string.IsNullOrWhiteSpace(company.Phone) ? $"Tel: {company.Phone}\n" : "")}{(!string.IsNullOrWhiteSpace(company.Email) ? $"E-Mail: {company.Email}\n" : "")}{(!string.IsNullOrWhiteSpace(company.Website) ? $"Web: {company.Website}\n" : "")}{(!string.IsNullOrWhiteSpace(company.TaxNumber) ? $"Steuernummer: {company.TaxNumber}\n" : "")}{(!string.IsNullOrWhiteSpace(company.VatId) ? $"USt-IdNr: {company.VatId}\n" : "")}"
+            : string.Empty;
+
         var text = $@"
 {company.BusinessName ?? company.OwnerFullName}
 {new string('=', (company.BusinessName ?? company.OwnerFullName).Length)}
 
-Sehr geehrte Damen und Herren,
-
-{(!string.IsNullOrWhiteSpace(customMessage) ? $"{customMessage}\n\n" : "")}anbei erhalten Sie die Rechnung {invoice.InvoiceNumber}.
+{greetingText}
 
 RECHNUNGSDETAILS:
 ------------------
@@ -113,15 +133,7 @@ Bank:            {company.BankName}
 IBAN:            {company.BankAccount}
 {(!string.IsNullOrWhiteSpace(company.Bic) ? $"BIC:             {company.Bic}\n" : "")}Verwendungszweck: {invoice.InvoiceNumber}
 
-Die Rechnung finden Sie im Anhang dieser E-Mail als PDF-Datei.
-
-{(!string.IsNullOrWhiteSpace(company.EmailSignature) ? company.EmailSignature : "Vielen Dank für Ihren Auftrag!")}
-
---
-{company.BusinessName ?? company.OwnerFullName}
-{company.Address}
-{company.PostalCode} {company.City}
-{(!string.IsNullOrWhiteSpace(company.Phone) ? $"Tel: {company.Phone}\n" : "")}{(!string.IsNullOrWhiteSpace(company.Email) ? $"E-Mail: {company.Email}\n" : "")}{(!string.IsNullOrWhiteSpace(company.Website) ? $"Web: {company.Website}\n" : "")}{(!string.IsNullOrWhiteSpace(company.TaxNumber) ? $"Steuernummer: {company.TaxNumber}\n" : "")}{(!string.IsNullOrWhiteSpace(company.VatId) ? $"USt-IdNr: {company.VatId}\n" : "")}";
+Die Rechnung finden Sie im Anhang dieser E-Mail als PDF-Datei.{closingText}";
 
         return text.Trim();
     }
