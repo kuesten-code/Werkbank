@@ -64,12 +64,9 @@ Die Anwendung ist dann erreichbar unter:
 
 ### Produktions-Deployment
 
-Für Produktionsumgebungen liegt ein fertiger Stack im Ordner `Installation/`:
-
-```bash
-cd Installation
-docker compose up -d
-```
+Für Produktionsumgebungen liegt ein fertiger Stack im aktuellen Release. 
+Dieser muss heruntergeladen und entpackt werden. 
+Dann die setup shell (Linux) oder die Powershell (Windows) ausführen.
 
 ## Entwicklung
 
