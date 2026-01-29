@@ -63,24 +63,26 @@ public class DashboardService
         IEnumerable<int>? customerIds,
         IEnumerable<int>? projectIds)
     {
-        IQueryable<TimeEntry> query = _timeEntryRepository.Query();
-
-        var fromUtc = ToUtc(from);
-        var toUtc = ToUtc(to);
-
-        query = query.Where(e => e.StartTime >= fromUtc && e.StartTime <= toUtc);
-
-        if (customerIds != null && customerIds.Any())
+        var (context, query) = await _timeEntryRepository.CreateQueryContextAsync();
+        await using (context)
         {
-            query = query.Where(e => customerIds.Contains(e.CustomerId));
-        }
+            var fromUtc = ToUtc(from);
+            var toUtc = ToUtc(to);
 
-        if (projectIds != null && projectIds.Any())
-        {
-            query = query.Where(e => e.ProjectId.HasValue && projectIds.Contains(e.ProjectId.Value));
-        }
+            query = query.Where(e => e.StartTime >= fromUtc && e.StartTime <= toUtc);
 
-        return await query.OrderBy(e => e.StartTime).ToListAsync();
+            if (customerIds != null && customerIds.Any())
+            {
+                query = query.Where(e => customerIds.Contains(e.CustomerId));
+            }
+
+            if (projectIds != null && projectIds.Any())
+            {
+                query = query.Where(e => e.ProjectId.HasValue && projectIds.Contains(e.ProjectId.Value));
+            }
+
+            return await query.OrderBy(e => e.StartTime).ToListAsync();
+        }
     }
 
 

@@ -9,8 +9,8 @@ namespace Kuestencode.Rapport.Data.Repositories;
 /// </summary>
 public class TimeEntryRepository : Repository<TimeEntry>
 {
-    public TimeEntryRepository(RapportDbContext context)
-        : base(context)
+    public TimeEntryRepository(IDbContextFactory<RapportDbContext> contextFactory)
+        : base(contextFactory)
     {
     }
 
@@ -19,7 +19,8 @@ public class TimeEntryRepository : Repository<TimeEntry>
     /// </summary>
     public async Task<TimeEntry?> GetRunningEntryAsync()
     {
-        return await _dbSet
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.Set<TimeEntry>()
             .Where(e => e.Status == TimeEntryStatus.Running && e.EndTime == null)
             .FirstOrDefaultAsync();
     }
@@ -29,7 +30,8 @@ public class TimeEntryRepository : Repository<TimeEntry>
     /// </summary>
     public async Task<TimeEntry?> GetRunningEntryWithCustomerAsync()
     {
-        return await _dbSet
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.Set<TimeEntry>()
             .Include(e => e.Customer)
             .Where(e => e.Status == TimeEntryStatus.Running && e.EndTime == null)
             .FirstOrDefaultAsync();
@@ -40,7 +42,8 @@ public class TimeEntryRepository : Repository<TimeEntry>
     /// </summary>
     public async Task<List<TimeEntry>> GetEntriesByDateRangeAsync(DateTime from, DateTime to)
     {
-        return await _dbSet
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.Set<TimeEntry>()
             .Where(e => e.StartTime >= from && e.StartTime <= to)
             .OrderBy(e => e.StartTime)
             .ToListAsync();
@@ -51,7 +54,8 @@ public class TimeEntryRepository : Repository<TimeEntry>
     /// </summary>
     public async Task<List<TimeEntry>> GetEntriesByProjectIdAsync(int projectId)
     {
-        return await _dbSet
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.Set<TimeEntry>()
             .Where(e => e.ProjectId == projectId)
             .OrderByDescending(e => e.StartTime)
             .ToListAsync();
@@ -62,7 +66,8 @@ public class TimeEntryRepository : Repository<TimeEntry>
     /// </summary>
     public async Task<List<TimeEntry>> GetManualEntriesAsync()
     {
-        return await _dbSet
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.Set<TimeEntry>()
             .Where(e => e.IsManual || e.Status == TimeEntryStatus.Manual)
             .OrderByDescending(e => e.StartTime)
             .ToListAsync();
@@ -73,8 +78,9 @@ public class TimeEntryRepository : Repository<TimeEntry>
     /// </summary>
     public async Task<double> GetTotalHoursAsync(DateTime from, DateTime to)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var now = DateTime.UtcNow;
-        var entries = await _dbSet
+        var entries = await context.Set<TimeEntry>()
             .Where(e => e.StartTime >= from && e.StartTime <= to)
             .ToListAsync();
 
@@ -84,11 +90,13 @@ public class TimeEntryRepository : Repository<TimeEntry>
     }
 
     /// <summary>
-    /// Returns a queryable for time entries.
+    /// Creates a new DbContext for query operations.
+    /// The caller is responsible for disposing the context.
     /// </summary>
-    public IQueryable<TimeEntry> Query()
+    public async Task<(RapportDbContext Context, IQueryable<TimeEntry> Query)> CreateQueryContextAsync()
     {
-        return _dbSet.AsQueryable();
+        var context = await _contextFactory.CreateDbContextAsync();
+        return (context, context.Set<TimeEntry>().AsQueryable());
     }
 
     /// <summary>
@@ -96,7 +104,8 @@ public class TimeEntryRepository : Repository<TimeEntry>
     /// </summary>
     public async Task<List<TimeEntry>> GetOverlappingEntriesAsync(DateTime start, DateTime end, int? excludeId = null)
     {
-        var query = _dbSet.Where(e => e.StartTime < end && (e.EndTime ?? DateTime.UtcNow) > start);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var query = context.Set<TimeEntry>().Where(e => e.StartTime < end && (e.EndTime ?? DateTime.UtcNow) > start);
         if (excludeId.HasValue)
         {
             query = query.Where(e => e.Id != excludeId.Value);

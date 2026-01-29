@@ -25,8 +25,12 @@ public static class RapportModule
     public static IServiceCollection AddRapportModule(this IServiceCollection services, IConfiguration configuration)
     {
         // Add DbContext with PostgreSQL (Rapport schema)
-        services.AddDbContext<RapportDbContext>(options =>
+        // Use Factory pattern to avoid concurrency issues in Blazor Server
+        services.AddDbContextFactory<RapportDbContext>(options =>
             options.UseNpgsql(configuration.GetConnectionString("DefaultConnection")));
+
+        // Also register scoped DbContext for backward compatibility
+        services.AddScoped(sp => sp.GetRequiredService<IDbContextFactory<RapportDbContext>>().CreateDbContext());
 
         // Register repositories
         services.AddScoped(typeof(RapportRepo.IRepository<>), typeof(Repository<>));

@@ -12,26 +12,27 @@ public class SettingsService
 {
     private static readonly int[] AllowedRoundingMinutes = { 0, 5, 15, 30 };
 
-    private readonly RapportDbContext _context;
+    private readonly IDbContextFactory<RapportDbContext> _contextFactory;
     private readonly ILogger<SettingsService> _logger;
 
-    public SettingsService(RapportDbContext context, ILogger<SettingsService> logger)
+    public SettingsService(IDbContextFactory<RapportDbContext> contextFactory, ILogger<SettingsService> logger)
     {
-        _context = context;
+        _contextFactory = contextFactory;
         _logger = logger;
     }
 
     public async Task<RapportSettings> GetSettingsAsync()
     {
-        var settings = await _context.Settings.FirstOrDefaultAsync();
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var settings = await context.Settings.FirstOrDefaultAsync();
         if (settings != null)
         {
             return settings;
         }
 
         settings = RapportSettings.CreateDefault();
-        _context.Settings.Add(settings);
-        await _context.SaveChangesAsync();
+        context.Settings.Add(settings);
+        await context.SaveChangesAsync();
         return settings;
     }
 
@@ -39,34 +40,36 @@ public class SettingsService
     {
         Validate(settings);
 
-        var existing = await _context.Settings.FirstOrDefaultAsync();
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var existing = await context.Settings.FirstOrDefaultAsync();
         if (existing == null)
         {
             settings.Id = 1;
-            _context.Settings.Add(settings);
+            context.Settings.Add(settings);
         }
         else
         {
             Apply(existing, settings);
         }
 
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
     }
 
     public async Task ResetToDefaultAsync()
     {
         var defaults = RapportSettings.CreateDefault();
-        var existing = await _context.Settings.FirstOrDefaultAsync();
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var existing = await context.Settings.FirstOrDefaultAsync();
         if (existing == null)
         {
-            _context.Settings.Add(defaults);
+            context.Settings.Add(defaults);
         }
         else
         {
             Apply(existing, defaults);
         }
 
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
     }
 
     private void Validate(RapportSettings settings)

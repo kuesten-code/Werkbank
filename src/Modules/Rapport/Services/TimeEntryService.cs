@@ -133,48 +133,50 @@ public class TimeEntryService
         bool? manualOnly,
         bool? onlyWithoutProject = null)
     {
-        IQueryable<TimeEntry> query = _timeEntryRepository.Query();
-
-        DateTime? fromUtc = from.HasValue ? ToUtc(from.Value) : null;
-        DateTime? toUtc = to.HasValue ? ToUtc(to.Value) : null;
-
-        if (fromUtc.HasValue)
+        var (context, query) = await _timeEntryRepository.CreateQueryContextAsync();
+        await using (context)
         {
-            query = query.Where(e => e.StartTime >= fromUtc.Value);
-        }
+            DateTime? fromUtc = from.HasValue ? ToUtc(from.Value) : null;
+            DateTime? toUtc = to.HasValue ? ToUtc(to.Value) : null;
 
-        if (toUtc.HasValue)
-        {
-            query = query.Where(e => e.StartTime <= toUtc.Value);
-        }
-
-        if (customerIds != null && customerIds.Any())
-        {
-            query = query.Where(e => customerIds.Contains(e.CustomerId));
-        }
-
-        if (onlyWithoutProject == true)
-        {
-            query = query.Where(e => e.ProjectId == null);
-        }
-        else if (projectIds != null && projectIds.Any())
-        {
-            query = query.Where(e => e.ProjectId.HasValue && projectIds.Contains(e.ProjectId.Value));
-        }
-
-        if (manualOnly.HasValue)
-        {
-            if (manualOnly.Value)
+            if (fromUtc.HasValue)
             {
-                query = query.Where(e => e.IsManual || e.Status == TimeEntryStatus.Manual);
+                query = query.Where(e => e.StartTime >= fromUtc.Value);
             }
-            else
-            {
-                query = query.Where(e => !e.IsManual && e.Status != TimeEntryStatus.Manual);
-            }
-        }
 
-        return await query.OrderByDescending(e => e.StartTime).ToListAsync();
+            if (toUtc.HasValue)
+            {
+                query = query.Where(e => e.StartTime <= toUtc.Value);
+            }
+
+            if (customerIds != null && customerIds.Any())
+            {
+                query = query.Where(e => customerIds.Contains(e.CustomerId));
+            }
+
+            if (onlyWithoutProject == true)
+            {
+                query = query.Where(e => e.ProjectId == null);
+            }
+            else if (projectIds != null && projectIds.Any())
+            {
+                query = query.Where(e => e.ProjectId.HasValue && projectIds.Contains(e.ProjectId.Value));
+            }
+
+            if (manualOnly.HasValue)
+            {
+                if (manualOnly.Value)
+                {
+                    query = query.Where(e => e.IsManual || e.Status == TimeEntryStatus.Manual);
+                }
+                else
+                {
+                    query = query.Where(e => !e.IsManual && e.Status != TimeEntryStatus.Manual);
+                }
+            }
+
+            return await query.OrderByDescending(e => e.StartTime).ToListAsync();
+        }
     }
 
     private static void ValidateManualEntryTimes(DateTime start, DateTime end)

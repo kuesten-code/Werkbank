@@ -152,7 +152,7 @@
                 _description);
 
             Snackbar.Add("Eintrag wurde gespeichert.", Severity.Success);
-            NavigationManager.NavigateTo("/time-entries");
+            NavigationManager.NavigateTo("/rapport/time-entries");
         }
         catch (ValidationException ex)
         {
@@ -162,7 +162,7 @@
 
     private void Cancel()
     {
-        NavigationManager.NavigateTo("/time-entries");
+        NavigationManager.NavigateTo("/rapport/time-entries");
     }
 
     protected override void OnAfterRender(bool firstRender)

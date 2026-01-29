@@ -11,7 +11,7 @@
 @using Kuestencode.Shared.UI.Components
 @inject SettingsService SettingsService
 @inject IProjectService ProjectService
-@inject RapportDbContext DbContext
+@inject IDbContextFactory<RapportDbContext> DbContextFactory
 @inject ISnackbar Snackbar
 @inject IJSRuntime JSRuntime
 
@@ -292,7 +292,8 @@
 
     private async Task ExportAllEntriesAsync()
     {
-        var entries = await DbContext.TimeEntries.AsNoTracking().OrderBy(e => e.StartTime).ToListAsync();
+        await using var dbContext = await DbContextFactory.CreateDbContextAsync();
+        var entries = await dbContext.TimeEntries.AsNoTracking().OrderBy(e => e.StartTime).ToListAsync();
         if (entries.Count == 0)
         {
             Snackbar.Add("Keine Daten zum Export.", Severity.Info);
@@ -338,6 +339,7 @@
                 return;
             }
 
+            await using var dbContext = await DbContextFactory.CreateDbContextAsync();
             var imported = 0;
             foreach (var line in lines.Skip(1))
             {
@@ -385,13 +387,13 @@
                     Status = Enum.TryParse<TimeEntryStatus>(parts[8], out var status) ? status : TimeEntryStatus.Manual
                 };
 
-                DbContext.TimeEntries.Add(entry);
+                dbContext.TimeEntries.Add(entry);
                 imported++;
             }
 
             if (imported > 0)
             {
-                await DbContext.SaveChangesAsync();
+                await dbContext.SaveChangesAsync();
                 Snackbar.Add($"{imported} Einträge importiert.", Severity.Success);
             }
             else
@@ -409,14 +411,15 @@
     {
         try
         {
-            var count = await DbContext.TimeEntries.CountAsync();
+            await using var dbContext = await DbContextFactory.CreateDbContextAsync();
+            var count = await dbContext.TimeEntries.CountAsync();
             if (count == 0)
             {
                 Snackbar.Add("Keine Daten vorhanden.", Severity.Info);
                 return;
             }
 
-            await DbContext.Database.ExecuteSqlRawAsync("DELETE FROM rapport.\"TimeEntries\"");
+            await dbContext.Database.ExecuteSqlRawAsync("DELETE FROM rapport.\"TimeEntries\"");
             Snackbar.Add("Alle Zeiteinträge wurden gelöscht.", Severity.Warning);
 
             _confirmDelete1 = _confirmDelete2 = _confirmDelete3 = false;

@@ -5,66 +5,74 @@ namespace Kuestencode.Rapport.Data.Repositories;
 
 public class Repository<T> : IRepository<T> where T : class
 {
-    protected readonly RapportDbContext _context;
-    protected readonly DbSet<T> _dbSet;
+    protected readonly IDbContextFactory<RapportDbContext> _contextFactory;
 
-    public Repository(RapportDbContext context)
+    public Repository(IDbContextFactory<RapportDbContext> contextFactory)
     {
-        _context = context;
-        _dbSet = context.Set<T>();
+        _contextFactory = contextFactory;
     }
 
     public virtual async Task<T?> GetByIdAsync(int id)
     {
-        return await _dbSet.FindAsync(id);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.Set<T>().FindAsync(id);
     }
 
     public virtual async Task<IEnumerable<T>> GetAllAsync()
     {
-        return await _dbSet.ToListAsync();
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.Set<T>().ToListAsync();
     }
 
     public virtual async Task<IEnumerable<T>> FindAsync(Expression<Func<T, bool>> predicate)
     {
-        return await _dbSet.Where(predicate).ToListAsync();
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.Set<T>().Where(predicate).ToListAsync();
     }
 
     public virtual async Task<T?> FirstOrDefaultAsync(Expression<Func<T, bool>> predicate)
     {
-        return await _dbSet.FirstOrDefaultAsync(predicate);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.Set<T>().FirstOrDefaultAsync(predicate);
     }
 
     public virtual async Task<T> AddAsync(T entity)
     {
-        await _dbSet.AddAsync(entity);
-        await _context.SaveChangesAsync();
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        await context.Set<T>().AddAsync(entity);
+        await context.SaveChangesAsync();
         return entity;
     }
 
     public virtual async Task UpdateAsync(T entity)
     {
-        _dbSet.Update(entity);
-        await _context.SaveChangesAsync();
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        context.Set<T>().Update(entity);
+        await context.SaveChangesAsync();
     }
 
     public virtual async Task DeleteAsync(T entity)
     {
-        _dbSet.Remove(entity);
-        await _context.SaveChangesAsync();
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        context.Set<T>().Remove(entity);
+        await context.SaveChangesAsync();
     }
 
     public virtual async Task<int> CountAsync()
     {
-        return await _dbSet.CountAsync();
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.Set<T>().CountAsync();
     }
 
     public virtual async Task<int> CountAsync(Expression<Func<T, bool>> predicate)
     {
-        return await _dbSet.CountAsync(predicate);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.Set<T>().CountAsync(predicate);
     }
 
     public virtual async Task<bool> ExistsAsync(Expression<Func<T, bool>> predicate)
     {
-        return await _dbSet.AnyAsync(predicate);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.Set<T>().AnyAsync(predicate);
     }
 }

@@ -150,30 +150,32 @@ public class TimesheetExportService
 
     private async Task<List<TimeEntry>> LoadEntriesAsync(TimesheetExportRequestDto request, int? projectId)
     {
-        IQueryable<TimeEntry> query = _timeEntryRepository.Query();
-
-        query = query.Where(e => !e.IsDeleted);
-        query = query.Where(e => e.CustomerId == request.CustomerId);
-
-        if (request.EntryIds != null && request.EntryIds.Count > 0)
+        var (context, query) = await _timeEntryRepository.CreateQueryContextAsync();
+        await using (context)
         {
-            query = query.Where(e => request.EntryIds.Contains(e.Id));
-        }
-        else
-        {
-            var fromUtc = ToUtc(request.From);
-            var toUtc = ToUtc(request.To);
-            query = query.Where(e => e.StartTime >= fromUtc && e.StartTime <= toUtc);
-        }
+            query = query.Where(e => !e.IsDeleted);
+            query = query.Where(e => e.CustomerId == request.CustomerId);
 
-        if (projectId.HasValue)
-        {
-            query = query.Where(e => e.ProjectId == projectId.Value);
-        }
+            if (request.EntryIds != null && request.EntryIds.Count > 0)
+            {
+                query = query.Where(e => request.EntryIds.Contains(e.Id));
+            }
+            else
+            {
+                var fromUtc = ToUtc(request.From);
+                var toUtc = ToUtc(request.To);
+                query = query.Where(e => e.StartTime >= fromUtc && e.StartTime <= toUtc);
+            }
 
-        return await query
-            .OrderBy(e => e.StartTime)
-            .ToListAsync();
+            if (projectId.HasValue)
+            {
+                query = query.Where(e => e.ProjectId == projectId.Value);
+            }
+
+            return await query
+                .OrderBy(e => e.StartTime)
+                .ToListAsync();
+        }
     }
 
     private static DateTime ToUtc(DateTime value)
