@@ -85,7 +85,8 @@ public class ApiCustomerService : ICustomerService
             Country = dto.Country,
             Email = dto.Email,
             Phone = dto.Phone,
-            Notes = dto.Notes
+            Notes = dto.Notes,
+            Salutation = dto.Salutation
         };
     }
 }

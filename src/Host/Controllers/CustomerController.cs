@@ -44,7 +44,8 @@ public class CustomerController : ControllerBase
             Country = request.Country,
             Email = request.Email,
             Phone = request.Phone,
-            Notes = request.Notes
+            Notes = request.Notes,
+            Salutation = request.Salutation
         };
 
         var created = await _customerService.CreateAsync(customer);
@@ -66,6 +67,7 @@ public class CustomerController : ControllerBase
         customer.Email = request.Email;
         customer.Phone = request.Phone;
         customer.Notes = request.Notes;
+        customer.Salutation = request.Salutation;
 
         await _customerService.UpdateAsync(customer);
         return NoContent();
@@ -91,7 +93,8 @@ public class CustomerController : ControllerBase
             Country = customer.Country,
             Email = customer.Email,
             Phone = customer.Phone,
-            Notes = customer.Notes
+            Notes = customer.Notes,
+            Salutation = customer.Salutation
         };
     }
 }

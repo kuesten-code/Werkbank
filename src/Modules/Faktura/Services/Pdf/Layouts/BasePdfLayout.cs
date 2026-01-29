@@ -103,7 +103,12 @@ public abstract class BasePdfLayout : IPdfLayoutRenderer
         }
         else
         {
-            column.Item().Text("Sehr geehrte Damen und Herren,")
+            // Use customer-specific salutation if available, otherwise default
+            var salutation = !string.IsNullOrWhiteSpace(invoice.Customer?.Salutation)
+                ? invoice.Customer.Salutation
+                : "Sehr geehrte Damen und Herren,";
+
+            column.Item().Text(salutation)
                 .FontSize(10);
             column.Item().PaddingTop(10).Text("hiermit stellen wir Ihnen folgende Leistungen in Rechnung:")
                 .FontSize(10);

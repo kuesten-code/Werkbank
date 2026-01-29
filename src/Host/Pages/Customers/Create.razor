@@ -64,6 +64,13 @@
                 </MudItem>
 
                 <MudItem xs="12">
+                    <MudTextField Label="Anrede (optional)" @bind-Value="_customer.Salutation"
+                                 For="@(() => _customer.Salutation)"
+                                 Placeholder="z.B. Sehr geehrter Herr Müller,"
+                                 HelperText="Wird in Rechnungen und E-Mails verwendet. Leer = Standard-Anrede." />
+                </MudItem>
+
+                <MudItem xs="12">
                     <MudTextField Label="Notizen" @bind-Value="_customer.Notes"
                                  For="@(() => _customer.Notes)" Lines="4" />
                 </MudItem>

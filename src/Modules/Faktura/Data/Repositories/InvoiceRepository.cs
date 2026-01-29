@@ -183,7 +183,8 @@ public class InvoiceRepository : Repository<Invoice>, IInvoiceRepository
                 Country = customerDto.Country,
                 Email = customerDto.Email,
                 Phone = customerDto.Phone,
-                Notes = customerDto.Notes
+                Notes = customerDto.Notes,
+                Salutation = customerDto.Salutation
             };
         }
     }
@@ -210,7 +211,8 @@ public class InvoiceRepository : Repository<Invoice>, IInvoiceRepository
                 Country = c.Country,
                 Email = c.Email,
                 Phone = c.Phone,
-                Notes = c.Notes
+                Notes = c.Notes,
+                Salutation = c.Salutation
             });
 
         foreach (var invoice in invoices)

@@ -71,7 +71,8 @@ public class PdfGeneratorService : IPdfGeneratorService
                 Country = customerDto.Country,
                 Email = customerDto.Email,
                 Phone = customerDto.Phone,
-                Notes = customerDto.Notes
+                Notes = customerDto.Notes,
+                Salutation = customerDto.Salutation
             };
         }
 

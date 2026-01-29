@@ -41,6 +41,13 @@ public class Customer : BaseEntity
     public string? Notes { get; set; }
 
     /// <summary>
+    /// Custom salutation for this customer (e.g. "Sehr geehrter Herr Müller,").
+    /// If empty, the default salutation from company settings will be used.
+    /// </summary>
+    [MaxLength(200)]
+    public string? Salutation { get; set; }
+
+    /// <summary>
     /// Returns the full formatted address.
     /// </summary>
     public string GetFormattedAddress()

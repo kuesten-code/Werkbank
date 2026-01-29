@@ -51,11 +51,16 @@ public class HtmlEmailTemplateRenderer : IEmailTemplateRenderer
         template = template.Replace("{{PRIMARY_COLOR}}", company.EmailPrimaryColor);
         template = template.Replace("{{ACCENT_COLOR}}", company.EmailAccentColor);
 
-        // Prepare greeting - if custom message is provided, use it as the greeting
+        // Prepare greeting - priority: custom message > customer salutation > company default
         string greeting;
         if (!string.IsNullOrWhiteSpace(customMessage))
         {
             greeting = customMessage;
+        }
+        else if (!string.IsNullOrWhiteSpace(invoice.Customer?.Salutation))
+        {
+            // Use customer-specific salutation
+            greeting = $"{invoice.Customer.Salutation}\n\nanbei erhalten Sie Ihre Rechnung.";
         }
         else
         {
@@ -97,11 +102,16 @@ public class HtmlEmailTemplateRenderer : IEmailTemplateRenderer
         var formattedDate = invoice.InvoiceDate.ToString("dd.MM.yyyy", culture);
         var formattedDueDate = invoice.DueDate?.ToString("dd.MM.yyyy", culture) ?? "Sofort fällig";
 
-        // Prepare greeting - if custom message is provided, use it as the greeting
+        // Prepare greeting - priority: custom message > customer salutation > default
         string greetingText;
         if (!string.IsNullOrWhiteSpace(customMessage))
         {
             greetingText = customMessage;
+        }
+        else if (!string.IsNullOrWhiteSpace(invoice.Customer?.Salutation))
+        {
+            // Use customer-specific salutation
+            greetingText = $"{invoice.Customer.Salutation}\n\nanbei erhalten Sie die Rechnung {invoice.InvoiceNumber}.";
         }
         else
         {
@@ -180,7 +190,7 @@ Die Rechnung finden Sie im Anhang dieser E-Mail als PDF-Datei.{closingText}";
         </div>
 
         <div class=""content"">
-            <p>Sehr geehrte Damen und Herren,</p>
+            <p>{(!string.IsNullOrWhiteSpace(invoice.Customer?.Salutation) ? invoice.Customer.Salutation : "Sehr geehrte Damen und Herren,")}</p>
 
             {(!string.IsNullOrWhiteSpace(customMessage) ? $"<p>{customMessage.Replace("\n", "<br>")}</p>" : "")}
 

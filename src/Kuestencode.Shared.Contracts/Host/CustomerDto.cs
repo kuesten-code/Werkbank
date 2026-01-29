@@ -12,6 +12,7 @@ public record CustomerDto
     public string? Email { get; init; }
     public string? Phone { get; init; }
     public string? Notes { get; init; }
+    public string? Salutation { get; init; }
 }
 
 public record CreateCustomerRequest
@@ -25,6 +26,7 @@ public record CreateCustomerRequest
     public string? Email { get; init; }
     public string? Phone { get; init; }
     public string? Notes { get; init; }
+    public string? Salutation { get; init; }
 }
 
 public record UpdateCustomerRequest
@@ -38,4 +40,5 @@ public record UpdateCustomerRequest
     public string? Email { get; init; }
     public string? Phone { get; init; }
     public string? Notes { get; init; }
+    public string? Salutation { get; init; }
 }
