@@ -1,0 +1,70 @@
+@* Status dialog for accepting or rejecting Angebote *@
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">@GetTitle()</MudText>
+    </TitleContent>
+
+    <DialogContent>
+        <MudStack Spacing="3">
+            <MudText>@GetMessage()</MudText>
+
+            @if (NeuerStatus == AngebotStatus.Abgelehnt)
+            {
+                <MudTextField @bind-Value="_grund"
+                             Label="Grund (optional)"
+                             Variant="Variant.Outlined"
+                             Lines="3" />
+            }
+        </MudStack>
+    </DialogContent>
+
+    <DialogActions>
+        <MudButton OnClick="Cancel">Abbrechen</MudButton>
+        <MudButton Color="@GetButtonColor()" OnClick="Confirm">@GetButtonText()</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    private string _grund = string.Empty;
+
+    [CascadingParameter]
+    public IMudDialogInstance Dialog { get; set; } = default!;
+
+    [Parameter]
+    public string Angebotsnummer { get; set; } = "";
+
+    [Parameter]
+    public AngebotStatus NeuerStatus { get; set; }
+
+    private string GetTitle() => NeuerStatus switch
+    {
+        AngebotStatus.Angenommen => "Angebot annehmen",
+        AngebotStatus.Abgelehnt => "Angebot ablehnen",
+        _ => "Status ändern"
+    };
+
+    private string GetMessage() => NeuerStatus switch
+    {
+        AngebotStatus.Angenommen => $"Möchten Sie das Angebot {Angebotsnummer} als angenommen markieren?",
+        AngebotStatus.Abgelehnt => $"Möchten Sie das Angebot {Angebotsnummer} als abgelehnt markieren?",
+        _ => $"Möchten Sie den Status des Angebots {Angebotsnummer} ändern?"
+    };
+
+    private string GetButtonText() => NeuerStatus switch
+    {
+        AngebotStatus.Angenommen => "Annehmen",
+        AngebotStatus.Abgelehnt => "Ablehnen",
+        _ => "Bestätigen"
+    };
+
+    private Color GetButtonColor() => NeuerStatus switch
+    {
+        AngebotStatus.Angenommen => Color.Success,
+        AngebotStatus.Abgelehnt => Color.Error,
+        _ => Color.Primary
+    };
+
+    void Cancel() => Dialog.Cancel();
+    void Confirm() => Dialog.Close(DialogResult.Ok(_grund));
+}

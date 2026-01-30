@@ -1,0 +1,83 @@
+@* Versand dialog for sending Angebote via email *@
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">Angebot versenden</MudText>
+    </TitleContent>
+
+    <DialogContent>
+        <MudStack Spacing="3">
+            <MudText>
+                Das Angebot <strong>@Angebotsnummer</strong> wird an folgende E-Mail-Adresse versendet:
+            </MudText>
+
+            <MudTextField @bind-Value="EmailAdresse"
+                         Label="E-Mail-Adresse"
+                         Variant="Variant.Outlined"
+                         Required="true"
+                         Disabled="@_sending" />
+
+            @if (!string.IsNullOrWhiteSpace(_error))
+            {
+                <MudAlert Severity="Severity.Error">@_error</MudAlert>
+            }
+
+            <MudText Typo="Typo.caption" Color="Color.Secondary">
+                Das Angebot wird als PDF-Anhang versendet und der Status auf "Versendet" gesetzt.
+            </MudText>
+        </MudStack>
+    </DialogContent>
+
+    <DialogActions>
+        <MudButton OnClick="Cancel" Disabled="@_sending">Abbrechen</MudButton>
+        <MudButton Color="Color.Primary" OnClick="Send" Disabled="@(_sending || string.IsNullOrWhiteSpace(EmailAdresse))">
+            @if (_sending)
+            {
+                <MudProgressCircular Class="ms-n1" Size="Size.Small" Indeterminate="true" />
+                <MudText Class="ms-2">Wird gesendet...</MudText>
+            }
+            else
+            {
+                <MudText>Versenden</MudText>
+            }
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    private bool _sending;
+    private string _error = string.Empty;
+
+    [CascadingParameter]
+    public IMudDialogInstance Dialog { get; set; } = default!;
+
+    [Parameter]
+    public string Angebotsnummer { get; set; } = "";
+
+    [Parameter]
+    public string EmailAdresse { get; set; } = "";
+
+    void Cancel() => Dialog.Cancel();
+
+    async Task Send()
+    {
+        if (string.IsNullOrWhiteSpace(EmailAdresse))
+        {
+            _error = "Bitte geben Sie eine E-Mail-Adresse ein.";
+            return;
+        }
+
+        _sending = true;
+        _error = string.Empty;
+
+        try
+        {
+            Dialog.Close(DialogResult.Ok(EmailAdresse));
+        }
+        catch (Exception ex)
+        {
+            _error = $"Fehler beim Versenden: {ex.Message}";
+            _sending = false;
+        }
+    }
+}

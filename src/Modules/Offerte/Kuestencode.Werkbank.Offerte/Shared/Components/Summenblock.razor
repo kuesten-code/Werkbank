@@ -1,0 +1,58 @@
+@* Summenblock component displaying Netto/MwSt/Brutto breakdown *@
+
+<MudPaper Elevation="2" Class="pa-4" Style="max-width: 400px; margin-left: auto;">
+    <MudText Typo="Typo.h6" GutterBottom="true">Summen</MudText>
+    <MudStack Spacing="2">
+        <MudStack Row="true" Justify="Justify.SpaceBetween">
+            <MudText>Nettosumme:</MudText>
+            <MudText>@Nettosumme.ToString("C2", _culture)</MudText>
+        </MudStack>
+
+        @if (MwstSaetze != null && MwstSaetze.Any())
+        {
+            foreach (var mwst in MwstSaetze)
+            {
+                <MudStack Row="true" Justify="Justify.SpaceBetween">
+                    <MudText>MwSt (@mwst.Satz.ToString("0.##")%):</MudText>
+                    <MudText>@mwst.Betrag.ToString("C2", _culture)</MudText>
+                </MudStack>
+            }
+        }
+        else
+        {
+            <MudStack Row="true" Justify="Justify.SpaceBetween">
+                <MudText>MwSt (19%):</MudText>
+                <MudText>@MwstGesamt.ToString("C2", _culture)</MudText>
+            </MudStack>
+        }
+
+        <MudDivider />
+
+        <MudStack Row="true" Justify="Justify.SpaceBetween">
+            <MudText Typo="Typo.subtitle1"><strong>Bruttosumme:</strong></MudText>
+            <MudText Typo="Typo.subtitle1"><strong>@Bruttosumme.ToString("C2", _culture)</strong></MudText>
+        </MudStack>
+    </MudStack>
+</MudPaper>
+
+@code {
+    private readonly CultureInfo _culture = new CultureInfo("de-DE");
+
+    [Parameter]
+    public decimal Nettosumme { get; set; }
+
+    [Parameter]
+    public decimal MwstGesamt { get; set; }
+
+    [Parameter]
+    public decimal Bruttosumme { get; set; }
+
+    [Parameter]
+    public List<MwstZeile>? MwstSaetze { get; set; }
+
+    public class MwstZeile
+    {
+        public decimal Satz { get; set; }
+        public decimal Betrag { get; set; }
+    }
+}

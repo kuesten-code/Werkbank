@@ -54,9 +54,10 @@ builder.Services.AddHttpClient<IRapportApiClient, RapportApiClient>(client =>
     client.BaseAddress = new Uri(rapportUrl);
 });
 
-// Add YARP Reverse Proxy for Faktura and Rapport modules
+// Add YARP Reverse Proxy for Faktura, Rapport, and Offerte modules
 var fakturaServiceUrl = builder.Configuration.GetValue<string>("ServiceUrls:Faktura") ?? "http://localhost:8081";
 var rapportServiceUrl = builder.Configuration.GetValue<string>("ServiceUrls:Rapport") ?? "http://localhost:8082";
+var offerteServiceUrl = builder.Configuration.GetValue<string>("ServiceUrls:Offerte") ?? "http://localhost:8083";
 builder.Services.AddReverseProxy()
     .LoadFromMemory(
         routes: new[]
@@ -96,6 +97,24 @@ builder.Services.AddReverseProxy()
                 {
                     Path = "/_rapport/{**catch-all}"
                 }
+            },
+            new Yarp.ReverseProxy.Configuration.RouteConfig
+            {
+                RouteId = "offerte-route",
+                ClusterId = "offerte-cluster",
+                Match = new Yarp.ReverseProxy.Configuration.RouteMatch
+                {
+                    Path = "/offerte/{**catch-all}"
+                }
+            },
+            new Yarp.ReverseProxy.Configuration.RouteConfig
+            {
+                RouteId = "offerte-blazor-route",
+                ClusterId = "offerte-cluster",
+                Match = new Yarp.ReverseProxy.Configuration.RouteMatch
+                {
+                    Path = "/_offerte/{**catch-all}"
+                }
             }
         },
         clusters: new[]
@@ -114,6 +133,14 @@ builder.Services.AddReverseProxy()
                 Destinations = new Dictionary<string, Yarp.ReverseProxy.Configuration.DestinationConfig>
                 {
                     { "rapport", new Yarp.ReverseProxy.Configuration.DestinationConfig { Address = rapportServiceUrl } }
+                }
+            },
+            new Yarp.ReverseProxy.Configuration.ClusterConfig
+            {
+                ClusterId = "offerte-cluster",
+                Destinations = new Dictionary<string, Yarp.ReverseProxy.Configuration.DestinationConfig>
+                {
+                    { "offerte", new Yarp.ReverseProxy.Configuration.DestinationConfig { Address = offerteServiceUrl } }
                 }
             }
         });
