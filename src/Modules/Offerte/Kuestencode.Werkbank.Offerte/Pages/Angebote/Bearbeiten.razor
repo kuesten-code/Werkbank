@@ -1,6 +1,8 @@
 @page "/angebote/{Id:guid}/bearbeiten"
+@using Kuestencode.Core.Interfaces
 @inject IAngebotRepository AngebotRepository
 @inject ICustomerService CustomerService
+@inject CoreInterfaces.ICompanyService CompanyService
 @inject AngebotValidator Validator
 @inject NavigationManager NavigationManager
 @inject ISnackbar Snackbar
@@ -71,7 +73,13 @@
 
                 <!-- Positionen -->
                 <MudText Typo="Typo.h6" Class="mt-6 mb-2">Positionen</MudText>
-                <Positionseditor @bind-Positionen="_positionen" OnPositionChanged="RecalculateTotals" />
+                @if (_isKleinunternehmer)
+                {
+                    <MudAlert Severity="Severity.Info" Dense="true" Class="mb-3">
+                        Kleinunternehmer gem. §19 UStG - keine Mehrwertsteuer ausweisen
+                    </MudAlert>
+                }
+                <Positionseditor @bind-Positionen="_positionen" OnPositionChanged="RecalculateTotals" IsKleinunternehmer="@_isKleinunternehmer" />
 
                 <!-- Schlusstext -->
                 <MudText Typo="Typo.h6" Class="mt-6 mb-2">Schlusstext (optional)</MudText>
@@ -88,7 +96,8 @@
                     <Summenblock Nettosumme="@_nettosumme"
                                 MwstGesamt="@_mwstGesamt"
                                 Bruttosumme="@_bruttosumme"
-                                MwstSaetze="@_mwstSaetze" />
+                                MwstSaetze="@_mwstSaetze"
+                                IsKleinunternehmer="@_isKleinunternehmer" />
                 </div>
 
                 <!-- Actions -->
@@ -135,6 +144,7 @@
     private decimal _mwstGesamt;
     private decimal _bruttosumme;
     private List<Summenblock.MwstZeile>? _mwstSaetze;
+    private bool _isKleinunternehmer;
 
     protected override async Task OnInitializedAsync()
     {
@@ -147,6 +157,10 @@
 
         try
         {
+            // Load company settings for Kleinunternehmer status
+            var company = await CompanyService.GetCompanyAsync();
+            _isKleinunternehmer = company?.IsKleinunternehmer ?? false;
+
             _angebot = await AngebotRepository.GetByIdAsync(Id);
 
             if (_angebot != null)
