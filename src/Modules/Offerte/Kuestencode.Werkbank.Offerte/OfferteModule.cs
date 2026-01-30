@@ -44,6 +44,7 @@ public static class OfferteModule
         services.AddScoped<IOfferteDruckService, OfferteDruckService>();
         services.AddScoped<IOfferteKopierService, OfferteKopierService>();
         services.AddScoped<IOfferteUeberfuehrungService, OfferteUeberfuehrungService>();
+        services.AddScoped<IOfferteSettingsService, OfferteSettingsService>();
 
         return services;
     }

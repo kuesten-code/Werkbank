@@ -1,0 +1,171 @@
+@using Kuestencode.Core.Models
+@using Kuestencode.Core.Enums
+@using Kuestencode.Werkbank.Offerte.Domain.Entities
+@inject IWebHostEnvironment Environment
+
+<div class="email-preview-surface">
+    @if (_loading)
+    {
+        <div style="display: flex; align-items: center; justify-content: center; height: 100%; min-height: 600px;">
+            <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+        </div>
+    }
+    else if (!string.IsNullOrEmpty(_error))
+    {
+        <MudAlert Severity="Severity.Error">@_error</MudAlert>
+    }
+    else
+    {
+        <div class="email-preview-frame">
+            @((MarkupString)_previewHtml)
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public OfferteSettings Settings { get; set; } = default!;
+
+    [Parameter]
+    public Company Company { get; set; } = default!;
+
+    private bool _loading = true;
+    private string _error = string.Empty;
+    private string _previewHtml = string.Empty;
+    private System.Threading.Timer? _debounceTimer;
+
+    protected override void OnInitialized()
+    {
+        GeneratePreview();
+    }
+
+    protected override void OnParametersSet()
+    {
+        _debounceTimer?.Dispose();
+        _debounceTimer = new System.Threading.Timer(_ =>
+        {
+            InvokeAsync(() =>
+            {
+                GeneratePreview();
+                StateHasChanged();
+            });
+        }, null, 500, Timeout.Infinite);
+    }
+
+    private void GeneratePreview()
+    {
+        _loading = true;
+        _error = string.Empty;
+
+        try
+        {
+            var templateName = Settings.EmailLayout switch
+            {
+                EmailLayout.Klar => "EmailTemplateKlar.html",
+                EmailLayout.Strukturiert => "EmailTemplateStrukturiert.html",
+                EmailLayout.Betont => "EmailTemplateBetont.html",
+                _ => "EmailTemplateKlar.html"
+            };
+
+            var templatePath = Path.Combine(Environment.WebRootPath, "templates", templateName);
+
+            if (!File.Exists(templatePath))
+            {
+                _previewHtml = GenerateFallbackPreview();
+                _loading = false;
+                return;
+            }
+
+            var template = File.ReadAllText(templatePath);
+
+            template = template.Replace("{{PRIMARY_COLOR}}", Settings.EmailPrimaryColor);
+            template = template.Replace("{{ACCENT_COLOR}}", Settings.EmailAccentColor);
+
+            var greeting = string.IsNullOrWhiteSpace(Settings.EmailGreeting)
+                ? "Sehr geehrte Damen und Herren,\n\nanbei erhalten Sie unser Angebot."
+                : Settings.EmailGreeting;
+
+            var closing = string.IsNullOrWhiteSpace(Settings.EmailClosing)
+                ? "Mit freundlichen Grüßen\n\n{{Firmenname}}"
+                : Settings.EmailClosing;
+
+            var firmenname = !string.IsNullOrEmpty(Company.BusinessName)
+                ? Company.BusinessName
+                : Company.OwnerFullName;
+
+            greeting = ReplaceOfferteEmailPlaceholders(greeting, "AN-2025-001", "15.02.2025", firmenname);
+            closing = ReplaceOfferteEmailPlaceholders(closing, "AN-2025-001", "15.02.2025", firmenname);
+
+            template = template.Replace("{{GREETING}}", greeting.Replace("\n", "<br>"));
+            template = template.Replace("{{CLOSING}}", closing.Replace("\n", "<br>"));
+            template = template.Replace("{{INVOICE_NUMBER}}", "AN-2025-001");
+            template = template.Replace("{{INVOICE_DATE}}", "17.01.2025");
+            template = template.Replace("{{DUE_DATE}}", "15.02.2025");
+            template = template.Replace("{{TOTAL_AMOUNT}}", "2.450,00 €");
+
+            template = template.Replace("Rechnung Nr.", "Angebot Nr.");
+            template = template.Replace("Ihre Rechnung", "Ihr Angebot");
+            template = template.Replace("Rechnungsdatum", "Angebotsdatum");
+            template = template.Replace("Fällig am", "Gültig bis");
+
+            _previewHtml = template;
+        }
+        catch (Exception ex)
+        {
+            _error = "Fehler beim Generieren der Vorschau: " + ex.Message;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private string ReplaceOfferteEmailPlaceholders(string text, string angebotsnummer, string gueltigkeitsdatum, string firmenname)
+    {
+        return text
+            .Replace("{{Firmenname}}", firmenname)
+            .Replace("{{Angebotsnummer}}", angebotsnummer)
+            .Replace("{{Gueltigkeitsdatum}}", gueltigkeitsdatum)
+            .Replace("{{Rechnungsnummer}}", angebotsnummer)
+            .Replace("{{Faelligkeitsdatum}}", gueltigkeitsdatum);
+    }
+
+    private string GenerateFallbackPreview()
+    {
+        var firmenname = !string.IsNullOrEmpty(Company.BusinessName)
+            ? Company.BusinessName
+            : Company.OwnerFullName;
+
+        var greeting = string.IsNullOrWhiteSpace(Settings.EmailGreeting)
+            ? "Sehr geehrte Damen und Herren,<br><br>anbei erhalten Sie unser Angebot."
+            : Settings.EmailGreeting.Replace("\n", "<br>");
+
+        var closing = string.IsNullOrWhiteSpace(Settings.EmailClosing)
+            ? "Mit freundlichen Grüßen<br><br>" + firmenname
+            : Settings.EmailClosing.Replace("\n", "<br>").Replace("{{Firmenname}}", firmenname);
+
+        return @"
+        <div style='font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;'>
+            <div style='color: " + Settings.EmailPrimaryColor + @"; font-size: 24px; font-weight: bold; margin-bottom: 20px;'>
+                Angebot AN-2025-001
+            </div>
+            <div style='margin-bottom: 20px;'>
+                " + greeting + @"
+            </div>
+            <div style='background: #f5f5f5; padding: 15px; margin-bottom: 20px; border-left: 4px solid " + Settings.EmailAccentColor + @";'>
+                <strong>Angebotsnummer:</strong> AN-2025-001<br>
+                <strong>Datum:</strong> 17.01.2025<br>
+                <strong>Gültig bis:</strong> 15.02.2025<br>
+                <strong>Betrag:</strong> 2.450,00 €
+            </div>
+            <div>
+                " + closing + @"
+            </div>
+        </div>";
+    }
+
+    public void Dispose()
+    {
+        _debounceTimer?.Dispose();
+    }
+}

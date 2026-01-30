@@ -193,14 +193,14 @@ public class ProgramApi
                             new NavItemDto
                             {
                                 Label = "E-Mail-Anpassung",
-                                Href = "/offerte/settings/email",
+                                Href = "/offerte/settings/email-anpassung",
                                 Icon = "",
                                 Type = NavItemType.Link
                             },
                             new NavItemDto
                             {
                                 Label = "PDF-Anpassung",
-                                Href = "/offerte/settings/pdf",
+                                Href = "/offerte/settings/pdf-anpassung",
                                 Icon = "",
                                 Type = NavItemType.Link
                             }

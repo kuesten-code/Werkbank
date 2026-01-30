@@ -253,7 +253,7 @@
 
             await AngebotRepository.UpdateAsync(_angebot);
             Snackbar.Add($"Angebot {_angebot.Angebotsnummer} wurde aktualisiert.", Severity.Success);
-            NavigationManager.NavigateTo($"/angebote/{_angebot.Id}");
+            NavigationManager.NavigateTo($"/offerte/angebote/{_angebot.Id}");
         }
         catch (Exception ex)
         {
@@ -267,6 +267,6 @@
 
     private void Cancel()
     {
-        NavigationManager.NavigateTo($"/angebote/{Id}");
+        NavigationManager.NavigateTo($"/offerte/angebote/{Id}");
     }
 }

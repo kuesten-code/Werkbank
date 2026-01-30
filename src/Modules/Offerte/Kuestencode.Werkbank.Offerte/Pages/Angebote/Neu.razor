@@ -233,7 +233,7 @@
 
             await AngebotRepository.AddAsync(_angebot);
             Snackbar.Add($"Angebot {_angebot.Angebotsnummer} wurde gespeichert.", Severity.Success);
-            NavigationManager.NavigateTo($"/angebote/{_angebot.Id}");
+            NavigationManager.NavigateTo($"/offerte/angebote/{_angebot.Id}");
         }
         catch (Exception ex)
         {
@@ -268,7 +268,7 @@
             Snackbar.Add($"Angebot {_angebot.Angebotsnummer} wurde gespeichert.", Severity.Success);
 
             // Navigate to details page where PDF preview is available
-            NavigationManager.NavigateTo($"/angebote/{_angebot.Id}");
+            NavigationManager.NavigateTo($"/offerte/angebote/{_angebot.Id}");
         }
         catch (Exception ex)
         {
@@ -282,6 +282,6 @@
 
     private void Cancel()
     {
-        NavigationManager.NavigateTo("/angebote");
+        NavigationManager.NavigateTo("/offerte/angebote");
     }
 }

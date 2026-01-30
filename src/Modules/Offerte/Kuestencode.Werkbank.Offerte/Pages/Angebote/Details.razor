@@ -216,7 +216,7 @@
                     <MudStack Row="true" Justify="Justify.SpaceBetween" Wrap="Wrap.Wrap">
                         <MudButton Variant="Variant.Filled" Color="Color.Default"
                                   StartIcon="@Icons.Material.Filled.ArrowBack"
-                                  OnClick="@(() => NavigationManager.NavigateTo("/angebote"))">
+                                  OnClick="@(() => NavigationManager.NavigateTo("/offerte/angebote"))">
                             Zurück zur Übersicht
                         </MudButton>
 
@@ -388,7 +388,7 @@
 
     private void EditAngebot()
     {
-        NavigationManager.NavigateTo($"/angebote/{Id}/bearbeiten");
+        NavigationManager.NavigateTo($"/offerte/angebote/{Id}/bearbeiten");
     }
 
     private async Task DeleteAngebot()
@@ -412,7 +412,7 @@
             {
                 await AngebotRepository.DeleteAsync(_angebot.Id);
                 Snackbar.Add($"Angebot {_angebot.Angebotsnummer} wurde gelöscht.", Severity.Success);
-                NavigationManager.NavigateTo("/angebote");
+                NavigationManager.NavigateTo("/offerte/angebote");
             }
             catch (Exception ex)
             {
@@ -553,7 +553,7 @@
         {
             var kopie = await KopierService.KopiereAsync(_angebot.Id);
             Snackbar.Add($"Angebot wurde kopiert. Neue Nummer: {kopie.Angebotsnummer}", Severity.Success);
-            NavigationManager.NavigateTo($"/angebote/{kopie.Id}");
+            NavigationManager.NavigateTo($"/offerte/angebote/{kopie.Id}");
         }
         catch (Exception ex)
         {
