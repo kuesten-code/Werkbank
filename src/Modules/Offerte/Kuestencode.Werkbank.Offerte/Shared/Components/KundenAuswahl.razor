@@ -4,7 +4,8 @@
 
 <MudAutocomplete T="Customer"
     Label="@Label"
-    @bind-Value="SelectedCustomer"
+    Value="SelectedCustomer"
+    ValueChanged="OnCustomerSelected"
     SearchFunc="@SearchCustomersAsync"
     ToStringFunc="@(c => c?.Name ?? string.Empty)"
     ResetValueOnEmptyText="false"
@@ -14,7 +15,8 @@
     Disabled="@Disabled"
     Error="@_hasError"
     ErrorText="@_errorText"
-    Variant="Variant.Outlined">
+    Variant="Variant.Outlined"
+    Strict="false">
     <ItemTemplate Context="customer">
         <MudText>@customer.Name</MudText>
         <MudText Typo="Typo.caption">@customer.CustomerNumber - @customer.City</MudText>
@@ -40,6 +42,12 @@
 
     [Parameter]
     public bool Disabled { get; set; } = false;
+
+    private async Task OnCustomerSelected(Customer? customer)
+    {
+        SelectedCustomer = customer;
+        await SelectedCustomerChanged.InvokeAsync(customer);
+    }
 
     private async Task<IEnumerable<Customer>> SearchCustomersAsync(string? value, CancellationToken token)
     {
