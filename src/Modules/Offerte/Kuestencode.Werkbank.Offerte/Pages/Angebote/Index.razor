@@ -1,6 +1,7 @@
 @page "/angebote"
 @inject IAngebotRepository AngebotRepository
 @inject ICustomerService CustomerService
+@inject IAngebotAblaufService AblaufService
 @inject NavigationManager NavigationManager
 @inject ISnackbar Snackbar
 @inject IDialogService DialogService
@@ -127,6 +128,8 @@
 
     protected override async Task OnInitializedAsync()
     {
+        // Prüfe und aktualisiere abgelaufene Angebote beim Laden der Seite
+        await AblaufService.PruefeUndAktualiereAbgelaufeneAsync();
         await LoadDataAsync();
     }
 

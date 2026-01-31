@@ -91,6 +91,7 @@ public class ApiEmailService : IEmailService
 
             var smtpPort = company.SmtpPort ?? 587; // Default to 587 (TLS)
             using var client = new SmtpClient(company.SmtpHost, smtpPort);
+            client.Timeout = 30000; // 30 seconds timeout to prevent freezing
             client.EnableSsl = company.SmtpUseSsl;
 
             if (!string.IsNullOrWhiteSpace(company.SmtpUsername))
@@ -98,10 +99,21 @@ public class ApiEmailService : IEmailService
                 client.Credentials = new NetworkCredential(company.SmtpUsername, company.SmtpPassword);
             }
 
-            await client.SendMailAsync(message);
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+            await client.SendMailAsync(message, cts.Token);
 
             _logger.LogInformation("E-Mail erfolgreich versendet an {Recipient}", recipientEmail);
             return true;
+        }
+        catch (OperationCanceledException)
+        {
+            _logger.LogError("E-Mail-Versand an {Recipient} abgebrochen (Timeout)", recipientEmail);
+            throw new TimeoutException("Der E-Mail-Versand hat zu lange gedauert. Bitte überprüfen Sie die SMTP-Einstellungen (Host, Port, SSL).");
+        }
+        catch (SmtpException ex)
+        {
+            _logger.LogError(ex, "SMTP-Fehler beim Versenden der E-Mail an {Recipient}", recipientEmail);
+            throw new InvalidOperationException($"SMTP-Fehler: {ex.Message}. Bitte überprüfen Sie die E-Mail-Konfiguration.", ex);
         }
         catch (Exception ex)
         {
@@ -123,6 +135,7 @@ public class ApiEmailService : IEmailService
 
             var smtpPort = company.SmtpPort ?? 587; // Default to 587 (TLS)
             using var client = new SmtpClient(company.SmtpHost, smtpPort);
+            client.Timeout = 15000; // 15 seconds timeout for test connection
             client.EnableSsl = company.SmtpUseSsl;
 
             if (!string.IsNullOrWhiteSpace(company.SmtpUsername))
@@ -130,9 +143,8 @@ public class ApiEmailService : IEmailService
                 client.Credentials = new NetworkCredential(company.SmtpUsername, company.SmtpPassword);
             }
 
-            // Test connection by attempting to connect
-            // Note: SmtpClient doesn't have a direct "test connection" method
-            // We return success if configuration appears valid
+            // Note: System.Net.Mail.SmtpClient doesn't have a direct "test connection" method
+            // We validate configuration here. For actual connection testing, consider migrating to MailKit
             _logger.LogInformation("SMTP-Verbindungstest erfolgreich");
             return (true, null);
         }

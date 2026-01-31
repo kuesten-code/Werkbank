@@ -1,7 +1,11 @@
 @page "/angebote/{Id:guid}"
+@using Kuestencode.Shared.ApiClients
+@using System.Text.Json
 @inject IAngebotRepository AngebotRepository
 @inject ICustomerService CustomerService
 @inject AngebotStatusService StatusService
+@inject IAngebotAblaufService AblaufService
+@inject IHostApiClient HostApiClient
 @inject IOffertePdfService PdfService
 @inject IOfferteVersandService VersandService
 @inject IOfferteDruckService DruckService
@@ -272,12 +276,12 @@
                                     <MudButton Variant="Variant.Filled" Color="Color.Success"
                                               StartIcon="@Icons.Material.Filled.CheckCircle"
                                               OnClick="AcceptAngebot">
-                                        Annehmen
+                                        Angenommen
                                     </MudButton>
                                     <MudButton Variant="Variant.Filled" Color="Color.Error"
                                               StartIcon="@Icons.Material.Filled.Cancel"
                                               OnClick="RejectAngebot">
-                                        Ablehnen
+                                        Abgelehnt
                                     </MudButton>
                                     break;
 
@@ -297,11 +301,14 @@
                                               OnClick="CopyAngebot">
                                         Kopieren
                                     </MudButton>
-                                    <MudButton Variant="Variant.Filled" Color="Color.Success"
-                                              StartIcon="@Icons.Material.Filled.Receipt"
-                                              OnClick="TransferToInvoice">
-                                        In Rechnung überführen
-                                    </MudButton>
+                                    @if (_fakturaAvailable)
+                                    {
+                                        <MudButton Variant="Variant.Filled" Color="Color.Success"
+                                                  StartIcon="@Icons.Material.Filled.Receipt"
+                                                  OnClick="TransferToInvoice">
+                                            In Rechnung überführen
+                                        </MudButton>
+                                    }
                                     break;
 
                                 case AngebotStatus.Abgelehnt:
@@ -339,10 +346,45 @@
     private bool _loading = true;
     private Angebot? _angebot;
     private Customer? _customer;
+    private bool _fakturaAvailable = false;
 
     protected override async Task OnInitializedAsync()
     {
+        await CheckFakturaAvailabilityAsync();
         await LoadDataAsync();
+    }
+
+    private async Task CheckFakturaAvailabilityAsync()
+    {
+        try
+        {
+            var navItems = await HostApiClient.GetNavigationAsync();
+            _fakturaAvailable = navItems.Any(IsFakturaNavItem);
+        }
+        catch
+        {
+            _fakturaAvailable = false;
+        }
+    }
+
+    private static bool IsFakturaNavItem(Kuestencode.Shared.Contracts.Navigation.NavItemDto item)
+    {
+        if (!string.IsNullOrWhiteSpace(item.Href) && item.Href.StartsWith("/faktura", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        if (string.Equals(item.Label, "Faktura", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        if (item.Children is { Count: > 0 })
+        {
+            return item.Children.Any(IsFakturaNavItem);
+        }
+
+        return false;
     }
 
     private async Task LoadDataAsync()
@@ -355,6 +397,13 @@
 
             if (_angebot != null)
             {
+                // Prüfe, ob das Angebot abgelaufen ist und aktualisiere ggf. den Status
+                if (StatusService.KannAlsAbgelaufenMarkiertWerden(_angebot))
+                {
+                    StatusService.AlsAbgelaufenMarkieren(_angebot);
+                    await AngebotRepository.UpdateAsync(_angebot);
+                }
+
                 _customer = await CustomerService.GetByIdAsync(_angebot.KundeId);
             }
         }
@@ -430,7 +479,7 @@
             var pdfBytes = await PdfService.ErstelleAsync(_angebot.Id);
             var base64 = Convert.ToBase64String(pdfBytes);
             var fileName = $"Angebot_{_angebot.Angebotsnummer}.pdf";
-            await JSRuntime.InvokeVoidAsync("downloadFile", fileName, "application/pdf", base64);
+            await JSRuntime.InvokeVoidAsync("downloadFile", fileName, base64);
         }
         catch (Exception ex)
         {
@@ -446,12 +495,21 @@
         {
             var pdfBytes = await DruckService.DruckvorbereitungAsync(_angebot.Id);
             var base64 = Convert.ToBase64String(pdfBytes);
-            var dataUrl = $"data:application/pdf;base64,{base64}";
-            await JSRuntime.InvokeVoidAsync("printPdf", dataUrl);
+            await JSRuntime.InvokeVoidAsync("printPdf", base64);
 
-            await DruckService.MarkiereAlsGedrucktAsync(_angebot.Id);
-            await LoadDataAsync();
-            Snackbar.Add("Druckauftrag gestartet.", Severity.Success);
+            // Bestätigung nach Druckvorgang fragen
+            var confirmResult = await DialogService.ShowMessageBox(
+                "Druck bestätigen",
+                "Wurde das Angebot erfolgreich gedruckt?",
+                yesText: "Ja, Druck erfolgreich",
+                cancelText: "Nein, abbrechen");
+
+            if (confirmResult == true)
+            {
+                await DruckService.MarkiereAlsGedrucktAsync(_angebot.Id);
+                await LoadDataAsync();
+                Snackbar.Add("Angebot als gedruckt markiert.", Severity.Success);
+            }
         }
         catch (Exception ex)
         {
@@ -578,9 +636,14 @@
             try
             {
                 var rechnungDto = await UeberfuehrungService.InRechnungUeberfuehrenAsync(_angebot.Id);
-                Snackbar.Add("Angebot wurde zur Rechnungserstellung vorbereitet. Bitte im Faktura-Modul fortfahren.", Severity.Success);
-                // Navigate to Faktura module (if available)
-                NavigationManager.NavigateTo("/faktura/invoices/create");
+
+                // Speichere das DTO in localStorage für Faktura
+                var json = JsonSerializer.Serialize(rechnungDto);
+                await JSRuntime.InvokeVoidAsync("localStorage.setItem", "offerte_rechnung_dto", json);
+
+                Snackbar.Add("Angebot wird in Rechnung überführt...", Severity.Success);
+                // Navigate to Faktura module
+                NavigationManager.NavigateTo("/faktura/invoices/create?from=offerte");
             }
             catch (Exception ex)
             {

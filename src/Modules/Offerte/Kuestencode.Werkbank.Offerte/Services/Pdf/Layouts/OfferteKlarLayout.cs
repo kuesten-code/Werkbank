@@ -64,20 +64,15 @@ public class OfferteKlarLayout : KlarDocumentLayout, IDocument
             Description = p.Text,
             Quantity = p.Menge,
             UnitPrice = p.Einzelpreis,
-            TotalNet = p.Nettosumme,
-            VatRate = p.Steuersatz,
-            VatAmount = p.Steuerbetrag
+            VatRate = p.Steuersatz
         });
 
     protected override DocumentSummary Summary => new()
     {
         TotalNet = _angebot.Nettosumme,
-        TotalVat = _angebot.Steuersumme,
-        TotalGross = _angebot.Bruttosumme,
-        AmountDue = _angebot.Bruttosumme,
-        VatBreakdown = _angebot.Positionen
+        VatGroups = _angebot.Positionen
             .GroupBy(p => p.Steuersatz)
-            .Select(g => new VatLineItem { Rate = g.Key, Amount = g.Sum(p => p.Steuerbetrag) })
+            .Select(g => new VatGroup { Rate = g.Key, Amount = g.Sum(p => p.Steuerbetrag) })
             .OrderBy(v => v.Rate)
             .ToList()
     };

@@ -5,6 +5,7 @@ using Kuestencode.Werkbank.Offerte.Domain.Interfaces;
 using Kuestencode.Werkbank.Offerte.Domain.Services;
 using Kuestencode.Werkbank.Offerte.Domain.Validation;
 using Kuestencode.Werkbank.Offerte.Services;
+using Kuestencode.Werkbank.Offerte.Services.Email;
 using Kuestencode.Werkbank.Offerte.Services.Pdf;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -45,6 +46,13 @@ public static class OfferteModule
         services.AddScoped<IOfferteKopierService, OfferteKopierService>();
         services.AddScoped<IOfferteUeberfuehrungService, OfferteUeberfuehrungService>();
         services.AddScoped<IOfferteSettingsService, OfferteSettingsService>();
+        services.AddScoped<IOffertePreviewService, OffertePreviewService>();
+
+        // Register Email Services
+        services.AddScoped<IOfferteEmailTemplateRenderer, OfferteEmailTemplateRenderer>();
+
+        // Register Ablauf Service (für automatische Prüfung abgelaufener Angebote)
+        services.AddScoped<IAngebotAblaufService, AngebotAblaufService>();
 
         return services;
     }

@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Angebot</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.6;
+            color: #1a1a1a;
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            max-width: 500px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        h1 {
+            color: {{PRIMARY_COLOR}};
+            font-size: 24px;
+            margin: 0 0 20px 0;
+            font-weight: 600;
+        }
+        p {
+            margin: 0 0 12px 0;
+        }
+        .greeting {
+            white-space: pre-line;
+            margin-bottom: 20px;
+        }
+        .closing {
+            white-space: pre-line;
+            margin-top: 20px;
+        }
+        .angebot-info {
+            margin: 20px 0;
+        }
+        .angebot-details {
+            margin: 20px 0;
+        }
+        .label {
+            font-weight: 500;
+        }
+        .amount {
+            font-size: 18px;
+            font-weight: 600;
+            margin: 15px 0;
+            color: {{PRIMARY_COLOR}};
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Angebot {{ANGEBOT_NUMBER}}</h1>
+
+        <div class="greeting">{{GREETING}}</div>
+
+        <div class="angebot-details">
+            <p><span class="label">Angebotsnummer:</span> {{ANGEBOT_NUMBER}}</p>
+            <p><span class="label">Angebotsdatum:</span> {{ANGEBOT_DATE}}</p>
+            <p><span class="label">Gültig bis:</span> {{GUELTIG_BIS}}</p>
+        </div>
+
+        <p class="amount">Angebotsbetrag: {{TOTAL_AMOUNT}}</p>
+
+        <div class="angebot-info">
+            <p>Das Angebot finden Sie im Anhang dieser E-Mail als PDF-Datei.</p>
+            <p>Bei Fragen stehen wir Ihnen gerne zur Verfügung.</p>
+        </div>
+
+        <div class="closing">{{CLOSING}}</div>
+    </div>
+</body>
+</html>

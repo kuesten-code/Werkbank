@@ -9,17 +9,17 @@ using QuestPDF.Infrastructure;
 namespace Kuestencode.Werkbank.Offerte.Services.Pdf.Layouts;
 
 /// <summary>
-/// "Betont" Layout-Implementierung für Angebots-PDFs.
-/// Kräftiges Design mit farbigem Header und Hervorhebungen.
+/// "Strukturiert" Layout-Implementierung für Angebots-PDFs.
+/// Mit Boxen und Trennlinien für klare visuelle Struktur.
 /// </summary>
-public class OfferteBetontLayout : BetontDocumentLayout, IDocument
+public class OfferteStrukturiertLayout : StrukturiertDocumentLayout, IDocument
 {
     private readonly Angebot _angebot;
     private readonly Customer _kunde;
     private readonly Company _firma;
     private readonly OfferteSettings _settings;
 
-    public OfferteBetontLayout(Angebot angebot, Customer kunde, Company firma, OfferteSettings settings)
+    public OfferteStrukturiertLayout(Angebot angebot, Customer kunde, Company firma, OfferteSettings settings)
     {
         _angebot = angebot;
         _kunde = kunde;
