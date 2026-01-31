@@ -8,7 +8,14 @@
             <MudText>@Nettosumme.ToString("C2", _culture)</MudText>
         </MudStack>
 
-        @if (MwstSaetze != null && MwstSaetze.Any())
+        @if (IsKleinunternehmer)
+        {
+            <MudStack Row="true" Justify="Justify.SpaceBetween">
+                <MudText>MwSt (0%, §19 UStG):</MudText>
+                <MudText>@(0m.ToString("C2", _culture))</MudText>
+            </MudStack>
+        }
+        else if (MwstSaetze != null && MwstSaetze.Any())
         {
             foreach (var mwst in MwstSaetze)
             {
@@ -32,6 +39,13 @@
             <MudText Typo="Typo.subtitle1"><strong>Bruttosumme:</strong></MudText>
             <MudText Typo="Typo.subtitle1"><strong>@Bruttosumme.ToString("C2", _culture)</strong></MudText>
         </MudStack>
+
+        @if (IsKleinunternehmer)
+        {
+            <MudAlert Severity="Severity.Info" Dense="true" Class="mt-2">
+                §19 UStG - Kleinunternehmer (keine MwSt)
+            </MudAlert>
+        }
     </MudStack>
 </MudPaper>
 
@@ -49,6 +63,9 @@
 
     [Parameter]
     public List<MwstZeile>? MwstSaetze { get; set; }
+
+    [Parameter]
+    public bool IsKleinunternehmer { get; set; } = false;
 
     public class MwstZeile
     {

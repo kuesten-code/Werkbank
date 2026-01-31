@@ -46,6 +46,7 @@
     <ProjectReference Include="..\..\..\Shared.UI\Kuestencode.Shared.UI.csproj" />
     <ProjectReference Include="..\..\..\Kuestencode.Shared.Contracts\Kuestencode.Shared.Contracts.csproj" />
     <ProjectReference Include="..\..\..\Kuestencode.Shared.ApiClients\Kuestencode.Shared.ApiClients.csproj" />
+    <ProjectReference Include="..\..\..\Kuestencode.Shared.Pdf\Kuestencode.Shared.Pdf.csproj" />
   </ItemGroup>
 
 </Project>

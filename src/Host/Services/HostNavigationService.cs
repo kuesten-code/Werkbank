@@ -92,6 +92,7 @@ public class HostNavigationService : IHostNavigationService
         return moduleName switch
         {
             "Faktura" => 1,
+            "Offerte" => 5,
             "Rapport" => 10,
             _ => null
         };

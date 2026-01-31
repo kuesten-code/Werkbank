@@ -6,7 +6,10 @@
         <MudTh>Beschreibung</MudTh>
         <MudTh Style="width: 100px; text-align: right">Menge</MudTh>
         <MudTh Style="width: 120px; text-align: right">Einzelpreis</MudTh>
-        <MudTh Style="width: 80px; text-align: right">MwSt</MudTh>
+        @if (!IsKleinunternehmer)
+        {
+            <MudTh Style="width: 80px; text-align: right">MwSt</MudTh>
+        }
         <MudTh Style="width: 80px; text-align: right">Rabatt</MudTh>
         <MudTh Style="width: 120px; text-align: right">Gesamt</MudTh>
         <MudTh Style="width: 100px"></MudTh>
@@ -31,15 +34,18 @@
                             Format="C2" HideSpinButtons="true" Culture="@_culture" Disabled="@Readonly"
                             OnBlur="@(() => OnPositionChanged.InvokeAsync())" />
         </MudTd>
-        <MudTd DataLabel="MwSt" Style="text-align: right">
-            <MudSelect @bind-Value="position.Steuersatz" Margin="Margin.Dense"
-                      Variant="Variant.Outlined" Disabled="@Readonly"
-                      Dense="true">
-                <MudSelectItem Value="0m">0%</MudSelectItem>
-                <MudSelectItem Value="7m">7%</MudSelectItem>
-                <MudSelectItem Value="19m">19%</MudSelectItem>
-            </MudSelect>
-        </MudTd>
+        @if (!IsKleinunternehmer)
+        {
+            <MudTd DataLabel="MwSt" Style="text-align: right">
+                <MudSelect @bind-Value="position.Steuersatz" Margin="Margin.Dense"
+                          Variant="Variant.Outlined" Disabled="@Readonly"
+                          Dense="true">
+                    <MudSelectItem Value="0m">0%</MudSelectItem>
+                    <MudSelectItem Value="7m">7%</MudSelectItem>
+                    <MudSelectItem Value="19m">19%</MudSelectItem>
+                </MudSelect>
+            </MudTd>
+        }
         <MudTd DataLabel="Rabatt" Style="text-align: right">
             <MudNumericField @bind-Value="position.Rabatt" Margin="Margin.Dense"
                             Variant="Variant.Outlined" Min="0m" Max="100m" Step="1m"
@@ -93,6 +99,11 @@
     [Parameter]
     public bool Readonly { get; set; } = false;
 
+    [Parameter]
+    public bool IsKleinunternehmer { get; set; } = false;
+
+    private decimal DefaultSteuersatz => IsKleinunternehmer ? 0m : 19m;
+
     private async Task AddPosition()
     {
         var newPosition = new Angebotsposition
@@ -102,7 +113,7 @@
             Text = "",
             Menge = 1,
             Einzelpreis = 0,
-            Steuersatz = 19
+            Steuersatz = DefaultSteuersatz
         };
 
         Positionen.Add(newPosition);

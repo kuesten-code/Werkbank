@@ -25,6 +25,7 @@ public class OfferteDbContext : DbContext
     // DbSets
     public DbSet<Angebot> Angebote { get; set; } = null!;
     public DbSet<Angebotsposition> Angebotspositionen { get; set; } = null!;
+    public DbSet<OfferteSettings> Settings { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -67,6 +68,20 @@ public class OfferteDbContext : DbContext
             entity.Property(e => e.Einzelpreis).HasPrecision(18, 2);
             entity.Property(e => e.Steuersatz).HasPrecision(5, 2);
             entity.Property(e => e.Rabatt).HasPrecision(5, 2);
+        });
+
+        // OfferteSettings Configuration
+        modelBuilder.Entity<OfferteSettings>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+
+            entity.Property(e => e.EmailLayout)
+                .HasConversion<string>()
+                .HasMaxLength(20);
+
+            entity.Property(e => e.PdfLayout)
+                .HasConversion<string>()
+                .HasMaxLength(20);
         });
     }
 

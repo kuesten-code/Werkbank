@@ -202,17 +202,17 @@
 
     private void CreateAngebot()
     {
-        NavigationManager.NavigateTo("/angebote/neu");
+        NavigationManager.NavigateTo("/offerte/angebote/neu");
     }
 
     private void ViewAngebot(Guid id)
     {
-        NavigationManager.NavigateTo($"/angebote/{id}");
+        NavigationManager.NavigateTo($"/offerte/angebote/{id}");
     }
 
     private void EditAngebot(Guid id)
     {
-        NavigationManager.NavigateTo($"/angebote/{id}/bearbeiten");
+        NavigationManager.NavigateTo($"/offerte/angebote/{id}/bearbeiten");
     }
 
     private async Task DeleteAngebot(Angebot angebot)

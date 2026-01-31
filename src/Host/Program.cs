@@ -54,6 +54,13 @@ builder.Services.AddHttpClient<IRapportApiClient, RapportApiClient>(client =>
     client.BaseAddress = new Uri(rapportUrl);
 });
 
+// Add HttpClient fuer Offerte-API
+builder.Services.AddHttpClient<IOfferteApiClient, OfferteApiClient>(client =>
+{
+    var rapportUrl = builder.Configuration.GetValue<string>("ServiceUrls:Offerte") ?? "http://localhost:8083";
+    client.BaseAddress = new Uri(rapportUrl);
+});
+
 // Add YARP Reverse Proxy for Faktura, Rapport, and Offerte modules
 var fakturaServiceUrl = builder.Configuration.GetValue<string>("ServiceUrls:Faktura") ?? "http://localhost:8081";
 var rapportServiceUrl = builder.Configuration.GetValue<string>("ServiceUrls:Rapport") ?? "http://localhost:8082";

@@ -1,0 +1,298 @@
+@using Kuestencode.Core.Enums
+@using MudBlazor.Utilities
+
+<MudPaper Elevation="2" Class="pa-6">
+    <MudText Typo="Typo.h4" GutterBottom="true">PDF-Anpassung</MudText>
+    <MudText Typo="Typo.body1" Color="Color.Secondary" Class="mb-6">
+        Passen Sie das Erscheinungsbild Ihrer @Context.DocumentTypeName-PDFs an.
+    </MudText>
+
+    @if (Loading)
+    {
+        <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+    }
+    else
+    {
+        <!-- Layout-Auswahl -->
+        <MudText Typo="Typo.h6" Class="mt-6 mb-3">Layout</MudText>
+        <MudRadioGroup Value="@Settings.Layout" ValueChanged="@((PdfLayout value) => OnLayoutChanged(value))">
+            <MudCard Outlined="true" Class="mb-3" Style="@(Settings.Layout == PdfLayout.Klar ? "border: 2px solid var(--mud-palette-primary);" : "")">
+                <MudCardContent>
+                    <MudRadio Value="PdfLayout.Klar" Color="Color.Primary">
+                        <MudText Typo="Typo.h6">Klar <MudChip T="string" Size="Size.Small" Variant="Variant.Text">Default</MudChip></MudText>
+                    </MudRadio>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="ml-8">
+                        Minimalistisch, text-dominiert, maximale Lesbarkeit.
+                    </MudText>
+                </MudCardContent>
+            </MudCard>
+
+            <MudCard Outlined="true" Class="mb-3" Style="@(Settings.Layout == PdfLayout.Strukturiert ? "border: 2px solid var(--mud-palette-primary);" : "")">
+                <MudCardContent>
+                    <MudRadio Value="PdfLayout.Strukturiert" Color="Color.Primary">
+                        <MudText Typo="Typo.h6">Strukturiert</MudText>
+                    </MudRadio>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="ml-8">
+                        Mit Boxen und Trennlinien für mehr Übersichtlichkeit.
+                    </MudText>
+                </MudCardContent>
+            </MudCard>
+
+            <MudCard Outlined="true" Class="mb-3" Style="@(Settings.Layout == PdfLayout.Betont ? "border: 2px solid var(--mud-palette-primary);" : "")">
+                <MudCardContent>
+                    <MudRadio Value="PdfLayout.Betont" Color="Color.Primary">
+                        <MudText Typo="Typo.h6">Betont</MudText>
+                    </MudRadio>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="ml-8">
+                        Farbiger Header und hervorgehobener Betrag, visuell stärker.
+                    </MudText>
+                </MudCardContent>
+            </MudCard>
+        </MudRadioGroup>
+
+        <!-- Farben -->
+        <MudText Typo="Typo.h6" Class="mt-6 mb-3">Farben</MudText>
+        <MudGrid>
+            <MudItem xs="12" md="6">
+                <MudText Typo="Typo.subtitle2" Class="mb-2">Primärfarbe</MudText>
+                <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-3">
+                    Wird für Überschriften und Hervorhebungen verwendet.
+                </MudText>
+
+                <MudColorPicker @bind-Value="PrimaryColorValue"
+                               ColorPickerMode="ColorPickerMode.RGB"
+                               disablealpha="true"
+                               Placeholder="Farbe wählen"
+                               Class="mb-3" />
+
+                <MudText Typo="Typo.caption" Class="mb-2">Vorschläge:</MudText>
+                <MudStack Row="true" Spacing="2" Wrap="Wrap.Wrap">
+                    <MudChip T="string" Size="Size.Small" OnClick='() => SetPrimaryColor("#0F2A3D")'
+                            Style="background-color: #0F2A3D; color: white;">Küstencode Primär</MudChip>
+                    <MudChip T="string" Size="Size.Small" OnClick='() => SetPrimaryColor("#1f3a5f")'
+                            Style="background-color: #1f3a5f; color: white;">Nordisch Blau</MudChip>
+                    <MudChip T="string" Size="Size.Small" OnClick='() => SetPrimaryColor("#374151")'
+                            Style="background-color: #374151; color: white;">Anthrazit</MudChip>
+                    <MudChip T="string" Size="Size.Small" OnClick='() => SetPrimaryColor("#065f46")'
+                            Style="background-color: #065f46; color: white;">Dunkelgrün</MudChip>
+                    <MudChip T="string" Size="Size.Small" OnClick='() => SetPrimaryColor("#0c4a6e")'
+                            Style="background-color: #0c4a6e; color: white;">Tiefseeblau</MudChip>
+                    <MudChip T="string" Size="Size.Small" OnClick='() => SetPrimaryColor("#334155")'
+                            Style="background-color: #334155; color: white;">Schiefer</MudChip>
+                </MudStack>
+            </MudItem>
+
+            <MudItem xs="12" md="6">
+                <MudText Typo="Typo.subtitle2" Class="mb-2">Akzentfarbe</MudText>
+                <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-3">
+                    Wird sparsam zur Betonung eingesetzt.
+                </MudText>
+
+                <MudColorPicker @bind-Value="AccentColorValue"
+                               ColorPickerMode="ColorPickerMode.RGB"
+                               disablealpha="true"
+                               Placeholder="Farbe wählen"
+                               Class="mb-3" />
+
+                <MudText Typo="Typo.caption" Class="mb-2">Vorschläge:</MudText>
+                <MudStack Row="true" Spacing="2" Wrap="Wrap.Wrap">
+                    <MudChip T="string" Size="Size.Small" OnClick='() => SetAccentColor("#3FA796")'
+                            Style="background-color: #3FA796; color: white;">Salzgrün</MudChip>
+                    <MudChip T="string" Size="Size.Small" OnClick='() => SetAccentColor("#6b7280")'
+                            Style="background-color: #6b7280; color: white;">Hellgrau</MudChip>
+                    <MudChip T="string" Size="Size.Small" OnClick='() => SetAccentColor("#3b82f6")'
+                            Style="background-color: #3b82f6; color: white;">Mittelblau</MudChip>
+                    <MudChip T="string" Size="Size.Small" OnClick='() => SetAccentColor("#ea580c")'
+                            Style="background-color: #ea580c; color: white;">Orange</MudChip>
+                    <MudChip T="string" Size="Size.Small" OnClick='() => SetAccentColor("#16a34a")'
+                            Style="background-color: #16a34a; color: white;">Grün</MudChip>
+                    <MudChip T="string" Size="Size.Small" OnClick='() => SetAccentColor("#7c3aed")'
+                            Style="background-color: #7c3aed; color: white;">Violett</MudChip>
+                </MudStack>
+            </MudItem>
+        </MudGrid>
+
+        @if (Settings.PrimaryColor == Settings.AccentColor)
+        {
+            <MudAlert Severity="Severity.Warning" Class="mt-3">
+                Primär- und Akzentfarbe sollten sich unterscheiden.
+            </MudAlert>
+        }
+
+        <!-- Textanpassung -->
+        <MudText Typo="Typo.h6" Class="mt-6 mb-3">Textanpassung (optional)</MudText>
+        <MudGrid>
+            <MudItem xs="12">
+                <MudTextField Label="Header-Text"
+                             Value="@Settings.HeaderText"
+                             ValueChanged="@((string val) => OnHeaderTextChanged(val))"
+                             Lines="3"
+                             Placeholder="Optionaler Text im Header-Bereich"
+                             HelperText="Max. 500 Zeichen"
+                             Counter="500"
+                             MaxLength="500" />
+            </MudItem>
+            <MudItem xs="12">
+                <MudTextField Label="Footer-Text"
+                             Value="@Settings.FooterText"
+                             ValueChanged="@((string val) => OnFooterTextChanged(val))"
+                             Lines="3"
+                             Placeholder="Optionaler zusätzlicher Text im Footer"
+                             HelperText="Max. 1000 Zeichen"
+                             Counter="1000"
+                             MaxLength="1000" />
+            </MudItem>
+            <MudItem xs="12">
+                <MudTextField Label="@Context.NoticeFieldLabel"
+                             Value="@Settings.NoticeText"
+                             ValueChanged="@((string val) => OnNoticeTextChanged(val))"
+                             Lines="3"
+                             Placeholder="@Context.NoticeFieldPlaceholder"
+                             HelperText="Max. 500 Zeichen"
+                             Counter="500"
+                             MaxLength="500" />
+            </MudItem>
+        </MudGrid>
+
+        <MudAlert Severity="Severity.Info" Class="mt-3">
+            <strong>Verfügbare Platzhalter:</strong><br />
+            @foreach (var placeholder in Context.PdfPlaceholders)
+            {
+                <code>@placeholder.Placeholder</code> @(" - ") @placeholder.Description<br />
+            }
+            <br />
+            <MudText Typo="Typo.caption">Platzhalter werden beim Generieren automatisch ersetzt.</MudText>
+        </MudAlert>
+
+        <!-- Aktionen -->
+        <MudStack Row="true" Justify="Justify.SpaceBetween" Class="mt-6">
+            <MudButton Variant="Variant.Text"
+                      Color="Color.Default"
+                      OnClick="OnResetClicked">
+                Auf Standard zurücksetzen
+            </MudButton>
+            <MudButton ButtonType="ButtonType.Button"
+                      Variant="Variant.Filled"
+                      Color="Color.Primary"
+                      Disabled="@Saving"
+                      OnClick="OnSaveClicked">
+                @if (Saving)
+                {
+                    <MudProgressCircular Class="ms-n1" Size="Size.Small" Indeterminate="true" />
+                    <MudText Class="ms-2">Speichern...</MudText>
+                }
+                else
+                {
+                    <MudText>Speichern</MudText>
+                }
+            </MudButton>
+        </MudStack>
+    }
+</MudPaper>
+
+@code {
+    [Parameter, EditorRequired]
+    public PdfSettingsModel Settings { get; set; } = new();
+
+    [Parameter, EditorRequired]
+    public DocumentSettingsContext Context { get; set; } = DocumentSettingsContext.Rechnung;
+
+    [Parameter]
+    public bool Loading { get; set; }
+
+    [Parameter]
+    public bool Saving { get; set; }
+
+    [Parameter]
+    public EventCallback<PdfSettingsModel> SettingsChanged { get; set; }
+
+    [Parameter]
+    public EventCallback OnSave { get; set; }
+
+    [Parameter]
+    public EventCallback OnReset { get; set; }
+
+    private MudColor _primaryColorValue = new("#1f3a5f");
+    private MudColor _accentColorValue = new("#3FA796");
+
+    private MudColor PrimaryColorValue
+    {
+        get => _primaryColorValue;
+        set
+        {
+            _primaryColorValue = value;
+            Settings.PrimaryColor = value.ToString(MudColorOutputFormats.Hex);
+            NotifySettingsChanged();
+        }
+    }
+
+    private MudColor AccentColorValue
+    {
+        get => _accentColorValue;
+        set
+        {
+            _accentColorValue = value;
+            Settings.AccentColor = value.ToString(MudColorOutputFormats.Hex);
+            NotifySettingsChanged();
+        }
+    }
+
+    protected override void OnParametersSet()
+    {
+        _primaryColorValue = new MudColor(Settings.PrimaryColor);
+        _accentColorValue = new MudColor(Settings.AccentColor);
+    }
+
+    private void SetPrimaryColor(string color)
+    {
+        _primaryColorValue = new MudColor(color);
+        Settings.PrimaryColor = color;
+        NotifySettingsChanged();
+    }
+
+    private void SetAccentColor(string color)
+    {
+        _accentColorValue = new MudColor(color);
+        Settings.AccentColor = color;
+        NotifySettingsChanged();
+    }
+
+    private void OnLayoutChanged(PdfLayout value)
+    {
+        Settings.Layout = value;
+        NotifySettingsChanged();
+    }
+
+    private void OnHeaderTextChanged(string value)
+    {
+        Settings.HeaderText = value;
+        NotifySettingsChanged();
+    }
+
+    private void OnFooterTextChanged(string value)
+    {
+        Settings.FooterText = value;
+        NotifySettingsChanged();
+    }
+
+    private void OnNoticeTextChanged(string value)
+    {
+        Settings.NoticeText = value;
+        NotifySettingsChanged();
+    }
+
+    private void NotifySettingsChanged()
+    {
+        SettingsChanged.InvokeAsync(Settings);
+    }
+
+    private void OnSaveClicked()
+    {
+        OnSave.InvokeAsync();
+    }
+
+    private void OnResetClicked()
+    {
+        OnReset.InvokeAsync();
+    }
+}
