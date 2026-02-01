@@ -13,5 +13,10 @@ public enum NavItemType
 {
     Link,
     Group,
-    Divider
+    Divider,
+    /// <summary>
+    /// Settings items are aggregated by the Host into a central "Einstellungen" group.
+    /// Modules should provide Settings items with a Label (group name) and Children (settings links).
+    /// </summary>
+    Settings
 }

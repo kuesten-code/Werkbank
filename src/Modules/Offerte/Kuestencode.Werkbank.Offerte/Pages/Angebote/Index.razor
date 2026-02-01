@@ -6,6 +6,8 @@
 @inject ISnackbar Snackbar
 @inject IDialogService DialogService
 
+@* Query parameter for initial status filter *@
+
 <PageTitle>Angebote - Küstencode Offerte</PageTitle>
 
 <MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4">
@@ -110,6 +112,9 @@
 </MudContainer>
 
 @code {
+    [SupplyParameterFromQuery(Name = "status")]
+    public string? StatusFilter { get; set; }
+
     private readonly CultureInfo _culture = new CultureInfo("de-DE");
     private bool _loading = true;
     private string _searchString = string.Empty;
@@ -128,6 +133,17 @@
 
     protected override async Task OnInitializedAsync()
     {
+        // Set initial tab based on query parameter
+        _activeTabIndex = StatusFilter?.ToLowerInvariant() switch
+        {
+            "entwurf" => 1,
+            "versendet" => 2,
+            "angenommen" => 3,
+            "abgelehnt" => 4,
+            "abgelaufen" => 5,
+            _ => 0
+        };
+
         // Prüfe und aktualisiere abgelaufene Angebote beim Laden der Seite
         await AblaufService.PruefeUndAktualiereAbgelaufeneAsync();
         await LoadDataAsync();

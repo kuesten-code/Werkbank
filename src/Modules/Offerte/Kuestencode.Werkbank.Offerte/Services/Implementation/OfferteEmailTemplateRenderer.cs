@@ -10,15 +10,17 @@ namespace Kuestencode.Werkbank.Offerte.Services.Email;
 /// </summary>
 public class OfferteEmailTemplateRenderer : IOfferteEmailTemplateRenderer
 {
-    private readonly IWebHostEnvironment _environment;
+    private readonly string _templatesPath;
     private readonly ILogger<OfferteEmailTemplateRenderer> _logger;
 
     public OfferteEmailTemplateRenderer(
-        IWebHostEnvironment environment,
         ILogger<OfferteEmailTemplateRenderer> logger)
     {
-        _environment = environment;
         _logger = logger;
+
+        // Templates liegen im wwwroot/templates des Moduls
+        var assemblyLocation = Path.GetDirectoryName(typeof(OfferteEmailTemplateRenderer).Assembly.Location);
+        _templatesPath = Path.Combine(assemblyLocation!, "wwwroot", "templates");
     }
 
     public string RenderHtmlBody(
@@ -42,7 +44,7 @@ public class OfferteEmailTemplateRenderer : IOfferteEmailTemplateRenderer
             _ => "OfferteEmailTemplateKlar.html"
         };
 
-        var templatePath = Path.Combine(_environment.WebRootPath, "templates", templateName);
+        var templatePath = Path.Combine(_templatesPath, templateName);
 
         if (!File.Exists(templatePath))
         {

@@ -48,7 +48,10 @@ public class OfferteVersandService : IOfferteVersandService
         Guid angebotId,
         string? empfaengerEmail = null,
         string? betreff = null,
-        string? nachricht = null)
+        string? nachricht = null,
+        string? ccEmails = null,
+        string? bccEmails = null,
+        bool includeClosing = true)
     {
         var angebot = await _repository.GetByIdAsync(angebotId);
         if (angebot == null)
@@ -93,14 +96,14 @@ public class OfferteVersandService : IOfferteVersandService
         if (!string.IsNullOrWhiteSpace(nachricht))
         {
             // Benutzerdefinierte Nachricht - verwende sie als Greeting im Template
-            htmlBody = _templateRenderer.RenderHtmlBody(angebot, kunde, firma, settings, nachricht);
-            plainTextBody = _templateRenderer.RenderPlainTextBody(angebot, kunde, firma, settings, nachricht);
+            htmlBody = _templateRenderer.RenderHtmlBody(angebot, kunde, firma, settings, nachricht, includeClosing);
+            plainTextBody = _templateRenderer.RenderPlainTextBody(angebot, kunde, firma, settings, nachricht, includeClosing);
         }
         else
         {
             // Standard-Template verwenden
-            htmlBody = _templateRenderer.RenderHtmlBody(angebot, kunde, firma, settings);
-            plainTextBody = _templateRenderer.RenderPlainTextBody(angebot, kunde, firma, settings);
+            htmlBody = _templateRenderer.RenderHtmlBody(angebot, kunde, firma, settings, null, includeClosing);
+            plainTextBody = _templateRenderer.RenderPlainTextBody(angebot, kunde, firma, settings, null, includeClosing);
         }
 
         try
@@ -118,7 +121,9 @@ public class OfferteVersandService : IOfferteVersandService
                 subject: emailBetreff,
                 htmlBody: htmlBody,
                 plainTextBody: plainTextBody,
-                attachments: new[] { attachment });
+                attachments: new[] { attachment },
+                ccEmails: ccEmails,
+                bccEmails: bccEmails);
 
             // Status aktualisieren
             _statusService.Versenden(angebot);

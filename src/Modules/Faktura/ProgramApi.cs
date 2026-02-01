@@ -194,9 +194,9 @@ public class ProgramApi
                     },
                     new NavItemDto
                     {
-                        Label = "Faktura Einstellungen",
+                        Label = "Faktura",
                         Icon = "",
-                        Type = NavItemType.Group,
+                        Type = NavItemType.Settings,
                         Children = new List<NavItemDto>
                         {
                             new NavItemDto

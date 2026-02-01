@@ -185,9 +185,9 @@ public class ProgramApi
                     },
                     new NavItemDto
                     {
-                        Label = "Offerte Einstellungen",
+                        Label = "Offerte",
                         Icon = "",
-                        Type = NavItemType.Group,
+                        Type = NavItemType.Settings,
                         Children = new List<NavItemDto>
                         {
                             new NavItemDto

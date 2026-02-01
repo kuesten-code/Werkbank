@@ -37,6 +37,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Email Templates in Output kopieren -->
+    <None Include="wwwroot\templates\**\*" CopyToOutputDirectory="PreserveNewest" LinkBase="wwwroot\templates" />
+  </ItemGroup>
+
+  <ItemGroup>
     <!-- Modul-interne Referenzen -->
     <ProjectReference Include="..\Kuestencode.Werkbank.Offerte.Domain\Kuestencode.Werkbank.Offerte.Domain.csproj" />
     <ProjectReference Include="..\Kuestencode.Werkbank.Offerte.Data\Kuestencode.Werkbank.Offerte.Data.csproj" />

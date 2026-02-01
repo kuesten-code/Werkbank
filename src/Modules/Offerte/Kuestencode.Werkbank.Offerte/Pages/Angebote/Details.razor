@@ -1,5 +1,6 @@
 @page "/angebote/{Id:guid}"
 @using Kuestencode.Shared.ApiClients
+@using Kuestencode.Shared.UI.Components
 @using System.Text.Json
 @inject IAngebotRepository AngebotRepository
 @inject ICustomerService CustomerService
@@ -521,22 +522,35 @@
     {
         if (_angebot == null || _customer == null) return;
 
-        var parameters = new DialogParameters<Shared.Dialogs.VersandDialog>
+        var parameters = new DialogParameters<EmailComposer>
         {
-            { x => x.Angebotsnummer, _angebot.Angebotsnummer },
-            { x => x.EmailAdresse, _customer.Email ?? "" }
+            { x => x.Title, $"Angebot {_angebot.Angebotsnummer} versenden" },
+            { x => x.InitialRecipient, _customer.Email ?? "" },
+            { x => x.ShowSubject, false },
+            { x => x.ShowCcBcc, true },
+            { x => x.ShowIncludeClosing, true },
+            { x => x.MessageLabel, "Persönliche Nachricht (optional)" },
+            { x => x.MessagePlaceholder, "Fügen Sie hier eine persönliche Nachricht ein (optional)" }
         };
 
-        var dialog = await DialogService.ShowAsync<Shared.Dialogs.VersandDialog>("Versenden", parameters);
+        var options = new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true };
+        var dialog = await DialogService.ShowAsync<EmailComposer>("E-Mail versenden", parameters, options);
         var result = await dialog.Result;
 
-        if (result != null && !result.Canceled && result.Data is string email)
+        if (result != null && !result.Canceled && result.Data is EmailComposerResult emailResult)
         {
             try
             {
-                await VersandService.VersendeAsync(_angebot.Id, email);
+                await VersandService.VersendeAsync(
+                    _angebot.Id,
+                    emailResult.RecipientEmail,
+                    null, // Betreff wird vom Service generiert
+                    emailResult.Message,
+                    emailResult.CcEmails,
+                    emailResult.BccEmails,
+                    emailResult.IncludeClosing);
                 await LoadDataAsync();
-                Snackbar.Add($"Angebot wurde an {email} versendet.", Severity.Success);
+                Snackbar.Add($"Angebot wurde an {emailResult.RecipientEmail} versendet.", Severity.Success);
             }
             catch (Exception ex)
             {

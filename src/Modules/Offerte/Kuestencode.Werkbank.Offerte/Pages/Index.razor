@@ -3,13 +3,11 @@
 @inject IAngebotRepository AngebotRepository
 @inject NavigationManager NavigationManager
 
-<PageTitle>Offerte - Dashboard</PageTitle>
+<PageTitle>Offerte - Übersicht</PageTitle>
 
 <MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4">
-    <MudText Typo="Typo.h4" GutterBottom="true">Offerte Dashboard</MudText>
-    <MudText Typo="Typo.body1" Class="mb-4">
-        Willkommen im Angebotsmodul der Küstencode Werkbank.
-    </MudText>
+    <MudText Typo="Typo.h4" GutterBottom="true">Offerte Übersicht</MudText>
+    
 
     @if (_loading)
     {
@@ -19,7 +17,7 @@
     {
         <MudGrid>
             <MudItem xs="12" sm="6" md="4" lg="2">
-                <MudPaper Class="pa-4" Elevation="2">
+                <MudPaper Class="pa-4 cursor-pointer" Elevation="2" @onclick="@(() => NavigateToAngebote("entwurf"))">
                     <MudStack AlignItems="AlignItems.Center">
                         <MudIcon Icon="@Icons.Material.Filled.Edit" Size="Size.Large" Color="Color.Default" />
                         <MudText Typo="Typo.h4">@_entwurfCount</MudText>
@@ -29,7 +27,7 @@
             </MudItem>
 
             <MudItem xs="12" sm="6" md="4" lg="2">
-                <MudPaper Class="pa-4" Elevation="2">
+                <MudPaper Class="pa-4 cursor-pointer" Elevation="2" @onclick="@(() => NavigateToAngebote("versendet"))">
                     <MudStack AlignItems="AlignItems.Center">
                         <MudIcon Icon="@Icons.Material.Filled.Send" Size="Size.Large" Color="Color.Info" />
                         <MudText Typo="Typo.h4">@_versendetCount</MudText>
@@ -39,7 +37,7 @@
             </MudItem>
 
             <MudItem xs="12" sm="6" md="4" lg="2">
-                <MudPaper Class="pa-4" Elevation="2">
+                <MudPaper Class="pa-4 cursor-pointer" Elevation="2" @onclick="@(() => NavigateToAngebote("angenommen"))">
                     <MudStack AlignItems="AlignItems.Center">
                         <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Size="Size.Large" Color="Color.Success" />
                         <MudText Typo="Typo.h4">@_angenommenCount</MudText>
@@ -49,7 +47,7 @@
             </MudItem>
 
             <MudItem xs="12" sm="6" md="4" lg="2">
-                <MudPaper Class="pa-4" Elevation="2">
+                <MudPaper Class="pa-4 cursor-pointer" Elevation="2" @onclick="@(() => NavigateToAngebote("abgelehnt"))">
                     <MudStack AlignItems="AlignItems.Center">
                         <MudIcon Icon="@Icons.Material.Filled.Cancel" Size="Size.Large" Color="Color.Error" />
                         <MudText Typo="Typo.h4">@_abgelehntCount</MudText>
@@ -59,7 +57,7 @@
             </MudItem>
 
             <MudItem xs="12" sm="6" md="4" lg="2">
-                <MudPaper Class="pa-4" Elevation="2">
+                <MudPaper Class="pa-4 cursor-pointer" Elevation="2" @onclick="@(() => NavigateToAngebote("abgelaufen"))">
                     <MudStack AlignItems="AlignItems.Center">
                         <MudIcon Icon="@Icons.Material.Filled.Schedule" Size="Size.Large" Color="Color.Warning" />
                         <MudText Typo="Typo.h4">@_abgelaufenCount</MudText>
@@ -69,7 +67,7 @@
             </MudItem>
 
             <MudItem xs="12" sm="6" md="4" lg="2">
-                <MudPaper Class="pa-4" Elevation="2">
+                <MudPaper Class="pa-4 cursor-pointer" Elevation="2" @onclick="@(() => NavigateToAngebote(null))">
                     <MudStack AlignItems="AlignItems.Center">
                         <MudIcon Icon="@Icons.Material.Filled.List" Size="Size.Large" Color="Color.Primary" />
                         <MudText Typo="Typo.h4">@_totalCount</MudText>
@@ -124,5 +122,13 @@
         {
             _loading = false;
         }
+    }
+
+    private void NavigateToAngebote(string? statusFilter)
+    {
+        var url = string.IsNullOrEmpty(statusFilter)
+            ? "/offerte/angebote"
+            : $"/offerte/angebote?status={statusFilter}";
+        NavigationManager.NavigateTo(url);
     }
 }

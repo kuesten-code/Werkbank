@@ -215,10 +215,19 @@ public class ProgramApi
                     },
                     new NavItemDto
                     {
-                        Label = "Einstellungen",
-                        Href = "/rapport/settings",
+                        Label = "Rapport",
                         Icon = "",
-                        Type = NavItemType.Link
+                        Type = NavItemType.Settings,
+                        Children = new List<NavItemDto>
+                        {
+                            new NavItemDto
+                            {
+                                Label = "Einstellungen",
+                                Href = "/rapport/settings",
+                                Icon = "",
+                                Type = NavItemType.Link
+                            }
+                        }
                     }
                 }
             };
