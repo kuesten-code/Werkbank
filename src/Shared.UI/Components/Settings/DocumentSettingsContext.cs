@@ -67,6 +67,28 @@ public class DocumentSettingsContext
             new("{{Kundenname}}", "Kundenname")
         }
     };
+
+    public static DocumentSettingsContext Taetigkeit => new()
+    {
+        DocumentTypeName = "Tätigkeitsnachweis",
+        DocumentTypeNamePlural = "Tätigkeitsnachweise",
+        PageTitleSuffix = "Küstencode Rapport",
+        NoticeFieldLabel = "Hinweistext",
+        NoticeFieldPlaceholder = "Optionaler Hinweistext für den Tätigkeitsnachweis.",
+        EmailPlaceholders = new List<PlaceholderInfo>
+        {
+            new("{{Firmenname}}", "Ihr Firmenname"),
+            new("{{Kundenname}}", "Kundenname"),
+            new("{{Zeitraum}}", "Berichtszeitraum")
+        },
+        PdfPlaceholders = new List<PlaceholderInfo>
+        {
+            new("{{Firmenname}}", "Ihr Firmenname"),
+            new("{{Kundenname}}", "Kundenname"),
+            new("{{Zeitraum}}", "Berichtszeitraum"),
+            new("{{Gesamtstunden}}", "Summe der Stunden")
+        }
+    };
 }
 
 public record PlaceholderInfo(string Placeholder, string Description);

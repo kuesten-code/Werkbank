@@ -6,9 +6,9 @@
 @using Kuestencode.Rapport.Data
 @using Microsoft.EntityFrameworkCore
 @using Microsoft.AspNetCore.Components.Forms
-@using Kuestencode.Rapport.Models
 @using Kuestencode.Rapport.Services
 @using Kuestencode.Shared.UI.Components
+@using RapportSettingsModel = Kuestencode.Rapport.Models.RapportSettings
 @inject SettingsService SettingsService
 @inject IProjectService ProjectService
 @inject IDbContextFactory<RapportDbContext> DbContextFactory
@@ -74,76 +74,6 @@
                     </MudGrid>
                 </MudExpansionPanel>
 
-                <MudExpansionPanel Text="PDF-Export">
-                    <MudGrid Class="mt-2">
-                        <MudItem xs="12" md="4">
-                            <MudNumericField T="decimal" Label="Standard-Stundensatz (€)" Variant="Variant.Outlined"
-                                             @bind-Value="_settings.DefaultHourlyRate" Min="0" Step="1" />
-                        </MudItem>
-                        <MudItem xs="12" md="4">
-                            <MudCheckBox @bind-Value="_settings.ShowHourlyRateInPdf" Label="Stundensatz im PDF anzeigen" />
-                        </MudItem>
-                        <MudItem xs="12" md="4">
-                            <MudCheckBox @bind-Value="_settings.CalculateTotalAmount" Label="Betrag berechnen und anzeigen" Disabled="@(!_settings.ShowHourlyRateInPdf)" />
-                        </MudItem>
-                    </MudGrid>
-
-                    <MudDivider Class="my-4" />
-
-                    <MudText Typo="Typo.h6" Class="mb-2">Layout</MudText>
-                    <MudRadioGroup @bind-Value="_settings.PdfLayout">
-                        <MudCard Outlined="true" Class="mb-2" Style="@(_settings.PdfLayout == PdfLayout.Klar ? "border: 2px solid var(--mud-palette-primary);" : string.Empty)">
-                            <MudCardContent>
-                                <MudRadio Value="PdfLayout.Klar" Color="Color.Primary">Klar (Default)</MudRadio>
-                                <MudText Typo="Typo.caption" Color="Color.Secondary" Class="ml-6">Minimalistisch, text-dominiert.</MudText>
-                            </MudCardContent>
-                        </MudCard>
-                        <MudCard Outlined="true" Class="mb-2" Style="@(_settings.PdfLayout == PdfLayout.Strukturiert ? "border: 2px solid var(--mud-palette-primary);" : string.Empty)">
-                            <MudCardContent>
-                                <MudRadio Value="PdfLayout.Strukturiert" Color="Color.Primary">Strukturiert</MudRadio>
-                                <MudText Typo="Typo.caption" Color="Color.Secondary" Class="ml-6">Boxen und Linien für Übersichtlichkeit.</MudText>
-                            </MudCardContent>
-                        </MudCard>
-                        <MudCard Outlined="true" Class="mb-2" Style="@(_settings.PdfLayout == PdfLayout.Betont ? "border: 2px solid var(--mud-palette-primary);" : string.Empty)">
-                            <MudCardContent>
-                                <MudRadio Value="PdfLayout.Betont" Color="Color.Primary">Betont</MudRadio>
-                                <MudText Typo="Typo.caption" Color="Color.Secondary" Class="ml-6">Farbiger Header, visuell stärker.</MudText>
-                            </MudCardContent>
-                        </MudCard>
-                    </MudRadioGroup>
-
-                    <MudText Typo="Typo.h6" Class="mt-4 mb-2">Farben</MudText>
-                    <MudGrid>
-                        <MudItem xs="12" md="6">
-                            <MudText Typo="Typo.subtitle2" Class="mb-1">Primärfarbe</MudText>
-                            <MudColorPicker @bind-Value="_primaryColor" disablealpha="true" ColorPickerMode="ColorPickerMode.RGB" />
-                        </MudItem>
-                        <MudItem xs="12" md="6">
-                            <MudText Typo="Typo.subtitle2" Class="mb-1">Akzentfarbe</MudText>
-                            <MudColorPicker @bind-Value="_accentColor" disablealpha="true" ColorPickerMode="ColorPickerMode.RGB" />
-                        </MudItem>
-                    </MudGrid>
-
-
-                    <MudText Typo="Typo.h6" Class="mt-4 mb-2">Textanpassung</MudText>
-                    <MudGrid>
-                        <MudItem xs="12">
-                            <MudTextField Label="Header-Text" @bind-Value="_settings.PdfHeaderText" Lines="3" MaxLength="500" Counter="500" />
-                        </MudItem>
-                        <MudItem xs="12">
-                            <MudTextField Label="Footer-Text" @bind-Value="_settings.PdfFooterText" Lines="3" MaxLength="1000" Counter="1000" />
-                        </MudItem>
-                    </MudGrid>
-
-                    <MudDivider Class="my-4" />
-                    <MudText Typo="Typo.h6" Class="mb-2">Live-Vorschau</MudText>
-                    <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-2">
-                        Beispiel-Tätigkeitsnachweis mit aktuellen Einstellungen
-                    </MudText>
-                    <div style="max-height: 80vh; overflow-y: auto;">
-                        <TimesheetPdfPreview Settings="_settings" />
-                    </div>                </MudExpansionPanel>
-
                 <MudExpansionPanel Text="Erweitert">
                     <MudStack Spacing="2">
                         <MudButton Variant="Variant.Outlined" Color="Color.Primary" OnClick="ExportAllEntriesAsync">
@@ -191,7 +121,7 @@
 </MudContainer>
 
 @code {
-    private RapportSettings _settings = RapportSettings.CreateDefault();
+    private RapportSettingsModel _settings = RapportSettingsModel.CreateDefault();
     private bool _loading = true;
     private bool _saving;
 
@@ -207,15 +137,9 @@
     private bool _confirmDelete3;
     private string? _deletePhrase;
 
-    private MudBlazor.Utilities.MudColor _primaryColor = new("#1f3a5f");
-    private MudBlazor.Utilities.MudColor _accentColor = new("#3FA796");
-
     protected override async Task OnInitializedAsync()
     {
         _settings = await SettingsService.GetSettingsAsync();
-        _primaryColor = new MudBlazor.Utilities.MudColor(_settings.PdfPrimaryColor);
-        _accentColor = new MudBlazor.Utilities.MudColor(_settings.PdfAccentColor);
-
         _autoStopEnabled = _settings.AutoStopTimerAfterHours.HasValue;
         _autoStopHours = _settings.AutoStopTimerAfterHours;
 
@@ -252,9 +176,6 @@
         _saving = true;
         try
         {
-            _settings.PdfPrimaryColor = _primaryColor.ToString(MudBlazor.Utilities.MudColorOutputFormats.Hex);
-            _settings.PdfAccentColor = _accentColor.ToString(MudBlazor.Utilities.MudColorOutputFormats.Hex);
-
             if (_autoStopEnabled)
             {
                 _settings.AutoStopTimerAfterHours = _autoStopHours;
@@ -281,8 +202,6 @@
     {
         await SettingsService.ResetToDefaultAsync();
         _settings = await SettingsService.GetSettingsAsync();
-        _primaryColor = new MudBlazor.Utilities.MudColor(_settings.PdfPrimaryColor);
-        _accentColor = new MudBlazor.Utilities.MudColor(_settings.PdfAccentColor);
         _autoStopEnabled = _settings.AutoStopTimerAfterHours.HasValue;
         _autoStopHours = _settings.AutoStopTimerAfterHours;
         Snackbar.Add("Einstellungen zurückgesetzt.", Severity.Info);

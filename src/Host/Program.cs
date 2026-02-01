@@ -1,3 +1,4 @@
+using System.Globalization;
 using Microsoft.AspNetCore.DataProtection;
 using MudBlazor.Services;
 using Kuestencode.Werkbank.Host;
@@ -9,6 +10,11 @@ using QuestPDF.Infrastructure;
 
 // QuestPDF Lizenz konfigurieren
 QuestPDF.Settings.License = LicenseType.Community;
+
+// Deutsche Lokalisierung für MudBlazor DatePicker etc.
+var culture = new CultureInfo("de-DE");
+CultureInfo.DefaultThreadCurrentCulture = culture;
+CultureInfo.DefaultThreadCurrentUICulture = culture;
 
 var builder = WebApplication.CreateBuilder(args);
 

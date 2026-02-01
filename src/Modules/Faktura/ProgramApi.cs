@@ -1,4 +1,5 @@
-﻿using Kuestencode.Core.Interfaces;
+﻿using System.Globalization;
+using Kuestencode.Core.Interfaces;
 using Kuestencode.Faktura;
 using Kuestencode.Faktura.Services;
 using Kuestencode.Shared.ApiClients;
@@ -19,6 +20,11 @@ public class ProgramApi
     {
         // QuestPDF License configuration
         QuestPDF.Settings.License = LicenseType.Community;
+
+        // Deutsche Lokalisierung für MudBlazor DatePicker etc.
+        var culture = new CultureInfo("de-DE");
+        CultureInfo.DefaultThreadCurrentCulture = culture;
+        CultureInfo.DefaultThreadCurrentUICulture = culture;
 
         var builder = WebApplication.CreateBuilder(args);
         builder.WebHost.UseStaticWebAssets();
@@ -192,28 +198,23 @@ public class ProgramApi
                         Icon = "",
                         Type = NavItemType.Link
                     },
+                    // Settings: E-Mail-Vorlage unter "Vorlagen"
                     new NavItemDto
                     {
-                        Label = "Faktura",
+                        Label = "Faktura E-Mail",
+                        Href = "/faktura/settings/email-anpassung",
                         Icon = "",
                         Type = NavItemType.Settings,
-                        Children = new List<NavItemDto>
-                        {
-                            new NavItemDto
-                            {
-                                Label = "E-Mail-Anpassung",
-                                Href = "/faktura/settings/email-anpassung",
-                                Icon = "",
-                                Type = NavItemType.Link
-                            },
-                            new NavItemDto
-                            {
-                                Label = "PDF-Anpassung",
-                                Href = "/faktura/settings/pdf-anpassung",
-                                Icon = "",
-                                Type = NavItemType.Link
-                            }
-                        }
+                        Category = NavSettingsCategory.Vorlagen
+                    },
+                    // Settings: PDF-Anpassung unter "Dokumente"
+                    new NavItemDto
+                    {
+                        Label = "Faktura PDF",
+                        Href = "/faktura/settings/pdf-anpassung",
+                        Icon = "",
+                        Type = NavItemType.Settings,
+                        Category = NavSettingsCategory.Dokumente
                     }
                 }
             };

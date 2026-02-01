@@ -1,3 +1,4 @@
+using System.Globalization;
 using Kuestencode.Core.Interfaces;
 using Kuestencode.Shared.ApiClients;
 using Kuestencode.Shared.Contracts.Navigation;
@@ -18,6 +19,11 @@ public class ProgramApi
     {
         // QuestPDF License configuration
         QuestPDF.Settings.License = LicenseType.Community;
+
+        // Deutsche Lokalisierung für MudBlazor DatePicker etc.
+        var culture = new CultureInfo("de-DE");
+        CultureInfo.DefaultThreadCurrentCulture = culture;
+        CultureInfo.DefaultThreadCurrentUICulture = culture;
 
         var builder = WebApplication.CreateBuilder(args);
         builder.WebHost.UseStaticWebAssets();
@@ -183,28 +189,23 @@ public class ProgramApi
                         Icon = "",
                         Type = NavItemType.Link
                     },
+                    // Settings: E-Mail-Vorlage unter "Vorlagen"
                     new NavItemDto
                     {
-                        Label = "Offerte",
+                        Label = "Offerte E-Mail",
+                        Href = "/offerte/settings/email-anpassung",
                         Icon = "",
                         Type = NavItemType.Settings,
-                        Children = new List<NavItemDto>
-                        {
-                            new NavItemDto
-                            {
-                                Label = "E-Mail-Anpassung",
-                                Href = "/offerte/settings/email-anpassung",
-                                Icon = "",
-                                Type = NavItemType.Link
-                            },
-                            new NavItemDto
-                            {
-                                Label = "PDF-Anpassung",
-                                Href = "/offerte/settings/pdf-anpassung",
-                                Icon = "",
-                                Type = NavItemType.Link
-                            }
-                        }
+                        Category = NavSettingsCategory.Vorlagen
+                    },
+                    // Settings: PDF-Anpassung unter "Dokumente"
+                    new NavItemDto
+                    {
+                        Label = "Offerte PDF",
+                        Href = "/offerte/settings/pdf-anpassung",
+                        Icon = "",
+                        Type = NavItemType.Settings,
+                        Category = NavSettingsCategory.Dokumente
                     }
                 }
             };

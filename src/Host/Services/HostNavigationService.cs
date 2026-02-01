@@ -85,44 +85,94 @@ public class HostNavigationService : IHostNavigationService
 
     private static NavItemDto BuildSettingsGroup(List<NavItemDto> moduleSettingsItems)
     {
-        var settingsChildren = new List<NavItemDto>
+        // Group settings by category
+        var settingsByCategory = new Dictionary<NavSettingsCategory, List<NavItemDto>>
         {
-            // Host settings first
-            new NavItemDto
-            {
-                Label = "Werkbank",
-                Icon = "",
-                Type = NavItemType.Group,
-                Children = new List<NavItemDto>
-                {
-                    new NavItemDto
-                    {
-                        Label = "Firmendaten",
-                        Href = "/settings/company",
-                        Icon = "",
-                        Type = NavItemType.Link
-                    },
-                    new NavItemDto
-                    {
-                        Label = "Email Versand",
-                        Href = "/settings/email",
-                        Icon = "",
-                        Type = NavItemType.Link
-                    }
-                }
-            }
+            { NavSettingsCategory.Allgemein, new List<NavItemDto>() },
+            { NavSettingsCategory.Vorlagen, new List<NavItemDto>() },
+            { NavSettingsCategory.Dokumente, new List<NavItemDto>() },
+            { NavSettingsCategory.Versand, new List<NavItemDto>() },
+            { NavSettingsCategory.Abrechnung, new List<NavItemDto>() }
         };
 
-        // Add module settings as subgroups
+        // Add Host settings to "Allgemein"
+        settingsByCategory[NavSettingsCategory.Allgemein].Add(new NavItemDto
+        {
+            Label = "Firmendaten",
+            Href = "/settings/company",
+            Icon = "",
+            Type = NavItemType.Link
+        });
+
+        // Add Host email settings to "Versand"
+        settingsByCategory[NavSettingsCategory.Versand].Add(new NavItemDto
+        {
+            Label = "SMTP-Server",
+            Href = "/settings/email",
+            Icon = "",
+            Type = NavItemType.Link
+        });
+
+        // Distribute module settings by category
         foreach (var moduleSettings in moduleSettingsItems)
         {
-            settingsChildren.Add(new NavItemDto
+            var category = moduleSettings.Category ?? NavSettingsCategory.Allgemein;
+
+            if (!string.IsNullOrEmpty(moduleSettings.Href))
             {
-                Label = moduleSettings.Label,
-                Icon = moduleSettings.Icon,
-                Type = NavItemType.Group,
-                Children = moduleSettings.Children
-            });
+                // Direct link
+                settingsByCategory[category].Add(new NavItemDto
+                {
+                    Label = moduleSettings.Label,
+                    Href = moduleSettings.Href,
+                    Icon = moduleSettings.Icon,
+                    Type = NavItemType.Link
+                });
+            }
+            else if (moduleSettings.Children.Count > 0)
+            {
+                // Multiple children - add them all to the category
+                settingsByCategory[category].AddRange(moduleSettings.Children);
+            }
+        }
+
+        // Build category groups (only include non-empty categories)
+        var settingsChildren = new List<NavItemDto>();
+
+        var categoryLabels = new Dictionary<NavSettingsCategory, string>
+        {
+            { NavSettingsCategory.Allgemein, "Allgemein" },
+            { NavSettingsCategory.Vorlagen, "Vorlagen" },
+            { NavSettingsCategory.Dokumente, "Dokumente" },
+            { NavSettingsCategory.Versand, "Versand" },
+            { NavSettingsCategory.Abrechnung, "Abrechnung" }
+        };
+
+        foreach (var (category, items) in settingsByCategory)
+        {
+            if (items.Count == 0) continue;
+
+            // If only one item, show it directly without a subgroup
+            if (items.Count == 1)
+            {
+                settingsChildren.Add(new NavItemDto
+                {
+                    Label = categoryLabels[category],
+                    Href = items[0].Href,
+                    Icon = "",
+                    Type = NavItemType.Link
+                });
+            }
+            else
+            {
+                settingsChildren.Add(new NavItemDto
+                {
+                    Label = categoryLabels[category],
+                    Icon = "",
+                    Type = NavItemType.Group,
+                    Children = items
+                });
+            }
         }
 
         return new NavItemDto
