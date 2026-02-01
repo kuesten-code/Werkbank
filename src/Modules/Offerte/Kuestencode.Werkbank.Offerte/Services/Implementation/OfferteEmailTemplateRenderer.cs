@@ -189,66 +189,63 @@ Bei Fragen stehen wir Ihnen gerne zur Verfügung.{closingText}";
 <html lang=""de"">
 <head>
     <meta charset=""UTF-8"">
-    <style>
-        body {{ font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #333; }}
-        .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
-        .header {{ background-color: {primaryColor}; color: white; padding: 20px; text-align: center; }}
-        .content {{ background-color: #f8f9fa; padding: 20px; margin: 20px 0; }}
-        .details {{ background-color: white; padding: 15px; margin: 15px 0; border-left: 3px solid {accentColor}; }}
-        .footer {{ text-align: center; color: #666; font-size: 12px; margin-top: 30px; padding-top: 20px; border-top: 1px solid #ddd; }}
-        .highlight {{ color: {primaryColor}; font-weight: bold; }}
-        table {{ width: 100%; border-collapse: collapse; }}
-        td {{ padding: 8px 0; }}
-    </style>
 </head>
-<body>
-    <div class=""container"">
-        <div class=""header"">
-            <h1>{firmenname}</h1>
-        </div>
-
-        <div class=""content"">
-            <p>{(!string.IsNullOrWhiteSpace(kunde.Salutation) ? kunde.Salutation : "Sehr geehrte Damen und Herren,")}</p>
-
-            {(!string.IsNullOrWhiteSpace(customMessage) ? $"<p>{customMessage.Replace("\n", "<br>")}</p>" : "")}
-
-            <p>anbei erhalten Sie unser Angebot <span class=""highlight"">{angebot.Angebotsnummer}</span>.</p>
-
-            <div class=""details"">
-                <table>
+<body style=""font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0;"">
+    <table width=""100%"" cellpadding=""0"" cellspacing=""0"" border=""0"">
+        <tr>
+            <td align=""center"">
+                <table width=""600"" cellpadding=""0"" cellspacing=""0"" border=""0"" style=""max-width: 600px; margin: 0 auto;"">
                     <tr>
-                        <td><strong>Angebotsbetrag:</strong></td>
-                        <td class=""highlight"">{formattedTotal}</td>
+                        <td style=""background-color: {primaryColor}; color: white; padding: 20px; text-align: center;"">
+                            <h1 style=""margin: 0; color: white;"">{firmenname}</h1>
+                        </td>
                     </tr>
                     <tr>
-                        <td><strong>Angebotsnummer:</strong></td>
-                        <td>{angebot.Angebotsnummer}</td>
+                        <td style=""background-color: #f8f9fa; padding: 20px;"">
+                            <p style=""margin: 0 0 15px 0;"">{(!string.IsNullOrWhiteSpace(kunde.Salutation) ? kunde.Salutation : "Sehr geehrte Damen und Herren,")}</p>
+
+                            {(!string.IsNullOrWhiteSpace(customMessage) ? $"<p style=\"margin: 0 0 15px 0;\">{customMessage.Replace("\n", "<br>")}</p>" : "")}
+
+                            <p style=""margin: 0 0 15px 0;"">anbei erhalten Sie unser Angebot <span style=""color: {primaryColor}; font-weight: bold;"">{angebot.Angebotsnummer}</span>.</p>
+
+                            <table width=""100%"" cellpadding=""0"" cellspacing=""0"" border=""0"" style=""background-color: white; padding: 15px; margin: 15px 0; border-left: 3px solid {accentColor};"">
+                                <tr>
+                                    <td style=""padding: 8px 15px;""><strong>Angebotsbetrag:</strong></td>
+                                    <td style=""padding: 8px 15px; color: {primaryColor}; font-weight: bold;"">{formattedTotal}</td>
+                                </tr>
+                                <tr>
+                                    <td style=""padding: 8px 15px;""><strong>Angebotsnummer:</strong></td>
+                                    <td style=""padding: 8px 15px;"">{angebot.Angebotsnummer}</td>
+                                </tr>
+                                <tr>
+                                    <td style=""padding: 8px 15px;""><strong>Angebotsdatum:</strong></td>
+                                    <td style=""padding: 8px 15px;"">{formattedDate}</td>
+                                </tr>
+                                <tr>
+                                    <td style=""padding: 8px 15px;""><strong>Gültig bis:</strong></td>
+                                    <td style=""padding: 8px 15px;"">{formattedGueltigBis}</td>
+                                </tr>
+                            </table>
+
+                            <p style=""margin: 15px 0;"">Das Angebot finden Sie im Anhang dieser E-Mail als PDF-Datei.</p>
+                            <p style=""margin: 15px 0;"">Bei Fragen stehen wir Ihnen gerne zur Verfügung.</p>
+
+                            <p style=""margin: 15px 0;"">Mit freundlichen Grüßen<br>{firmenname}</p>
+                        </td>
                     </tr>
                     <tr>
-                        <td><strong>Angebotsdatum:</strong></td>
-                        <td>{formattedDate}</td>
-                    </tr>
-                    <tr>
-                        <td><strong>Gültig bis:</strong></td>
-                        <td>{formattedGueltigBis}</td>
+                        <td style=""text-align: center; color: #666; font-size: 12px; padding: 20px; border-top: 1px solid #ddd;"">
+                            <p style=""margin: 0 0 5px 0;""><strong>{firmenname}</strong></p>
+                            <p style=""margin: 0 0 5px 0;"">{firma.Address}, {firma.PostalCode} {firma.City}</p>
+                            {(!string.IsNullOrWhiteSpace(firma.Phone) ? $"<p style=\"margin: 0 0 5px 0;\">Tel: {firma.Phone}</p>" : "")}
+                            {(!string.IsNullOrWhiteSpace(firma.Email) ? $"<p style=\"margin: 0 0 5px 0;\">E-Mail: {firma.Email}</p>" : "")}
+                            {(!string.IsNullOrWhiteSpace(firma.Website) ? $"<p style=\"margin: 0 0 5px 0;\">Web: {firma.Website}</p>" : "")}
+                        </td>
                     </tr>
                 </table>
-            </div>
-
-            <p>Das Angebot finden Sie im Anhang dieser E-Mail als PDF-Datei.</p>
-            <p>Bei Fragen stehen wir Ihnen gerne zur Verfügung.</p>
-
-            <p>Mit freundlichen Grüßen<br>{firmenname}</p>
-        </div>
-
-        <div class=""footer"">
-            <p><strong>{firmenname}</strong></p>
-            <p>{firma.Address}, {firma.PostalCode} {firma.City}</p>
-            {(!string.IsNullOrWhiteSpace(firma.Phone) ? $"<p>Tel: {firma.Phone}</p>" : "")}
-            {(!string.IsNullOrWhiteSpace(firma.Email) ? $"<p>E-Mail: {firma.Email}</p>" : "")}
-            {(!string.IsNullOrWhiteSpace(firma.Website) ? $"<p>Web: {firma.Website}</p>" : "")}
-        </div>
-    </div>
+            </td>
+        </tr>
+    </table>
 </body>
 </html>";
 

@@ -50,15 +50,17 @@ public class ApiEmailService : IEmailService
             message.From = new MailAddress(senderEmail, company.EmailSenderName ?? company.BusinessName ?? company.OwnerFullName);
             message.To.Add(recipientEmail);
             message.Subject = subject;
-            message.Body = htmlBody;
-            message.IsBodyHtml = true;
 
-            // Add plain text alternative if provided
+            // Für multipart/alternative müssen beide Versionen als AlternateView hinzugefügt werden
+            // Plain-Text zuerst, dann HTML (E-Mail-Clients zeigen die letzte unterstützte Version)
             if (!string.IsNullOrWhiteSpace(plainTextBody))
             {
                 var plainTextView = AlternateView.CreateAlternateViewFromString(plainTextBody, null, "text/plain");
                 message.AlternateViews.Add(plainTextView);
             }
+
+            var htmlView = AlternateView.CreateAlternateViewFromString(htmlBody, null, "text/html");
+            message.AlternateViews.Add(htmlView);
 
             // Add CC recipients
             if (!string.IsNullOrWhiteSpace(ccEmails))
