@@ -1,0 +1,303 @@
+@page "/angebote/neu"
+@using Kuestencode.Core.Interfaces
+@inject IAngebotRepository AngebotRepository
+@inject ICustomerService CustomerService
+@inject CoreInterfaces.ICompanyService CompanyService
+@inject Domain.Interfaces.IAngebotsnummernService AngebotsnummernService
+@inject AngebotValidator Validator
+@inject IOffertePdfService PdfService
+@inject NavigationManager NavigationManager
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+
+<PageTitle>Neues Angebot - Küstencode Offerte</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="mt-4">
+    <MudPaper Class="pa-4">
+        <MudText Typo="Typo.h4" GutterBottom="true">Neues Angebot</MudText>
+
+        @if (!string.IsNullOrEmpty(_errorMessage))
+        {
+            <MudAlert Severity="Severity.Error" Class="my-4">@_errorMessage</MudAlert>
+        }
+
+        <EditForm Model="@_angebot">
+            <DataAnnotationsValidator />
+
+            <!-- Kopfdaten -->
+            <MudText Typo="Typo.h6" Class="mt-4 mb-2">Kopfdaten</MudText>
+            <MudGrid>
+                <MudItem xs="12" sm="4">
+                    <MudTextField Label="Angebotsnummer" Value="@_angebot.Angebotsnummer"
+                                 ReadOnly="true" Variant="Variant.Outlined" />
+                </MudItem>
+                <MudItem xs="12" sm="4">
+                    <MudDatePicker Label="Erstelldatum" @bind-Date="_erstelldatum"
+                                  DateFormat="dd.MM.yyyy" ReadOnly="true" Variant="Variant.Outlined" />
+                </MudItem>
+                <MudItem xs="12" sm="4">
+                    <MudDatePicker Label="Gültig bis" @bind-Date="_gueltigBis"
+                                  DateFormat="dd.MM.yyyy" Required="true" Variant="Variant.Outlined"
+                                  MinDate="DateTime.Today" />
+                </MudItem>
+                <MudItem xs="12">
+                    <KundenAuswahl @bind-SelectedCustomer="_selectedCustomer" Required="true" />
+                </MudItem>
+                <MudItem xs="12">
+                    <MudTextField Label="Referenz (optional)" @bind-Value="_angebot.Referenz"
+                                 Variant="Variant.Outlined" />
+                </MudItem>
+            </MudGrid>
+
+            <!-- Einleitung -->
+            <MudText Typo="Typo.h6" Class="mt-6 mb-2">Einleitung (optional)</MudText>
+            <MudTextField @bind-Value="_angebot.Einleitung" Lines="3" Variant="Variant.Outlined"
+                         Placeholder="z.B. Vielen Dank für Ihre Anfrage. Wir unterbreiten Ihnen folgendes Angebot:" />
+
+            <!-- Positionen -->
+            <MudText Typo="Typo.h6" Class="mt-6 mb-2">Positionen</MudText>
+            @if (_isKleinunternehmer)
+            {
+                <MudAlert Severity="Severity.Info" Dense="true" Class="mb-3">
+                    Kleinunternehmer gem. §19 UStG - keine Mehrwertsteuer ausweisen
+                </MudAlert>
+            }
+            <Positionseditor @bind-Positionen="_positionen" OnPositionChanged="RecalculateTotals" IsKleinunternehmer="@_isKleinunternehmer" />
+
+            <!-- Schlusstext -->
+            <MudText Typo="Typo.h6" Class="mt-6 mb-2">Schlusstext (optional)</MudText>
+            <MudTextField @bind-Value="_angebot.Schlusstext" Lines="3" Variant="Variant.Outlined"
+                         Placeholder="z.B. Bei Fragen stehen wir Ihnen gerne zur Verfügung." />
+
+            <!-- Bemerkungen -->
+            <MudText Typo="Typo.h6" Class="mt-6 mb-2">Interne Bemerkungen (optional)</MudText>
+            <MudTextField @bind-Value="_angebot.Bemerkungen" Lines="3" Variant="Variant.Outlined"
+                         HelperText="Wird nicht auf dem Angebot angezeigt." />
+
+            <!-- Summen -->
+            <div class="mt-6">
+                <Summenblock Nettosumme="@_nettosumme"
+                            MwstGesamt="@_mwstGesamt"
+                            Bruttosumme="@_bruttosumme"
+                            MwstSaetze="@_mwstSaetze"
+                            IsKleinunternehmer="@_isKleinunternehmer" />
+            </div>
+
+            <!-- Actions -->
+            <MudStack Row="true" Justify="Justify.FlexEnd" Class="mt-6 gap-2">
+                <MudButton Variant="Variant.Filled" Color="Color.Default" OnClick="Cancel">
+                    Abbrechen
+                </MudButton>
+
+                <MudButton Variant="Variant.Filled" Color="Color.Secondary"
+                          Disabled="@_saving"
+                          OnClick="SaveAsDraft">
+                    Als Entwurf speichern
+                </MudButton>
+
+                <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                          Disabled="@_saving"
+                          OnClick="SaveAndPreview">
+                    @if (_saving)
+                    {
+                        <MudProgressCircular Class="ms-n1" Size="Size.Small" Indeterminate="true" />
+                        <MudText Class="ms-2">Speichert...</MudText>
+                    }
+                    else
+                    {
+                        <MudText>Speichern & Vorschau</MudText>
+                    }
+                </MudButton>
+            </MudStack>
+        </EditForm>
+    </MudPaper>
+</MudContainer>
+
+@code {
+    private readonly CultureInfo _culture = new CultureInfo("de-DE");
+    private bool _saving;
+    private string _errorMessage = string.Empty;
+    private bool _isKleinunternehmer;
+
+    private Angebot _angebot = new();
+    private List<Angebotsposition> _positionen = new();
+    private Customer? _selectedCustomer;
+    private DateTime? _erstelldatum;
+    private DateTime? _gueltigBis;
+
+    private decimal _nettosumme;
+    private decimal _mwstGesamt;
+    private decimal _bruttosumme;
+    private List<Summenblock.MwstZeile>? _mwstSaetze;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Load company settings for Kleinunternehmer check
+        var company = await CompanyService.GetCompanyAsync();
+        _isKleinunternehmer = company?.IsKleinunternehmer ?? false;
+
+        var defaultSteuersatz = _isKleinunternehmer ? 0m : 19m;
+
+        // Generate new Angebotsnummer
+        _angebot.Angebotsnummer = await AngebotsnummernService.NaechsteNummerAsync();
+        _angebot.Status = AngebotStatus.Entwurf;
+
+        _erstelldatum = DateTime.Today;
+        _gueltigBis = DateTime.Today.AddDays(30);
+
+        // Add initial position
+        _positionen.Add(new Angebotsposition
+        {
+            Id = Guid.NewGuid(),
+            Position = 1,
+            Text = "",
+            Menge = 1,
+            Einzelpreis = 0,
+            Steuersatz = defaultSteuersatz
+        });
+
+        RecalculateTotals();
+    }
+
+    private void RecalculateTotals()
+    {
+        _nettosumme = _positionen.Sum(p => p.Nettosumme);
+
+        // Group by tax rate
+        var mwstGroups = _positionen
+            .GroupBy(p => p.Steuersatz)
+            .Select(g => new Summenblock.MwstZeile
+            {
+                Satz = g.Key,
+                Betrag = g.Sum(p => p.Nettosumme * g.Key / 100)
+            })
+            .Where(m => m.Betrag > 0)
+            .OrderBy(m => m.Satz)
+            .ToList();
+
+        _mwstSaetze = mwstGroups.Count > 1 ? mwstGroups : null;
+        _mwstGesamt = mwstGroups.Sum(m => m.Betrag);
+        _bruttosumme = _nettosumme + _mwstGesamt;
+    }
+
+    private bool ValidateForm()
+    {
+        _errorMessage = string.Empty;
+
+        if (_selectedCustomer == null)
+        {
+            _errorMessage = "Bitte wählen Sie einen Kunden aus.";
+            return false;
+        }
+
+        if (!_gueltigBis.HasValue)
+        {
+            _errorMessage = "Bitte geben Sie ein Gültigkeitsdatum an.";
+            return false;
+        }
+
+        if (!_positionen.Any())
+        {
+            _errorMessage = "Bitte fügen Sie mindestens eine Position hinzu.";
+            return false;
+        }
+
+        if (_positionen.Any(p => string.IsNullOrWhiteSpace(p.Text)))
+        {
+            _errorMessage = "Bitte geben Sie für alle Positionen eine Beschreibung ein.";
+            return false;
+        }
+
+        return true;
+    }
+
+    private void PrepareAngebotForSave()
+    {
+        _angebot.Id = Guid.NewGuid();
+        _angebot.KundeId = _selectedCustomer!.Id;
+        _angebot.Erstelldatum = DateTime.SpecifyKind(_erstelldatum!.Value, DateTimeKind.Utc);
+        _angebot.GueltigBis = DateTime.SpecifyKind(_gueltigBis!.Value, DateTimeKind.Utc);
+        _angebot.Status = AngebotStatus.Entwurf;
+
+        // Clear and re-add positions
+        _angebot.Positionen.Clear();
+        foreach (var pos in _positionen)
+        {
+            pos.AngebotId = _angebot.Id;
+            _angebot.Positionen.Add(pos);
+        }
+    }
+
+    private async Task SaveAsDraft()
+    {
+        if (!ValidateForm()) return;
+
+        _saving = true;
+        _errorMessage = string.Empty;
+
+        try
+        {
+            PrepareAngebotForSave();
+
+            // Validate
+            var validationErrors = Validator.Validieren(_angebot, istNeu: true);
+            if (validationErrors.Count > 0)
+            {
+                _errorMessage = string.Join(", ", validationErrors);
+                return;
+            }
+
+            await AngebotRepository.AddAsync(_angebot);
+            Snackbar.Add($"Angebot {_angebot.Angebotsnummer} wurde gespeichert.", Severity.Success);
+            NavigationManager.NavigateTo($"/offerte/angebote/{_angebot.Id}");
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Fehler beim Speichern: {ex.Message}";
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private async Task SaveAndPreview()
+    {
+        if (!ValidateForm()) return;
+
+        _saving = true;
+        _errorMessage = string.Empty;
+
+        try
+        {
+            PrepareAngebotForSave();
+
+            // Validate
+            var validationErrors = Validator.Validieren(_angebot, istNeu: true);
+            if (validationErrors.Count > 0)
+            {
+                _errorMessage = string.Join(", ", validationErrors);
+                return;
+            }
+
+            await AngebotRepository.AddAsync(_angebot);
+            Snackbar.Add($"Angebot {_angebot.Angebotsnummer} wurde gespeichert.", Severity.Success);
+
+            // Navigate to details page where PDF preview is available
+            NavigationManager.NavigateTo($"/offerte/angebote/{_angebot.Id}");
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Fehler beim Speichern: {ex.Message}";
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private void Cancel()
+    {
+        NavigationManager.NavigateTo("/offerte/angebote");
+    }
+}

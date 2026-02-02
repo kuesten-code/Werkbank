@@ -1,0 +1,668 @@
+@page "/angebote/{Id:guid}"
+@using Kuestencode.Shared.ApiClients
+@using Kuestencode.Shared.UI.Components
+@using System.Text.Json
+@inject IAngebotRepository AngebotRepository
+@inject ICustomerService CustomerService
+@inject AngebotStatusService StatusService
+@inject IAngebotAblaufService AblaufService
+@inject IHostApiClient HostApiClient
+@inject IOffertePdfService PdfService
+@inject IOfferteVersandService VersandService
+@inject IOfferteDruckService DruckService
+@inject IOfferteKopierService KopierService
+@inject IOfferteUeberfuehrungService UeberfuehrungService
+@inject NavigationManager NavigationManager
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+@inject IJSRuntime JSRuntime
+
+<PageTitle>Angebot Details - Küstencode Offerte</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="mt-4">
+    @if (_loading)
+    {
+        <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+    }
+    else if (_angebot == null)
+    {
+        <MudAlert Severity="Severity.Error">Angebot nicht gefunden.</MudAlert>
+    }
+    else
+    {
+        <MudPaper Class="pa-4">
+            <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-4">
+                <MudText Typo="Typo.h4">Angebot @_angebot.Angebotsnummer</MudText>
+                <AngebotStatusBadge Status="@_angebot.Status" Size="Size.Large" />
+            </MudStack>
+
+            <MudGrid>
+                <!-- Kopfdaten -->
+                <MudItem xs="12" md="6">
+                    <MudText Typo="Typo.h6" GutterBottom="true">Angebotsdaten</MudText>
+                    <MudSimpleTable Dense="true">
+                        <tbody>
+                            <tr>
+                                <td><strong>Angebotsnummer:</strong></td>
+                                <td><strong>@_angebot.Angebotsnummer</strong></td>
+                            </tr>
+                            <tr>
+                                <td><strong>Erstelldatum:</strong></td>
+                                <td>@_angebot.Erstelldatum.ToLocalTime().ToString("dd.MM.yyyy")</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Gültig bis:</strong></td>
+                                <td>
+                                    @if (_angebot.GueltigBis < DateTime.UtcNow.Date && _angebot.Status == AngebotStatus.Versendet)
+                                    {
+                                        <MudText Color="Color.Error">@_angebot.GueltigBis.ToLocalTime().ToString("dd.MM.yyyy") (abgelaufen)</MudText>
+                                    }
+                                    else
+                                    {
+                                        @_angebot.GueltigBis.ToLocalTime().ToString("dd.MM.yyyy")
+                                    }
+                                </td>
+                            </tr>
+                            @if (!string.IsNullOrWhiteSpace(_angebot.Referenz))
+                            {
+                                <tr>
+                                    <td><strong>Referenz:</strong></td>
+                                    <td>@_angebot.Referenz</td>
+                                </tr>
+                            }
+                            @if (_angebot.VersendetAm.HasValue)
+                            {
+                                <tr>
+                                    <td><strong>Versendet am:</strong></td>
+                                    <td>@_angebot.VersendetAm.Value.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</td>
+                                </tr>
+                            }
+                            @if (_angebot.AngenommenAm.HasValue)
+                            {
+                                <tr>
+                                    <td><strong>Angenommen am:</strong></td>
+                                    <td>@_angebot.AngenommenAm.Value.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</td>
+                                </tr>
+                            }
+                            @if (_angebot.AbgelehntAm.HasValue)
+                            {
+                                <tr>
+                                    <td><strong>Abgelehnt am:</strong></td>
+                                    <td>@_angebot.AbgelehntAm.Value.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </MudSimpleTable>
+                </MudItem>
+
+                <!-- Kundendaten -->
+                <MudItem xs="12" md="6">
+                    <MudText Typo="Typo.h6" GutterBottom="true">Kunde</MudText>
+                    @if (_customer != null)
+                    {
+                        <MudText Typo="Typo.body1"><strong>@_customer.Name</strong></MudText>
+                        <MudText Typo="Typo.body2">@_customer.CustomerNumber</MudText>
+                        <MudText Typo="Typo.body2">@_customer.Address</MudText>
+                        <MudText Typo="Typo.body2">@_customer.PostalCode @_customer.City</MudText>
+                        @if (!string.IsNullOrEmpty(_customer.Email))
+                        {
+                            <MudText Typo="Typo.body2">@_customer.Email</MudText>
+                        }
+
+                        @if (_angebot.EmailAnzahl > 0 || _angebot.DruckAnzahl > 0)
+                        {
+                            <MudDivider Class="my-2" />
+                            @if (_angebot.EmailAnzahl > 0 && _angebot.EmailGesendetAm.HasValue)
+                            {
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                    @(_angebot.EmailAnzahl == 1 ? "Per E-Mail versendet" : $"{_angebot.EmailAnzahl}× per E-Mail versendet")
+                                </MudText>
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                    Zuletzt: @_angebot.EmailGesendetAm.Value.ToLocalTime().ToString("dd.MM.yyyy HH:mm") Uhr
+                                </MudText>
+                                @if (!string.IsNullOrWhiteSpace(_angebot.EmailGesendetAn))
+                                {
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                        An: @_angebot.EmailGesendetAn
+                                    </MudText>
+                                }
+                            }
+                            @if (_angebot.DruckAnzahl > 0 && _angebot.GedrucktAm.HasValue)
+                            {
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                    @(_angebot.DruckAnzahl == 1 ? "Gedruckt" : $"{_angebot.DruckAnzahl}× gedruckt")
+                                </MudText>
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                    Zuletzt: @_angebot.GedrucktAm.Value.ToLocalTime().ToString("dd.MM.yyyy HH:mm") Uhr
+                                </MudText>
+                            }
+                        }
+                    }
+                </MudItem>
+
+                <!-- Einleitung -->
+                @if (!string.IsNullOrWhiteSpace(_angebot.Einleitung))
+                {
+                    <MudItem xs="12" Class="mt-4">
+                        <MudText Typo="Typo.h6" GutterBottom="true">Einleitung</MudText>
+                        <MudPaper Class="pa-3" Elevation="0">
+                            <MudText Typo="Typo.body2" Style="white-space: pre-line;">@_angebot.Einleitung</MudText>
+                        </MudPaper>
+                    </MudItem>
+                }
+
+                <!-- Positionen -->
+                <MudItem xs="12" Class="mt-4">
+                    <MudText Typo="Typo.h6" GutterBottom="true">Positionen</MudText>
+                    <MudTable Items="@_angebot.Positionen.OrderBy(p => p.Position)" Dense="true" Hover="true" Elevation="0">
+                        <HeaderContent>
+                            <MudTh>Pos.</MudTh>
+                            <MudTh>Beschreibung</MudTh>
+                            <MudTh Style="text-align: right">Menge</MudTh>
+                            <MudTh Style="text-align: right">Einzelpreis</MudTh>
+                            <MudTh Style="text-align: right">MwSt</MudTh>
+                            @if (_angebot.Positionen.Any(p => p.Rabatt.HasValue && p.Rabatt > 0))
+                            {
+                                <MudTh Style="text-align: right">Rabatt</MudTh>
+                            }
+                            <MudTh Style="text-align: right">Gesamt</MudTh>
+                        </HeaderContent>
+                        <RowTemplate Context="position">
+                            <MudTd DataLabel="Pos.">@position.Position</MudTd>
+                            <MudTd DataLabel="Beschreibung">
+                                <MudText Style="white-space: pre-line;">@position.Text</MudText>
+                            </MudTd>
+                            <MudTd DataLabel="Menge" Style="text-align: right">@position.Menge.ToString("N3", _culture)</MudTd>
+                            <MudTd DataLabel="Einzelpreis" Style="text-align: right">@position.Einzelpreis.ToString("C2", _culture)</MudTd>
+                            <MudTd DataLabel="MwSt" Style="text-align: right">@position.Steuersatz.ToString("0")%</MudTd>
+                            @if (_angebot.Positionen.Any(p => p.Rabatt.HasValue && p.Rabatt > 0))
+                            {
+                                <MudTd DataLabel="Rabatt" Style="text-align: right">
+                                    @(position.Rabatt.HasValue && position.Rabatt > 0 ? $"{position.Rabatt:N2}%" : "-")
+                                </MudTd>
+                            }
+                            <MudTd DataLabel="Gesamt" Style="text-align: right">@position.Nettosumme.ToString("C2", _culture)</MudTd>
+                        </RowTemplate>
+                    </MudTable>
+                </MudItem>
+
+                <!-- Schlusstext -->
+                @if (!string.IsNullOrWhiteSpace(_angebot.Schlusstext))
+                {
+                    <MudItem xs="12" Class="mt-4">
+                        <MudText Typo="Typo.h6" GutterBottom="true">Schlusstext</MudText>
+                        <MudPaper Class="pa-3" Elevation="0">
+                            <MudText Typo="Typo.body2" Style="white-space: pre-line;">@_angebot.Schlusstext</MudText>
+                        </MudPaper>
+                    </MudItem>
+                }
+
+                <!-- Summen -->
+                <MudItem xs="12" Class="mt-4">
+                    <Summenblock Nettosumme="@_angebot.Nettosumme"
+                                MwstGesamt="@_angebot.Steuersumme"
+                                Bruttosumme="@_angebot.Bruttosumme"
+                                MwstSaetze="@GetMwstSaetze()" />
+                </MudItem>
+
+                <!-- Bemerkungen -->
+                @if (!string.IsNullOrWhiteSpace(_angebot.Bemerkungen))
+                {
+                    <MudItem xs="12" Class="mt-4">
+                        <MudText Typo="Typo.h6" GutterBottom="true">Interne Bemerkungen</MudText>
+                        <MudPaper Class="pa-3" Elevation="0">
+                            <MudText Typo="Typo.body2" Style="white-space: pre-line;">@_angebot.Bemerkungen</MudText>
+                        </MudPaper>
+                    </MudItem>
+                }
+
+                <!-- Actions -->
+                <MudItem xs="12" Class="mt-6">
+                    <MudStack Row="true" Justify="Justify.SpaceBetween" Wrap="Wrap.Wrap">
+                        <MudButton Variant="Variant.Filled" Color="Color.Default"
+                                  StartIcon="@Icons.Material.Filled.ArrowBack"
+                                  OnClick="@(() => NavigationManager.NavigateTo("/offerte/angebote"))">
+                            Zurück zur Übersicht
+                        </MudButton>
+
+                        <MudStack Row="true" Spacing="2" Wrap="Wrap.Wrap">
+                            @* Status-dependent actions *@
+                            @switch (_angebot.Status)
+                            {
+                                case AngebotStatus.Entwurf:
+                                    <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                                              StartIcon="@Icons.Material.Filled.Edit"
+                                              OnClick="EditAngebot">
+                                        Bearbeiten
+                                    </MudButton>
+                                    <MudButton Variant="Variant.Outlined" Color="Color.Error"
+                                              StartIcon="@Icons.Material.Filled.Delete"
+                                              OnClick="DeleteAngebot">
+                                        Löschen
+                                    </MudButton>
+                                    <MudButton Variant="Variant.Outlined" Color="Color.Primary"
+                                              StartIcon="@Icons.Material.Filled.PictureAsPdf"
+                                              OnClick="DownloadPdf">
+                                        PDF
+                                    </MudButton>
+                                    <MudButton Variant="Variant.Outlined" Color="Color.Primary"
+                                              StartIcon="@Icons.Material.Filled.Print"
+                                              OnClick="PrintAngebot">
+                                        Drucken
+                                    </MudButton>
+                                    <MudButton Variant="Variant.Filled" Color="Color.Info"
+                                              StartIcon="@Icons.Material.Filled.Send"
+                                              OnClick="SendAngebot"
+                                              Disabled="@(string.IsNullOrWhiteSpace(_customer?.Email))">
+                                        Versenden
+                                    </MudButton>
+                                    break;
+
+                                case AngebotStatus.Versendet:
+                                    <MudButton Variant="Variant.Outlined" Color="Color.Primary"
+                                              StartIcon="@Icons.Material.Filled.PictureAsPdf"
+                                              OnClick="DownloadPdf">
+                                        PDF
+                                    </MudButton>
+                                    <MudButton Variant="Variant.Outlined" Color="Color.Primary"
+                                              StartIcon="@Icons.Material.Filled.Print"
+                                              OnClick="PrintAngebot">
+                                        Drucken
+                                    </MudButton>
+                                    <MudButton Variant="Variant.Outlined" Color="Color.Primary"
+                                              StartIcon="@Icons.Material.Filled.ContentCopy"
+                                              OnClick="CopyAngebot">
+                                        Kopieren
+                                    </MudButton>
+                                    <MudButton Variant="Variant.Filled" Color="Color.Success"
+                                              StartIcon="@Icons.Material.Filled.CheckCircle"
+                                              OnClick="AcceptAngebot">
+                                        Angenommen
+                                    </MudButton>
+                                    <MudButton Variant="Variant.Filled" Color="Color.Error"
+                                              StartIcon="@Icons.Material.Filled.Cancel"
+                                              OnClick="RejectAngebot">
+                                        Abgelehnt
+                                    </MudButton>
+                                    break;
+
+                                case AngebotStatus.Angenommen:
+                                    <MudButton Variant="Variant.Outlined" Color="Color.Primary"
+                                              StartIcon="@Icons.Material.Filled.PictureAsPdf"
+                                              OnClick="DownloadPdf">
+                                        PDF
+                                    </MudButton>
+                                    <MudButton Variant="Variant.Outlined" Color="Color.Primary"
+                                              StartIcon="@Icons.Material.Filled.Print"
+                                              OnClick="PrintAngebot">
+                                        Drucken
+                                    </MudButton>
+                                    <MudButton Variant="Variant.Outlined" Color="Color.Primary"
+                                              StartIcon="@Icons.Material.Filled.ContentCopy"
+                                              OnClick="CopyAngebot">
+                                        Kopieren
+                                    </MudButton>
+                                    @if (_fakturaAvailable)
+                                    {
+                                        <MudButton Variant="Variant.Filled" Color="Color.Success"
+                                                  StartIcon="@Icons.Material.Filled.Receipt"
+                                                  OnClick="TransferToInvoice">
+                                            In Rechnung überführen
+                                        </MudButton>
+                                    }
+                                    break;
+
+                                case AngebotStatus.Abgelehnt:
+                                case AngebotStatus.Abgelaufen:
+                                    <MudButton Variant="Variant.Outlined" Color="Color.Primary"
+                                              StartIcon="@Icons.Material.Filled.PictureAsPdf"
+                                              OnClick="DownloadPdf">
+                                        PDF
+                                    </MudButton>
+                                    <MudButton Variant="Variant.Outlined" Color="Color.Primary"
+                                              StartIcon="@Icons.Material.Filled.Print"
+                                              OnClick="PrintAngebot">
+                                        Drucken
+                                    </MudButton>
+                                    <MudButton Variant="Variant.Outlined" Color="Color.Primary"
+                                              StartIcon="@Icons.Material.Filled.ContentCopy"
+                                              OnClick="CopyAngebot">
+                                        Kopieren
+                                    </MudButton>
+                                    break;
+                            }
+                        </MudStack>
+                    </MudStack>
+                </MudItem>
+            </MudGrid>
+        </MudPaper>
+    }
+</MudContainer>
+
+@code {
+    [Parameter]
+    public Guid Id { get; set; }
+
+    private readonly CultureInfo _culture = new CultureInfo("de-DE");
+    private bool _loading = true;
+    private Angebot? _angebot;
+    private Customer? _customer;
+    private bool _fakturaAvailable = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CheckFakturaAvailabilityAsync();
+        await LoadDataAsync();
+    }
+
+    private async Task CheckFakturaAvailabilityAsync()
+    {
+        try
+        {
+            var navItems = await HostApiClient.GetNavigationAsync();
+            _fakturaAvailable = navItems.Any(IsFakturaNavItem);
+        }
+        catch
+        {
+            _fakturaAvailable = false;
+        }
+    }
+
+    private static bool IsFakturaNavItem(Kuestencode.Shared.Contracts.Navigation.NavItemDto item)
+    {
+        if (!string.IsNullOrWhiteSpace(item.Href) && item.Href.StartsWith("/faktura", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        if (string.Equals(item.Label, "Faktura", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        if (item.Children is { Count: > 0 })
+        {
+            return item.Children.Any(IsFakturaNavItem);
+        }
+
+        return false;
+    }
+
+    private async Task LoadDataAsync()
+    {
+        _loading = true;
+
+        try
+        {
+            _angebot = await AngebotRepository.GetByIdAsync(Id);
+
+            if (_angebot != null)
+            {
+                // Prüfe, ob das Angebot abgelaufen ist und aktualisiere ggf. den Status
+                if (StatusService.KannAlsAbgelaufenMarkiertWerden(_angebot))
+                {
+                    StatusService.AlsAbgelaufenMarkieren(_angebot);
+                    await AngebotRepository.UpdateAsync(_angebot);
+                }
+
+                _customer = await CustomerService.GetByIdAsync(_angebot.KundeId);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Fehler beim Laden: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private List<Summenblock.MwstZeile>? GetMwstSaetze()
+    {
+        if (_angebot == null) return null;
+
+        var groups = _angebot.Positionen
+            .GroupBy(p => p.Steuersatz)
+            .Select(g => new Summenblock.MwstZeile
+            {
+                Satz = g.Key,
+                Betrag = g.Sum(p => p.Nettosumme * g.Key / 100)
+            })
+            .Where(m => m.Betrag > 0)
+            .OrderBy(m => m.Satz)
+            .ToList();
+
+        return groups.Count > 1 ? groups : null;
+    }
+
+    private void EditAngebot()
+    {
+        NavigationManager.NavigateTo($"/offerte/angebote/{Id}/bearbeiten");
+    }
+
+    private async Task DeleteAngebot()
+    {
+        if (_angebot == null) return;
+
+        var parameters = new DialogParameters<Shared.Dialogs.ConfirmDialog>
+        {
+            { x => x.Title, "Angebot löschen" },
+            { x => x.ContentText, $"Möchten Sie das Angebot {_angebot.Angebotsnummer} wirklich löschen?" },
+            { x => x.ButtonText, "Löschen" },
+            { x => x.Color, Color.Error }
+        };
+
+        var dialog = await DialogService.ShowAsync<Shared.Dialogs.ConfirmDialog>("Löschen", parameters);
+        var result = await dialog.Result;
+
+        if (result != null && !result.Canceled)
+        {
+            try
+            {
+                await AngebotRepository.DeleteAsync(_angebot.Id);
+                Snackbar.Add($"Angebot {_angebot.Angebotsnummer} wurde gelöscht.", Severity.Success);
+                NavigationManager.NavigateTo("/offerte/angebote");
+            }
+            catch (Exception ex)
+            {
+                Snackbar.Add($"Fehler beim Löschen: {ex.Message}", Severity.Error);
+            }
+        }
+    }
+
+    private async Task DownloadPdf()
+    {
+        if (_angebot == null) return;
+
+        try
+        {
+            var pdfBytes = await PdfService.ErstelleAsync(_angebot.Id);
+            var base64 = Convert.ToBase64String(pdfBytes);
+            var fileName = $"Angebot_{_angebot.Angebotsnummer}.pdf";
+            await JSRuntime.InvokeVoidAsync("downloadFile", fileName, base64);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Fehler beim PDF-Erstellen: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task PrintAngebot()
+    {
+        if (_angebot == null) return;
+
+        try
+        {
+            var pdfBytes = await DruckService.DruckvorbereitungAsync(_angebot.Id);
+            var base64 = Convert.ToBase64String(pdfBytes);
+            await JSRuntime.InvokeVoidAsync("printPdf", base64);
+
+            // Bestätigung nach Druckvorgang fragen
+            var confirmResult = await DialogService.ShowMessageBox(
+                "Druck bestätigen",
+                "Wurde das Angebot erfolgreich gedruckt?",
+                yesText: "Ja, Druck erfolgreich",
+                cancelText: "Nein, abbrechen");
+
+            if (confirmResult == true)
+            {
+                await DruckService.MarkiereAlsGedrucktAsync(_angebot.Id);
+                await LoadDataAsync();
+                Snackbar.Add("Angebot als gedruckt markiert.", Severity.Success);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Fehler beim Drucken: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task SendAngebot()
+    {
+        if (_angebot == null || _customer == null) return;
+
+        var parameters = new DialogParameters<EmailComposer>
+        {
+            { x => x.Title, $"Angebot {_angebot.Angebotsnummer} versenden" },
+            { x => x.InitialRecipient, _customer.Email ?? "" },
+            { x => x.ShowSubject, false },
+            { x => x.ShowCcBcc, true },
+            { x => x.ShowIncludeClosing, true },
+            { x => x.MessageLabel, "Persönliche Nachricht (optional)" },
+            { x => x.MessagePlaceholder, "Fügen Sie hier eine persönliche Nachricht ein (optional)" }
+        };
+
+        var options = new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true };
+        var dialog = await DialogService.ShowAsync<EmailComposer>("E-Mail versenden", parameters, options);
+        var result = await dialog.Result;
+
+        if (result != null && !result.Canceled && result.Data is EmailComposerResult emailResult)
+        {
+            try
+            {
+                await VersandService.VersendeAsync(
+                    _angebot.Id,
+                    emailResult.RecipientEmail,
+                    null, // Betreff wird vom Service generiert
+                    emailResult.Message,
+                    emailResult.CcEmails,
+                    emailResult.BccEmails,
+                    emailResult.IncludeClosing);
+                await LoadDataAsync();
+                Snackbar.Add($"Angebot wurde an {emailResult.RecipientEmail} versendet.", Severity.Success);
+            }
+            catch (Exception ex)
+            {
+                Snackbar.Add($"Fehler beim Versenden: {ex.Message}", Severity.Error);
+            }
+        }
+    }
+
+    private async Task AcceptAngebot()
+    {
+        if (_angebot == null) return;
+
+        var parameters = new DialogParameters<Shared.Dialogs.StatusDialog>
+        {
+            { x => x.Angebotsnummer, _angebot.Angebotsnummer },
+            { x => x.NeuerStatus, AngebotStatus.Angenommen }
+        };
+
+        var dialog = await DialogService.ShowAsync<Shared.Dialogs.StatusDialog>("Annehmen", parameters);
+        var result = await dialog.Result;
+
+        if (result != null && !result.Canceled)
+        {
+            try
+            {
+                StatusService.Annehmen(_angebot);
+                await AngebotRepository.UpdateAsync(_angebot);
+                await LoadDataAsync();
+                Snackbar.Add("Angebot wurde angenommen.", Severity.Success);
+            }
+            catch (Exception ex)
+            {
+                Snackbar.Add($"Fehler: {ex.Message}", Severity.Error);
+            }
+        }
+    }
+
+    private async Task RejectAngebot()
+    {
+        if (_angebot == null) return;
+
+        var parameters = new DialogParameters<Shared.Dialogs.StatusDialog>
+        {
+            { x => x.Angebotsnummer, _angebot.Angebotsnummer },
+            { x => x.NeuerStatus, AngebotStatus.Abgelehnt }
+        };
+
+        var dialog = await DialogService.ShowAsync<Shared.Dialogs.StatusDialog>("Ablehnen", parameters);
+        var result = await dialog.Result;
+
+        if (result != null && !result.Canceled)
+        {
+            try
+            {
+                StatusService.Ablehnen(_angebot);
+                await AngebotRepository.UpdateAsync(_angebot);
+                await LoadDataAsync();
+                Snackbar.Add("Angebot wurde abgelehnt.", Severity.Success);
+            }
+            catch (Exception ex)
+            {
+                Snackbar.Add($"Fehler: {ex.Message}", Severity.Error);
+            }
+        }
+    }
+
+    private async Task CopyAngebot()
+    {
+        if (_angebot == null) return;
+
+        try
+        {
+            var kopie = await KopierService.KopiereAsync(_angebot.Id);
+            Snackbar.Add($"Angebot wurde kopiert. Neue Nummer: {kopie.Angebotsnummer}", Severity.Success);
+            NavigationManager.NavigateTo($"/offerte/angebote/{kopie.Id}");
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Fehler beim Kopieren: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task TransferToInvoice()
+    {
+        if (_angebot == null) return;
+
+        var parameters = new DialogParameters<Shared.Dialogs.UeberfuehrungDialog>
+        {
+            { x => x.Angebotsnummer, _angebot.Angebotsnummer }
+        };
+
+        var dialog = await DialogService.ShowAsync<Shared.Dialogs.UeberfuehrungDialog>("In Rechnung überführen", parameters);
+        var result = await dialog.Result;
+
+        if (result != null && !result.Canceled)
+        {
+            try
+            {
+                var rechnungDto = await UeberfuehrungService.InRechnungUeberfuehrenAsync(_angebot.Id);
+
+                // Speichere das DTO in localStorage für Faktura
+                var json = JsonSerializer.Serialize(rechnungDto);
+                await JSRuntime.InvokeVoidAsync("localStorage.setItem", "offerte_rechnung_dto", json);
+
+                Snackbar.Add("Angebot wird in Rechnung überführt...", Severity.Success);
+                // Navigate to Faktura module
+                NavigationManager.NavigateTo("/faktura/invoices/create?from=offerte");
+            }
+            catch (Exception ex)
+            {
+                Snackbar.Add($"Fehler: {ex.Message}", Severity.Error);
+            }
+        }
+    }
+}

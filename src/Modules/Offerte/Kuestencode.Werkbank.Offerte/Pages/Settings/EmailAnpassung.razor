@@ -1,0 +1,131 @@
+@page "/settings/email-anpassung"
+@using Kuestencode.Core.Interfaces
+@using Kuestencode.Core.Models
+@using Kuestencode.Shared.UI.Components.Settings
+@using Kuestencode.Werkbank.Offerte.Domain.Entities
+@inject IOfferteSettingsService SettingsService
+@inject CoreInterfaces.ICompanyService CompanyService
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+
+<PageTitle>E-Mail-Anpassung - Küstencode Offerte</PageTitle>
+
+<div style="width: 100%; padding: 24px;">
+    <div style="display: flex; gap: 24px; flex-wrap: wrap;">
+        <!-- Settings Panel -->
+        <div style="flex: 1 1 500px; min-width: 400px;">
+            <EmailSettingsEditor
+                Settings="@_emailSettings"
+                SettingsChanged="@OnSettingsChanged"
+                Context="@DocumentSettingsContext.Angebot"
+                Loading="@_loading"
+                Saving="@_saving"
+                OnSave="@HandleSubmit"
+                OnReset="@ResetToDefaults" />
+        </div>
+
+        <!-- Live Preview Panel -->
+        <div style="flex: 1 1 500px; min-width: 400px;">
+            <div style="position: sticky; top: 20px;">
+                <MudPaper Elevation="2" Class="pa-6">
+                    <MudText Typo="Typo.h6" Class="mb-3">Live-Vorschau</MudText>
+                    <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-4">
+                        Beispiel-Angebot mit aktuellen Einstellungen
+                    </MudText>
+
+                    @if (!_loading)
+                    {
+                        <div style="max-height: calc(100vh - 200px); overflow-y: auto;">
+                            <OfferteEmailPreview Settings="@_offerteSettings" Company="@_company" />
+                        </div>
+                    }
+                </MudPaper>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private Company _company = new();
+    private OfferteSettings _offerteSettings = new();
+    private EmailSettingsModel _emailSettings = new();
+    private bool _loading = true;
+    private bool _saving = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _company = await CompanyService.GetCompanyAsync();
+            _offerteSettings = await SettingsService.GetSettingsAsync();
+            _emailSettings = new EmailSettingsModel
+            {
+                Layout = _offerteSettings.EmailLayout,
+                PrimaryColor = _offerteSettings.EmailPrimaryColor,
+                AccentColor = _offerteSettings.EmailAccentColor,
+                Greeting = _offerteSettings.EmailGreeting,
+                Closing = _offerteSettings.EmailClosing
+            };
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Fehler beim Laden: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private void OnSettingsChanged(EmailSettingsModel settings)
+    {
+        _emailSettings = settings;
+        _offerteSettings.EmailLayout = settings.Layout;
+        _offerteSettings.EmailPrimaryColor = settings.PrimaryColor;
+        _offerteSettings.EmailAccentColor = settings.AccentColor;
+        _offerteSettings.EmailGreeting = settings.Greeting;
+        _offerteSettings.EmailClosing = settings.Closing;
+        StateHasChanged();
+    }
+
+    private async Task HandleSubmit()
+    {
+        _saving = true;
+        try
+        {
+            await SettingsService.UpdateSettingsAsync(_offerteSettings);
+            Snackbar.Add("E-Mail-Anpassungen gespeichert", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Fehler beim Speichern: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private async Task ResetToDefaults()
+    {
+        var result = await DialogService.ShowMessageBox(
+            "Auf Standard zurücksetzen",
+            "Möchten Sie wirklich alle E-Mail-Anpassungen auf die Standardwerte zurücksetzen?",
+            yesText: "Ja, zurücksetzen",
+            cancelText: "Abbrechen");
+
+        if (result == true)
+        {
+            _emailSettings = new EmailSettingsModel
+            {
+                Layout = Kuestencode.Core.Enums.EmailLayout.Klar,
+                PrimaryColor = "#0F2A3D",
+                AccentColor = "#3FA796",
+                Greeting = null,
+                Closing = null
+            };
+            OnSettingsChanged(_emailSettings);
+            Snackbar.Add("Auf Standardwerte zurückgesetzt", Severity.Info);
+        }
+    }
+}

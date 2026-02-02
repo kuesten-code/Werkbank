@@ -1,0 +1,85 @@
+@using MudBlazor
+@implements IDisposable
+
+<PdfPreviewFrame PdfBytes="@_pdfBytes" Loading="@_loading" Error="@_error" />
+
+@code {
+    /// <summary>
+    /// Function to generate PDF bytes. Called on initialization and when parameters change.
+    /// </summary>
+    [Parameter]
+    public Func<byte[]?>? GeneratePdf { get; set; }
+
+    /// <summary>
+    /// Async function to generate PDF bytes. Use this for async PDF generation.
+    /// If both are set, GeneratePdfAsync takes precedence.
+    /// </summary>
+    [Parameter]
+    public Func<Task<byte[]?>>? GeneratePdfAsync { get; set; }
+
+    /// <summary>
+    /// Debounce delay in milliseconds. Default is 500ms.
+    /// </summary>
+    [Parameter]
+    public int DebounceMs { get; set; } = 500;
+
+    private bool _loading = true;
+    private string _error = string.Empty;
+    private byte[]? _pdfBytes;
+    private System.Threading.Timer? _debounceTimer;
+
+    protected override void OnInitialized()
+    {
+        _ = GeneratePreviewAsync();
+    }
+
+    protected override void OnParametersSet()
+    {
+        // Debounce preview updates
+        _debounceTimer?.Dispose();
+        _debounceTimer = new System.Threading.Timer(async _ =>
+        {
+            await InvokeAsync(async () =>
+            {
+                await GeneratePreviewAsync();
+                StateHasChanged();
+            });
+        }, null, DebounceMs, Timeout.Infinite);
+    }
+
+    private async Task GeneratePreviewAsync()
+    {
+        _loading = true;
+        _error = string.Empty;
+        StateHasChanged();
+
+        try
+        {
+            if (GeneratePdfAsync != null)
+            {
+                _pdfBytes = await GeneratePdfAsync();
+            }
+            else if (GeneratePdf != null)
+            {
+                _pdfBytes = GeneratePdf();
+            }
+            else
+            {
+                _error = "Keine PDF-Generierungsfunktion angegeben.";
+            }
+        }
+        catch (Exception ex)
+        {
+            _error = $"Fehler beim Generieren der Vorschau: {ex.Message}";
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    public void Dispose()
+    {
+        _debounceTimer?.Dispose();
+    }
+}

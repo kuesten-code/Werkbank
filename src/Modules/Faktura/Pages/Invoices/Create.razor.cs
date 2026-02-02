@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Text.Json;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Forms;
@@ -17,6 +18,7 @@ using Kuestencode.Faktura.Shared;
 using Kuestencode.Faktura.Shared.Components;
 using Kuestencode.Shared.ApiClients;
 using Kuestencode.Shared.Contracts.Navigation;
+using Kuestencode.Shared.Contracts.Offerte;
 using Kuestencode.Shared.Contracts.Rapport;
 
 namespace Kuestencode.Faktura.Pages.Invoices;
@@ -28,6 +30,9 @@ public partial class Create
 
     [Inject]
     public IHostApiClient HostApiClient { get; set; } = null!;
+
+    [Inject]
+    public IJSRuntime JSRuntime { get; set; } = null!;
 
     private bool _customerError;
     private string? _customerErrorText;
@@ -82,10 +87,77 @@ public partial class Create
                 _attachTimesheet = false;
                 _timesheetAttachmentAdded = false;
             }
+
+            // Prüfe, ob Daten aus Offerte-Modul übernommen werden sollen
+            await LoadOfferteDataAsync();
         }
         catch (Exception ex)
         {
             _errorMessage = $"Fehler beim Initialisieren: {ex.Message}";
+        }
+    }
+
+    private async Task LoadOfferteDataAsync()
+    {
+        try
+        {
+            // Prüfe Query-Parameter
+            var uri = NavigationManager.ToAbsoluteUri(NavigationManager.Uri);
+            if (!QueryHelpers.ParseQuery(uri.Query).TryGetValue("from", out var fromValue) ||
+                !string.Equals(fromValue, "offerte", StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+
+            // Lade DTO aus localStorage
+            var json = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", "offerte_rechnung_dto");
+            if (string.IsNullOrEmpty(json))
+            {
+                return;
+            }
+
+            var dto = JsonSerializer.Deserialize<RechnungErstellungDto>(json);
+            if (dto == null)
+            {
+                return;
+            }
+
+            // Lösche localStorage-Eintrag nach dem Lesen
+            await JSRuntime.InvokeVoidAsync("localStorage.removeItem", "offerte_rechnung_dto");
+
+            // Kunde setzen
+            _selectedCustomer = _customers.FirstOrDefault(c => c.Id == dto.KundeId);
+
+            // Referenz setzen
+            if (!string.IsNullOrWhiteSpace(dto.Referenz))
+            {
+                _invoice.Notes = dto.Referenz;
+            }
+
+            // Positionen übernehmen
+            if (dto.Positionen.Count > 0)
+            {
+                _invoice.Items.Clear();
+                var vatRate = _company?.IsKleinunternehmer == true ? 0 : 19;
+
+                foreach (var pos in dto.Positionen)
+                {
+                    _invoice.Items.Add(new InvoiceItem
+                    {
+                        Description = pos.Text,
+                        Quantity = pos.Menge,
+                        UnitPrice = pos.Einzelpreis,
+                        VatRate = vatRate
+                    });
+                }
+
+                RecalculateTotals();
+            }
+        }
+        catch (Exception ex)
+        {
+            // Fehler beim Laden ignorieren - Benutzer kann manuell fortfahren
+            Console.WriteLine($"Fehler beim Laden der Offerte-Daten: {ex.Message}");
         }
     }
 

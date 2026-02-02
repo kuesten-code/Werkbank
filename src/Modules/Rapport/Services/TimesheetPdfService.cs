@@ -57,6 +57,16 @@ public class TimesheetPdfService
         return document.GeneratePdf();
     }
 
+    /// <summary>
+    /// Synchronous render method for use in preview callbacks where async is not supported.
+    /// Requires pre-loaded company and settings.
+    /// </summary>
+    public byte[] Render(TimesheetDto timesheet, Company company, RapportSettings settings)
+    {
+        var document = new TimesheetDocument(timesheet, company, settings);
+        return document.GeneratePdf();
+    }
+
     private static string BuildFileName(TimesheetExportRequestDto request, TimesheetDto timesheet)
     {
         if (!string.IsNullOrWhiteSpace(request.FileName))

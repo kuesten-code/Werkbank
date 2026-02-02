@@ -18,6 +18,18 @@ Rechnungsprogramm mit Fokus auf saubere Fakturierung und E-Rechnungen.
 - Dashboard mit Übersicht offener und überfälliger Rechnungen
 - Anzahlungsrechnungen und Abschlagsrechnungen
 
+### Offerte
+
+Angebotserstellung und -verwaltung für professionelle Kundenakquise.
+
+**Features:**
+- Angebote erstellen, bearbeiten und verwalten
+- Flexibler Statusworkflow (Entwurf → Versendet → Angenommen/Abgelehnt)
+- PDF-Angebote mit anpassbaren Layouts und Farbschemata
+- E-Mail-Versand mit konfigurierbaren HTML-Templates (Klar, Strukturiert, Betont)
+- Gültigkeitsdatum-Tracking
+- Angebot direkt in Rechnung umwandeln (Faktura-Integration)
+
 ### Rapport
 
 Zeiterfassung und Tätigkeitsdokumentation für projektbasiertes Arbeiten.
@@ -60,6 +72,7 @@ docker compose up -d
 Die Anwendung ist dann erreichbar unter:
 - **Host/Übersicht:** http://localhost:8080
 - **Faktura:** http://localhost:8080/faktura
+- **Offerte:** http://localhost:8080/offerte
 - **Rapport:** http://localhost:8080/rapport
 
 ### Produktions-Deployment
@@ -90,6 +103,7 @@ src/
 ├── Host/                    # Hauptanwendung mit Dashboard und Kundenverwaltung
 ├── Modules/
 │   ├── Faktura/             # Rechnungsmodul
+│   ├── Offerte/             # Angebotsmodul
 │   └── Rapport/             # Zeiterfassungsmodul
 ├── Kuestencode.Shared.Contracts/    # DTOs für Modul-Kommunikation
 └── Kuestencode.Shared.ApiClients/   # HTTP-Clients für API-Aufrufe

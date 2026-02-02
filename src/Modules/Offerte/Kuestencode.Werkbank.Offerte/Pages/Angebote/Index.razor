@@ -1,0 +1,264 @@
+@page "/angebote"
+@inject IAngebotRepository AngebotRepository
+@inject ICustomerService CustomerService
+@inject IAngebotAblaufService AblaufService
+@inject NavigationManager NavigationManager
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+
+@* Query parameter for initial status filter *@
+
+<PageTitle>Angebote - Küstencode Offerte</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4">
+    <MudText Typo="Typo.h4" GutterBottom="true">Angebote</MudText>
+
+    <MudPaper Class="pa-4 mt-4">
+        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-4">
+            <MudTextField @bind-Value="_searchString" Placeholder="Angebot oder Kunde suchen"
+                         Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search"
+                         IconSize="Size.Medium" Class="mt-0" Immediate="true" Style="max-width: 400px;" />
+            <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                      StartIcon="@Icons.Material.Filled.Add" OnClick="CreateAngebot">
+                Neues Angebot
+            </MudButton>
+        </MudStack>
+
+        <MudTabs Elevation="0" Rounded="true" ApplyEffectsToContainer="true" Class="mb-4"
+                @bind-ActivePanelIndex="_activeTabIndex" @bind-ActivePanelIndex:after="OnTabChanged">
+            <MudTabPanel Text="Alle" Icon="@Icons.Material.Filled.List" />
+            <MudTabPanel Text="Entwurf" Icon="@Icons.Material.Filled.Edit" BadgeData="@_entwurfCount" BadgeColor="Color.Default" />
+            <MudTabPanel Text="Versendet" Icon="@Icons.Material.Filled.Send" BadgeData="@_versendetCount" BadgeColor="Color.Info" />
+            <MudTabPanel Text="Angenommen" Icon="@Icons.Material.Filled.CheckCircle" BadgeData="@_angenommenCount" BadgeColor="Color.Success" />
+            <MudTabPanel Text="Abgelehnt" Icon="@Icons.Material.Filled.Cancel" BadgeData="@_abgelehntCount" BadgeColor="Color.Error" />
+            <MudTabPanel Text="Abgelaufen" Icon="@Icons.Material.Filled.Schedule" BadgeData="@_abgelaufenCount" BadgeColor="Color.Warning" />
+        </MudTabs>
+
+        <MudTable Items="@_filteredAngebote" Hover="true" Breakpoint="Breakpoint.Sm"
+                 Loading="@_loading" LoadingProgressColor="Color.Info"
+                 RowsPerPage="10">
+            <HeaderContent>
+                <MudTh>Angebotsnr.</MudTh>
+                <MudTh>Kunde</MudTh>
+                <MudTh>Status</MudTh>
+                <MudTh>Erstellt</MudTh>
+                <MudTh>Gültig bis</MudTh>
+                <MudTh Style="text-align: right">Summe (brutto)</MudTh>
+                <MudTh Style="text-align: right">Aktionen</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd DataLabel="Angebotsnr.">@context.Angebotsnummer</MudTd>
+                <MudTd DataLabel="Kunde">@GetKundenName(context.KundeId)</MudTd>
+                <MudTd DataLabel="Status">
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                        <AngebotStatusBadge Status="@context.Status" />
+                        @if (context.EmailAnzahl > 0 && context.EmailGesendetAm.HasValue)
+                        {
+                            <MudIcon Icon="@Icons.Material.Filled.Email" Size="Size.Small" Color="Color.Info" title="Per E-Mail versendet" />
+                        }
+                        @if (context.DruckAnzahl > 0 && context.GedrucktAm.HasValue)
+                        {
+                            <MudIcon Icon="@Icons.Material.Filled.Print" Size="Size.Small" Color="Color.Default" title="Gedruckt" />
+                        }
+                    </MudStack>
+                </MudTd>
+                <MudTd DataLabel="Erstellt">@context.Erstelldatum.ToString("dd.MM.yyyy")</MudTd>
+                <MudTd DataLabel="Gültig bis">
+                    @if (context.GueltigBis < DateTime.UtcNow.Date && context.Status == AngebotStatus.Versendet)
+                    {
+                        <MudText Color="Color.Error">@context.GueltigBis.ToString("dd.MM.yyyy")</MudText>
+                    }
+                    else
+                    {
+                        @context.GueltigBis.ToString("dd.MM.yyyy")
+                    }
+                </MudTd>
+                <MudTd DataLabel="Summe" Style="text-align: right">@context.Bruttosumme.ToString("C2", _culture)</MudTd>
+                <MudTd DataLabel="Aktionen" Style="text-align: right">
+                    <MudIconButton Icon="@Icons.Material.Filled.Visibility"
+                                  Color="Color.Info" Size="Size.Small"
+                                  OnClick="@(() => ViewAngebot(context.Id))"
+                                  Title="Anzeigen" />
+                    @if (context.Status == AngebotStatus.Entwurf)
+                    {
+                        <MudIconButton Icon="@Icons.Material.Filled.Edit"
+                                      Color="Color.Primary" Size="Size.Small"
+                                      OnClick="@(() => EditAngebot(context.Id))"
+                                      Title="Bearbeiten" />
+                        <MudIconButton Icon="@Icons.Material.Filled.Delete"
+                                      Color="Color.Error" Size="Size.Small"
+                                      OnClick="@(() => DeleteAngebot(context))"
+                                      Title="Löschen" />
+                    }
+                </MudTd>
+            </RowTemplate>
+            <NoRecordsContent>
+                <MudText Typo="Typo.body1" Align="Align.Center" Class="pa-4">
+                    @if (_loading)
+                    {
+                        <text>Lade Angebote...</text>
+                    }
+                    else
+                    {
+                        <text>Noch keine Angebote vorhanden.</text>
+                    }
+                </MudText>
+            </NoRecordsContent>
+            <PagerContent>
+                <MudTablePager PageSizeOptions="new int[] { 10, 25, 50, 100 }" />
+            </PagerContent>
+        </MudTable>
+    </MudPaper>
+</MudContainer>
+
+@code {
+    [SupplyParameterFromQuery(Name = "status")]
+    public string? StatusFilter { get; set; }
+
+    private readonly CultureInfo _culture = new CultureInfo("de-DE");
+    private bool _loading = true;
+    private string _searchString = string.Empty;
+    private int _activeTabIndex = 0;
+
+    private List<Angebot> _angebote = new();
+    private Dictionary<int, string> _kundenNamen = new();
+
+    private int _entwurfCount;
+    private int _versendetCount;
+    private int _angenommenCount;
+    private int _abgelehntCount;
+    private int _abgelaufenCount;
+
+    private IEnumerable<Angebot> _filteredAngebote => GetFilteredAngebote();
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Set initial tab based on query parameter
+        _activeTabIndex = StatusFilter?.ToLowerInvariant() switch
+        {
+            "entwurf" => 1,
+            "versendet" => 2,
+            "angenommen" => 3,
+            "abgelehnt" => 4,
+            "abgelaufen" => 5,
+            _ => 0
+        };
+
+        // Prüfe und aktualisiere abgelaufene Angebote beim Laden der Seite
+        await AblaufService.PruefeUndAktualiereAbgelaufeneAsync();
+        await LoadDataAsync();
+    }
+
+    private async Task LoadDataAsync()
+    {
+        _loading = true;
+
+        try
+        {
+            _angebote = await AngebotRepository.GetAllAsync();
+
+            var kunden = await CustomerService.GetAllAsync();
+            _kundenNamen = kunden.ToDictionary(k => k.Id, k => k.Name);
+
+            UpdateCounts();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Fehler beim Laden: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private void UpdateCounts()
+    {
+        _entwurfCount = _angebote.Count(a => a.Status == AngebotStatus.Entwurf);
+        _versendetCount = _angebote.Count(a => a.Status == AngebotStatus.Versendet);
+        _angenommenCount = _angebote.Count(a => a.Status == AngebotStatus.Angenommen);
+        _abgelehntCount = _angebote.Count(a => a.Status == AngebotStatus.Abgelehnt);
+        _abgelaufenCount = _angebote.Count(a => a.Status == AngebotStatus.Abgelaufen);
+    }
+
+    private IEnumerable<Angebot> GetFilteredAngebote()
+    {
+        var filtered = _angebote.AsEnumerable();
+
+        // Filter by tab
+        filtered = _activeTabIndex switch
+        {
+            1 => filtered.Where(a => a.Status == AngebotStatus.Entwurf),
+            2 => filtered.Where(a => a.Status == AngebotStatus.Versendet),
+            3 => filtered.Where(a => a.Status == AngebotStatus.Angenommen),
+            4 => filtered.Where(a => a.Status == AngebotStatus.Abgelehnt),
+            5 => filtered.Where(a => a.Status == AngebotStatus.Abgelaufen),
+            _ => filtered
+        };
+
+        // Filter by search
+        if (!string.IsNullOrWhiteSpace(_searchString))
+        {
+            var search = _searchString.ToLowerInvariant();
+            filtered = filtered.Where(a =>
+                a.Angebotsnummer.ToLowerInvariant().Contains(search) ||
+                GetKundenName(a.KundeId).ToLowerInvariant().Contains(search) ||
+                (a.Referenz?.ToLowerInvariant().Contains(search) ?? false));
+        }
+
+        return filtered.OrderByDescending(a => a.Erstelldatum);
+    }
+
+    private string GetKundenName(int kundeId)
+    {
+        return _kundenNamen.TryGetValue(kundeId, out var name) ? name : $"Kunde #{kundeId}";
+    }
+
+    private async Task OnTabChanged()
+    {
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private void CreateAngebot()
+    {
+        NavigationManager.NavigateTo("/offerte/angebote/neu");
+    }
+
+    private void ViewAngebot(Guid id)
+    {
+        NavigationManager.NavigateTo($"/offerte/angebote/{id}");
+    }
+
+    private void EditAngebot(Guid id)
+    {
+        NavigationManager.NavigateTo($"/offerte/angebote/{id}/bearbeiten");
+    }
+
+    private async Task DeleteAngebot(Angebot angebot)
+    {
+        var parameters = new DialogParameters<Shared.Dialogs.ConfirmDialog>
+        {
+            { x => x.Title, "Angebot löschen" },
+            { x => x.ContentText, $"Möchten Sie das Angebot {angebot.Angebotsnummer} wirklich löschen?" },
+            { x => x.ButtonText, "Löschen" },
+            { x => x.Color, Color.Error }
+        };
+
+        var dialog = await DialogService.ShowAsync<Shared.Dialogs.ConfirmDialog>("Löschen", parameters);
+        var result = await dialog.Result;
+
+        if (result != null && !result.Canceled)
+        {
+            try
+            {
+                await AngebotRepository.DeleteAsync(angebot.Id);
+                Snackbar.Add($"Angebot {angebot.Angebotsnummer} wurde gelöscht.", Severity.Success);
+                await LoadDataAsync();
+            }
+            catch (Exception ex)
+            {
+                Snackbar.Add($"Fehler beim Löschen: {ex.Message}", Severity.Error);
+            }
+        }
+    }
+}

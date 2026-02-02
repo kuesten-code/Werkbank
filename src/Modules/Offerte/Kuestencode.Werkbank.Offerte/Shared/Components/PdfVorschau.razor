@@ -1,0 +1,80 @@
+@* PdfVorschau component for displaying PDF preview *@
+
+@inject IJSRuntime JSRuntime
+
+<MudPaper Class="pa-4">
+    @if (_loading)
+    {
+        <MudStack AlignItems="AlignItems.Center" Justify="Justify.Center" Style="min-height: 400px;">
+            <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+            <MudText Typo="Typo.body2" Class="mt-2">PDF wird generiert...</MudText>
+        </MudStack>
+    }
+    else if (!string.IsNullOrEmpty(_error))
+    {
+        <MudAlert Severity="Severity.Error">@_error</MudAlert>
+    }
+    else if (_pdfBytes != null)
+    {
+        <MudStack Row="true" Justify="Justify.FlexEnd" Class="mb-2" Spacing="2">
+            <MudButton Variant="Variant.Outlined" Color="Color.Primary"
+                      StartIcon="@Icons.Material.Filled.Download"
+                      OnClick="DownloadPdf">
+                Download
+            </MudButton>
+            <MudButton Variant="Variant.Outlined" Color="Color.Primary"
+                      StartIcon="@Icons.Material.Filled.Print"
+                      OnClick="PrintPdf">
+                Drucken
+            </MudButton>
+        </MudStack>
+
+        <iframe src="@_pdfDataUrl" style="width: 100%; height: 600px; border: 1px solid #ccc;"></iframe>
+    }
+</MudPaper>
+
+@code {
+    private bool _loading = true;
+    private string _error = string.Empty;
+    private byte[]? _pdfBytes;
+    private string? _pdfDataUrl;
+
+    [Parameter]
+    public byte[]? PdfBytes { get; set; }
+
+    [Parameter]
+    public string FileName { get; set; } = "Angebot.pdf";
+
+    [Parameter]
+    public bool Loading { get; set; } = false;
+
+    [Parameter]
+    public string? Error { get; set; }
+
+    protected override void OnParametersSet()
+    {
+        _loading = Loading;
+        _error = Error ?? string.Empty;
+
+        if (PdfBytes != null && PdfBytes.Length > 0)
+        {
+            _pdfBytes = PdfBytes;
+            _pdfDataUrl = $"data:application/pdf;base64,{Convert.ToBase64String(_pdfBytes)}";
+        }
+    }
+
+    private async Task DownloadPdf()
+    {
+        if (_pdfBytes == null) return;
+
+        var base64 = Convert.ToBase64String(_pdfBytes);
+        await JSRuntime.InvokeVoidAsync("downloadFile", FileName, "application/pdf", base64);
+    }
+
+    private async Task PrintPdf()
+    {
+        if (_pdfDataUrl == null) return;
+
+        await JSRuntime.InvokeVoidAsync("printPdf", _pdfDataUrl);
+    }
+}

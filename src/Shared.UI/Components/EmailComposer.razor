@@ -29,6 +29,14 @@
                           Lines="4"
                           Placeholder="@MessagePlaceholder" />
 
+            @if (ShowIncludeClosing)
+            {
+                <MudCheckBox @bind-Value="_includeClosing"
+                             Label="Mit Abschiedsformel"
+                             Color="Color.Primary"
+                             Dense="true" />
+            }
+
             @if (ShowCcBcc)
             {
                 <MudExpansionPanels>
@@ -112,11 +120,18 @@
     [Parameter]
     public EventCallback<EmailComposerResult> OnSend { get; set; }
 
+    [Parameter]
+    public bool ShowIncludeClosing { get; set; } = false;
+
+    [Parameter]
+    public bool InitialIncludeClosing { get; set; } = true;
+
     private string _recipientEmail = string.Empty;
     private string _subject = string.Empty;
     private string _message = string.Empty;
     private string _ccEmails = string.Empty;
     private string _bccEmails = string.Empty;
+    private bool _includeClosing = true;
     private bool _sending = false;
 
     protected override void OnInitialized()
@@ -124,6 +139,7 @@
         _recipientEmail = InitialRecipient ?? string.Empty;
         _subject = InitialSubject ?? string.Empty;
         _message = InitialMessage ?? string.Empty;
+        _includeClosing = InitialIncludeClosing;
     }
 
     private void Cancel()
@@ -153,7 +169,8 @@
                 Subject = _subject.Trim(),
                 Message = string.IsNullOrWhiteSpace(_message) ? null : _message.Trim(),
                 CcEmails = string.IsNullOrWhiteSpace(_ccEmails) ? null : _ccEmails.Trim(),
-                BccEmails = string.IsNullOrWhiteSpace(_bccEmails) ? null : _bccEmails.Trim()
+                BccEmails = string.IsNullOrWhiteSpace(_bccEmails) ? null : _bccEmails.Trim(),
+                IncludeClosing = _includeClosing
             };
 
             await OnSend.InvokeAsync(result);

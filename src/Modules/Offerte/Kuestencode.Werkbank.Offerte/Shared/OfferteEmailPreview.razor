@@ -1,0 +1,172 @@
+@using Kuestencode.Core.Models
+@using Kuestencode.Core.Enums
+@using Kuestencode.Werkbank.Offerte.Domain.Entities
+@inject IWebHostEnvironment Environment
+
+<div class="email-preview-surface">
+    @if (_loading)
+    {
+        <div style="display: flex; align-items: center; justify-content: center; height: 100%; min-height: 600px;">
+            <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+        </div>
+    }
+    else if (!string.IsNullOrEmpty(_error))
+    {
+        <MudAlert Severity="Severity.Error">@_error</MudAlert>
+    }
+    else
+    {
+        <div class="email-preview-frame">
+            @((MarkupString)_previewHtml)
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public OfferteSettings Settings { get; set; } = default!;
+
+    [Parameter]
+    public Company Company { get; set; } = default!;
+
+    private bool _loading = true;
+    private string _error = string.Empty;
+    private string _previewHtml = string.Empty;
+    private System.Threading.Timer? _debounceTimer;
+
+    protected override void OnInitialized()
+    {
+        GeneratePreview();
+    }
+
+    protected override void OnParametersSet()
+    {
+        _debounceTimer?.Dispose();
+        _debounceTimer = new System.Threading.Timer(_ =>
+        {
+            InvokeAsync(() =>
+            {
+                GeneratePreview();
+                StateHasChanged();
+            });
+        }, null, 500, Timeout.Infinite);
+    }
+
+    private void GeneratePreview()
+    {
+        _loading = true;
+        _error = string.Empty;
+
+        try
+        {
+            // Offerte-spezifische Template-Namen verwenden
+            var templateName = Settings.EmailLayout switch
+            {
+                EmailLayout.Klar => "OfferteEmailTemplateKlar.html",
+                EmailLayout.Strukturiert => "OfferteEmailTemplateStrukturiert.html",
+                EmailLayout.Betont => "OfferteEmailTemplateBetont.html",
+                _ => "OfferteEmailTemplateKlar.html"
+            };
+
+            var templatePath = Path.Combine(Environment.WebRootPath, "templates", templateName);
+
+            if (!File.Exists(templatePath))
+            {
+                _previewHtml = GenerateFallbackPreview();
+                _loading = false;
+                return;
+            }
+
+            var template = File.ReadAllText(templatePath);
+
+            // Farben ersetzen
+            template = template.Replace("{{PRIMARY_COLOR}}", Settings.EmailPrimaryColor ?? "#0F2A3D");
+            template = template.Replace("{{ACCENT_COLOR}}", Settings.EmailAccentColor ?? "#3FA796");
+
+            // Begrüßung und Abschluss vorbereiten
+            var greeting = string.IsNullOrWhiteSpace(Settings.EmailGreeting)
+                ? "Sehr geehrte Damen und Herren,\n\nanbei erhalten Sie unser Angebot."
+                : Settings.EmailGreeting;
+
+            var closing = string.IsNullOrWhiteSpace(Settings.EmailClosing)
+                ? "Mit freundlichen Grüßen\n\n{{Firmenname}}"
+                : Settings.EmailClosing;
+
+            var firmenname = !string.IsNullOrEmpty(Company.BusinessName)
+                ? Company.BusinessName
+                : Company.OwnerFullName;
+
+            // Platzhalter in Greeting und Closing ersetzen
+            greeting = ReplacePlaceholders(greeting, firmenname);
+            closing = ReplacePlaceholders(closing, firmenname);
+
+            // Template-Platzhalter ersetzen (Offerte-spezifisch)
+            template = template.Replace("{{GREETING}}", greeting.Replace("\n", "<br>"));
+            template = template.Replace("{{CLOSING}}", closing.Replace("\n", "<br>"));
+            template = template.Replace("{{ANGEBOT_NUMBER}}", "AN-2025-001");
+            template = template.Replace("{{ANGEBOT_DATE}}", "17.01.2025");
+            template = template.Replace("{{GUELTIG_BIS}}", "15.02.2025");
+            template = template.Replace("{{TOTAL_AMOUNT}}", "3.925,00 €");
+
+            _previewHtml = template;
+        }
+        catch (Exception ex)
+        {
+            _error = "Fehler beim Generieren der Vorschau: " + ex.Message;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private string ReplacePlaceholders(string text, string firmenname)
+    {
+        return text
+            .Replace("{{Firmenname}}", firmenname)
+            .Replace("{{Angebotsnummer}}", "AN-2025-001")
+            .Replace("{{Gueltigkeitsdatum}}", "15.02.2025");
+    }
+
+    private string GenerateFallbackPreview()
+    {
+        var firmenname = !string.IsNullOrEmpty(Company.BusinessName)
+            ? Company.BusinessName
+            : Company.OwnerFullName;
+
+        var primaryColor = Settings.EmailPrimaryColor ?? "#0F2A3D";
+        var accentColor = Settings.EmailAccentColor ?? "#3FA796";
+
+        var greeting = string.IsNullOrWhiteSpace(Settings.EmailGreeting)
+            ? "Sehr geehrte Damen und Herren,<br><br>anbei erhalten Sie unser Angebot."
+            : Settings.EmailGreeting.Replace("\n", "<br>");
+
+        var closing = string.IsNullOrWhiteSpace(Settings.EmailClosing)
+            ? "Mit freundlichen Grüßen<br><br>" + firmenname
+            : Settings.EmailClosing.Replace("\n", "<br>").Replace("{{Firmenname}}", firmenname);
+
+        return $@"
+        <div style='font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;'>
+            <div style='color: {primaryColor}; font-size: 24px; font-weight: bold; margin-bottom: 20px;'>
+                Angebot AN-2025-001
+            </div>
+            <div style='margin-bottom: 20px;'>
+                {greeting}
+            </div>
+            <div style='background: #f5f5f5; padding: 15px; margin-bottom: 20px; border-left: 4px solid {accentColor};'>
+                <strong>Angebotsnummer:</strong> AN-2025-001<br>
+                <strong>Datum:</strong> 17.01.2025<br>
+                <strong>Gültig bis:</strong> 15.02.2025<br>
+                <strong>Betrag:</strong> 3.925,00 €
+            </div>
+            <div>
+                {closing}
+            </div>
+        </div>";
+    }
+
+    public void Dispose()
+    {
+        _debounceTimer?.Dispose();
+    }
+}

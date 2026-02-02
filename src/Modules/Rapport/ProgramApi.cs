@@ -1,4 +1,5 @@
-﻿using System.Net.Http.Json;
+﻿using System.Globalization;
+using System.Net.Http.Json;
 using Kuestencode.Core.Interfaces;
 using Kuestencode.Rapport;
 using Kuestencode.Rapport.Services;
@@ -20,6 +21,11 @@ public class ProgramApi
     {
         // QuestPDF License configuration
         QuestPDF.Settings.License = LicenseType.Community;
+
+        // Deutsche Lokalisierung für MudBlazor DatePicker etc.
+        var culture = new CultureInfo("de-DE");
+        CultureInfo.DefaultThreadCurrentCulture = culture;
+        CultureInfo.DefaultThreadCurrentUICulture = culture;
 
         var builder = WebApplication.CreateBuilder(args);
         builder.WebHost.UseStaticWebAssets();
@@ -213,12 +219,23 @@ public class ProgramApi
                         Icon = "",
                         Type = NavItemType.Link
                     },
+                    // Settings: Zeiterfassung unter "Abrechnung"
                     new NavItemDto
                     {
-                        Label = "Einstellungen",
+                        Label = "Rapport Zeiterfassung",
                         Href = "/rapport/settings",
                         Icon = "",
-                        Type = NavItemType.Link
+                        Type = NavItemType.Settings,
+                        Category = NavSettingsCategory.Abrechnung
+                    },
+                    // Settings: PDF-Anpassung unter "Dokumente"
+                    new NavItemDto
+                    {
+                        Label = "Rapport PDF",
+                        Href = "/rapport/settings/pdf-anpassung",
+                        Icon = "",
+                        Type = NavItemType.Settings,
+                        Category = NavSettingsCategory.Dokumente
                     }
                 }
             };
@@ -239,10 +256,6 @@ public class ProgramApi
         }
     }
 }
-
-
-
-
 
 
 

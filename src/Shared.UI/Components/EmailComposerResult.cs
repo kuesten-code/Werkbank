@@ -10,4 +10,5 @@ public class EmailComposerResult
     public string? Message { get; set; }
     public string? CcEmails { get; set; }
     public string? BccEmails { get; set; }
+    public bool IncludeClosing { get; set; } = true;
 }

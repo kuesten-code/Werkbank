@@ -1,0 +1,184 @@
+@page "/settings/pdf-anpassung"
+@using Kuestencode.Core.Interfaces
+@using Kuestencode.Core.Models
+@using Kuestencode.Shared.UI.Components
+@using Kuestencode.Shared.UI.Components.Settings
+@using Kuestencode.Werkbank.Offerte.Domain.Entities
+@using Kuestencode.Werkbank.Offerte.Services.Pdf
+@inject IOfferteSettingsService SettingsService
+@inject CoreInterfaces.ICompanyService CompanyService
+@inject IOffertePdfService PdfService
+@inject IOffertePreviewService PreviewService
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+
+<PageTitle>PDF-Anpassung - Küstencode Offerte</PageTitle>
+
+<div style="width: 100%; padding: 24px;">
+    <div style="display: flex; gap: 24px; flex-wrap: wrap;">
+        <!-- Settings Panel -->
+        <div style="flex: 0 0 45%; max-width: 45%;" class="d-none d-lg-block">
+            <PdfSettingsEditor
+                Settings="@_pdfSettings"
+                SettingsChanged="@OnSettingsChanged"
+                Context="@DocumentSettingsContext.Angebot"
+                Loading="@_loading"
+                Saving="@_saving"
+                OnSave="@HandleSubmit"
+                OnReset="@ResetToDefaults" />
+        </div>
+
+        <!-- Settings Panel - Mobile only -->
+        <div style="flex: 0 0 100%; max-width: 100%;" class="d-lg-none">
+            <PdfSettingsEditor
+                Settings="@_pdfSettings"
+                SettingsChanged="@OnSettingsChanged"
+                Context="@DocumentSettingsContext.Angebot"
+                Loading="@_loading"
+                Saving="@_saving"
+                OnSave="@HandleSubmit"
+                OnReset="@ResetToDefaults" />
+        </div>
+
+        <!-- Live Preview Panel - Mobile only -->
+        <div style="flex: 0 0 100%; max-width: 100%;" class="d-lg-none">
+            <MudPaper Elevation="2" Class="pa-6">
+                <MudText Typo="Typo.h6" Class="mb-3">Live-Vorschau</MudText>
+                <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-4">
+                    Beispiel-Angebot mit aktuellen Einstellungen
+                </MudText>
+
+                @if (!_loading)
+                {
+                    <div style="max-height: 100vh; overflow-y: auto;">
+                        <PdfPreview GeneratePdf="@GeneratePreviewPdf" />
+                    </div>
+                }
+            </MudPaper>
+        </div>
+
+        <!-- Live Preview Panel - Desktop only -->
+        <div style="flex: 0 0 45%; max-width: 45%;" class="d-none d-lg-block">
+            <div style="position: sticky; top: 20px;">
+                <MudPaper Elevation="2" Class="pa-6">
+                    <MudText Typo="Typo.h6" Class="mb-3">Live-Vorschau</MudText>
+                    <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-4">
+                        Beispiel-Angebot mit aktuellen Einstellungen
+                    </MudText>
+
+                    @if (!_loading)
+                    {
+                        <div style="max-height: calc(100vh - 200px); overflow-y: auto;">
+                            <PdfPreview GeneratePdf="@GeneratePreviewPdf" />
+                        </div>
+                    }
+                </MudPaper>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private Company _company = new();
+    private OfferteSettings _offerteSettings = new();
+    private PdfSettingsModel _pdfSettings = new();
+    private bool _loading = true;
+    private bool _saving = false;
+
+    private byte[]? GeneratePreviewPdf()
+    {
+        var sampleAngebot = PreviewService.GenerateSampleAngebot(_company);
+        return PdfService.Erstelle(sampleAngebot, CreateSampleCustomer(), _company, _offerteSettings);
+    }
+
+    private Customer CreateSampleCustomer() => new Customer
+    {
+        Id = 999,
+        CustomerNumber = "K-2025-001",
+        Name = "Musterfirma GmbH",
+        Address = "Musterstraße 123",
+        PostalCode = "12345",
+        City = "Musterstadt",
+        Email = "info@musterfirma.de"
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _company = await CompanyService.GetCompanyAsync();
+            _offerteSettings = await SettingsService.GetSettingsAsync();
+            _pdfSettings = new PdfSettingsModel
+            {
+                Layout = _offerteSettings.PdfLayout,
+                PrimaryColor = _offerteSettings.PdfPrimaryColor,
+                AccentColor = _offerteSettings.PdfAccentColor,
+                HeaderText = _offerteSettings.PdfHeaderText,
+                FooterText = _offerteSettings.PdfFooterText,
+                NoticeText = _offerteSettings.PdfValidityNotice
+            };
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Fehler beim Laden: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private void OnSettingsChanged(PdfSettingsModel settings)
+    {
+        _pdfSettings = settings;
+        _offerteSettings.PdfLayout = settings.Layout;
+        _offerteSettings.PdfPrimaryColor = settings.PrimaryColor;
+        _offerteSettings.PdfAccentColor = settings.AccentColor;
+        _offerteSettings.PdfHeaderText = settings.HeaderText;
+        _offerteSettings.PdfFooterText = settings.FooterText;
+        _offerteSettings.PdfValidityNotice = settings.NoticeText;
+        StateHasChanged();
+    }
+
+    private async Task HandleSubmit()
+    {
+        _saving = true;
+        try
+        {
+            await SettingsService.UpdateSettingsAsync(_offerteSettings);
+            Snackbar.Add("PDF-Anpassungen gespeichert", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Fehler beim Speichern: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private async Task ResetToDefaults()
+    {
+        var result = await DialogService.ShowMessageBox(
+            "Auf Standard zurücksetzen",
+            "Möchten Sie wirklich alle PDF-Anpassungen auf die Standardwerte zurücksetzen?",
+            yesText: "Ja, zurücksetzen",
+            cancelText: "Abbrechen");
+
+        if (result == true)
+        {
+            _pdfSettings = new PdfSettingsModel
+            {
+                Layout = Kuestencode.Core.Enums.PdfLayout.Klar,
+                PrimaryColor = "#1f3a5f",
+                AccentColor = "#3FA796",
+                HeaderText = null,
+                FooterText = null,
+                NoticeText = null
+            };
+            OnSettingsChanged(_pdfSettings);
+            Snackbar.Add("Auf Standardwerte zurückgesetzt", Severity.Info);
+        }
+    }
+}

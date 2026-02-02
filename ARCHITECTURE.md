@@ -3,35 +3,43 @@
 ## Modulare Architektur-Übersicht
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                     Kuestencode Platform                         │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                  │
-│  ┌───────────────────┐  ┌───────────────────┐  ┌─────────────┐  │
-│  │  Kuestencode.Core │  │Kuestencode.Shared │  │   Future    │  │
-│  │                   │  │       .UI         │  │   Modules   │  │
-│  │  • Models         │  │                   │  │             │  │
-│  │  • Interfaces     │  │  • Components     │  │  • CRM      │  │
-│  │  • Validation     │  │  • Layouts        │  │  • Projekt  │  │
-│  │  • Enums          │  │  • Theme          │  │  • Zeit     │  │
-│  │  • Core Services  │  │  • CSS/JS         │  │  • ...      │  │
-│  └───────────────────┘  └───────────────────┘  └─────────────┘  │
-│           │                      │                     │        │
-│           └──────────┬───────────┘                     │        │
-│                      │                                 │        │
-│                      ▼                                 │        │
-│         ┌─────────────────────────┐                   │        │
-│         │   Kuestencode.Faktura   │◄──────────────────┘        │
-│         │                         │                             │
-│         │  • Invoice Models       │                             │
-│         │  • Invoice Services     │                             │
-│         │  • PDF Generation       │                             │
-│         │  • XRechnung/ZUGFeRD    │                             │
-│         │  • Email Services       │                             │
-│         │  • Blazor Pages         │                             │
-│         └─────────────────────────┘                             │
-│                                                                  │
-└─────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                          Kuestencode Werkbank                                 │
+├──────────────────────────────────────────────────────────────────────────────┤
+│                                                                               │
+│  ┌───────────────────┐  ┌───────────────────┐  ┌──────────────────────────┐  │
+│  │  Kuestencode.Core │  │Kuestencode.Shared │  │  Kuestencode.Shared.*    │  │
+│  │                   │  │       .UI         │  │                          │  │
+│  │  • Models         │  │                   │  │  • Contracts (DTOs)      │  │
+│  │  • Interfaces     │  │  • Components     │  │  • ApiClients            │  │
+│  │  • Validation     │  │  • Layouts        │  │  • Pdf                   │  │
+│  │  • Enums          │  │  • Theme          │  │                          │  │
+│  │  • Core Services  │  │  • CSS/JS         │  │                          │  │
+│  └───────────────────┘  └───────────────────┘  └──────────────────────────┘  │
+│           │                      │                          │                 │
+│           └──────────────────────┼──────────────────────────┘                 │
+│                                  │                                            │
+│                                  ▼                                            │
+│  ┌────────────────────────────────────────────────────────────────────────┐  │
+│  │                              Host                                       │  │
+│  │  • Gateway / Reverse Proxy (YARP)                                      │  │
+│  │  • Kundenverwaltung                                                    │  │
+│  │  • Firmenstammdaten                                                    │  │
+│  │  • E-Mail-Konfiguration                                                │  │
+│  └────────────────────────────────────────────────────────────────────────┘  │
+│                                  │                                            │
+│         ┌────────────────────────┼────────────────────────┐                  │
+│         ▼                        ▼                        ▼                  │
+│  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐              │
+│  │     Faktura     │  │     Offerte     │  │     Rapport     │              │
+│  │                 │  │                 │  │                 │              │
+│  │ • Rechnungen    │  │ • Angebote      │  │ • Zeiterfassung │              │
+│  │ • PDF/XRechnung │  │ • PDF-Export    │  │ • PDF/CSV       │              │
+│  │ • E-Mail        │  │ • E-Mail        │  │ • Timer         │              │
+│  │ • GiroCode      │  │ • → Faktura     │  │ • → Faktura     │              │
+│  └─────────────────┘  └─────────────────┘  └─────────────────┘              │
+│                                                                               │
+└──────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ## Projekt-Abhängigkeiten
@@ -39,11 +47,15 @@
 ```
 Kuestencode.Core (Keine Abhängigkeiten - Basis-Bibliothek)
        │
-       ▼
-Kuestencode.Shared.UI (Abhängig von Core)
-       │
-       ▼
-Kuestencode.Faktura (Abhängig von Core + Shared.UI)
+       ├──────────────────────────────────────┐
+       ▼                                      ▼
+Kuestencode.Shared.UI              Kuestencode.Shared.Contracts
+       │                                      │
+       └──────────────┬───────────────────────┘
+                      │
+       ┌──────────────┼──────────────┐
+       ▼              ▼              ▼
+   Faktura        Offerte        Rapport
 ```
 
 ## Schichten-Architektur
@@ -203,7 +215,10 @@ Jede Schicht hat eine klare Verantwortung:
 |---------|---------------|
 | Core | Datenmodelle, Interfaces, Validierung |
 | Shared.UI | UI-Komponenten, Theme, Assets |
+| Host | Gateway, Kundenverwaltung, Firmenstammdaten |
 | Faktura | Rechnungsverwaltung, PDF, XRechnung |
+| Offerte | Angebotsverwaltung, PDF, E-Mail |
+| Rapport | Zeiterfassung, Tätigkeitsnachweise |
 
 ## Erweiterbarkeit
 
@@ -215,15 +230,15 @@ Jede Schicht hat eine klare Verantwortung:
 4. Modul in Solution hinzufügen
 
 ```csharp
-// Beispiel: Zeiterfassung-Modul
-public static class ZeitModule
+// Beispiel: CRM-Modul
+public static class CrmModule
 {
-    public static IServiceCollection AddZeitModule(
+    public static IServiceCollection AddCrmModule(
         this IServiceCollection services,
         IConfiguration configuration)
     {
-        services.AddDbContext<ZeitDbContext>(...);
-        services.AddScoped<IZeitService, ZeitService>();
+        services.AddDbContext<CrmDbContext>(...);
+        services.AddScoped<IContactService, ContactService>();
         return services;
     }
 }
@@ -304,13 +319,37 @@ spec:
 ```
 
 
-## Kuestencode.Rapport
+## Module
 
-- Zeiterfassung (Timer + manuelle Eintr?ge)
-- PDF/CSV Export (T?tigkeitsnachweis)
+### Kuestencode.Faktura
+
+- Rechnungserstellung und -verwaltung
+- PDF-Generierung mit anpassbaren Layouts
+- XRechnung/ZUGFeRD nach EN16931-Standard
+- GiroCode-QR-Codes für SEPA-Überweisungen
+- E-Mail-Versand mit konfigurierbaren Templates
+- DB-Schema: `faktura`
+
+### Kuestencode.Offerte
+
+- Angebotserstellung und -verwaltung
+- Statusworkflow (Entwurf → Versendet → Angenommen/Abgelehnt)
+- PDF-Generierung mit anpassbaren Layouts
+- E-Mail-Versand mit HTML-Templates (Klar, Strukturiert, Betont)
+- Integration mit Faktura (Angebot → Rechnung)
+- DB-Schema: `offerte`
+
+### Kuestencode.Rapport
+
+- Zeiterfassung (Timer + manuelle Einträge)
+- Kunden- und Projektzuordnung
+- PDF/CSV Export (Tätigkeitsnachweis)
 - Einstellungen inkl. Live-PDF-Vorschau
-- DB-Schema: rapport
+- Integration mit Faktura (Zeiteinträge an Rechnungen)
+- DB-Schema: `rapport`
 
 ## Tests
 
-- tests/Kuestencode.Rapport.IntegrationTests (Integration)
+- `tests/Kuestencode.Faktura.Tests` (Unit/Integration)
+- `tests/Kuestencode.Offerte.Tests` (Unit/Integration)
+- `tests/Kuestencode.Rapport.IntegrationTests` (Integration)

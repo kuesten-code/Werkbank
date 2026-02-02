@@ -19,11 +19,20 @@ namespace Kuestencode.Faktura.Pages.Settings;
 
 public partial class PdfCustomization
 {
+    [Inject] private IPdfGeneratorService PdfGeneratorService { get; set; } = default!;
+    [Inject] private IPreviewService PreviewService { get; set; } = default!;
+
     private Company _company = new();
     private bool _loading = true;
     private bool _saving = false;
     private MudBlazor.Utilities.MudColor _primaryColorValue = new("#1f3a5f");
     private MudBlazor.Utilities.MudColor _accentColorValue = new("#3FA796");
+
+    private byte[]? GeneratePreviewPdf()
+    {
+        var sampleInvoice = PreviewService.GenerateSampleInvoice(_company);
+        return PdfGeneratorService.GeneratePdfWithCompany(sampleInvoice, _company);
+    }
 
     protected override async Task OnInitializedAsync()
     {

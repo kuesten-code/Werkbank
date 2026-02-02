@@ -197,7 +197,7 @@ else
                 _description);
 
             Snackbar.Add("Eintrag wurde aktualisiert.", Severity.Success);
-            NavigationManager.NavigateTo("/time-entries");
+            NavigationManager.NavigateTo("/rapport/time-entries");
         }
         catch (ValidationException ex)
         {
@@ -207,7 +207,7 @@ else
 
     private void Cancel()
     {
-        NavigationManager.NavigateTo("/time-entries");
+        NavigationManager.NavigateTo("/rapport/time-entries");
     }
 
     private void UpdateDuration()

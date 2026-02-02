@@ -1,0 +1,33 @@
+@* Status Badge for Angebot with color coding *@
+
+<MudChip T="string" Size="@Size" Color="@GetStatusColor(Status)">
+    @GetStatusText(Status)
+</MudChip>
+
+@code {
+    [Parameter]
+    public AngebotStatus Status { get; set; }
+
+    [Parameter]
+    public Size Size { get; set; } = Size.Small;
+
+    private Color GetStatusColor(AngebotStatus status) => status switch
+    {
+        AngebotStatus.Entwurf => Color.Default,
+        AngebotStatus.Versendet => Color.Info,
+        AngebotStatus.Angenommen => Color.Success,
+        AngebotStatus.Abgelehnt => Color.Error,
+        AngebotStatus.Abgelaufen => Color.Warning,
+        _ => Color.Default
+    };
+
+    private string GetStatusText(AngebotStatus status) => status switch
+    {
+        AngebotStatus.Entwurf => "Entwurf",
+        AngebotStatus.Versendet => "Versendet",
+        AngebotStatus.Angenommen => "Angenommen",
+        AngebotStatus.Abgelehnt => "Abgelehnt",
+        AngebotStatus.Abgelaufen => "Abgelaufen",
+        _ => status.ToString()
+    };
+}

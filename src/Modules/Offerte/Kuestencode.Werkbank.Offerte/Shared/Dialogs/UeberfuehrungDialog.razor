@@ -1,0 +1,41 @@
+@* Dialog for transferring Angebot to Rechnung (Faktura) *@
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">In Rechnung überführen</MudText>
+    </TitleContent>
+
+    <DialogContent>
+        <MudStack Spacing="3">
+            <MudText>
+                Das angenommene Angebot <strong>@Angebotsnummer</strong> wird in eine Rechnung überführt.
+            </MudText>
+
+            <MudAlert Severity="Severity.Info" Dense="true">
+                Es wird eine neue Rechnung im Faktura-Modul erstellt. Das Angebot bleibt unverändert.
+            </MudAlert>
+
+            <MudText Typo="Typo.caption" Color="Color.Secondary">
+                Die Positionen des Angebots werden in die Rechnung übernommen.
+            </MudText>
+        </MudStack>
+    </DialogContent>
+
+    <DialogActions>
+        <MudButton OnClick="Cancel">Abbrechen</MudButton>
+        <MudButton Color="Color.Primary" OnClick="Confirm">
+            In Rechnung überführen
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter]
+    public IMudDialogInstance Dialog { get; set; } = default!;
+
+    [Parameter]
+    public string Angebotsnummer { get; set; } = "";
+
+    void Cancel() => Dialog.Cancel();
+    void Confirm() => Dialog.Close(DialogResult.Ok(true));
+}

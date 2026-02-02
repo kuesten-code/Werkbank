@@ -1,3 +1,4 @@
+using System.Globalization;
 using Microsoft.AspNetCore.DataProtection;
 using MudBlazor.Services;
 using Kuestencode.Werkbank.Host;
@@ -9,6 +10,11 @@ using QuestPDF.Infrastructure;
 
 // QuestPDF Lizenz konfigurieren
 QuestPDF.Settings.License = LicenseType.Community;
+
+// Deutsche Lokalisierung für MudBlazor DatePicker etc.
+var culture = new CultureInfo("de-DE");
+CultureInfo.DefaultThreadCurrentCulture = culture;
+CultureInfo.DefaultThreadCurrentUICulture = culture;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -54,9 +60,17 @@ builder.Services.AddHttpClient<IRapportApiClient, RapportApiClient>(client =>
     client.BaseAddress = new Uri(rapportUrl);
 });
 
-// Add YARP Reverse Proxy for Faktura and Rapport modules
+// Add HttpClient fuer Offerte-API
+builder.Services.AddHttpClient<IOfferteApiClient, OfferteApiClient>(client =>
+{
+    var rapportUrl = builder.Configuration.GetValue<string>("ServiceUrls:Offerte") ?? "http://localhost:8083";
+    client.BaseAddress = new Uri(rapportUrl);
+});
+
+// Add YARP Reverse Proxy for Faktura, Rapport, and Offerte modules
 var fakturaServiceUrl = builder.Configuration.GetValue<string>("ServiceUrls:Faktura") ?? "http://localhost:8081";
 var rapportServiceUrl = builder.Configuration.GetValue<string>("ServiceUrls:Rapport") ?? "http://localhost:8082";
+var offerteServiceUrl = builder.Configuration.GetValue<string>("ServiceUrls:Offerte") ?? "http://localhost:8083";
 builder.Services.AddReverseProxy()
     .LoadFromMemory(
         routes: new[]
@@ -96,6 +110,24 @@ builder.Services.AddReverseProxy()
                 {
                     Path = "/_rapport/{**catch-all}"
                 }
+            },
+            new Yarp.ReverseProxy.Configuration.RouteConfig
+            {
+                RouteId = "offerte-route",
+                ClusterId = "offerte-cluster",
+                Match = new Yarp.ReverseProxy.Configuration.RouteMatch
+                {
+                    Path = "/offerte/{**catch-all}"
+                }
+            },
+            new Yarp.ReverseProxy.Configuration.RouteConfig
+            {
+                RouteId = "offerte-blazor-route",
+                ClusterId = "offerte-cluster",
+                Match = new Yarp.ReverseProxy.Configuration.RouteMatch
+                {
+                    Path = "/_offerte/{**catch-all}"
+                }
             }
         },
         clusters: new[]
@@ -114,6 +146,14 @@ builder.Services.AddReverseProxy()
                 Destinations = new Dictionary<string, Yarp.ReverseProxy.Configuration.DestinationConfig>
                 {
                     { "rapport", new Yarp.ReverseProxy.Configuration.DestinationConfig { Address = rapportServiceUrl } }
+                }
+            },
+            new Yarp.ReverseProxy.Configuration.ClusterConfig
+            {
+                ClusterId = "offerte-cluster",
+                Destinations = new Dictionary<string, Yarp.ReverseProxy.Configuration.DestinationConfig>
+                {
+                    { "offerte", new Yarp.ReverseProxy.Configuration.DestinationConfig { Address = offerteServiceUrl } }
                 }
             }
         });

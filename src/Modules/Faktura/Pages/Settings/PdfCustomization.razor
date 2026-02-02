@@ -2,6 +2,7 @@
 @page "/settings/pdf-anpassung"
 @using Kuestencode.Faktura.Models
 @using Kuestencode.Faktura.Services
+@using Kuestencode.Shared.UI.Components
 @inject ICompanyService CompanyService
 @inject ISnackbar Snackbar
 @inject IDialogService DialogService
@@ -231,7 +232,7 @@
                 @if (!_loading)
                 {
                     <div style="max-height: 100vh; overflow-y: auto;">
-                        <PdfPreview Company="@_company" />
+                        <Kuestencode.Shared.UI.Components.PdfPreview GeneratePdf="@GeneratePreviewPdf" />
                     </div>
                 }
             </MudPaper>
@@ -249,7 +250,7 @@
                     @if (!_loading)
                     {
                         <div style="max-height: calc(100vh - 200px); overflow-y: auto;">
-                            <PdfPreview Company="@_company" />
+                            <Kuestencode.Shared.UI.Components.PdfPreview GeneratePdf="@GeneratePreviewPdf" />
                         </div>
                     }
                 </MudPaper>
