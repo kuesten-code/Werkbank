@@ -25,6 +25,7 @@ services:
     build:
       context: .
       dockerfile: src/Host/Dockerfile
+    image: kuestencode/host:latest
     container_name: kuestencode_host_dev
     ports:
       - "8080:8080"
