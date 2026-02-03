@@ -28,10 +28,10 @@ jobs:
           DOCKERFILES[offerte]="src/Modules/Offerte/Kuestencode.Werkbank.Offerte/Dockerfile"
 
           declare -A IMAGE_NAMES
-          IMAGE_NAMES[host]="werkbank-host"
-          IMAGE_NAMES[faktura]="werkbank-faktura"
-          IMAGE_NAMES[rapport]="werkbank-rapport"
-          IMAGE_NAMES[offerte]="werkbank-offerte"
+          IMAGE_NAMES[host]="host"
+          IMAGE_NAMES[faktura]="faktura"
+          IMAGE_NAMES[rapport]="rapport"
+          IMAGE_NAMES[offerte]="offerte"
 
           # Read VERSION file and build matrix
           MATRIX_JSON='{"include":['
