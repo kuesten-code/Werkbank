@@ -27,6 +27,7 @@ FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS final
 WORKDIR /app
 EXPOSE 8080
 
+
 # Copy published app
 COPY --from=publish /app/publish .
 

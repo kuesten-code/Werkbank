@@ -26,6 +26,10 @@ FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS final
 WORKDIR /app
 EXPOSE 8082
 
+# Set version from build argument
+ARG DOCKER_IMAGE_TAG=dev
+ENV DOCKER_IMAGE_TAG=${DOCKER_IMAGE_TAG}
+
 # Copy published app
 COPY --from=publish /app/publish .
 
