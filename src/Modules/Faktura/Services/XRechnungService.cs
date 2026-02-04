@@ -394,13 +394,15 @@ public class XRechnungService : IXRechnungService
                 )
             ),
 
-            // BT-32: Seller tax registration (FC = Steuernummer)
-            new XElement(Ram + "SpecifiedTaxRegistration",
-                new XElement(Ram + "ID",
-                    new XAttribute("schemeID", "FC"),
-                    company.TaxNumber.Trim()
+            // BT-32: Seller tax registration (FC = Steuernummer, optional)
+            !string.IsNullOrWhiteSpace(company.TaxNumber)
+                ? new XElement(Ram + "SpecifiedTaxRegistration",
+                    new XElement(Ram + "ID",
+                        new XAttribute("schemeID", "FC"),
+                        company.TaxNumber.Trim()
+                    )
                 )
-            ),
+                : null,
 
             // BT-31: Seller VAT identifier (VA = USt-IdNr., optional)
             hasVatId
