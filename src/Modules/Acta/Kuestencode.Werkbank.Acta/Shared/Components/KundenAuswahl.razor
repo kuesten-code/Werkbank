@@ -1,0 +1,78 @@
+@* KundenAuswahl component for selecting a customer via autocomplete *@
+
+@inject CoreInterfaces.ICustomerService CustomerService
+
+<MudAutocomplete T="Customer"
+    Label="@Label"
+    Value="SelectedCustomer"
+    ValueChanged="OnCustomerSelected"
+    SearchFunc="@SearchCustomersAsync"
+    ToStringFunc="@(c => c?.Name ?? string.Empty)"
+    ResetValueOnEmptyText="false"
+    CoerceText="false"
+    CoerceValue="false"
+    Required="@Required"
+    Disabled="@Disabled"
+    Error="@_hasError"
+    ErrorText="@_errorText"
+    Variant="Variant.Outlined"
+    Strict="false">
+    <ItemTemplate Context="customer">
+        <MudText>@customer.Name</MudText>
+        <MudText Typo="Typo.caption">@customer.CustomerNumber - @customer.City</MudText>
+    </ItemTemplate>
+</MudAutocomplete>
+
+@code {
+    private bool _hasError;
+    private string _errorText = string.Empty;
+    private List<Customer>? _customers;
+
+    [Parameter]
+    public Customer? SelectedCustomer { get; set; }
+
+    [Parameter]
+    public EventCallback<Customer?> SelectedCustomerChanged { get; set; }
+
+    [Parameter]
+    public string Label { get; set; } = "Kunde auswählen";
+
+    [Parameter]
+    public bool Required { get; set; } = true;
+
+    [Parameter]
+    public bool Disabled { get; set; } = false;
+
+    private async Task OnCustomerSelected(Customer? customer)
+    {
+        SelectedCustomer = customer;
+        await SelectedCustomerChanged.InvokeAsync(customer);
+    }
+
+    private async Task<IEnumerable<Customer>> SearchCustomersAsync(string? value, CancellationToken token)
+    {
+        try
+        {
+            _hasError = false;
+            _errorText = string.Empty;
+
+            _customers ??= await CustomerService.GetAllAsync();
+
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return _customers;
+            }
+
+            return _customers.Where(c =>
+                c.Name.Contains(value, StringComparison.OrdinalIgnoreCase) ||
+                c.CustomerNumber.Contains(value, StringComparison.OrdinalIgnoreCase) ||
+                (c.City?.Contains(value, StringComparison.OrdinalIgnoreCase) ?? false));
+        }
+        catch (Exception)
+        {
+            _hasError = true;
+            _errorText = "Fehler beim Laden der Kunden";
+            return [];
+        }
+    }
+}

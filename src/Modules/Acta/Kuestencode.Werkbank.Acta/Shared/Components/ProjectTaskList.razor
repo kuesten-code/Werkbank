@@ -1,0 +1,219 @@
+@using Kuestencode.Werkbank.Acta.Domain.Enums
+@using Kuestencode.Werkbank.Acta.Shared.Dialogs
+@inject Kuestencode.Werkbank.Acta.Services.IProjectTaskService TaskService
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+
+<MudStack Spacing="4">
+    @if (IsEditable)
+    {
+        <MudStack Row="true" Justify="Justify.FlexEnd">
+            <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                      StartIcon="@Icons.Material.Filled.Add"
+                      OnClick="AddTask">
+                Neue Aufgabe
+            </MudButton>
+        </MudStack>
+    }
+
+    @if (Tasks.Count == 0)
+    {
+        <MudAlert Severity="Severity.Info">
+            Noch keine Aufgaben vorhanden.
+            @if (IsEditable)
+            {
+                <text> Fügen Sie die erste Aufgabe hinzu.</text>
+            }
+        </MudAlert>
+    }
+    else
+    {
+        <MudTable Items="@Tasks.OrderBy(t => t.SortOrder)" Dense="true" Hover="true" Elevation="0">
+            <HeaderContent>
+                <MudTh Style="width: 50px;"></MudTh>
+                <MudTh>Aufgabe</MudTh>
+                <MudTh Style="width: 120px;">Status</MudTh>
+                <MudTh Style="width: 120px;">Zieldatum</MudTh>
+                @if (IsEditable)
+                {
+                    <MudTh Style="width: 100px; text-align: right;">Aktionen</MudTh>
+                }
+            </HeaderContent>
+            <RowTemplate Context="task">
+                <MudTd>
+                    <MudCheckBox T="bool"
+                                Value="@(task.Status == ProjectTaskStatus.Completed)"
+                                ValueChanged="@((bool val) => ToggleTaskStatus(task, val))"
+                                Disabled="@(!IsEditable)"
+                                Color="Color.Success" />
+                </MudTd>
+                <MudTd>
+                    <MudStack Spacing="0">
+                        <MudText Style="@(task.Status == ProjectTaskStatus.Completed ? "text-decoration: line-through; color: gray;" : "")">
+                            @task.Title
+                        </MudText>
+                        @if (!string.IsNullOrWhiteSpace(task.Notes))
+                        {
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">@task.Notes</MudText>
+                        }
+                    </MudStack>
+                </MudTd>
+                <MudTd>
+                    <MudChip T="string" Size="Size.Small" Color="@GetTaskStatusColor(task.Status)">
+                        @GetTaskStatusText(task.Status)
+                    </MudChip>
+                </MudTd>
+                <MudTd>
+                    @if (task.TargetDate.HasValue)
+                    {
+                        var isOverdue = task.TargetDate.Value < DateOnly.FromDateTime(DateTime.Today)
+                                        && task.Status != ProjectTaskStatus.Completed;
+                        <MudText Typo="Typo.body2" Color="@(isOverdue ? Color.Error : Color.Default)">
+                            @task.TargetDate.Value.ToString("dd.MM.yyyy")
+                        </MudText>
+                    }
+                    else
+                    {
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">-</MudText>
+                    }
+                </MudTd>
+                @if (IsEditable)
+                {
+                    <MudTd Style="text-align: right;">
+                        <MudTooltip Text="Bearbeiten">
+                            <MudIconButton Icon="@Icons.Material.Filled.Edit"
+                                          Color="Color.Primary" Size="Size.Small"
+                                          OnClick="@(() => EditTask(task))" />
+                        </MudTooltip>
+                        <MudTooltip Text="Löschen">
+                            <MudIconButton Icon="@Icons.Material.Filled.Delete"
+                                          Color="Color.Error" Size="Size.Small"
+                                          OnClick="@(() => DeleteTask(task))" />
+                        </MudTooltip>
+                    </MudTd>
+                }
+            </RowTemplate>
+        </MudTable>
+
+        <MudStack Row="true" Justify="Justify.FlexEnd" Class="mt-2">
+            <MudText Typo="Typo.caption" Color="Color.Secondary">
+                @Tasks.Count(t => t.Status == ProjectTaskStatus.Completed) von @Tasks.Count Aufgaben erledigt
+            </MudText>
+        </MudStack>
+    }
+</MudStack>
+
+@code {
+    [Parameter, EditorRequired]
+    public Guid ProjectId { get; set; }
+
+    [Parameter]
+    public List<ProjectTask> Tasks { get; set; } = new();
+
+    [Parameter]
+    public bool IsEditable { get; set; } = true;
+
+    [Parameter]
+    public EventCallback OnTasksChanged { get; set; }
+
+    private Color GetTaskStatusColor(ProjectTaskStatus status) => status switch
+    {
+        ProjectTaskStatus.Open => Color.Default,
+        ProjectTaskStatus.Completed => Color.Success,
+        _ => Color.Default
+    };
+
+    private string GetTaskStatusText(ProjectTaskStatus status) => status switch
+    {
+        ProjectTaskStatus.Open => "Offen",
+        ProjectTaskStatus.Completed => "Erledigt",
+        _ => status.ToString()
+    };
+
+    private async Task ToggleTaskStatus(ProjectTask task, bool completed)
+    {
+        try
+        {
+            if (completed)
+            {
+                await TaskService.SetCompletedAsync(task.Id);
+            }
+            else
+            {
+                await TaskService.SetOpenAsync(task.Id);
+            }
+
+            await OnTasksChanged.InvokeAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Fehler: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task AddTask()
+    {
+        var parameters = new DialogParameters<TaskEditDialog>
+        {
+            { x => x.ProjectId, ProjectId },
+            { x => x.IsNew, true },
+            { x => x.NextSortOrder, Tasks.Count > 0 ? Tasks.Max(t => t.SortOrder) + 1 : 1 }
+        };
+
+        var options = new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true };
+        var dialog = await DialogService.ShowAsync<TaskEditDialog>("Neue Aufgabe", parameters, options);
+        var result = await dialog.Result;
+
+        if (result != null && !result.Canceled)
+        {
+            await OnTasksChanged.InvokeAsync();
+        }
+    }
+
+    private async Task EditTask(ProjectTask task)
+    {
+        var parameters = new DialogParameters<TaskEditDialog>
+        {
+            { x => x.ProjectId, ProjectId },
+            { x => x.Task, task },
+            { x => x.IsNew, false }
+        };
+
+        var options = new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true };
+        var dialog = await DialogService.ShowAsync<TaskEditDialog>("Aufgabe bearbeiten", parameters, options);
+        var result = await dialog.Result;
+
+        if (result != null && !result.Canceled)
+        {
+            await OnTasksChanged.InvokeAsync();
+        }
+    }
+
+    private async Task DeleteTask(ProjectTask task)
+    {
+        var parameters = new DialogParameters<Kuestencode.Werkbank.Acta.Shared.Dialogs.ConfirmDialog>
+        {
+            { x => x.Title, "Aufgabe löschen" },
+            { x => x.ContentText, $"Möchten Sie die Aufgabe '{task.Title}' wirklich löschen?" },
+            { x => x.ButtonText, "Löschen" },
+            { x => x.Color, Color.Error }
+        };
+
+        var dialog = await DialogService.ShowAsync<Kuestencode.Werkbank.Acta.Shared.Dialogs.ConfirmDialog>("Löschen", parameters);
+        var result = await dialog.Result;
+
+        if (result != null && !result.Canceled)
+        {
+            try
+            {
+                await TaskService.DeleteAsync(task.Id);
+                Snackbar.Add("Aufgabe wurde gelöscht.", Severity.Success);
+                await OnTasksChanged.InvokeAsync();
+            }
+            catch (Exception ex)
+            {
+                Snackbar.Add($"Fehler beim Löschen: {ex.Message}", Severity.Error);
+            }
+        }
+    }
+}
