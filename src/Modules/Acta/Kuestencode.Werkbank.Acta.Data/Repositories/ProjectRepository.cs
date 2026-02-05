@@ -103,4 +103,34 @@ public class ProjectRepository : IProjectRepository
     {
         return await _context.Projects.AnyAsync(p => p.ProjectNumber == projectNumber);
     }
+
+    public async Task<string> GenerateProjectNumberAsync()
+    {
+        var year = DateTime.UtcNow.Year;
+        var prefix = $"P-{year}-";
+
+        var lastNumber = await _context.Projects
+            .Where(p => p.ProjectNumber.StartsWith(prefix))
+            .OrderByDescending(p => p.ProjectNumber)
+            .Select(p => p.ProjectNumber)
+            .FirstOrDefaultAsync();
+
+        int nextNumber = 1;
+        if (lastNumber != null)
+        {
+            var numberPart = lastNumber[prefix.Length..];
+            if (int.TryParse(numberPart, out var num))
+                nextNumber = num + 1;
+        }
+
+        return $"{prefix}{nextNumber:D4}";
+    }
+
+    public async Task<int> GetNextExternalIdAsync()
+    {
+        var maxId = await _context.Projects
+            .Where(p => p.ExternalId.HasValue)
+            .MaxAsync(p => (int?)p.ExternalId) ?? 0;
+        return maxId + 1;
+    }
 }

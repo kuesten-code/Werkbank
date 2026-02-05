@@ -52,4 +52,15 @@ public interface IProjectRepository
     /// Prüft, ob eine Projektnummer bereits existiert.
     /// </summary>
     Task<bool> ExistsNumberAsync(string projectNumber);
+
+    /// <summary>
+    /// Generiert die nächste verfügbare Projektnummer.
+    /// Format: P-YYYY-NNNN (z.B. P-2026-0001)
+    /// </summary>
+    Task<string> GenerateProjectNumberAsync();
+
+    /// <summary>
+    /// Gibt die nächste freie ExternalId zurück.
+    /// </summary>
+    Task<int> GetNextExternalIdAsync();
 }

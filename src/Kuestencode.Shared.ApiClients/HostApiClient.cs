@@ -1,6 +1,8 @@
 using System.Net.Http.Json;
+using Kuestencode.Shared.Contracts.Acta;
 using Kuestencode.Shared.Contracts.Host;
 using Kuestencode.Shared.Contracts.Navigation;
+using Kuestencode.Shared.Contracts.Rapport;
 
 namespace Kuestencode.Shared.ApiClients;
 
@@ -86,6 +88,48 @@ public class HostApiClient : IHostApiClient
         catch
         {
             return [];
+        }
+    }
+
+    public async Task<ProjectHoursResponseDto?> GetProjectHoursAsync(int projectId)
+    {
+        try
+        {
+            var response = await _httpClient.GetAsync($"/api/rapport/projects/{projectId}/hours").ConfigureAwait(false);
+            if (!response.IsSuccessStatusCode) return null;
+            return await response.Content.ReadFromJsonAsync<ProjectHoursResponseDto>().ConfigureAwait(false);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    public async Task<List<ActaProjectDto>> GetActaProjectsAsync()
+    {
+        try
+        {
+            var response = await _httpClient.GetAsync("/api/acta-proxy/projects").ConfigureAwait(false);
+            if (!response.IsSuccessStatusCode) return [];
+            return await response.Content.ReadFromJsonAsync<List<ActaProjectDto>>().ConfigureAwait(false) ?? [];
+        }
+        catch
+        {
+            return [];
+        }
+    }
+
+    public async Task<ActaProjectDto?> GetActaProjectAsync(int externalId)
+    {
+        try
+        {
+            var response = await _httpClient.GetAsync($"/api/acta-proxy/projects/{externalId}").ConfigureAwait(false);
+            if (!response.IsSuccessStatusCode) return null;
+            return await response.Content.ReadFromJsonAsync<ActaProjectDto>().ConfigureAwait(false);
+        }
+        catch
+        {
+            return null;
         }
     }
 }

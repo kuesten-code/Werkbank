@@ -85,6 +85,11 @@ public class Project
     [Column(TypeName = "decimal(18,2)")]
     public decimal? BudgetNet { get; set; }
 
+    /// <summary>
+    /// Externe Projekt-ID für die Verknüpfung mit anderen Modulen (z.B. Rapport).
+    /// </summary>
+    public int? ExternalId { get; set; }
+
     // Navigation Properties
     public List<ProjectTask> Tasks { get; set; } = new();
 

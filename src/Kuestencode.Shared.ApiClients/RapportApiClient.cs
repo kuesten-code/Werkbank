@@ -38,4 +38,18 @@ public class RapportApiClient : IRapportApiClient
         response.EnsureSuccessStatusCode();
         return await response.Content.ReadAsByteArrayAsync().ConfigureAwait(false);
     }
+
+    public async Task<ProjectHoursResponseDto?> GetProjectHoursAsync(int projectId)
+    {
+        try
+        {
+            var response = await _httpClient.GetAsync($"/api/dashboard/projects/{projectId}/hours").ConfigureAwait(false);
+            if (!response.IsSuccessStatusCode) return null;
+            return await response.Content.ReadFromJsonAsync<ProjectHoursResponseDto>().ConfigureAwait(false);
+        }
+        catch
+        {
+            return null;
+        }
+    }
 }

@@ -1,3 +1,4 @@
+using Kuestencode.Shared.Contracts.Acta;
 using Kuestencode.Werkbank.Acta.Controllers.Dtos;
 using Kuestencode.Werkbank.Acta.Domain.Dtos;
 using Kuestencode.Werkbank.Acta.Domain.Entities;
@@ -12,11 +13,13 @@ namespace Kuestencode.Werkbank.Acta.Controllers;
 public class ProjectsController : ControllerBase
 {
     private readonly IProjectService _projectService;
+    private readonly Kuestencode.Core.Interfaces.ICustomerService _customerService;
     private readonly ILogger<ProjectsController> _logger;
 
-    public ProjectsController(IProjectService projectService, ILogger<ProjectsController> logger)
+    public ProjectsController(IProjectService projectService, Kuestencode.Core.Interfaces.ICustomerService customerService, ILogger<ProjectsController> logger)
     {
         _projectService = projectService;
+        _customerService = customerService;
         _logger = logger;
     }
 
@@ -195,6 +198,58 @@ public class ProjectsController : ControllerBase
         };
 
         return Ok(summary);
+    }
+
+    /// <summary>
+    /// Liefert alle Projekte im leichtgewichtigen Format für andere Module.
+    /// Weist automatisch ExternalIds zu, falls noch nicht vorhanden.
+    /// </summary>
+    [HttpGet("external")]
+    public async Task<ActionResult<List<ActaProjectDto>>> GetExternalProjects()
+    {
+        await _projectService.EnsureExternalIdsAsync();
+
+        var projects = await _projectService.GetAllAsync();
+        var result = new List<ActaProjectDto>();
+
+        foreach (var project in projects.Where(p => p.ExternalId.HasValue
+            && p.Status != ProjectStatus.Draft
+            && p.Status != ProjectStatus.Archived))
+        {
+            var customer = await _customerService.GetByIdAsync(project.CustomerId);
+            result.Add(new ActaProjectDto
+            {
+                Id = project.ExternalId!.Value,
+                Name = project.Name,
+                ProjectNumber = project.ProjectNumber,
+                CustomerId = project.CustomerId,
+                CustomerName = customer?.Name ?? "Unbekannt"
+            });
+        }
+
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Liefert ein Projekt anhand der ExternalId im leichtgewichtigen Format.
+    /// </summary>
+    [HttpGet("external/{externalId:int}")]
+    public async Task<ActionResult<ActaProjectDto>> GetExternalProject(int externalId)
+    {
+        var projects = await _projectService.GetAllAsync();
+        var project = projects.FirstOrDefault(p => p.ExternalId == externalId);
+        if (project == null)
+            return NotFound();
+
+        var customer = await _customerService.GetByIdAsync(project.CustomerId);
+        return Ok(new ActaProjectDto
+        {
+            Id = project.ExternalId!.Value,
+            Name = project.Name,
+            ProjectNumber = project.ProjectNumber,
+            CustomerId = project.CustomerId,
+            CustomerName = customer?.Name ?? "Unbekannt"
+        });
     }
 
     private ProjectDto MapToDto(Project project)

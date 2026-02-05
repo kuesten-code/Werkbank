@@ -48,4 +48,15 @@ public interface IProjectService
     /// Gibt die verfügbaren Statusübergänge für ein Projekt zurück.
     /// </summary>
     IReadOnlyList<(ProjectStatus TargetStatus, string ActionName)> GetAvailableTransitions(Project project);
+
+    /// <summary>
+    /// Generiert die nächste verfügbare Projektnummer.
+    /// </summary>
+    Task<string> GenerateProjectNumberAsync();
+
+    /// <summary>
+    /// Stellt sicher, dass alle Projekte eine ExternalId haben.
+    /// Weist fehlende ExternalIds automatisch zu.
+    /// </summary>
+    Task EnsureExternalIdsAsync();
 }

@@ -24,7 +24,17 @@
             <!-- Kopfdaten -->
             <MudText Typo="Typo.h6" Class="mt-4 mb-2">Stammdaten</MudText>
             <MudGrid>
-                <MudItem xs="12">
+                <MudItem xs="12" sm="4">
+                    <MudTextField @bind-Value="_model.ProjectNumber"
+                                 Label="Projektnummer"
+                                 Required="true"
+                                 RequiredError="Projektnummer ist erforderlich"
+                                 Variant="Variant.Outlined"
+                                 MaxLength="50"
+                                 Immediate="true"
+                                 HelperText="Wird automatisch generiert, kann angepasst werden" />
+                </MudItem>
+                <MudItem xs="12" sm="8">
                     <MudTextField @bind-Value="_model.Name"
                                  Label="Projektname"
                                  Required="true"
@@ -146,6 +156,18 @@
     private Customer? _selectedCustomer;
     private DateTime? _startDate;
     private DateTime? _targetDate;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _model.ProjectNumber = await ProjectService.GenerateProjectNumberAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Projektnummer konnte nicht generiert werden: {ex.Message}", Severity.Warning);
+        }
+    }
 
     private void CopyCustomerAddress()
     {

@@ -1,3 +1,6 @@
+using System.Net.Http.Json;
+using Kuestencode.Shared.Contracts.Acta;
+
 namespace Kuestencode.Shared.ApiClients;
 
 /// <summary>
@@ -22,6 +25,34 @@ public class ActaApiClient : IActaApiClient
         catch
         {
             return false;
+        }
+    }
+
+    public async Task<List<ActaProjectDto>> GetProjectsAsync()
+    {
+        try
+        {
+            var response = await _httpClient.GetAsync("/api/acta/projects/external").ConfigureAwait(false);
+            if (!response.IsSuccessStatusCode) return [];
+            return await response.Content.ReadFromJsonAsync<List<ActaProjectDto>>().ConfigureAwait(false) ?? [];
+        }
+        catch
+        {
+            return [];
+        }
+    }
+
+    public async Task<ActaProjectDto?> GetProjectByExternalIdAsync(int externalId)
+    {
+        try
+        {
+            var response = await _httpClient.GetAsync($"/api/acta/projects/external/{externalId}").ConfigureAwait(false);
+            if (!response.IsSuccessStatusCode) return null;
+            return await response.Content.ReadFromJsonAsync<ActaProjectDto>().ConfigureAwait(false);
+        }
+        catch
+        {
+            return null;
         }
     }
 }

@@ -19,7 +19,7 @@ DOCKER_USER="${DOCKERHUB_USERNAME:-kuestencode}"
 COMPOSE_FILE="${COMPOSE_FILE:-docker-compose.yml}"
 
 # Known modules
-KNOWN_MODULES=("host" "faktura" "rapport" "offerte")
+KNOWN_MODULES=("host" "faktura" "rapport" "offerte" "acta")
 
 # Potential new modules
 POTENTIAL_MODULES=("lager" "buchhaltung" "projekt" "kunde" "dokument")

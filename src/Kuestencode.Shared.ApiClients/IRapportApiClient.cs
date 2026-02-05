@@ -1,8 +1,11 @@
-﻿namespace Kuestencode.Shared.ApiClients;
+﻿using Kuestencode.Shared.Contracts.Rapport;
+
+namespace Kuestencode.Shared.ApiClients;
 
 public interface IRapportApiClient
 {
     Task<bool> IsHealthyAsync();
-    Task<byte[]> GenerateTimesheetPdfAsync(Kuestencode.Shared.Contracts.Rapport.TimesheetExportRequestDto request);
-    Task<byte[]> GenerateTimesheetCsvAsync(Kuestencode.Shared.Contracts.Rapport.TimesheetExportRequestDto request);
+    Task<byte[]> GenerateTimesheetPdfAsync(TimesheetExportRequestDto request);
+    Task<byte[]> GenerateTimesheetCsvAsync(TimesheetExportRequestDto request);
+    Task<ProjectHoursResponseDto?> GetProjectHoursAsync(int projectId);
 }

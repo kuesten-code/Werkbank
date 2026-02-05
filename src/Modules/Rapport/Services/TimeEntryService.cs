@@ -186,10 +186,10 @@ public class TimeEntryService
             throw new ValidationException("Start time must be before end time.");
         }
 
-        var now = DateTime.UtcNow;
-        if (start > now || end > now)
+        var now = DateTime.UtcNow.AddMinutes(1);
+        if (start > now)
         {
-            throw new ValidationException("Manual entries cannot be in the future.");
+            throw new ValidationException("Start time cannot be in the future.");
         }
     }
 
@@ -249,11 +249,6 @@ public class TimeEntryService
 
         var rounded = _roundingService.RoundDuration(end - start, settings.RoundingMinutes);
         var roundedEnd = start.Add(rounded);
-        var now = DateTime.UtcNow;
-        if (roundedEnd > now)
-        {
-            roundedEnd = now;
-        }
 
         return (start, roundedEnd);
     }

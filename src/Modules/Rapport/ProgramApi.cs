@@ -89,6 +89,11 @@ public class ProgramApi
         builder.Services.AddScoped<TimeEntryService>();
         builder.Services.AddScoped<DashboardService>();
 
+        // Register Acta-backed IProjectService before AddRapportModule,
+        // so MockProjectService (TryAddScoped fallback) is not used.
+        // ApiProjectService prüft dynamisch ob Acta verfügbar ist.
+        builder.Services.AddScoped<IProjectService, ApiProjectService>();
+
         // Add Rapport Services (includes DbContext, Repositories, etc.)
         builder.Services.AddRapportModule(builder.Configuration);
 

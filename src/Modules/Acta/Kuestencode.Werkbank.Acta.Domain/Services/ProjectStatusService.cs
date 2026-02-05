@@ -111,6 +111,13 @@ public class ProjectStatusService
     public void Abschliessen(Project project)
     {
         ValidateTransition(project, ProjectStatus.Completed, "abgeschlossen");
+
+        if (project.OpenTasksCount > 0)
+        {
+            throw new InvalidOperationException(
+                $"Projekt kann nicht abgeschlossen werden. Es gibt noch {project.OpenTasksCount} offene Aufgabe(n).");
+        }
+
         project.Status = ProjectStatus.Completed;
         project.CompletedAt = DateTime.UtcNow;
     }

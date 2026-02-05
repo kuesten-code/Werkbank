@@ -181,8 +181,8 @@ else
 
         var startLocal = _date.Value.Date + _startTime.Value;
         var endLocal = _date.Value.Date + _endTime.Value;
-        var startUtc = DateTime.SpecifyKind(startLocal, DateTimeKind.Local).ToUniversalTime();
-        var endUtc = DateTime.SpecifyKind(endLocal, DateTimeKind.Local).ToUniversalTime();
+        var startUtc = DateTime.SpecifyKind(startLocal, DateTimeKind.Utc);
+        var endUtc = DateTime.SpecifyKind(endLocal, DateTimeKind.Utc);
 
         _durationDisplay = FormatDuration(endLocal - startLocal);
 

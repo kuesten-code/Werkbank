@@ -1,3 +1,5 @@
+using Kuestencode.Shared.Contracts.Acta;
+
 namespace Kuestencode.Shared.ApiClients;
 
 /// <summary>
@@ -5,8 +7,7 @@ namespace Kuestencode.Shared.ApiClients;
 /// </summary>
 public interface IActaApiClient
 {
-    /// <summary>
-    /// Checks whether the Acta module reports a healthy status.
-    /// </summary>
     Task<bool> CheckHealthAsync();
+    Task<List<ActaProjectDto>> GetProjectsAsync();
+    Task<ActaProjectDto?> GetProjectByExternalIdAsync(int externalId);
 }

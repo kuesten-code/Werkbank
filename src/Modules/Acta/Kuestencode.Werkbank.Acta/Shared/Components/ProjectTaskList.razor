@@ -41,7 +41,7 @@
                                         Disabled="@Disabled"
                                         Color="Color.Primary" />
 
-                            <MudStack Spacing="0" Class="cursor-pointer" @onclick="@(() => EditTask(task))">
+                            <MudStack Spacing="0" Class="cursor-pointer" @onclick="@(() => OpenDrawer(task))">
                                 <MudText Style="@(IsOverdue(task) ? "color: var(--mud-palette-error);" : "")">
                                     @task.Title
                                 </MudText>
@@ -90,7 +90,7 @@
                                             ValueChanged="@(() => ToggleTaskStatus(task))"
                                             Disabled="@Disabled"
                                             Color="Color.Success" />
-                                <MudStack Spacing="0" Class="cursor-pointer" @onclick="@(() => EditTask(task))">
+                                <MudStack Spacing="0" Class="cursor-pointer" @onclick="@(() => OpenDrawer(task))">
                                     <MudText Style="text-decoration: line-through; color: var(--mud-palette-text-secondary);">
                                         @task.Title
                                     </MudText>
@@ -127,7 +127,8 @@
             @if (!Disabled)
             {
                 <MudPaper Class="pa-2" Outlined="true">
-                    <MudTextField @bind-Value="_newTaskTitle"
+                    <MudTextField @ref="_newTaskField"
+                                 @bind-Value="_newTaskTitle"
                                  Placeholder="Neue Aufgabe..."
                                  Variant="Variant.Text"
                                  Immediate="true"
@@ -142,12 +143,89 @@
     }
 </MudPaper>
 
+@* Sidebar Drawer for editing task details *@
+<SideDrawer @bind-IsOpen="_drawerOpen" Title="Aufgabe bearbeiten">
+    <ChildContent>
+        @if (_editingTask != null)
+        {
+            <MudStack Spacing="3">
+                <MudTextField @bind-Value="_editModel.Title"
+                             Label="Titel"
+                             Required="true"
+                             RequiredError="Titel ist erforderlich"
+                             Variant="Variant.Outlined"
+                             Disabled="@Disabled"
+                             MaxLength="500" />
+
+                <MudTextField @bind-Value="_editModel.Notes"
+                             Label="Notizen"
+                             Variant="Variant.Outlined"
+                             Disabled="@Disabled"
+                             Lines="4"
+                             MaxLength="2000" />
+
+                <MudDatePicker @bind-Date="_editTargetDate"
+                              Label="Zieltermin"
+                              Variant="Variant.Outlined"
+                              Disabled="@Disabled"
+                              DateFormat="dd.MM.yyyy"
+                              Clearable="true" />
+
+                <MudSelect T="Guid?" @bind-Value="_editModel.AssignedUserId"
+                          Label="Zuständig"
+                          Variant="Variant.Outlined"
+                          Disabled="@Disabled"
+                          Clearable="true">
+                    @foreach (var member in _teamMembers)
+                    {
+                        <MudSelectItem T="Guid?" Value="@((Guid?)member.Id)">@member.DisplayName</MudSelectItem>
+                    }
+                </MudSelect>
+
+                @if (!Disabled)
+                {
+                    <MudStack Row="true" Justify="Justify.SpaceBetween" Class="mt-4">
+                        @if (_editingTask.Status == ProjectTaskStatus.Open)
+                        {
+                            <MudButton Color="Color.Error"
+                                      Variant="Variant.Text"
+                                      StartIcon="@Icons.Material.Filled.Delete"
+                                      OnClick="DeleteEditingTask">
+                                Löschen
+                            </MudButton>
+                        }
+                        else
+                        {
+                            <MudSpacer />
+                        }
+                        <MudButton Color="Color.Primary"
+                                  Variant="Variant.Filled"
+                                  StartIcon="@Icons.Material.Filled.Save"
+                                  OnClick="SaveEditingTask"
+                                  Disabled="@(string.IsNullOrWhiteSpace(_editModel.Title))">
+                            Speichern
+                        </MudButton>
+                    </MudStack>
+                }
+            </MudStack>
+        }
+    </ChildContent>
+</SideDrawer>
+
 @code {
     private bool _loading = true;
     private List<ProjectTask> _tasks = new();
     private IReadOnlyList<TeamMember> _teamMembers = Array.Empty<TeamMember>();
     private Dictionary<Guid, TeamMember> _teamMemberLookup = new();
     private string _newTaskTitle = string.Empty;
+    private MudTextField<string>? _newTaskField;
+    private Guid _loadedProjectId;
+
+    // Drawer state
+    private bool _drawerOpen;
+    private ProjectTask? _editingTask;
+    private UpdateProjectTaskDto _editModel = new();
+    private DateTime? _editTargetDate;
 
     [Parameter]
     public Guid ProjectId { get; set; }
@@ -165,8 +243,9 @@
 
     protected override async Task OnParametersSetAsync()
     {
-        if (ProjectId != Guid.Empty)
+        if (ProjectId != Guid.Empty && ProjectId != _loadedProjectId)
         {
+            _loadedProjectId = ProjectId;
             await LoadTasksAsync();
         }
     }
@@ -181,7 +260,6 @@
 
     private async Task LoadTasksAsync()
     {
-        _loading = true;
         try
         {
             _tasks = await TaskService.GetByProjectIdAsync(ProjectId);
@@ -189,7 +267,6 @@
         finally
         {
             _loading = false;
-            await InvokeAsync(StateHasChanged);
         }
     }
 
@@ -313,9 +390,13 @@
             };
             await TaskService.CreateAsync(ProjectId, dto);
             _newTaskTitle = string.Empty;
+            if (_newTaskField != null)
+                await _newTaskField.Clear();
             await LoadTasksAsync();
             await OnTasksChanged.InvokeAsync();
             Snackbar.Add("Aufgabe erstellt", Severity.Success);
+            if (_newTaskField != null)
+                await _newTaskField.FocusAsync();
         }
         catch (Exception ex)
         {
@@ -323,28 +404,82 @@
         }
     }
 
-    private async Task EditTask(ProjectTask task)
+    // Drawer methods
+
+    private void OpenDrawer(ProjectTask task)
     {
-        var parameters = new DialogParameters<TaskEditDialog>
+        _editingTask = task;
+        _editModel = new UpdateProjectTaskDto
         {
-            { x => x.Task, task },
-            { x => x.Disabled, Disabled }
+            Title = task.Title,
+            Notes = task.Notes,
+            TargetDate = task.TargetDate,
+            AssignedUserId = task.AssignedUserId,
+            Status = task.Status,
+            SortOrder = task.SortOrder
+        };
+        _editTargetDate = task.TargetDate?.ToDateTime(TimeOnly.MinValue);
+        _drawerOpen = true;
+    }
+
+    private void CloseDrawer()
+    {
+        _drawerOpen = false;
+        _editingTask = null;
+    }
+
+    private async Task SaveEditingTask()
+    {
+        if (_editingTask == null || string.IsNullOrWhiteSpace(_editModel.Title))
+            return;
+
+        try
+        {
+            _editModel.TargetDate = _editTargetDate.HasValue
+                ? DateOnly.FromDateTime(_editTargetDate.Value)
+                : null;
+
+            await TaskService.UpdateAsync(_editingTask.Id, _editModel);
+            Snackbar.Add("Aufgabe gespeichert", Severity.Success);
+            CloseDrawer();
+            await LoadTasksAsync();
+            await OnTasksChanged.InvokeAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Fehler: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task DeleteEditingTask()
+    {
+        if (_editingTask == null) return;
+
+        var parameters = new DialogParameters<Kuestencode.Werkbank.Acta.Shared.Dialogs.ConfirmDialog>
+        {
+            { x => x.Title, "Aufgabe löschen" },
+            { x => x.ContentText, $"Möchten Sie die Aufgabe '{_editingTask.Title}' wirklich löschen?" },
+            { x => x.ButtonText, "Löschen" },
+            { x => x.Color, Color.Error }
         };
 
-        var options = new DialogOptions
-        {
-            MaxWidth = MaxWidth.Small,
-            FullWidth = true,
-            CloseOnEscapeKey = true
-        };
-
-        var dialog = await DialogService.ShowAsync<TaskEditDialog>("Aufgabe bearbeiten", parameters, options);
+        var dialog = await DialogService.ShowAsync<Kuestencode.Werkbank.Acta.Shared.Dialogs.ConfirmDialog>("Löschen", parameters);
         var result = await dialog.Result;
 
         if (result != null && !result.Canceled)
         {
-            await LoadTasksAsync();
-            await OnTasksChanged.InvokeAsync();
+            try
+            {
+                await TaskService.DeleteAsync(_editingTask.Id);
+                Snackbar.Add("Aufgabe gelöscht", Severity.Success);
+                CloseDrawer();
+                await LoadTasksAsync();
+                await OnTasksChanged.InvokeAsync();
+            }
+            catch (Exception ex)
+            {
+                Snackbar.Add($"Fehler beim Löschen: {ex.Message}", Severity.Error);
+            }
         }
     }
 

@@ -39,6 +39,7 @@ public class ActaDbContext : DbContext
             entity.HasKey(e => e.Id);
 
             entity.HasIndex(e => e.ProjectNumber).IsUnique();
+            entity.HasIndex(e => e.ExternalId).IsUnique().HasFilter("\"ExternalId\" IS NOT NULL");
 
             entity.Property(e => e.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
             entity.Property(e => e.UpdatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");

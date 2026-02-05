@@ -2,12 +2,16 @@
 @using Kuestencode.Werkbank.Acta.Domain.Enums
 @using Kuestencode.Werkbank.Acta.Domain.Services
 @using Kuestencode.Werkbank.Acta.Shared.Components
+@using Kuestencode.Shared.ApiClients
+@using Kuestencode.Shared.Contracts.Navigation
+@using Kuestencode.Shared.Contracts.Rapport
 @inject Kuestencode.Werkbank.Acta.Services.IProjectService ProjectService
 @inject CoreInterfaces.ICustomerService CustomerService
 @inject ProjectStatusService StatusService
 @inject NavigationManager NavigationManager
 @inject ISnackbar Snackbar
 @inject IDialogService DialogService
+@inject IHostApiClient HostApiClient
 
 <PageTitle>Projekt Details - Küstencode Acta</PageTitle>
 
@@ -154,51 +158,43 @@
                 <MudTabPanel Text="Aufgaben" Icon="@Icons.Material.Filled.Checklist" BadgeData="@(_project.OpenTasksCount + _project.CompletedTasksCount)" BadgeColor="Color.Primary">
                     <ProjectTaskList ProjectId="@_project.Id"
                                     Disabled="@(!_project.IsEditable)"
-                                    OnTasksChanged="LoadDataAsync" />
+                                    OnTasksChanged="RefreshProjectAsync" />
                 </MudTabPanel>
 
                 <!-- Tab 3: Übersicht (Placeholder) -->
                 <MudTabPanel Text="Übersicht" Icon="@Icons.Material.Filled.Dashboard">
-                    <MudGrid>
+                    <MudGrid Style="align-items: stretch;">
                         <MudItem xs="12" md="4">
-                            <MudPaper Class="pa-4" Elevation="2">
-                                <MudStack AlignItems="AlignItems.Center">
-                                    <MudIcon Icon="@Icons.Material.Filled.TaskAlt" Size="Size.Large" Color="Color.Success" />
-                                    <MudText Typo="Typo.h4">@_project.CompletedTasksCount / @_project.Tasks.Count</MudText>
-                                    <MudText Typo="Typo.body2">Aufgaben erledigt</MudText>
-                                    <MudProgressLinear Color="@GetProgressColor(_project.ProgressPercent)"
-                                                      Value="@_project.ProgressPercent" Class="mt-2" />
-                                    <MudText Typo="Typo.caption">@_project.ProgressPercent% abgeschlossen</MudText>
-                                </MudStack>
+                            <MudPaper Class="pa-4 d-flex flex-column align-center justify-center" Elevation="2" Style="height: 100%;">
+                                <MudIcon Icon="@Icons.Material.Filled.TaskAlt" Size="Size.Large" Color="Color.Success" />
+                                <MudText Typo="Typo.h4" Class="mt-2">@_project.CompletedTasksCount / @_project.Tasks.Count</MudText>
+                                <MudText Typo="Typo.body2">Aufgaben erledigt</MudText>
+                                <MudProgressLinear Color="@GetProgressColor(_project.ProgressPercent)"
+                                                  Value="@_project.ProgressPercent" Class="mt-2" Style="width: 100%;" />
+                                <MudText Typo="Typo.caption">@_project.ProgressPercent% abgeschlossen</MudText>
                             </MudPaper>
                         </MudItem>
 
                         <MudItem xs="12" md="4">
-                            <MudPaper Class="pa-4" Elevation="2">
-                                <MudStack AlignItems="AlignItems.Center">
-                                    <MudIcon Icon="@Icons.Material.Filled.Euro" Size="Size.Large" Color="Color.Primary" />
-                                    <MudText Typo="Typo.h4">@(_project.BudgetNet?.ToString("N0", _culture) ?? "-") €</MudText>
-                                    <MudText Typo="Typo.body2">Budget (netto)</MudText>
-                                </MudStack>
+                            <MudPaper Class="pa-4 d-flex flex-column align-center justify-center" Elevation="2" Style="height: 100%;">
+                                <MudIcon Icon="@Icons.Material.Filled.Euro" Size="Size.Large" Color="Color.Primary" />
+                                <MudText Typo="Typo.h4" Class="mt-2">@(_project.BudgetNet?.ToString("N0", _culture) ?? "-") €</MudText>
+                                <MudText Typo="Typo.body2">Budget (netto)</MudText>
                             </MudPaper>
                         </MudItem>
 
-                        <MudItem xs="12" md="4">
-                            <MudPaper Class="pa-4" Elevation="2">
-                                <MudStack AlignItems="AlignItems.Center">
+                        @if (_rapportAvailable)
+                        {
+                            <MudItem xs="12" md="4">
+                                <MudPaper Class="pa-4 d-flex flex-column align-center justify-center" Elevation="2" Style="height: 100%;">
                                     <MudIcon Icon="@Icons.Material.Filled.AccessTime" Size="Size.Large" Color="Color.Info" />
-                                    <MudText Typo="Typo.h4">- h</MudText>
-                                    <MudText Typo="Typo.body2">Aufwand (Platzhalter)</MudText>
-                                    <MudText Typo="Typo.caption" Color="Color.Secondary">Integration folgt</MudText>
-                                </MudStack>
-                            </MudPaper>
-                        </MudItem>
+                                    <MudText Typo="Typo.h4" Class="mt-2">@(_projectHours?.TotalHours.ToString("N1", _culture) ?? "0") h</MudText>
+                                    <MudText Typo="Typo.body2">Aufwand</MudText>
+                                </MudPaper>
+                            </MudItem>
+                        }
 
-                        <MudItem xs="12">
-                            <MudAlert Severity="Severity.Info">
-                                Die Aufwands- und Ertragsübersicht wird in einer späteren Version mit dem Rapport-Modul integriert.
-                            </MudAlert>
-                        </MudItem>
+                        
                     </MudGrid>
                 </MudTabPanel>
             </MudTabs>
@@ -257,23 +253,42 @@
     private bool _loading = true;
     private Project? _project;
     private Customer? _customer;
+    private bool _rapportAvailable;
+    private ProjectHoursResponseDto? _projectHours;
 
     protected override async Task OnInitializedAsync()
     {
         await LoadDataAsync();
     }
 
-    private async Task LoadDataAsync()
+    private async Task LoadDataAsync(bool showLoading = true)
     {
-        _loading = true;
+        if (showLoading)
+            _loading = true;
 
         try
         {
             _project = await ProjectService.GetByIdAsync(Id);
 
-            if (_project != null)
+            if (_project != null && _customer == null)
             {
                 _customer = await CustomerService.GetByIdAsync(_project.CustomerId);
+            }
+
+            await CheckRapportAvailabilityAsync();
+
+            if (_rapportAvailable && _project != null)
+            {
+                if (!_project.ExternalId.HasValue)
+                {
+                    await ProjectService.EnsureExternalIdsAsync();
+                    _project = await ProjectService.GetByIdAsync(Id);
+                }
+
+                if (_project?.ExternalId.HasValue == true)
+                {
+                    _projectHours = await HostApiClient.GetProjectHoursAsync(_project.ExternalId.Value);
+                }
             }
         }
         catch (Exception ex)
@@ -286,6 +301,35 @@
         }
 
         StateHasChanged();
+    }
+
+    private async Task RefreshProjectAsync()
+    {
+        await LoadDataAsync(showLoading: false);
+    }
+
+    private async Task CheckRapportAvailabilityAsync()
+    {
+        try
+        {
+            var navItems = await HostApiClient.GetNavigationAsync();
+            _rapportAvailable = navItems.Any(IsRapportNavItem);
+        }
+        catch
+        {
+            _rapportAvailable = false;
+        }
+    }
+
+    private static bool IsRapportNavItem(NavItemDto item)
+    {
+        if (!string.IsNullOrWhiteSpace(item.Href) && item.Href.StartsWith("/rapport", StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        if (item.Children is { Count: > 0 })
+            return item.Children.Any(IsRapportNavItem);
+
+        return false;
     }
 
     private Color GetProgressColor(int percent) => percent switch
@@ -333,9 +377,7 @@
         {
             try
             {
-                // Use TransitionTo which validates and performs the transition
-                StatusService.TransitionTo(_project, targetStatus);
-                await ProjectService.ChangeStatusAsync(_project.Id, _project.Status);
+                await ProjectService.ChangeStatusAsync(_project.Id, targetStatus);
                 Snackbar.Add($"Projekt wurde erfolgreich {GetPastTense(actionName)}.", Severity.Success);
                 await LoadDataAsync();
             }

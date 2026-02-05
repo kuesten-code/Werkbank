@@ -57,6 +57,8 @@ public class ProjectService : IProjectService
             throw new InvalidOperationException("Kunde muss ausgewählt werden.");
         }
 
+        var nextExternalId = await _projectRepository.GetNextExternalIdAsync();
+
         var project = new Project
         {
             Id = Guid.NewGuid(),
@@ -70,7 +72,8 @@ public class ProjectService : IProjectService
             StartDate = dto.StartDate,
             TargetDate = dto.TargetDate,
             BudgetNet = dto.BudgetNet,
-            Status = ProjectStatus.Draft
+            Status = ProjectStatus.Draft,
+            ExternalId = nextExternalId
         };
 
         await _projectRepository.AddAsync(project);
@@ -146,6 +149,27 @@ public class ProjectService : IProjectService
     public IReadOnlyList<(ProjectStatus TargetStatus, string ActionName)> GetAvailableTransitions(Project project)
     {
         return _statusService.GetVerfuegbareUebergaenge(project);
+    }
+
+    public async Task<string> GenerateProjectNumberAsync()
+    {
+        return await _projectRepository.GenerateProjectNumberAsync();
+    }
+
+    public async Task EnsureExternalIdsAsync()
+    {
+        var projects = await _projectRepository.GetAllAsync();
+        var withoutExternalId = projects.Where(p => !p.ExternalId.HasValue).ToList();
+
+        if (withoutExternalId.Count == 0)
+            return;
+
+        var nextId = await _projectRepository.GetNextExternalIdAsync();
+        foreach (var project in withoutExternalId)
+        {
+            project.ExternalId = nextId++;
+            await _projectRepository.UpdateAsync(project);
+        }
     }
 }
 
