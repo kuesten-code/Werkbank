@@ -53,6 +53,14 @@ public abstract class BasePdfLayout : IPdfLayoutRenderer
                     {
                         leftColumn.Item().Text(taxLine).FontSize(8).FontColor(TextSecondaryColor);
                     }
+                    if (!string.IsNullOrWhiteSpace(company.FooterText))
+                    {
+                        leftColumn.Item().Text(text =>
+                        {
+                            text.DefaultTextStyle(x => x.FontSize(8).FontColor(TextSecondaryColor));
+                            AppendMultilineText(text, company.FooterText, 8);
+                        });
+                    }
                 });
 
                 row.RelativeItem().AlignCenter().Column(centerColumn =>
@@ -223,7 +231,7 @@ public abstract class BasePdfLayout : IPdfLayoutRenderer
             ? TemplateEngine.ReplacePlaceholders(company.PdfFooterText, invoice, company)
             : "Vielen Dank für Ihr Vertrauen!";
 
-        var textStyle = column.Item().PaddingTop(20).Text(text).FontSize(10);
+        var textStyle = column.Item().PaddingTop(10).Text(text).FontSize(10);
         if (bold) textStyle.Bold();
     }
 

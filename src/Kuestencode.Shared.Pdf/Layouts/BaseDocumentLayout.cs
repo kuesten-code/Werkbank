@@ -394,6 +394,10 @@ public abstract class BaseDocumentLayout
                     {
                         leftColumn.Item().Text(taxLine).FontSize(PdfFonts.Footer).FontColor(PdfColors.TextSecondary);
                     }
+                    if (!string.IsNullOrWhiteSpace(company.FooterText))
+                    {
+                        leftColumn.Item().Text(company.FooterText).FontSize(PdfFonts.Footer).FontColor(PdfColors.TextSecondary);
+                    }
                 });
 
                 row.RelativeItem().AlignCenter().Column(centerColumn =>
