@@ -33,6 +33,13 @@ public class HostNavigationService : IHostNavigationService
                 Href = "/customers",
                 Icon = "",
                 Type = NavItemType.Link
+            },
+            new NavItemDto
+            {
+                Label = "Mitarbeiter",
+                Href = "/team-members",
+                Icon = "",
+                Type = NavItemType.Link
             }
         };
 
@@ -103,6 +110,8 @@ public class HostNavigationService : IHostNavigationService
             Icon = "",
             Type = NavItemType.Link
         });
+
+
 
         // Add Host email settings to "Versand"
         settingsByCategory[NavSettingsCategory.Versand].Add(new NavItemDto

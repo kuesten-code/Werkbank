@@ -52,7 +52,7 @@ public class ProjectService : IProjectService
         }
 
         // Customer prüfen
-        if (dto.CustomerId == Guid.Empty)
+        if (dto.CustomerId <= 0)
         {
             throw new InvalidOperationException("Kunde muss ausgewählt werden.");
         }
@@ -98,7 +98,7 @@ public class ProjectService : IProjectService
         }
 
         // Customer prüfen
-        if (dto.CustomerId == Guid.Empty)
+        if (dto.CustomerId <= 0)
         {
             throw new InvalidOperationException("Kunde muss ausgewählt werden.");
         }
@@ -148,3 +148,4 @@ public class ProjectService : IProjectService
         return _statusService.GetVerfuegbareUebergaenge(project);
     }
 }
+

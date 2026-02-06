@@ -74,4 +74,18 @@ public class HostApiClient : IHostApiClient
             return [];
         }
     }
+
+    public async Task<List<TeamMemberDto>> GetTeamMembersAsync()
+    {
+        try
+        {
+            var response = await _httpClient.GetAsync("/api/team-members").ConfigureAwait(false);
+            response.EnsureSuccessStatusCode();
+            return await response.Content.ReadFromJsonAsync<List<TeamMemberDto>>().ConfigureAwait(false) ?? [];
+        }
+        catch
+        {
+            return [];
+        }
+    }
 }

@@ -3,6 +3,7 @@ using System;
 using Kuestencode.Werkbank.Acta.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Kuestencode.Werkbank.Acta.Data.Migrations
 {
     [DbContext(typeof(ActaDbContext))]
-    partial class ActaDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260205141534_ChangeProjectCustomerIdToInt")]
+    partial class ChangeProjectCustomerIdToInt
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

@@ -30,7 +30,7 @@ public class ProjectRepository : IProjectRepository
             .FirstOrDefaultAsync(p => p.ProjectNumber == projectNumber);
     }
 
-    public async Task<List<Project>> GetAllAsync(ProjectStatus? status = null, Guid? customerId = null)
+    public async Task<List<Project>> GetAllAsync(ProjectStatus? status = null, int? customerId = null)
     {
         var query = _context.Projects
             .Include(p => p.Tasks.OrderBy(t => t.SortOrder))
@@ -51,7 +51,7 @@ public class ProjectRepository : IProjectRepository
             .ToListAsync();
     }
 
-    public async Task<List<Project>> GetByCustomerAsync(Guid customerId)
+    public async Task<List<Project>> GetByCustomerAsync(int customerId)
     {
         return await _context.Projects
             .Include(p => p.Tasks.OrderBy(t => t.SortOrder))

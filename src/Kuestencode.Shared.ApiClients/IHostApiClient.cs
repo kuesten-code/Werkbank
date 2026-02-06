@@ -10,4 +10,5 @@ public interface IHostApiClient
     Task<CustomerDto?> GetCustomerAsync(int customerId);
     Task<List<CustomerDto>> GetAllCustomersAsync();
     Task<List<NavItemDto>> GetNavigationAsync();
+    Task<List<TeamMemberDto>> GetTeamMembersAsync();
 }

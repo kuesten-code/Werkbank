@@ -2,6 +2,7 @@
 
 @inject IProjectTaskService TaskService
 @inject ISnackbar Snackbar
+@inject ITeamMemberDirectory TeamMemberDirectory
 
 <MudDialog>
     <TitleContent>
@@ -34,8 +35,17 @@
                           DateFormat="dd.MM.yyyy"
                           Clearable="true" />
 
-            @* TODO: Add user selection when user service is available *@
-            @* <MudAutocomplete T="User" ... /> *@
+            <MudSelect T="Guid?" @bind-Value="_model.AssignedUserId"
+                      Label="Zugewiesen an"
+                      Variant="Variant.Outlined"
+                      Disabled="@Disabled"
+                      Clearable="true">
+                <MudSelectItem Value="@_noAssignmentValue">Keine Zuordnung</MudSelectItem>
+                @foreach (var member in _teamMembers)
+                {
+                    <MudSelectItem Value="@member.Id">@member.DisplayName</MudSelectItem>
+                }
+            </MudSelect>
 
             <MudSelect @bind-Value="_model.Status"
                       Label="Status"
@@ -72,7 +82,9 @@
 
 @code {
     private UpdateProjectTaskDto _model = new();
+    private IReadOnlyList<TeamMember> _teamMembers = Array.Empty<TeamMember>();
     private DateTime? _targetDate;
+    private readonly Guid? _noAssignmentValue = null;
 
     [CascadingParameter]
     private IMudDialogInstance? MudDialog { get; set; }
@@ -84,6 +96,11 @@
     public bool Disabled { get; set; }
 
     private bool IsValid => !string.IsNullOrWhiteSpace(_model.Title);
+
+    protected override async Task OnInitializedAsync()
+    {
+        _teamMembers = await TeamMemberDirectory.GetAllAsync();
+    }
 
     protected override void OnParametersSet()
     {

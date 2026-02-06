@@ -26,7 +26,7 @@ public class ProjectsController : ControllerBase
     [HttpGet]
     public async Task<ActionResult<List<ProjectDto>>> GetAll(
         [FromQuery] string? status = null,
-        [FromQuery] Guid? customerId = null)
+        [FromQuery] int? customerId = null)
     {
         var filter = new ProjectFilterDto();
 
@@ -35,10 +35,7 @@ public class ProjectsController : ControllerBase
             filter.Status = parsedStatus;
         }
 
-        if (customerId.HasValue)
-        {
-            filter.CustomerId = customerId;
-        }
+        filter.CustomerId = customerId;
 
         var projects = await _projectService.GetAllAsync(filter);
         return Ok(projects.Select(MapToDto).ToList());

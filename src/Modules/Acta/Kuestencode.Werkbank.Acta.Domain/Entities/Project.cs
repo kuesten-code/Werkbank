@@ -35,7 +35,7 @@ public class Project
     /// Referenz zum Kunden im Host-Schema.
     /// </summary>
     [Required]
-    public Guid CustomerId { get; set; }
+    public int CustomerId { get; set; }
 
     /// <summary>
     /// Optionale Projektadresse - Straße.

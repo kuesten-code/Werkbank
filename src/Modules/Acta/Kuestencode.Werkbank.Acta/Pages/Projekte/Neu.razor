@@ -1,4 +1,4 @@
-@page "/acta/projekte/neu"
+@page "/projekte/neu"
 @using Kuestencode.Werkbank.Acta.Domain.Dtos
 @using Kuestencode.Werkbank.Acta.Domain.Enums
 @using Kuestencode.Werkbank.Acta.Shared.Components
@@ -191,7 +191,7 @@
 
         try
         {
-            _model.CustomerId = new Guid(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, (byte)_selectedCustomer!.Id);
+            _model.CustomerId = _selectedCustomer!.Id;
             _model.StartDate = _startDate.HasValue ? DateOnly.FromDateTime(_startDate.Value) : null;
             _model.TargetDate = _targetDate.HasValue ? DateOnly.FromDateTime(_targetDate.Value) : null;
 

@@ -21,12 +21,12 @@ public interface IProjectRepository
     /// <summary>
     /// Lädt alle Projekte mit optionalem Filter.
     /// </summary>
-    Task<List<Project>> GetAllAsync(ProjectStatus? status = null, Guid? customerId = null);
+    Task<List<Project>> GetAllAsync(ProjectStatus? status = null, int? customerId = null);
 
     /// <summary>
     /// Lädt Projekte eines Kunden.
     /// </summary>
-    Task<List<Project>> GetByCustomerAsync(Guid customerId);
+    Task<List<Project>> GetByCustomerAsync(int customerId);
 
     /// <summary>
     /// Lädt Projekte mit einem bestimmten Status.

@@ -36,6 +36,7 @@ services:
       - ServiceUrls__Faktura=http://faktura:8081
       - ServiceUrls__Rapport=http://rapport:8082
       - ServiceUrls__Offerte=http://offerte:8083
+      - ServiceUrls__Acta=http://acta:8084
       - APPLY_MIGRATIONS=true
     volumes:
       - ./data/keys:/app/data/keys
@@ -133,7 +134,7 @@ services:
       - ASPNETCORE_URLS=http://+:8084
       - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=kuestencode_dev;Username=postgres;Password=dev_password
       - ServiceUrls__Host=http://host:8080
-      - ServiceUrls__Self=http://offerte:8084
+      - ServiceUrls__Self=http://acta:8084
       - APPLY_MIGRATIONS=true
     volumes:
       - ./data/keys:/app/data/keys

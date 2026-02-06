@@ -1,140 +1,234 @@
-@using Kuestencode.Werkbank.Acta.Domain.Enums
-@using Kuestencode.Werkbank.Acta.Shared.Dialogs
-@inject Kuestencode.Werkbank.Acta.Services.IProjectTaskService TaskService
-@inject ISnackbar Snackbar
+@inject IProjectTaskService TaskService
 @inject IDialogService DialogService
+@inject ISnackbar Snackbar
+@inject ITeamMemberDirectory TeamMemberDirectory
 
-<MudStack Spacing="4">
-    @if (IsEditable)
-    {
-        <MudStack Row="true" Justify="Justify.FlexEnd">
-            <MudButton Variant="Variant.Filled" Color="Color.Primary"
-                      StartIcon="@Icons.Material.Filled.Add"
-                      OnClick="AddTask">
-                Neue Aufgabe
-            </MudButton>
-        </MudStack>
-    }
+<MudPaper Class="pa-4">
+    <MudText Typo="Typo.h6" Class="mb-3">Aufgaben</MudText>
 
-    @if (Tasks.Count == 0)
+    @if (_loading)
     {
-        <MudAlert Severity="Severity.Info">
-            Noch keine Aufgaben vorhanden.
-            @if (IsEditable)
-            {
-                <text> Fügen Sie die erste Aufgabe hinzu.</text>
-            }
-        </MudAlert>
+        <MudProgressLinear Indeterminate="true" />
     }
     else
     {
-        <MudTable Items="@Tasks.OrderBy(t => t.SortOrder)" Dense="true" Hover="true" Elevation="0">
-            <HeaderContent>
-                <MudTh Style="width: 50px;"></MudTh>
-                <MudTh>Aufgabe</MudTh>
-                <MudTh Style="width: 120px;">Status</MudTh>
-                <MudTh Style="width: 120px;">Zieldatum</MudTh>
-                @if (IsEditable)
-                {
-                    <MudTh Style="width: 100px; text-align: right;">Aktionen</MudTh>
-                }
-            </HeaderContent>
-            <RowTemplate Context="task">
-                <MudTd>
-                    <MudCheckBox T="bool"
-                                Value="@(task.Status == ProjectTaskStatus.Completed)"
-                                ValueChanged="@((bool val) => ToggleTaskStatus(task, val))"
-                                Disabled="@(!IsEditable)"
-                                Color="Color.Success" />
-                </MudTd>
-                <MudTd>
-                    <MudStack Spacing="0">
-                        <MudText Style="@(task.Status == ProjectTaskStatus.Completed ? "text-decoration: line-through; color: gray;" : "")">
-                            @task.Title
-                        </MudText>
-                        @if (!string.IsNullOrWhiteSpace(task.Notes))
-                        {
-                            <MudText Typo="Typo.caption" Color="Color.Secondary">@task.Notes</MudText>
-                        }
-                    </MudStack>
-                </MudTd>
-                <MudTd>
-                    <MudChip T="string" Size="Size.Small" Color="@GetTaskStatusColor(task.Status)">
-                        @GetTaskStatusText(task.Status)
-                    </MudChip>
-                </MudTd>
-                <MudTd>
-                    @if (task.TargetDate.HasValue)
-                    {
-                        var isOverdue = task.TargetDate.Value < DateOnly.FromDateTime(DateTime.Today)
-                                        && task.Status != ProjectTaskStatus.Completed;
-                        <MudText Typo="Typo.body2" Color="@(isOverdue ? Color.Error : Color.Default)">
-                            @task.TargetDate.Value.ToString("dd.MM.yyyy")
-                        </MudText>
-                    }
-                    else
-                    {
-                        <MudText Typo="Typo.body2" Color="Color.Secondary">-</MudText>
-                    }
-                </MudTd>
-                @if (IsEditable)
-                {
-                    <MudTd Style="text-align: right;">
-                        <MudTooltip Text="Bearbeiten">
-                            <MudIconButton Icon="@Icons.Material.Filled.Edit"
-                                          Color="Color.Primary" Size="Size.Small"
-                                          OnClick="@(() => EditTask(task))" />
-                        </MudTooltip>
-                        <MudTooltip Text="Löschen">
-                            <MudIconButton Icon="@Icons.Material.Filled.Delete"
-                                          Color="Color.Error" Size="Size.Small"
-                                          OnClick="@(() => DeleteTask(task))" />
-                        </MudTooltip>
-                    </MudTd>
-                }
-            </RowTemplate>
-        </MudTable>
+        <MudStack Spacing="2">
+            @* Open Tasks - sorted by SortOrder *@
+            @foreach (var task in GetOpenTasks())
+            {
+                <MudPaper Class="@GetTaskClass(task)"
+                         Style="@GetTaskStyle(task)"
+                         Outlined="true">
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                            @if (!Disabled)
+                            {
+                                <MudStack Spacing="0" AlignItems="AlignItems.Center">
+                                    <MudIconButton Icon="@Icons.Material.Filled.KeyboardArrowUp"
+                                                   Size="Size.Small"
+                                                   Disabled="@IsFirstOpenTask(task)"
+                                                   OnClick="@(() => MoveTaskUp(task))" />
+                                    <MudIconButton Icon="@Icons.Material.Filled.KeyboardArrowDown"
+                                                   Size="Size.Small"
+                                                   Disabled="@IsLastOpenTask(task)"
+                                                   OnClick="@(() => MoveTaskDown(task))" />
+                                </MudStack>
+                            }
 
-        <MudStack Row="true" Justify="Justify.FlexEnd" Class="mt-2">
-            <MudText Typo="Typo.caption" Color="Color.Secondary">
-                @Tasks.Count(t => t.Status == ProjectTaskStatus.Completed) von @Tasks.Count Aufgaben erledigt
-            </MudText>
+                            <MudCheckBox T="bool"
+                                        Value="false"
+                                        ValueChanged="@(() => ToggleTaskStatus(task))"
+                                        Disabled="@Disabled"
+                                        Color="Color.Primary" />
+
+                            <MudStack Spacing="0" Class="cursor-pointer" @onclick="@(() => EditTask(task))">
+                                <MudText Style="@(IsOverdue(task) ? "color: var(--mud-palette-error);" : "")">
+                                    @task.Title
+                                </MudText>
+                                @if (task.TargetDate.HasValue)
+                                {
+                                    <MudText Typo="Typo.caption"
+                                            Style="@(IsOverdue(task) ? "color: var(--mud-palette-error);" : "")">
+                                        Fällig: @task.TargetDate.Value.ToString("dd.MM.yyyy")
+                                    </MudText>
+                                }
+                            </MudStack>
+                        </MudStack>
+
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                            @{
+                                var assignedMember = FindTeamMember(task.AssignedUserId);
+                            }
+                            @if (assignedMember != null)
+                            {
+                                <MudAvatar Size="Size.Small" Color="Color.Primary">
+                                    @assignedMember.Initials
+                                </MudAvatar>
+                                <MudText Typo="Typo.caption">@assignedMember.DisplayName</MudText>
+                            }
+                            else
+                            {
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">Unzugewiesen</MudText>
+                            }
+                        </MudStack>
+                    </MudStack>
+                </MudPaper>
+            }
+
+            @if (GetCompletedTasks().Any())
+            {
+                <MudDivider Class="my-2" />
+                <MudText Typo="Typo.subtitle2" Color="Color.Secondary">Erledigt</MudText>
+
+                @foreach (var task in GetCompletedTasks())
+                {
+                    <MudPaper Class="pa-2" Outlined="true" Style="opacity: 0.7;">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                                <MudCheckBox T="bool"
+                                            Value="true"
+                                            ValueChanged="@(() => ToggleTaskStatus(task))"
+                                            Disabled="@Disabled"
+                                            Color="Color.Success" />
+                                <MudStack Spacing="0" Class="cursor-pointer" @onclick="@(() => EditTask(task))">
+                                    <MudText Style="text-decoration: line-through; color: var(--mud-palette-text-secondary);">
+                                        @task.Title
+                                    </MudText>
+                                    @if (task.CompletedAt.HasValue)
+                                    {
+                                        <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                            Erledigt am: @task.CompletedAt.Value.ToString("dd.MM.yyyy HH:mm")
+                                        </MudText>
+                                    }
+                                </MudStack>
+                            </MudStack>
+
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                                @{
+                                    var assignedMember = FindTeamMember(task.AssignedUserId);
+                                }
+                                @if (assignedMember != null)
+                                {
+                                    <MudAvatar Size="Size.Small" Color="Color.Primary">
+                                        @assignedMember.Initials
+                                    </MudAvatar>
+                                    <MudText Typo="Typo.caption">@assignedMember.DisplayName</MudText>
+                                }
+                                else
+                                {
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary">Unzugewiesen</MudText>
+                                }
+                            </MudStack>
+                        </MudStack>
+                    </MudPaper>
+                }
+            }
+
+            @if (!Disabled)
+            {
+                <MudPaper Class="pa-2" Outlined="true">
+                    <MudTextField @bind-Value="_newTaskTitle"
+                                 Placeholder="Neue Aufgabe..."
+                                 Variant="Variant.Text"
+                                 Immediate="true"
+                                 OnKeyDown="@OnNewTaskKeyDown"
+                                 Adornment="Adornment.End"
+                                 AdornmentIcon="@Icons.Material.Filled.Add"
+                                 OnAdornmentClick="@CreateNewTask"
+                                 FullWidth="true" />
+                </MudPaper>
+            }
         </MudStack>
     }
-</MudStack>
+</MudPaper>
 
 @code {
-    [Parameter, EditorRequired]
+    private bool _loading = true;
+    private List<ProjectTask> _tasks = new();
+    private IReadOnlyList<TeamMember> _teamMembers = Array.Empty<TeamMember>();
+    private Dictionary<Guid, TeamMember> _teamMemberLookup = new();
+    private string _newTaskTitle = string.Empty;
+
+    [Parameter]
     public Guid ProjectId { get; set; }
 
     [Parameter]
-    public List<ProjectTask> Tasks { get; set; } = new();
-
-    [Parameter]
-    public bool IsEditable { get; set; } = true;
+    public bool Disabled { get; set; }
 
     [Parameter]
     public EventCallback OnTasksChanged { get; set; }
 
-    private Color GetTaskStatusColor(ProjectTaskStatus status) => status switch
+    protected override async Task OnInitializedAsync()
     {
-        ProjectTaskStatus.Open => Color.Default,
-        ProjectTaskStatus.Completed => Color.Success,
-        _ => Color.Default
-    };
+        await LoadTeamMembersAsync();
+    }
 
-    private string GetTaskStatusText(ProjectTaskStatus status) => status switch
+    protected override async Task OnParametersSetAsync()
     {
-        ProjectTaskStatus.Open => "Offen",
-        ProjectTaskStatus.Completed => "Erledigt",
-        _ => status.ToString()
-    };
+        if (ProjectId != Guid.Empty)
+        {
+            await LoadTasksAsync();
+        }
+    }
 
-    private async Task ToggleTaskStatus(ProjectTask task, bool completed)
+    private async Task LoadTeamMembersAsync()
+    {
+        _teamMembers = await TeamMemberDirectory.GetAllAsync();
+        _teamMemberLookup = _teamMembers
+            .Where(member => member.Id != Guid.Empty)
+            .ToDictionary(member => member.Id, member => member);
+    }
+
+    private async Task LoadTasksAsync()
+    {
+        _loading = true;
+        try
+        {
+            _tasks = await TaskService.GetByProjectIdAsync(ProjectId);
+        }
+        finally
+        {
+            _loading = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private IEnumerable<ProjectTask> GetOpenTasks() =>
+        _tasks.Where(t => t.Status == ProjectTaskStatus.Open)
+              .OrderBy(t => t.SortOrder);
+
+    private IEnumerable<ProjectTask> GetCompletedTasks() =>
+        _tasks.Where(t => t.Status == ProjectTaskStatus.Completed)
+              .OrderBy(t => t.SortOrder);
+
+    private bool IsOverdue(ProjectTask task) =>
+        task.Status == ProjectTaskStatus.Open &&
+        task.TargetDate.HasValue &&
+        task.TargetDate.Value < DateOnly.FromDateTime(DateTime.Today);
+
+    private string GetTaskClass(ProjectTask task) =>
+        IsOverdue(task) ? "pa-2 mud-border-error" : "pa-2";
+
+    private string GetTaskStyle(ProjectTask task) =>
+        IsOverdue(task) ? "border: 2px solid var(--mud-palette-error);" : "";
+
+    private bool IsFirstOpenTask(ProjectTask task)
+    {
+        var openTasks = GetOpenTasks().ToList();
+        return openTasks.Count == 0 || openTasks[0].Id == task.Id;
+    }
+
+    private bool IsLastOpenTask(ProjectTask task)
+    {
+        var openTasks = GetOpenTasks().ToList();
+        return openTasks.Count == 0 || openTasks[^1].Id == task.Id;
+    }
+
+    private async Task ToggleTaskStatus(ProjectTask task)
     {
         try
         {
-            if (completed)
+            if (task.Status == ProjectTaskStatus.Open)
             {
                 await TaskService.SetCompletedAsync(task.Id);
             }
@@ -143,6 +237,7 @@
                 await TaskService.SetOpenAsync(task.Id);
             }
 
+            await LoadTasksAsync();
             await OnTasksChanged.InvokeAsync();
         }
         catch (Exception ex)
@@ -151,22 +246,80 @@
         }
     }
 
-    private async Task AddTask()
+    private async Task MoveTaskUp(ProjectTask task)
     {
-        var parameters = new DialogParameters<TaskEditDialog>
+        var openTasks = GetOpenTasks().ToList();
+        var index = openTasks.FindIndex(t => t.Id == task.Id);
+        if (index > 0)
         {
-            { x => x.ProjectId, ProjectId },
-            { x => x.IsNew, true },
-            { x => x.NextSortOrder, Tasks.Count > 0 ? Tasks.Max(t => t.SortOrder) + 1 : 1 }
-        };
+            (openTasks[index - 1], openTasks[index]) = (openTasks[index], openTasks[index - 1]);
+            await PersistOpenTaskOrder(openTasks);
+        }
+    }
 
-        var options = new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true };
-        var dialog = await DialogService.ShowAsync<TaskEditDialog>("Neue Aufgabe", parameters, options);
-        var result = await dialog.Result;
-
-        if (result != null && !result.Canceled)
+    private async Task MoveTaskDown(ProjectTask task)
+    {
+        var openTasks = GetOpenTasks().ToList();
+        var index = openTasks.FindIndex(t => t.Id == task.Id);
+        if (index >= 0 && index < openTasks.Count - 1)
         {
+            (openTasks[index], openTasks[index + 1]) = (openTasks[index + 1], openTasks[index]);
+            await PersistOpenTaskOrder(openTasks);
+        }
+    }
+
+    private async Task PersistOpenTaskOrder(List<ProjectTask> orderedOpenTasks)
+    {
+        try
+        {
+            var completedTasks = _tasks
+                .Where(t => t.Status == ProjectTaskStatus.Completed)
+                .OrderBy(t => t.SortOrder)
+                .ToList();
+
+            var newOrder = orderedOpenTasks
+                .Concat(completedTasks)
+                .Select(t => t.Id)
+                .ToList();
+
+            await TaskService.ReorderAsync(ProjectId, newOrder);
+            await LoadTasksAsync();
             await OnTasksChanged.InvokeAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Fehler beim Sortieren: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task OnNewTaskKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !string.IsNullOrWhiteSpace(_newTaskTitle))
+        {
+            await CreateNewTask();
+        }
+    }
+
+    private async Task CreateNewTask()
+    {
+        if (string.IsNullOrWhiteSpace(_newTaskTitle))
+            return;
+
+        try
+        {
+            var dto = new CreateProjectTaskDto
+            {
+                Title = _newTaskTitle.Trim()
+            };
+            await TaskService.CreateAsync(ProjectId, dto);
+            _newTaskTitle = string.Empty;
+            await LoadTasksAsync();
+            await OnTasksChanged.InvokeAsync();
+            Snackbar.Add("Aufgabe erstellt", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Fehler: {ex.Message}", Severity.Error);
         }
     }
 
@@ -174,46 +327,34 @@
     {
         var parameters = new DialogParameters<TaskEditDialog>
         {
-            { x => x.ProjectId, ProjectId },
             { x => x.Task, task },
-            { x => x.IsNew, false }
+            { x => x.Disabled, Disabled }
         };
 
-        var options = new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true };
+        var options = new DialogOptions
+        {
+            MaxWidth = MaxWidth.Small,
+            FullWidth = true,
+            CloseOnEscapeKey = true
+        };
+
         var dialog = await DialogService.ShowAsync<TaskEditDialog>("Aufgabe bearbeiten", parameters, options);
         var result = await dialog.Result;
 
         if (result != null && !result.Canceled)
         {
+            await LoadTasksAsync();
             await OnTasksChanged.InvokeAsync();
         }
     }
 
-    private async Task DeleteTask(ProjectTask task)
+    private TeamMember? FindTeamMember(Guid? id)
     {
-        var parameters = new DialogParameters<Kuestencode.Werkbank.Acta.Shared.Dialogs.ConfirmDialog>
+        if (!id.HasValue)
         {
-            { x => x.Title, "Aufgabe löschen" },
-            { x => x.ContentText, $"Möchten Sie die Aufgabe '{task.Title}' wirklich löschen?" },
-            { x => x.ButtonText, "Löschen" },
-            { x => x.Color, Color.Error }
-        };
-
-        var dialog = await DialogService.ShowAsync<Kuestencode.Werkbank.Acta.Shared.Dialogs.ConfirmDialog>("Löschen", parameters);
-        var result = await dialog.Result;
-
-        if (result != null && !result.Canceled)
-        {
-            try
-            {
-                await TaskService.DeleteAsync(task.Id);
-                Snackbar.Add("Aufgabe wurde gelöscht.", Severity.Success);
-                await OnTasksChanged.InvokeAsync();
-            }
-            catch (Exception ex)
-            {
-                Snackbar.Add($"Fehler beim Löschen: {ex.Message}", Severity.Error);
-            }
+            return null;
         }
+
+        return _teamMemberLookup.TryGetValue(id.Value, out var member) ? member : null;
     }
 }

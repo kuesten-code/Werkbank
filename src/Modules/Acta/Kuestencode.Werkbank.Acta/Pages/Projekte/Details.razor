@@ -1,9 +1,8 @@
-@page "/acta/projekte/{Id:guid}"
+@page "/projekte/{Id:guid}"
 @using Kuestencode.Werkbank.Acta.Domain.Enums
 @using Kuestencode.Werkbank.Acta.Domain.Services
 @using Kuestencode.Werkbank.Acta.Shared.Components
 @inject Kuestencode.Werkbank.Acta.Services.IProjectService ProjectService
-@inject Kuestencode.Werkbank.Acta.Services.IProjectTaskService TaskService
 @inject CoreInterfaces.ICustomerService CustomerService
 @inject ProjectStatusService StatusService
 @inject NavigationManager NavigationManager
@@ -152,10 +151,9 @@
                 </MudTabPanel>
 
                 <!-- Tab 2: Aufgaben -->
-                <MudTabPanel Text="Aufgaben" Icon="@Icons.Material.Filled.Checklist" BadgeData="@_project.Tasks.Count" BadgeColor="Color.Primary">
+                <MudTabPanel Text="Aufgaben" Icon="@Icons.Material.Filled.Checklist" BadgeData="@(_project.OpenTasksCount + _project.CompletedTasksCount)" BadgeColor="Color.Primary">
                     <ProjectTaskList ProjectId="@_project.Id"
-                                    Tasks="@_project.Tasks"
-                                    IsEditable="@_project.IsEditable"
+                                    Disabled="@(!_project.IsEditable)"
                                     OnTasksChanged="LoadDataAsync" />
                 </MudTabPanel>
 
@@ -275,26 +273,7 @@
 
             if (_project != null)
             {
-                // Load customer - CustomerId is Guid, but Customer.Id is int
-                // We need to find the customer by extracting the int from the Guid
-                var customers = await CustomerService.GetAllAsync();
-                // Try to match by the last byte of the Guid (as was done in Index.razor)
-                var customerIdByte = _project.CustomerId.ToByteArray()[15];
-                _customer = customers.FirstOrDefault(c => c.Id == customerIdByte);
-
-                // If not found, try to match by full ID comparison
-                if (_customer == null)
-                {
-                    foreach (var c in customers)
-                    {
-                        var testGuid = new Guid(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, (byte)c.Id);
-                        if (testGuid == _project.CustomerId)
-                        {
-                            _customer = c;
-                            break;
-                        }
-                    }
-                }
+                _customer = await CustomerService.GetByIdAsync(_project.CustomerId);
             }
         }
         catch (Exception ex)

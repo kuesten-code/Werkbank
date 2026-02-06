@@ -10,7 +10,7 @@ public class CreateProjectDto
     public string ProjectNumber { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
     public string? Description { get; set; }
-    public Guid CustomerId { get; set; }
+    public int CustomerId { get; set; }
     public string? Address { get; set; }
     public string? PostalCode { get; set; }
     public string? City { get; set; }
@@ -26,7 +26,7 @@ public class UpdateProjectDto
 {
     public string Name { get; set; } = string.Empty;
     public string? Description { get; set; }
-    public Guid CustomerId { get; set; }
+    public int CustomerId { get; set; }
     public string? Address { get; set; }
     public string? PostalCode { get; set; }
     public string? City { get; set; }
@@ -41,5 +41,5 @@ public class UpdateProjectDto
 public class ProjectFilterDto
 {
     public ProjectStatus? Status { get; set; }
-    public Guid? CustomerId { get; set; }
+    public int? CustomerId { get; set; }
 }

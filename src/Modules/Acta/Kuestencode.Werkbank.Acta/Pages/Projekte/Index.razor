@@ -145,7 +145,7 @@
 
     private List<Project> _projects = new();
     private List<Kuestencode.Core.Models.Customer> _customers = new();
-    private Dictionary<Guid, string> _customerNames = new();
+    private Dictionary<int, string> _customerNames = new();
 
     private int _draftCount;
     private int _activeCount;
@@ -180,15 +180,7 @@
 
             var customers = await CustomerService.GetAllAsync();
             _customers = customers;
-            // Map int customer ID to Guid for project matching
-            // Note: Project.CustomerId is Guid, but Host customers use int IDs
-            // This mapping needs to be handled based on actual integration
-            _customerNames = new Dictionary<Guid, string>();
-            foreach (var c in customers)
-            {
-                // Assuming CustomerId in Project is stored as Guid representation
-                _customerNames[new Guid(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, (byte)c.Id)] = c.Name;
-            }
+            _customerNames = customers.ToDictionary(c => c.Id, c => c.Name);
 
             UpdateCounts();
         }
@@ -237,12 +229,17 @@
                 (p.Description?.ToLowerInvariant().Contains(search) ?? false));
         }
 
+        if (_selectedCustomerId.HasValue)
+        {
+            filtered = filtered.Where(p => p.CustomerId == _selectedCustomerId.Value);
+        }
+
         return filtered.OrderByDescending(p => p.CreatedAt);
     }
 
-    private string GetCustomerName(Guid customerId)
+    private string GetCustomerName(int customerId)
     {
-        return _customerNames.TryGetValue(customerId, out var name) ? name : $"Kunde";
+        return _customerNames.TryGetValue(customerId, out var name) ? name : "Kunde";
     }
 
     private Color GetProgressColor(int percent) => percent switch

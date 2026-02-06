@@ -36,6 +36,7 @@ public static class ActaModule
         // Register Application Services
         services.AddScoped<IProjectService, ProjectService>();
         services.AddScoped<IProjectTaskService, ProjectTaskService>();
+        services.AddSingleton<ITeamMemberDirectory, HostTeamMemberDirectory>();
 
         return services;
     }

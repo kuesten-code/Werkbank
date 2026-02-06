@@ -1,4 +1,4 @@
-@page "/acta/projekte/{Id:guid}/bearbeiten"
+@page "/projekte/{Id:guid}/bearbeiten"
 @using Kuestencode.Werkbank.Acta.Domain.Dtos
 @using Kuestencode.Werkbank.Acta.Domain.Enums
 @using Kuestencode.Werkbank.Acta.Shared.Components
@@ -201,23 +201,7 @@
                 _startDate = _project.StartDate?.ToDateTime(TimeOnly.MinValue);
                 _targetDate = _project.TargetDate?.ToDateTime(TimeOnly.MinValue);
 
-                // Load customer
-                var customers = await CustomerService.GetAllAsync();
-                var customerIdByte = _project.CustomerId.ToByteArray()[15];
-                _selectedCustomer = customers.FirstOrDefault(c => c.Id == customerIdByte);
-
-                if (_selectedCustomer == null)
-                {
-                    foreach (var c in customers)
-                    {
-                        var testGuid = new Guid(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, (byte)c.Id);
-                        if (testGuid == _project.CustomerId)
-                        {
-                            _selectedCustomer = c;
-                            break;
-                        }
-                    }
-                }
+                _selectedCustomer = await CustomerService.GetByIdAsync(_project.CustomerId);
             }
         }
         catch (Exception ex)
@@ -274,7 +258,7 @@
 
         try
         {
-            _model.CustomerId = new Guid(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, (byte)_selectedCustomer!.Id);
+            _model.CustomerId = _selectedCustomer!.Id;
             _model.StartDate = _startDate.HasValue ? DateOnly.FromDateTime(_startDate.Value) : null;
             _model.TargetDate = _targetDate.HasValue ? DateOnly.FromDateTime(_targetDate.Value) : null;
 

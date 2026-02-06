@@ -29,6 +29,7 @@ public static class HostModule
         services.AddScoped<ICompanyService, CompanyService>();
         services.AddScoped<ICustomerService, CustomerService>();
         services.AddSingleton<PasswordEncryptionService>();
+        services.AddScoped<ITeamMemberService, TeamMemberService>();
 
         // Engines
         services.AddScoped<IEmailEngine, EmailEngine>();
