@@ -1,0 +1,141 @@
+@* TaskEditDialog - Modal dialog for editing task details *@
+
+@inject IProjectTaskService TaskService
+@inject ISnackbar Snackbar
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">
+            <MudIcon Icon="@Icons.Material.Filled.Edit" Class="mr-2" />
+            Aufgabe bearbeiten
+        </MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudStack Spacing="3">
+            <MudTextField @bind-Value="_model.Title"
+                         Label="Titel"
+                         Required="true"
+                         RequiredError="Titel ist erforderlich"
+                         Variant="Variant.Outlined"
+                         Disabled="@Disabled"
+                         MaxLength="500" />
+
+            <MudTextField @bind-Value="_model.Notes"
+                         Label="Notizen"
+                         Variant="Variant.Outlined"
+                         Disabled="@Disabled"
+                         Lines="4"
+                         MaxLength="2000" />
+
+            <MudDatePicker @bind-Date="_targetDate"
+                          Label="Zieltermin"
+                          Variant="Variant.Outlined"
+                          Disabled="@Disabled"
+                          DateFormat="dd.MM.yyyy"
+                          Clearable="true" />
+
+            @* TODO: Add user selection when user service is available *@
+            @* <MudAutocomplete T="User" ... /> *@
+
+            <MudSelect @bind-Value="_model.Status"
+                      Label="Status"
+                      Variant="Variant.Outlined"
+                      Disabled="@Disabled">
+                <MudSelectItem Value="ProjectTaskStatus.Open">Offen</MudSelectItem>
+                <MudSelectItem Value="ProjectTaskStatus.Completed">Erledigt</MudSelectItem>
+            </MudSelect>
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        @if (!Disabled)
+        {
+            <MudButton Color="Color.Error"
+                      Variant="Variant.Text"
+                      OnClick="@DeleteTask"
+                      StartIcon="@Icons.Material.Filled.Delete">
+                Löschen
+            </MudButton>
+        }
+        <MudSpacer />
+        <MudButton OnClick="Cancel">Abbrechen</MudButton>
+        @if (!Disabled)
+        {
+            <MudButton Color="Color.Primary"
+                      Variant="Variant.Filled"
+                      OnClick="@SaveTask"
+                      Disabled="@(!IsValid)">
+                Speichern
+            </MudButton>
+        }
+    </DialogActions>
+</MudDialog>
+
+@code {
+    private UpdateProjectTaskDto _model = new();
+    private DateTime? _targetDate;
+
+    [CascadingParameter]
+    private IMudDialogInstance? MudDialog { get; set; }
+
+    [Parameter]
+    public ProjectTask Task { get; set; } = null!;
+
+    [Parameter]
+    public bool Disabled { get; set; }
+
+    private bool IsValid => !string.IsNullOrWhiteSpace(_model.Title);
+
+    protected override void OnParametersSet()
+    {
+        if (Task != null)
+        {
+            _model = new UpdateProjectTaskDto
+            {
+                Title = Task.Title,
+                Notes = Task.Notes,
+                TargetDate = Task.TargetDate,
+                AssignedUserId = Task.AssignedUserId,
+                Status = Task.Status,
+                SortOrder = Task.SortOrder
+            };
+            _targetDate = Task.TargetDate?.ToDateTime(TimeOnly.MinValue);
+        }
+    }
+
+    private async Task SaveTask()
+    {
+        if (!IsValid)
+            return;
+
+        try
+        {
+            _model.TargetDate = _targetDate.HasValue
+                ? DateOnly.FromDateTime(_targetDate.Value)
+                : null;
+
+            await TaskService.UpdateAsync(Task.Id, _model);
+            Snackbar.Add("Aufgabe gespeichert", Severity.Success);
+            MudDialog?.Close(DialogResult.Ok(true));
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Fehler: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task DeleteTask()
+    {
+        try
+        {
+            await TaskService.DeleteAsync(Task.Id);
+            Snackbar.Add("Aufgabe gelöscht", Severity.Success);
+            MudDialog?.Close(DialogResult.Ok(true));
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Fehler: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private void Cancel() => MudDialog?.Cancel();
+}
