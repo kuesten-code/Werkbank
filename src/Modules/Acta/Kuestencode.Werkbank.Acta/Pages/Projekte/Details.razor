@@ -1,0 +1,440 @@
+@page "/projekte/{Id:guid}"
+@using Kuestencode.Werkbank.Acta.Domain.Enums
+@using Kuestencode.Werkbank.Acta.Domain.Services
+@using Kuestencode.Werkbank.Acta.Shared.Components
+@using Kuestencode.Shared.ApiClients
+@using Kuestencode.Shared.Contracts.Navigation
+@using Kuestencode.Shared.Contracts.Rapport
+@inject Kuestencode.Werkbank.Acta.Services.IProjectService ProjectService
+@inject CoreInterfaces.ICustomerService CustomerService
+@inject ProjectStatusService StatusService
+@inject NavigationManager NavigationManager
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+@inject IHostApiClient HostApiClient
+
+<PageTitle>Projekt Details - Küstencode Acta</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="mt-4">
+    @if (_loading)
+    {
+        <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+    }
+    else if (_project == null)
+    {
+        <MudAlert Severity="Severity.Error">Projekt nicht gefunden.</MudAlert>
+    }
+    else
+    {
+        <MudPaper Class="pa-4">
+            <!-- Header -->
+            <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-4">
+                <MudStack>
+                    <MudText Typo="Typo.h4">@_project.ProjectNumber - @_project.Name</MudText>
+                    @if (_customer != null)
+                    {
+                        <MudText Typo="Typo.subtitle1" Color="Color.Secondary">@_customer.Name</MudText>
+                    }
+                </MudStack>
+                <ProjectStatusBadge Status="@_project.Status" Size="Size.Large" />
+            </MudStack>
+
+            <!-- Tabs -->
+            <MudTabs Elevation="0" Rounded="true" ApplyEffectsToContainer="true" PanelClass="pa-4">
+                <!-- Tab 1: Stammdaten -->
+                <MudTabPanel Text="Stammdaten" Icon="@Icons.Material.Filled.Info">
+                    <MudGrid>
+                        <!-- Projektdaten -->
+                        <MudItem xs="12" md="6">
+                            <MudText Typo="Typo.h6" GutterBottom="true">Projektdaten</MudText>
+                            <MudSimpleTable Dense="true">
+                                <tbody>
+                                    <tr>
+                                        <td><strong>Projektnummer:</strong></td>
+                                        <td><strong>@_project.ProjectNumber</strong></td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Status:</strong></td>
+                                        <td><ProjectStatusBadge Status="@_project.Status" /></td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Erstellt am:</strong></td>
+                                        <td>@_project.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</td>
+                                    </tr>
+                                    @if (_project.StartDate.HasValue)
+                                    {
+                                        <tr>
+                                            <td><strong>Startdatum:</strong></td>
+                                            <td>@_project.StartDate.Value.ToString("dd.MM.yyyy")</td>
+                                        </tr>
+                                    }
+                                    @if (_project.TargetDate.HasValue)
+                                    {
+                                        <tr>
+                                            <td><strong>Zieldatum:</strong></td>
+                                            <td>
+                                                @{
+                                                    var isOverdue = _project.TargetDate.Value < DateOnly.FromDateTime(DateTime.Today)
+                                                                    && _project.Status == ProjectStatus.Active;
+                                                }
+                                                <MudText Color="@(isOverdue ? Color.Error : Color.Default)">
+                                                    @_project.TargetDate.Value.ToString("dd.MM.yyyy")
+                                                    @if (isOverdue)
+                                                    {
+                                                        <text> (überfällig)</text>
+                                                    }
+                                                </MudText>
+                                            </td>
+                                        </tr>
+                                    }
+                                    @if (_project.CompletedAt.HasValue)
+                                    {
+                                        <tr>
+                                            <td><strong>Abgeschlossen am:</strong></td>
+                                            <td>@_project.CompletedAt.Value.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</td>
+                                        </tr>
+                                    }
+                                    @if (_project.BudgetNet.HasValue)
+                                    {
+                                        <tr>
+                                            <td><strong>Budget (netto):</strong></td>
+                                            <td>@_project.BudgetNet.Value.ToString("C2", _culture)</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </MudSimpleTable>
+                        </MudItem>
+
+                        <!-- Kundendaten -->
+                        <MudItem xs="12" md="6">
+                            <MudText Typo="Typo.h6" GutterBottom="true">Kunde</MudText>
+                            @if (_customer != null)
+                            {
+                                <MudText Typo="Typo.body1"><strong>@_customer.Name</strong></MudText>
+                                <MudText Typo="Typo.body2">@_customer.CustomerNumber</MudText>
+                                <MudText Typo="Typo.body2">@_customer.Address</MudText>
+                                <MudText Typo="Typo.body2">@_customer.PostalCode @_customer.City</MudText>
+                                @if (!string.IsNullOrEmpty(_customer.Email))
+                                {
+                                    <MudText Typo="Typo.body2">@_customer.Email</MudText>
+                                }
+                            }
+                            else
+                            {
+                                <MudText Color="Color.Secondary">Kunde nicht gefunden</MudText>
+                            }
+                        </MudItem>
+
+                        <!-- Projektadresse -->
+                        @if (!string.IsNullOrWhiteSpace(_project.Address) || !string.IsNullOrWhiteSpace(_project.City))
+                        {
+                            <MudItem xs="12" md="6">
+                                <MudText Typo="Typo.h6" GutterBottom="true">Projektadresse</MudText>
+                                @if (!string.IsNullOrWhiteSpace(_project.Address))
+                                {
+                                    <MudText Typo="Typo.body2">@_project.Address</MudText>
+                                }
+                                @if (!string.IsNullOrWhiteSpace(_project.PostalCode) || !string.IsNullOrWhiteSpace(_project.City))
+                                {
+                                    <MudText Typo="Typo.body2">@_project.PostalCode @_project.City</MudText>
+                                }
+                            </MudItem>
+                        }
+
+                        <!-- Beschreibung -->
+                        @if (!string.IsNullOrWhiteSpace(_project.Description))
+                        {
+                            <MudItem xs="12" Class="mt-4">
+                                <MudText Typo="Typo.h6" GutterBottom="true">Beschreibung</MudText>
+                                <MudPaper Class="pa-3" Elevation="0">
+                                    <MudText Typo="Typo.body2" Style="white-space: pre-line;">@_project.Description</MudText>
+                                </MudPaper>
+                            </MudItem>
+                        }
+                    </MudGrid>
+                </MudTabPanel>
+
+                <!-- Tab 2: Aufgaben -->
+                <MudTabPanel Text="Aufgaben" Icon="@Icons.Material.Filled.Checklist" BadgeData="@(_project.OpenTasksCount + _project.CompletedTasksCount)" BadgeColor="Color.Primary">
+                    <ProjectTaskList ProjectId="@_project.Id"
+                                    Disabled="@(!_project.IsEditable)"
+                                    OnTasksChanged="RefreshProjectAsync" />
+                </MudTabPanel>
+
+                <!-- Tab 3: Übersicht (Placeholder) -->
+                <MudTabPanel Text="Übersicht" Icon="@Icons.Material.Filled.Dashboard">
+                    <MudGrid Style="align-items: stretch;">
+                        <MudItem xs="12" md="4">
+                            <MudPaper Class="pa-4 d-flex flex-column align-center justify-center" Elevation="2" Style="height: 100%;">
+                                <MudIcon Icon="@Icons.Material.Filled.TaskAlt" Size="Size.Large" Color="Color.Success" />
+                                <MudText Typo="Typo.h4" Class="mt-2">@_project.CompletedTasksCount / @_project.Tasks.Count</MudText>
+                                <MudText Typo="Typo.body2">Aufgaben erledigt</MudText>
+                                <MudProgressLinear Color="@GetProgressColor(_project.ProgressPercent)"
+                                                  Value="@_project.ProgressPercent" Class="mt-2" Style="width: 100%;" />
+                                <MudText Typo="Typo.caption">@_project.ProgressPercent% abgeschlossen</MudText>
+                            </MudPaper>
+                        </MudItem>
+
+                        <MudItem xs="12" md="4">
+                            <MudPaper Class="pa-4 d-flex flex-column align-center justify-center" Elevation="2" Style="height: 100%;">
+                                <MudIcon Icon="@Icons.Material.Filled.Euro" Size="Size.Large" Color="Color.Primary" />
+                                <MudText Typo="Typo.h4" Class="mt-2">@(_project.BudgetNet?.ToString("N0", _culture) ?? "-") €</MudText>
+                                <MudText Typo="Typo.body2">Budget (netto)</MudText>
+                            </MudPaper>
+                        </MudItem>
+
+                        @if (_rapportAvailable)
+                        {
+                            <MudItem xs="12" md="4">
+                                <MudPaper Class="pa-4 d-flex flex-column align-center justify-center" Elevation="2" Style="height: 100%;">
+                                    <MudIcon Icon="@Icons.Material.Filled.AccessTime" Size="Size.Large" Color="Color.Info" />
+                                    <MudText Typo="Typo.h4" Class="mt-2">@(_projectHours?.TotalHours.ToString("N1", _culture) ?? "0") h</MudText>
+                                    <MudText Typo="Typo.body2">Aufwand</MudText>
+                                </MudPaper>
+                            </MudItem>
+                        }
+
+                        
+                    </MudGrid>
+                </MudTabPanel>
+            </MudTabs>
+
+            <!-- Actions -->
+            <MudDivider Class="my-4" />
+            <MudStack Row="true" Justify="Justify.SpaceBetween" Wrap="Wrap.Wrap">
+                <MudButton Variant="Variant.Filled" Color="Color.Default"
+                          StartIcon="@Icons.Material.Filled.ArrowBack"
+                          OnClick="@(() => NavigationManager.NavigateTo("/acta/projekte"))">
+                    Zurück zur Übersicht
+                </MudButton>
+
+                <MudStack Row="true" Spacing="2" Wrap="Wrap.Wrap">
+                    @* Status-Aktionen basierend auf State Machine *@
+                    @foreach (var transition in ProjectStateMachine.GetAvailableTransitions(_project.Status))
+                    {
+                        <MudButton Variant="Variant.Filled"
+                                  Color="@GetTransitionButtonColor(transition.TargetStatus)"
+                                  StartIcon="@GetTransitionIcon(transition.TargetStatus)"
+                                  OnClick="@(() => ExecuteTransition(transition.TargetStatus, transition.ActionName))">
+                            @transition.ActionName
+                        </MudButton>
+                    }
+
+                    @* Bearbeiten-Button wenn editierbar *@
+                    @if (_project.IsEditable)
+                    {
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                                  StartIcon="@Icons.Material.Filled.Edit"
+                                  OnClick="EditProject">
+                            Bearbeiten
+                        </MudButton>
+                    }
+
+                    @* Löschen nur bei Draft *@
+                    @if (_project.Status == ProjectStatus.Draft)
+                    {
+                        <MudButton Variant="Variant.Outlined" Color="Color.Error"
+                                  StartIcon="@Icons.Material.Filled.Delete"
+                                  OnClick="DeleteProject">
+                            Löschen
+                        </MudButton>
+                    }
+                </MudStack>
+            </MudStack>
+        </MudPaper>
+    }
+</MudContainer>
+
+@code {
+    [Parameter]
+    public Guid Id { get; set; }
+
+    private readonly System.Globalization.CultureInfo _culture = new("de-DE");
+    private bool _loading = true;
+    private Project? _project;
+    private Customer? _customer;
+    private bool _rapportAvailable;
+    private ProjectHoursResponseDto? _projectHours;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDataAsync();
+    }
+
+    private async Task LoadDataAsync(bool showLoading = true)
+    {
+        if (showLoading)
+            _loading = true;
+
+        try
+        {
+            _project = await ProjectService.GetByIdAsync(Id);
+
+            if (_project != null && _customer == null)
+            {
+                _customer = await CustomerService.GetByIdAsync(_project.CustomerId);
+            }
+
+            await CheckRapportAvailabilityAsync();
+
+            if (_rapportAvailable && _project != null)
+            {
+                if (!_project.ExternalId.HasValue)
+                {
+                    await ProjectService.EnsureExternalIdsAsync();
+                    _project = await ProjectService.GetByIdAsync(Id);
+                }
+
+                if (_project?.ExternalId.HasValue == true)
+                {
+                    _projectHours = await HostApiClient.GetProjectHoursAsync(_project.ExternalId.Value);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Fehler beim Laden: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _loading = false;
+        }
+
+        StateHasChanged();
+    }
+
+    private async Task RefreshProjectAsync()
+    {
+        await LoadDataAsync(showLoading: false);
+    }
+
+    private async Task CheckRapportAvailabilityAsync()
+    {
+        try
+        {
+            var navItems = await HostApiClient.GetNavigationAsync();
+            _rapportAvailable = navItems.Any(IsRapportNavItem);
+        }
+        catch
+        {
+            _rapportAvailable = false;
+        }
+    }
+
+    private static bool IsRapportNavItem(NavItemDto item)
+    {
+        if (!string.IsNullOrWhiteSpace(item.Href) && item.Href.StartsWith("/rapport", StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        if (item.Children is { Count: > 0 })
+            return item.Children.Any(IsRapportNavItem);
+
+        return false;
+    }
+
+    private Color GetProgressColor(int percent) => percent switch
+    {
+        100 => Color.Success,
+        >= 50 => Color.Info,
+        > 0 => Color.Warning,
+        _ => Color.Default
+    };
+
+    private Color GetTransitionButtonColor(ProjectStatus targetStatus) => targetStatus switch
+    {
+        ProjectStatus.Active => Color.Success,
+        ProjectStatus.Paused => Color.Warning,
+        ProjectStatus.Completed => Color.Info,
+        ProjectStatus.Archived => Color.Dark,
+        _ => Color.Primary
+    };
+
+    private string GetTransitionIcon(ProjectStatus targetStatus) => targetStatus switch
+    {
+        ProjectStatus.Active => Icons.Material.Filled.PlayArrow,
+        ProjectStatus.Paused => Icons.Material.Filled.Pause,
+        ProjectStatus.Completed => Icons.Material.Filled.CheckCircle,
+        ProjectStatus.Archived => Icons.Material.Filled.Archive,
+        _ => Icons.Material.Filled.ArrowForward
+    };
+
+    private async Task ExecuteTransition(ProjectStatus targetStatus, string actionName)
+    {
+        if (_project == null) return;
+
+        var parameters = new DialogParameters<Kuestencode.Werkbank.Acta.Shared.Dialogs.ConfirmDialog>
+        {
+            { x => x.Title, actionName },
+            { x => x.ContentText, $"Möchten Sie das Projekt '{_project.Name}' wirklich {actionName.ToLower()}?" },
+            { x => x.ButtonText, actionName },
+            { x => x.Color, GetTransitionButtonColor(targetStatus) }
+        };
+
+        var dialog = await DialogService.ShowAsync<Kuestencode.Werkbank.Acta.Shared.Dialogs.ConfirmDialog>(actionName, parameters);
+        var result = await dialog.Result;
+
+        if (result != null && !result.Canceled)
+        {
+            try
+            {
+                await ProjectService.ChangeStatusAsync(_project.Id, targetStatus);
+                Snackbar.Add($"Projekt wurde erfolgreich {GetPastTense(actionName)}.", Severity.Success);
+                await LoadDataAsync();
+            }
+            catch (InvalidOperationException ex)
+            {
+                Snackbar.Add($"Statusübergang nicht möglich: {ex.Message}", Severity.Warning);
+            }
+            catch (Exception ex)
+            {
+                Snackbar.Add($"Fehler: {ex.Message}", Severity.Error);
+            }
+        }
+    }
+
+    private string GetPastTense(string action) => action switch
+    {
+        "Freigeben" => "freigegeben",
+        "Pausieren" => "pausiert",
+        "Fortsetzen" => "fortgesetzt",
+        "Abschließen" => "abgeschlossen",
+        "Reaktivieren" => "reaktiviert",
+        "Archivieren" => "archiviert",
+        _ => action.ToLower()
+    };
+
+    private void EditProject()
+    {
+        NavigationManager.NavigateTo($"/acta/projekte/{Id}/bearbeiten");
+    }
+
+    private async Task DeleteProject()
+    {
+        if (_project == null) return;
+
+        var parameters = new DialogParameters<Kuestencode.Werkbank.Acta.Shared.Dialogs.ConfirmDialog>
+        {
+            { x => x.Title, "Projekt löschen" },
+            { x => x.ContentText, $"Möchten Sie das Projekt '{_project.Name}' wirklich löschen?" },
+            { x => x.ButtonText, "Löschen" },
+            { x => x.Color, Color.Error }
+        };
+
+        var dialog = await DialogService.ShowAsync<Kuestencode.Werkbank.Acta.Shared.Dialogs.ConfirmDialog>("Löschen", parameters);
+        var result = await dialog.Result;
+
+        if (result != null && !result.Canceled)
+        {
+            try
+            {
+                await ProjectService.DeleteAsync(_project.Id);
+                Snackbar.Add($"Projekt '{_project.Name}' wurde gelöscht.", Severity.Success);
+                NavigationManager.NavigateTo("/acta/projekte");
+            }
+            catch (Exception ex)
+            {
+                Snackbar.Add($"Fehler beim Löschen: {ex.Message}", Severity.Error);
+            }
+        }
+    }
+}

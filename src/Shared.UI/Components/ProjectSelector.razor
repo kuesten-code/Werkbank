@@ -1,22 +1,8 @@
 ﻿@using Kuestencode.Core.Interfaces
 
-<MudStack Spacing="1">
-    @if (!IsAvailable)
-    {
-        <MudAlert Severity="Severity.Info" Dense="true">
-            Projekt-Modul ist nicht verfügbar.
-            @if (!string.IsNullOrWhiteSpace(UnavailableHref))
-            {
-                <MudLink Href="@UnavailableHref" Class="ml-1">Modul-Einstellungen öffnen</MudLink>
-            }
-        </MudAlert>
-    }
-    else if (Projects.Count == 0)
-    {
-        <MudText Typo="Typo.caption" Color="Color.Secondary">Keine Projekte verfügbar.</MudText>
-    }
-    else
-    {
+@if (IsAvailable && Projects.Count > 0)
+{
+    <MudStack Spacing="1">
         <MudSelect T="int?" Label="Projekt" Variant="Variant.Outlined" Clearable="true"
                    Value="SelectedProjectId" ValueChanged="OnSelectedProjectChanged">
             <MudSelectItem T="int?" Value="@(null)">Kein Projekt</MudSelectItem>
@@ -36,8 +22,8 @@
                 </MudText>
             }
         }
-    }
-</MudStack>
+    </MudStack>
+}
 
 @code {
     [Parameter]
@@ -72,4 +58,3 @@
         return label;
     }
 }
-

@@ -26,12 +26,14 @@ jobs:
           DOCKERFILES[faktura]="src/Modules/Faktura/Dockerfile"
           DOCKERFILES[rapport]="src/Modules/Rapport/Dockerfile"
           DOCKERFILES[offerte]="src/Modules/Offerte/Kuestencode.Werkbank.Offerte/Dockerfile"
+          DOCKERFILES[acta]="src/Modules/Acta/Kuestencode.Werkbank.Acta/Dockerfile"
 
           declare -A IMAGE_NAMES
           IMAGE_NAMES[host]="host"
           IMAGE_NAMES[faktura]="faktura"
           IMAGE_NAMES[rapport]="rapport"
           IMAGE_NAMES[offerte]="offerte"
+          IMAGE_NAMES[acta]="acta"
 
           # Read VERSION file and build matrix
           MATRIX_JSON='{"include":['

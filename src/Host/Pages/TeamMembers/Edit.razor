@@ -1,0 +1,130 @@
+@page "/team-members/edit/{Id:guid}"
+@using Kuestencode.Werkbank.Host.Models
+@inject Kuestencode.Werkbank.Host.Services.ITeamMemberService TeamMemberService
+@inject NavigationManager NavigationManager
+@inject ISnackbar Snackbar
+
+<PageTitle>Mitarbeiter bearbeiten - Kuestencode Werkbank</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Medium" Class="mt-4">
+    <MudPaper Class="pa-4">
+        <MudText Typo="Typo.h4" GutterBottom="true">Mitarbeiter bearbeiten</MudText>
+
+        @if (_loading)
+        {
+            <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+        }
+        else if (_member == null)
+        {
+            <MudAlert Severity="Severity.Error">Mitarbeiter nicht gefunden.</MudAlert>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-4"
+                      OnClick="Cancel">
+                Zurueck zur Liste
+            </MudButton>
+        }
+        else
+        {
+            @if (!string.IsNullOrEmpty(_errorMessage))
+            {
+                <MudAlert Severity="Severity.Error" Class="my-4">@_errorMessage</MudAlert>
+            }
+
+            <EditForm Model="@_member" OnValidSubmit="HandleSubmit">
+                <DataAnnotationsValidator />
+
+                <MudGrid>
+                    <MudItem xs="12">
+                        <MudTextField Label="Name" @bind-Value="_member.DisplayName"
+                                     For="@(() => _member.DisplayName)" Required="true" />
+                    </MudItem>
+
+                    <MudItem xs="12">
+                        <MudTextField Label="Email (optional)" @bind-Value="_member.Email"
+                                     For="@(() => _member.Email)" InputType="InputType.Email" />
+                    </MudItem>
+
+                    <MudItem xs="12">
+                        <MudCheckBox @bind-Value="_member.IsActive" Label="Aktiv" />
+                    </MudItem>
+
+                    <MudItem xs="12" Class="d-flex justify-end gap-2">
+                        <MudButton Variant="Variant.Filled" Color="Color.Default"
+                                  OnClick="Cancel">Abbrechen</MudButton>
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                                  ButtonType="ButtonType.Submit" Disabled="@_saving">
+                            @if (_saving)
+                            {
+                                <MudProgressCircular Class="ms-n1" Size="Size.Small" Indeterminate="true" />
+                                <MudText Class="ms-2">Speichert...</MudText>
+                            }
+                            else
+                            {
+                                <MudText>Speichern</MudText>
+                            }
+                        </MudButton>
+                    </MudItem>
+                </MudGrid>
+            </EditForm>
+        }
+    </MudPaper>
+</MudContainer>
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+
+    private bool _loading = true;
+    private bool _saving;
+    private string? _errorMessage;
+    private TeamMember? _member;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadMember();
+    }
+
+    private async Task LoadMember()
+    {
+        _loading = true;
+        try
+        {
+            _member = await TeamMemberService.GetByIdAsync(Id);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Fehler beim Laden: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task HandleSubmit()
+    {
+        if (_member == null) return;
+
+        _saving = true;
+        _errorMessage = null;
+
+        try
+        {
+            await TeamMemberService.UpdateAsync(_member);
+            Snackbar.Add("Mitarbeiter wurde gespeichert.", Severity.Success);
+            NavigationManager.NavigateTo("/team-members");
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = ex.Message;
+            Snackbar.Add($"Fehler: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private void Cancel()
+    {
+        NavigationManager.NavigateTo("/team-members");
+    }
+}

@@ -1,0 +1,144 @@
+@page "/"
+@page "/acta"
+@using Kuestencode.Werkbank.Acta.Domain.Enums
+@using Kuestencode.Werkbank.Acta.Services
+@inject Kuestencode.Werkbank.Acta.Services.IProjectService ProjectService
+@inject NavigationManager NavigationManager
+
+<PageTitle>Acta - Übersicht</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4">
+    <MudText Typo="Typo.h4" GutterBottom="true">Acta Übersicht</MudText>
+
+    @if (_loading)
+    {
+        <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+    }
+    else
+    {
+        <MudGrid>
+            <MudItem xs="12" sm="6" md="4" lg="2">
+                <MudPaper Class="pa-4 cursor-pointer" Elevation="2" @onclick="@(() => NavigateToProjekte("draft"))">
+                    <MudStack AlignItems="AlignItems.Center">
+                        <MudIcon Icon="@Icons.Material.Filled.Edit" Size="Size.Large" Color="Color.Default" />
+                        <MudText Typo="Typo.h4">@_draftCount</MudText>
+                        <MudText Typo="Typo.body2">Entwürfe</MudText>
+                    </MudStack>
+                </MudPaper>
+            </MudItem>
+
+            <MudItem xs="12" sm="6" md="4" lg="2">
+                <MudPaper Class="pa-4 cursor-pointer" Elevation="2" @onclick="@(() => NavigateToProjekte("active"))">
+                    <MudStack AlignItems="AlignItems.Center">
+                        <MudIcon Icon="@Icons.Material.Filled.PlayArrow" Size="Size.Large" Color="Color.Success" />
+                        <MudText Typo="Typo.h4">@_activeCount</MudText>
+                        <MudText Typo="Typo.body2">Aktiv</MudText>
+                    </MudStack>
+                </MudPaper>
+            </MudItem>
+
+            <MudItem xs="12" sm="6" md="4" lg="2">
+                <MudPaper Class="pa-4 cursor-pointer" Elevation="2" @onclick="@(() => NavigateToProjekte("paused"))">
+                    <MudStack AlignItems="AlignItems.Center">
+                        <MudIcon Icon="@Icons.Material.Filled.Pause" Size="Size.Large" Color="Color.Warning" />
+                        <MudText Typo="Typo.h4">@_pausedCount</MudText>
+                        <MudText Typo="Typo.body2">Pausiert</MudText>
+                    </MudStack>
+                </MudPaper>
+            </MudItem>
+
+            <MudItem xs="12" sm="6" md="4" lg="2">
+                <MudPaper Class="pa-4 cursor-pointer" Elevation="2" @onclick="@(() => NavigateToProjekte("completed"))">
+                    <MudStack AlignItems="AlignItems.Center">
+                        <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Size="Size.Large" Color="Color.Info" />
+                        <MudText Typo="Typo.h4">@_completedCount</MudText>
+                        <MudText Typo="Typo.body2">Abgeschlossen</MudText>
+                    </MudStack>
+                </MudPaper>
+            </MudItem>
+
+            <MudItem xs="12" sm="6" md="4" lg="2">
+                <MudPaper Class="pa-4 cursor-pointer" Elevation="2" @onclick="@(() => NavigateToProjekte("archived"))">
+                    <MudStack AlignItems="AlignItems.Center">
+                        <MudIcon Icon="@Icons.Material.Filled.Archive" Size="Size.Large" Color="Color.Dark" />
+                        <MudText Typo="Typo.h4">@_archivedCount</MudText>
+                        <MudText Typo="Typo.body2">Archiviert</MudText>
+                    </MudStack>
+                </MudPaper>
+            </MudItem>
+
+            <MudItem xs="12" sm="6" md="4" lg="2">
+                <MudPaper Class="pa-4 cursor-pointer" Elevation="2" @onclick="@(() => NavigateToProjekte(null))">
+                    <MudStack AlignItems="AlignItems.Center">
+                        <MudIcon Icon="@Icons.Material.Filled.List" Size="Size.Large" Color="Color.Primary" />
+                        <MudText Typo="Typo.h4">@_totalCount</MudText>
+                        <MudText Typo="Typo.body2">Gesamt</MudText>
+                    </MudStack>
+                </MudPaper>
+            </MudItem>
+        </MudGrid>
+
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-6"
+                  StartIcon="@Icons.Material.Filled.Add"
+                  OnClick="@(() => NavigationManager.NavigateTo("/acta/projekte/neu"))">
+            Neues Projekt erstellen
+        </MudButton>
+
+        <MudButton Variant="Variant.Outlined" Color="Color.Primary" Class="mt-6 ml-2"
+                  StartIcon="@Icons.Material.Filled.List"
+                  OnClick="@(() => NavigationManager.NavigateTo("/acta/projekte"))">
+            Alle Projekte
+        </MudButton>
+    }
+</MudContainer>
+
+<style>
+    .cursor-pointer {
+        cursor: pointer;
+    }
+    .cursor-pointer:hover {
+        background-color: rgba(0, 0, 0, 0.04);
+    }
+</style>
+
+@code {
+    private bool _loading = true;
+    private int _draftCount;
+    private int _activeCount;
+    private int _pausedCount;
+    private int _completedCount;
+    private int _archivedCount;
+    private int _totalCount;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadStatsAsync();
+    }
+
+    private async Task LoadStatsAsync()
+    {
+        try
+        {
+            var projects = await ProjectService.GetAllAsync();
+
+            _draftCount = projects.Count(p => p.Status == ProjectStatus.Draft);
+            _activeCount = projects.Count(p => p.Status == ProjectStatus.Active);
+            _pausedCount = projects.Count(p => p.Status == ProjectStatus.Paused);
+            _completedCount = projects.Count(p => p.Status == ProjectStatus.Completed);
+            _archivedCount = projects.Count(p => p.Status == ProjectStatus.Archived);
+            _totalCount = projects.Count;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private void NavigateToProjekte(string? statusFilter)
+    {
+        var url = string.IsNullOrEmpty(statusFilter)
+            ? "/acta/projekte"
+            : $"/acta/projekte?status={statusFilter}";
+        NavigationManager.NavigateTo(url);
+    }
+}

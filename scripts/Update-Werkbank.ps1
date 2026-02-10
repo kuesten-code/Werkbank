@@ -44,7 +44,7 @@ $Colors = @{
 }
 
 # Known modules
-$KnownModules = @("host", "faktura", "rapport", "offerte")
+$KnownModules = @("host", "faktura", "rapport", "offerte", "acta")
 
 # Potential new modules
 $PotentialModules = @("lager", "buchhaltung", "projekt", "kunde", "dokument")

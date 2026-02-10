@@ -1,0 +1,55 @@
+@* SideDrawer - Wiederverwendbare Seitenleiste für Detail-/Bearbeitungsansichten *@
+
+<MudDrawer @bind-Open="IsOpen"
+           Anchor="@Anchor"
+           Elevation="4"
+           Variant="DrawerVariant.Temporary"
+           Width="@Width">
+    @if (IsOpen)
+    {
+        <MudDrawerHeader>
+            <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Style="width: 100%;">
+                <MudText Typo="Typo.h6">@Title</MudText>
+                <MudIconButton Icon="@Icons.Material.Filled.Close" OnClick="Close" />
+            </MudStack>
+        </MudDrawerHeader>
+        <div class="pa-4" style="overflow-y: auto; flex: 1;">
+            @ChildContent
+        </div>
+        @if (FooterContent != null)
+        {
+            <div class="pa-4 border-t">
+                @FooterContent
+            </div>
+        }
+    }
+</MudDrawer>
+
+@code {
+    [Parameter]
+    public bool IsOpen { get; set; }
+
+    [Parameter]
+    public EventCallback<bool> IsOpenChanged { get; set; }
+
+    [Parameter]
+    public string Title { get; set; } = string.Empty;
+
+    [Parameter]
+    public string Width { get; set; } = "400px";
+
+    [Parameter]
+    public Anchor Anchor { get; set; } = Anchor.End;
+
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+
+    [Parameter]
+    public RenderFragment? FooterContent { get; set; }
+
+    private async Task Close()
+    {
+        IsOpen = false;
+        await IsOpenChanged.InvokeAsync(false);
+    }
+}

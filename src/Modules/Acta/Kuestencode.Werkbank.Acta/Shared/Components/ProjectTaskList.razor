@@ -1,0 +1,495 @@
+@inject IProjectTaskService TaskService
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+@inject ITeamMemberDirectory TeamMemberDirectory
+
+<MudPaper Class="pa-4">
+    <MudText Typo="Typo.h6" Class="mb-3">Aufgaben</MudText>
+
+    @if (_loading)
+    {
+        <MudProgressLinear Indeterminate="true" />
+    }
+    else
+    {
+        <MudStack Spacing="2">
+            @* Open Tasks - sorted by SortOrder *@
+            @foreach (var task in GetOpenTasks())
+            {
+                <MudPaper Class="@GetTaskClass(task)"
+                         Style="@GetTaskStyle(task)"
+                         Outlined="true">
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                            @if (!Disabled)
+                            {
+                                <MudStack Spacing="0" AlignItems="AlignItems.Center">
+                                    <MudIconButton Icon="@Icons.Material.Filled.KeyboardArrowUp"
+                                                   Size="Size.Small"
+                                                   Disabled="@IsFirstOpenTask(task)"
+                                                   OnClick="@(() => MoveTaskUp(task))" />
+                                    <MudIconButton Icon="@Icons.Material.Filled.KeyboardArrowDown"
+                                                   Size="Size.Small"
+                                                   Disabled="@IsLastOpenTask(task)"
+                                                   OnClick="@(() => MoveTaskDown(task))" />
+                                </MudStack>
+                            }
+
+                            <MudCheckBox T="bool"
+                                        Value="false"
+                                        ValueChanged="@(() => ToggleTaskStatus(task))"
+                                        Disabled="@Disabled"
+                                        Color="Color.Primary" />
+
+                            <MudStack Spacing="0" Class="cursor-pointer" @onclick="@(() => OpenDrawer(task))">
+                                <MudText Style="@(IsOverdue(task) ? "color: var(--mud-palette-error);" : "")">
+                                    @task.Title
+                                </MudText>
+                                @if (task.TargetDate.HasValue)
+                                {
+                                    <MudText Typo="Typo.caption"
+                                            Style="@(IsOverdue(task) ? "color: var(--mud-palette-error);" : "")">
+                                        Fällig: @task.TargetDate.Value.ToString("dd.MM.yyyy")
+                                    </MudText>
+                                }
+                            </MudStack>
+                        </MudStack>
+
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                            @{
+                                var assignedMember = FindTeamMember(task.AssignedUserId);
+                            }
+                            @if (assignedMember != null)
+                            {
+                                <MudAvatar Size="Size.Small" Color="Color.Primary">
+                                    @assignedMember.Initials
+                                </MudAvatar>
+                                <MudText Typo="Typo.caption">@assignedMember.DisplayName</MudText>
+                            }
+                            else
+                            {
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">Unzugewiesen</MudText>
+                            }
+                        </MudStack>
+                    </MudStack>
+                </MudPaper>
+            }
+
+            @if (GetCompletedTasks().Any())
+            {
+                <MudDivider Class="my-2" />
+                <MudText Typo="Typo.subtitle2" Color="Color.Secondary">Erledigt</MudText>
+
+                @foreach (var task in GetCompletedTasks())
+                {
+                    <MudPaper Class="pa-2" Outlined="true" Style="opacity: 0.7;">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                                <MudCheckBox T="bool"
+                                            Value="true"
+                                            ValueChanged="@(() => ToggleTaskStatus(task))"
+                                            Disabled="@Disabled"
+                                            Color="Color.Success" />
+                                <MudStack Spacing="0" Class="cursor-pointer" @onclick="@(() => OpenDrawer(task))">
+                                    <MudText Style="text-decoration: line-through; color: var(--mud-palette-text-secondary);">
+                                        @task.Title
+                                    </MudText>
+                                    @if (task.CompletedAt.HasValue)
+                                    {
+                                        <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                            Erledigt am: @task.CompletedAt.Value.ToString("dd.MM.yyyy HH:mm")
+                                        </MudText>
+                                    }
+                                </MudStack>
+                            </MudStack>
+
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                                @{
+                                    var assignedMember = FindTeamMember(task.AssignedUserId);
+                                }
+                                @if (assignedMember != null)
+                                {
+                                    <MudAvatar Size="Size.Small" Color="Color.Primary">
+                                        @assignedMember.Initials
+                                    </MudAvatar>
+                                    <MudText Typo="Typo.caption">@assignedMember.DisplayName</MudText>
+                                }
+                                else
+                                {
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary">Unzugewiesen</MudText>
+                                }
+                            </MudStack>
+                        </MudStack>
+                    </MudPaper>
+                }
+            }
+
+            @if (!Disabled)
+            {
+                <MudPaper Class="pa-2" Outlined="true">
+                    <MudTextField @ref="_newTaskField"
+                                 @bind-Value="_newTaskTitle"
+                                 Placeholder="Neue Aufgabe..."
+                                 Variant="Variant.Text"
+                                 Immediate="true"
+                                 OnKeyDown="@OnNewTaskKeyDown"
+                                 Adornment="Adornment.End"
+                                 AdornmentIcon="@Icons.Material.Filled.Add"
+                                 OnAdornmentClick="@CreateNewTask"
+                                 FullWidth="true" />
+                </MudPaper>
+            }
+        </MudStack>
+    }
+</MudPaper>
+
+@* Sidebar Drawer for editing task details *@
+<SideDrawer @bind-IsOpen="_drawerOpen" Title="Aufgabe bearbeiten">
+    <ChildContent>
+        @if (_editingTask != null)
+        {
+            <MudStack Spacing="3">
+                <MudTextField @bind-Value="_editModel.Title"
+                             Label="Titel"
+                             Required="true"
+                             RequiredError="Titel ist erforderlich"
+                             Variant="Variant.Outlined"
+                             Disabled="@Disabled"
+                             MaxLength="500" />
+
+                <MudTextField @bind-Value="_editModel.Notes"
+                             Label="Notizen"
+                             Variant="Variant.Outlined"
+                             Disabled="@Disabled"
+                             Lines="4"
+                             MaxLength="2000" />
+
+                <MudDatePicker @bind-Date="_editTargetDate"
+                              Label="Zieltermin"
+                              Variant="Variant.Outlined"
+                              Disabled="@Disabled"
+                              DateFormat="dd.MM.yyyy"
+                              Clearable="true" />
+
+                <MudSelect T="Guid?" @bind-Value="_editModel.AssignedUserId"
+                          Label="Zuständig"
+                          Variant="Variant.Outlined"
+                          Disabled="@Disabled"
+                          Clearable="true">
+                    @foreach (var member in _teamMembers)
+                    {
+                        <MudSelectItem T="Guid?" Value="@((Guid?)member.Id)">@member.DisplayName</MudSelectItem>
+                    }
+                </MudSelect>
+
+                @if (!Disabled)
+                {
+                    <MudStack Row="true" Justify="Justify.SpaceBetween" Class="mt-4">
+                        @if (_editingTask.Status == ProjectTaskStatus.Open)
+                        {
+                            <MudButton Color="Color.Error"
+                                      Variant="Variant.Text"
+                                      StartIcon="@Icons.Material.Filled.Delete"
+                                      OnClick="DeleteEditingTask">
+                                Löschen
+                            </MudButton>
+                        }
+                        else
+                        {
+                            <MudSpacer />
+                        }
+                        <MudButton Color="Color.Primary"
+                                  Variant="Variant.Filled"
+                                  StartIcon="@Icons.Material.Filled.Save"
+                                  OnClick="SaveEditingTask"
+                                  Disabled="@(string.IsNullOrWhiteSpace(_editModel.Title))">
+                            Speichern
+                        </MudButton>
+                    </MudStack>
+                }
+            </MudStack>
+        }
+    </ChildContent>
+</SideDrawer>
+
+@code {
+    private bool _loading = true;
+    private List<ProjectTask> _tasks = new();
+    private IReadOnlyList<TeamMember> _teamMembers = Array.Empty<TeamMember>();
+    private Dictionary<Guid, TeamMember> _teamMemberLookup = new();
+    private string _newTaskTitle = string.Empty;
+    private MudTextField<string>? _newTaskField;
+    private Guid _loadedProjectId;
+
+    // Drawer state
+    private bool _drawerOpen;
+    private ProjectTask? _editingTask;
+    private UpdateProjectTaskDto _editModel = new();
+    private DateTime? _editTargetDate;
+
+    [Parameter]
+    public Guid ProjectId { get; set; }
+
+    [Parameter]
+    public bool Disabled { get; set; }
+
+    [Parameter]
+    public EventCallback OnTasksChanged { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadTeamMembersAsync();
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (ProjectId != Guid.Empty && ProjectId != _loadedProjectId)
+        {
+            _loadedProjectId = ProjectId;
+            await LoadTasksAsync();
+        }
+    }
+
+    private async Task LoadTeamMembersAsync()
+    {
+        _teamMembers = await TeamMemberDirectory.GetAllAsync();
+        _teamMemberLookup = _teamMembers
+            .Where(member => member.Id != Guid.Empty)
+            .ToDictionary(member => member.Id, member => member);
+    }
+
+    private async Task LoadTasksAsync()
+    {
+        try
+        {
+            _tasks = await TaskService.GetByProjectIdAsync(ProjectId);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private IEnumerable<ProjectTask> GetOpenTasks() =>
+        _tasks.Where(t => t.Status == ProjectTaskStatus.Open)
+              .OrderBy(t => t.SortOrder);
+
+    private IEnumerable<ProjectTask> GetCompletedTasks() =>
+        _tasks.Where(t => t.Status == ProjectTaskStatus.Completed)
+              .OrderBy(t => t.SortOrder);
+
+    private bool IsOverdue(ProjectTask task) =>
+        task.Status == ProjectTaskStatus.Open &&
+        task.TargetDate.HasValue &&
+        task.TargetDate.Value < DateOnly.FromDateTime(DateTime.Today);
+
+    private string GetTaskClass(ProjectTask task) =>
+        IsOverdue(task) ? "pa-2 mud-border-error" : "pa-2";
+
+    private string GetTaskStyle(ProjectTask task) =>
+        IsOverdue(task) ? "border: 2px solid var(--mud-palette-error);" : "";
+
+    private bool IsFirstOpenTask(ProjectTask task)
+    {
+        var openTasks = GetOpenTasks().ToList();
+        return openTasks.Count == 0 || openTasks[0].Id == task.Id;
+    }
+
+    private bool IsLastOpenTask(ProjectTask task)
+    {
+        var openTasks = GetOpenTasks().ToList();
+        return openTasks.Count == 0 || openTasks[^1].Id == task.Id;
+    }
+
+    private async Task ToggleTaskStatus(ProjectTask task)
+    {
+        try
+        {
+            if (task.Status == ProjectTaskStatus.Open)
+            {
+                await TaskService.SetCompletedAsync(task.Id);
+            }
+            else
+            {
+                await TaskService.SetOpenAsync(task.Id);
+            }
+
+            await LoadTasksAsync();
+            await OnTasksChanged.InvokeAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Fehler: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task MoveTaskUp(ProjectTask task)
+    {
+        var openTasks = GetOpenTasks().ToList();
+        var index = openTasks.FindIndex(t => t.Id == task.Id);
+        if (index > 0)
+        {
+            (openTasks[index - 1], openTasks[index]) = (openTasks[index], openTasks[index - 1]);
+            await PersistOpenTaskOrder(openTasks);
+        }
+    }
+
+    private async Task MoveTaskDown(ProjectTask task)
+    {
+        var openTasks = GetOpenTasks().ToList();
+        var index = openTasks.FindIndex(t => t.Id == task.Id);
+        if (index >= 0 && index < openTasks.Count - 1)
+        {
+            (openTasks[index], openTasks[index + 1]) = (openTasks[index + 1], openTasks[index]);
+            await PersistOpenTaskOrder(openTasks);
+        }
+    }
+
+    private async Task PersistOpenTaskOrder(List<ProjectTask> orderedOpenTasks)
+    {
+        try
+        {
+            var completedTasks = _tasks
+                .Where(t => t.Status == ProjectTaskStatus.Completed)
+                .OrderBy(t => t.SortOrder)
+                .ToList();
+
+            var newOrder = orderedOpenTasks
+                .Concat(completedTasks)
+                .Select(t => t.Id)
+                .ToList();
+
+            await TaskService.ReorderAsync(ProjectId, newOrder);
+            await LoadTasksAsync();
+            await OnTasksChanged.InvokeAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Fehler beim Sortieren: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task OnNewTaskKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !string.IsNullOrWhiteSpace(_newTaskTitle))
+        {
+            await CreateNewTask();
+        }
+    }
+
+    private async Task CreateNewTask()
+    {
+        if (string.IsNullOrWhiteSpace(_newTaskTitle))
+            return;
+
+        try
+        {
+            var dto = new CreateProjectTaskDto
+            {
+                Title = _newTaskTitle.Trim()
+            };
+            await TaskService.CreateAsync(ProjectId, dto);
+            _newTaskTitle = string.Empty;
+            if (_newTaskField != null)
+                await _newTaskField.Clear();
+            await LoadTasksAsync();
+            await OnTasksChanged.InvokeAsync();
+            Snackbar.Add("Aufgabe erstellt", Severity.Success);
+            if (_newTaskField != null)
+                await _newTaskField.FocusAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Fehler: {ex.Message}", Severity.Error);
+        }
+    }
+
+    // Drawer methods
+
+    private void OpenDrawer(ProjectTask task)
+    {
+        _editingTask = task;
+        _editModel = new UpdateProjectTaskDto
+        {
+            Title = task.Title,
+            Notes = task.Notes,
+            TargetDate = task.TargetDate,
+            AssignedUserId = task.AssignedUserId,
+            Status = task.Status,
+            SortOrder = task.SortOrder
+        };
+        _editTargetDate = task.TargetDate?.ToDateTime(TimeOnly.MinValue);
+        _drawerOpen = true;
+    }
+
+    private void CloseDrawer()
+    {
+        _drawerOpen = false;
+        _editingTask = null;
+    }
+
+    private async Task SaveEditingTask()
+    {
+        if (_editingTask == null || string.IsNullOrWhiteSpace(_editModel.Title))
+            return;
+
+        try
+        {
+            _editModel.TargetDate = _editTargetDate.HasValue
+                ? DateOnly.FromDateTime(_editTargetDate.Value)
+                : null;
+
+            await TaskService.UpdateAsync(_editingTask.Id, _editModel);
+            Snackbar.Add("Aufgabe gespeichert", Severity.Success);
+            CloseDrawer();
+            await LoadTasksAsync();
+            await OnTasksChanged.InvokeAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Fehler: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task DeleteEditingTask()
+    {
+        if (_editingTask == null) return;
+
+        var parameters = new DialogParameters<Kuestencode.Werkbank.Acta.Shared.Dialogs.ConfirmDialog>
+        {
+            { x => x.Title, "Aufgabe löschen" },
+            { x => x.ContentText, $"Möchten Sie die Aufgabe '{_editingTask.Title}' wirklich löschen?" },
+            { x => x.ButtonText, "Löschen" },
+            { x => x.Color, Color.Error }
+        };
+
+        var dialog = await DialogService.ShowAsync<Kuestencode.Werkbank.Acta.Shared.Dialogs.ConfirmDialog>("Löschen", parameters);
+        var result = await dialog.Result;
+
+        if (result != null && !result.Canceled)
+        {
+            try
+            {
+                await TaskService.DeleteAsync(_editingTask.Id);
+                Snackbar.Add("Aufgabe gelöscht", Severity.Success);
+                CloseDrawer();
+                await LoadTasksAsync();
+                await OnTasksChanged.InvokeAsync();
+            }
+            catch (Exception ex)
+            {
+                Snackbar.Add($"Fehler beim Löschen: {ex.Message}", Severity.Error);
+            }
+        }
+    }
+
+    private TeamMember? FindTeamMember(Guid? id)
+    {
+        if (!id.HasValue)
+        {
+            return null;
+        }
+
+        return _teamMemberLookup.TryGetValue(id.Value, out var member) ? member : null;
+    }
+}

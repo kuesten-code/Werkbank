@@ -1,0 +1,126 @@
+@page "/team-members"
+@using Kuestencode.Werkbank.Host.Models
+@inject Kuestencode.Werkbank.Host.Services.ITeamMemberService TeamMemberService
+@inject NavigationManager NavigationManager
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+
+<PageTitle>Mitarbeiter - Kuestencode Werkbank</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4">
+    <MudText Typo="Typo.h4" GutterBottom="true">Mitarbeiter</MudText>
+
+    <MudPaper Class="pa-4 mt-4">
+        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-4">
+            <MudTextField @bind-Value="_searchString" Placeholder="Suche nach Name oder Email"
+                         Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search"
+                         IconSize="Size.Medium" Class="mt-0" Immediate="true" />
+            <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                      StartIcon="@Icons.Material.Filled.Add" OnClick="CreateMember">
+                Neuer Mitarbeiter
+            </MudButton>
+        </MudStack>
+
+        <MudTable Items="@_filteredMembers" Hover="true" Breakpoint="Breakpoint.Sm"
+                 Loading="@_loading" LoadingProgressColor="Color.Info"
+                 RowsPerPage="10">
+            <HeaderContent>
+                <MudTh>Name</MudTh>
+                <MudTh>Email</MudTh>
+                <MudTh>Aktiv</MudTh>
+                <MudTh Style="text-align: right">Aktionen</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd DataLabel="Name">@context.DisplayName</MudTd>
+                <MudTd DataLabel="Email">@context.Email</MudTd>
+                <MudTd DataLabel="Aktiv">
+                    <MudChip T="string" Size="Size.Small" Color="@(context.IsActive ? Color.Success : Color.Default)">
+                        @(context.IsActive ? "Ja" : "Nein")
+                    </MudChip>
+                </MudTd>
+                <MudTd DataLabel="Aktionen" Style="text-align: right">
+                    <MudIconButton Icon="@Icons.Material.Filled.Edit"
+                                  Color="Color.Primary" Size="Size.Small"
+                                  OnClick="@(() => EditMember(context.Id))" />
+                    <MudIconButton Icon="@Icons.Material.Filled.Delete"
+                                  Color="Color.Error" Size="Size.Small"
+                                  OnClick="@(() => DeleteMember(context))" />
+                </MudTd>
+            </RowTemplate>
+            <PagerContent>
+                <MudTablePager PageSizeOptions="new int[] { 10, 25, 50, 100 }" />
+            </PagerContent>
+        </MudTable>
+    </MudPaper>
+</MudContainer>
+
+@code {
+    private List<TeamMember> _members = new();
+    private string _searchString = string.Empty;
+    private bool _loading = true;
+
+    private IEnumerable<TeamMember> _filteredMembers => _members.Where(m =>
+        string.IsNullOrWhiteSpace(_searchString) ||
+        m.DisplayName.Contains(_searchString, StringComparison.OrdinalIgnoreCase) ||
+        (m.Email != null && m.Email.Contains(_searchString, StringComparison.OrdinalIgnoreCase))
+    );
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadMembers();
+    }
+
+    private async Task LoadMembers()
+    {
+        _loading = true;
+        try
+        {
+            _members = await TeamMemberService.GetAllAsync(includeInactive: true);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Fehler beim Laden der Mitarbeiter: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private void CreateMember()
+    {
+        NavigationManager.NavigateTo("/team-members/create");
+    }
+
+    private void EditMember(Guid id)
+    {
+        NavigationManager.NavigateTo($"/team-members/edit/{id}");
+    }
+
+    private async Task DeleteMember(TeamMember member)
+    {
+        var parameters = new DialogParameters
+        {
+            { "ContentText", $"Moechten Sie den Mitarbeiter '{member.DisplayName}' wirklich loeschen?" },
+            { "ButtonText", "Loeschen" },
+            { "Color", Color.Error }
+        };
+
+        var dialog = await DialogService.ShowAsync<ConfirmDialog>("Mitarbeiter loeschen", parameters);
+        var result = await dialog.Result;
+
+        if (result != null && !result.Canceled)
+        {
+            try
+            {
+                await TeamMemberService.DeleteAsync(member.Id);
+                Snackbar.Add($"Mitarbeiter '{member.DisplayName}' wurde geloescht.", Severity.Success);
+                await LoadMembers();
+            }
+            catch (Exception ex)
+            {
+                Snackbar.Add($"Fehler beim Loeschen: {ex.Message}", Severity.Error);
+            }
+        }
+    }
+}

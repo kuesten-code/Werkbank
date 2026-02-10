@@ -63,14 +63,22 @@ builder.Services.AddHttpClient<IRapportApiClient, RapportApiClient>(client =>
 // Add HttpClient fuer Offerte-API
 builder.Services.AddHttpClient<IOfferteApiClient, OfferteApiClient>(client =>
 {
-    var rapportUrl = builder.Configuration.GetValue<string>("ServiceUrls:Offerte") ?? "http://localhost:8083";
-    client.BaseAddress = new Uri(rapportUrl);
+    var offerteUrl = builder.Configuration.GetValue<string>("ServiceUrls:Offerte") ?? "http://localhost:8083";
+    client.BaseAddress = new Uri(offerteUrl);
+});
+
+// Add HttpClient fuer Acta-API
+builder.Services.AddHttpClient<IActaApiClient, ActaApiClient>(client =>
+{
+    var actaUrl = builder.Configuration.GetValue<string>("ServiceUrls:Acta") ?? "http://localhost:8084";
+    client.BaseAddress = new Uri(actaUrl);
 });
 
 // Add YARP Reverse Proxy for Faktura, Rapport, and Offerte modules
 var fakturaServiceUrl = builder.Configuration.GetValue<string>("ServiceUrls:Faktura") ?? "http://localhost:8081";
 var rapportServiceUrl = builder.Configuration.GetValue<string>("ServiceUrls:Rapport") ?? "http://localhost:8082";
 var offerteServiceUrl = builder.Configuration.GetValue<string>("ServiceUrls:Offerte") ?? "http://localhost:8083";
+var actaServiceUrl = builder.Configuration.GetValue<string>("ServiceUrls:Acta") ?? "http://localhost:8084";
 builder.Services.AddReverseProxy()
     .LoadFromMemory(
         routes: new[]
@@ -128,6 +136,24 @@ builder.Services.AddReverseProxy()
                 {
                     Path = "/_offerte/{**catch-all}"
                 }
+            },
+            new Yarp.ReverseProxy.Configuration.RouteConfig
+            {
+                RouteId = "acta-route",
+                ClusterId = "acta-cluster",
+                Match = new Yarp.ReverseProxy.Configuration.RouteMatch
+                {
+                    Path = "/acta/{**catch-all}"
+                }
+            },
+            new Yarp.ReverseProxy.Configuration.RouteConfig
+            {
+                RouteId = "acta-blazor-route",
+                ClusterId = "acta-cluster",
+                Match = new Yarp.ReverseProxy.Configuration.RouteMatch
+                {
+                    Path = "/_acta/{**catch-all}"
+                }
             }
         },
         clusters: new[]
@@ -154,6 +180,14 @@ builder.Services.AddReverseProxy()
                 Destinations = new Dictionary<string, Yarp.ReverseProxy.Configuration.DestinationConfig>
                 {
                     { "offerte", new Yarp.ReverseProxy.Configuration.DestinationConfig { Address = offerteServiceUrl } }
+                }
+            },
+            new Yarp.ReverseProxy.Configuration.ClusterConfig
+            {
+                ClusterId = "acta-cluster",
+                Destinations = new Dictionary<string, Yarp.ReverseProxy.Configuration.DestinationConfig>
+                {
+                    { "acta", new Yarp.ReverseProxy.Configuration.DestinationConfig { Address = actaServiceUrl } }
                 }
             }
         });
@@ -200,3 +234,4 @@ app.MapBlazorHub();
 app.MapFallbackToPage("/_Host");
 
 app.Run();
+

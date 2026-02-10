@@ -41,6 +41,18 @@ Zeiterfassung und Tätigkeitsdokumentation für projektbasiertes Arbeiten.
 - Einstellungen mit Live-Vorschau für PDF-Layout
 - Integration mit Faktura (Tätigkeiten an Rechnungen anhängen)
 
+### Acta
+
+Projektverwaltung und Aufgabenmanagement für strukturiertes Arbeiten.
+
+**Features:**
+- Projekte erstellen, bearbeiten und verwalten
+- Statusworkflow mit State Machine (Entwurf → Aktiv → Pausiert → Abgeschlossen → Archiviert)
+- Aufgabenverwaltung pro Projekt mit Sortierung und Zuweisung
+- Automatische Projektnummern-Vergabe (P-YYYY-NNNN)
+- Budget-Tracking und Fortschrittsanzeige
+- Cross-Modul-Integration mit Rapport (Zeiterfassung auf Projekte buchen)
+
 ## Technologie-Stack
 
 | Bereich | Technologie |
@@ -74,6 +86,7 @@ Die Anwendung ist dann erreichbar unter:
 - **Faktura:** http://localhost:8080/faktura
 - **Offerte:** http://localhost:8080/offerte
 - **Rapport:** http://localhost:8080/rapport
+- **Acta:** http://localhost:8080/acta
 
 ### Produktions-Deployment
 
@@ -104,7 +117,8 @@ src/
 ├── Modules/
 │   ├── Faktura/             # Rechnungsmodul
 │   ├── Offerte/             # Angebotsmodul
-│   └── Rapport/             # Zeiterfassungsmodul
+│   ├── Rapport/             # Zeiterfassungsmodul
+│   └── Acta/                # Projektverwaltungsmodul
 ├── Kuestencode.Shared.Contracts/    # DTOs für Modul-Kommunikation
 └── Kuestencode.Shared.ApiClients/   # HTTP-Clients für API-Aufrufe
 ```

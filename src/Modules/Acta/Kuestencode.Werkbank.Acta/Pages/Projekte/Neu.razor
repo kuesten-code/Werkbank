@@ -1,0 +1,238 @@
+@page "/projekte/neu"
+@using Kuestencode.Werkbank.Acta.Domain.Dtos
+@using Kuestencode.Werkbank.Acta.Domain.Enums
+@using Kuestencode.Werkbank.Acta.Shared.Components
+@inject Kuestencode.Werkbank.Acta.Services.IProjectService ProjectService
+@inject CoreInterfaces.ICustomerService CustomerService
+@inject NavigationManager NavigationManager
+@inject ISnackbar Snackbar
+
+<PageTitle>Neues Projekt - Küstencode Acta</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="mt-4">
+    <MudPaper Class="pa-4">
+        <MudText Typo="Typo.h4" GutterBottom="true">Neues Projekt</MudText>
+
+        @if (!string.IsNullOrEmpty(_errorMessage))
+        {
+            <MudAlert Severity="Severity.Error" Class="my-4">@_errorMessage</MudAlert>
+        }
+
+        <EditForm Model="@_model" OnValidSubmit="CreateProject">
+            <DataAnnotationsValidator />
+
+            <!-- Kopfdaten -->
+            <MudText Typo="Typo.h6" Class="mt-4 mb-2">Stammdaten</MudText>
+            <MudGrid>
+                <MudItem xs="12" sm="4">
+                    <MudTextField @bind-Value="_model.ProjectNumber"
+                                 Label="Projektnummer"
+                                 Required="true"
+                                 RequiredError="Projektnummer ist erforderlich"
+                                 Variant="Variant.Outlined"
+                                 MaxLength="50"
+                                 Immediate="true"
+                                 HelperText="Wird automatisch generiert, kann angepasst werden" />
+                </MudItem>
+                <MudItem xs="12" sm="8">
+                    <MudTextField @bind-Value="_model.Name"
+                                 Label="Projektname"
+                                 Required="true"
+                                 RequiredError="Projektname ist erforderlich"
+                                 Variant="Variant.Outlined"
+                                 MaxLength="200"
+                                 Immediate="true" />
+                </MudItem>
+                <MudItem xs="12">
+                    <KundenAuswahl @bind-SelectedCustomer="_selectedCustomer" Required="true" />
+                </MudItem>
+                <MudItem xs="12">
+                    <MudTextField @bind-Value="_model.Description"
+                                 Label="Beschreibung (optional)"
+                                 Lines="3"
+                                 Variant="Variant.Outlined"
+                                 MaxLength="2000" />
+                </MudItem>
+            </MudGrid>
+
+            <!-- Projektadresse -->
+            <MudText Typo="Typo.h6" Class="mt-6 mb-2">Projektadresse (optional)</MudText>
+            <MudGrid>
+                <MudItem xs="12">
+                    <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
+                        <MudTextField @bind-Value="_model.Address"
+                                     Label="Straße"
+                                     Variant="Variant.Outlined"
+                                     MaxLength="200"
+                                     Style="flex: 1;" />
+                        @if (_selectedCustomer != null)
+                        {
+                            <MudTooltip Text="Adresse vom Kunden übernehmen">
+                                <MudIconButton Icon="@Icons.Material.Filled.ContentCopy"
+                                              Color="Color.Primary"
+                                              OnClick="CopyCustomerAddress" />
+                            </MudTooltip>
+                        }
+                    </MudStack>
+                </MudItem>
+                <MudItem xs="12" sm="4">
+                    <MudTextField @bind-Value="_model.PostalCode"
+                                 Label="PLZ"
+                                 Variant="Variant.Outlined"
+                                 MaxLength="10" />
+                </MudItem>
+                <MudItem xs="12" sm="8">
+                    <MudTextField @bind-Value="_model.City"
+                                 Label="Ort"
+                                 Variant="Variant.Outlined"
+                                 MaxLength="100" />
+                </MudItem>
+            </MudGrid>
+
+            <!-- Zeitraum -->
+            <MudText Typo="Typo.h6" Class="mt-6 mb-2">Zeitraum</MudText>
+            <MudGrid>
+                <MudItem xs="12" sm="6">
+                    <MudDatePicker @bind-Date="_startDate"
+                                  Label="Startdatum (optional)"
+                                  DateFormat="dd.MM.yyyy"
+                                  Variant="Variant.Outlined"
+                                  Clearable="true" />
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudDatePicker @bind-Date="_targetDate"
+                                  Label="Zieldatum (optional)"
+                                  DateFormat="dd.MM.yyyy"
+                                  Variant="Variant.Outlined"
+                                  Clearable="true" />
+                </MudItem>
+            </MudGrid>
+
+            <!-- Budget -->
+            <MudText Typo="Typo.h6" Class="mt-6 mb-2">Budget</MudText>
+            <MudGrid>
+                <MudItem xs="12" sm="6">
+                    <MudNumericField @bind-Value="_model.BudgetNet"
+                                    Label="Budget (netto)"
+                                    Variant="Variant.Outlined"
+                                    Adornment="Adornment.End"
+                                    AdornmentText="€"
+                                    Format="N2"
+                                    Culture="@_culture"
+                                    Min="0" />
+                </MudItem>
+            </MudGrid>
+
+            <!-- Actions -->
+            <MudStack Row="true" Justify="Justify.FlexEnd" Class="mt-6 gap-2">
+                <MudButton Variant="Variant.Filled" Color="Color.Default" OnClick="Cancel">
+                    Abbrechen
+                </MudButton>
+
+                <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                          ButtonType="ButtonType.Submit"
+                          Disabled="@_saving">
+                    @if (_saving)
+                    {
+                        <MudProgressCircular Class="ms-n1" Size="Size.Small" Indeterminate="true" />
+                        <MudText Class="ms-2">Speichert...</MudText>
+                    }
+                    else
+                    {
+                        <MudText>Projekt erstellen</MudText>
+                    }
+                </MudButton>
+            </MudStack>
+        </EditForm>
+    </MudPaper>
+</MudContainer>
+
+@code {
+    private readonly System.Globalization.CultureInfo _culture = new("de-DE");
+    private bool _saving;
+    private string _errorMessage = string.Empty;
+
+    private CreateProjectDto _model = new();
+    private Customer? _selectedCustomer;
+    private DateTime? _startDate;
+    private DateTime? _targetDate;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _model.ProjectNumber = await ProjectService.GenerateProjectNumberAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Projektnummer konnte nicht generiert werden: {ex.Message}", Severity.Warning);
+        }
+    }
+
+    private void CopyCustomerAddress()
+    {
+        if (_selectedCustomer != null)
+        {
+            _model.Address = _selectedCustomer.Address;
+            _model.PostalCode = _selectedCustomer.PostalCode;
+            _model.City = _selectedCustomer.City;
+        }
+    }
+
+    private bool ValidateForm()
+    {
+        _errorMessage = string.Empty;
+
+        if (string.IsNullOrWhiteSpace(_model.Name))
+        {
+            _errorMessage = "Bitte geben Sie einen Projektnamen ein.";
+            return false;
+        }
+
+        if (_selectedCustomer == null)
+        {
+            _errorMessage = "Bitte wählen Sie einen Kunden aus.";
+            return false;
+        }
+
+        if (_startDate.HasValue && _targetDate.HasValue && _startDate > _targetDate)
+        {
+            _errorMessage = "Das Startdatum darf nicht nach dem Zieldatum liegen.";
+            return false;
+        }
+
+        return true;
+    }
+
+    private async Task CreateProject()
+    {
+        if (!ValidateForm()) return;
+
+        _saving = true;
+        _errorMessage = string.Empty;
+
+        try
+        {
+            _model.CustomerId = _selectedCustomer!.Id;
+            _model.StartDate = _startDate.HasValue ? DateOnly.FromDateTime(_startDate.Value) : null;
+            _model.TargetDate = _targetDate.HasValue ? DateOnly.FromDateTime(_targetDate.Value) : null;
+
+            var project = await ProjectService.CreateAsync(_model);
+            Snackbar.Add($"Projekt '{project.Name}' wurde erstellt.", Severity.Success);
+            NavigationManager.NavigateTo($"/acta/projekte/{project.Id}");
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Fehler beim Erstellen: {ex.Message}";
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private void Cancel()
+    {
+        NavigationManager.NavigateTo("/acta/projekte");
+    }
+}

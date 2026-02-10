@@ -1,0 +1,34 @@
+@* Status Badge for Project with color coding *@
+@using Kuestencode.Werkbank.Acta.Domain.Enums
+
+<MudChip T="string" Size="@Size" Color="@GetStatusColor(Status)">
+    @GetStatusText(Status)
+</MudChip>
+
+@code {
+    [Parameter]
+    public ProjectStatus Status { get; set; }
+
+    [Parameter]
+    public Size Size { get; set; } = Size.Small;
+
+    private Color GetStatusColor(ProjectStatus status) => status switch
+    {
+        ProjectStatus.Draft => Color.Default,
+        ProjectStatus.Active => Color.Success,
+        ProjectStatus.Paused => Color.Warning,
+        ProjectStatus.Completed => Color.Info,
+        ProjectStatus.Archived => Color.Dark,
+        _ => Color.Default
+    };
+
+    private string GetStatusText(ProjectStatus status) => status switch
+    {
+        ProjectStatus.Draft => "Entwurf",
+        ProjectStatus.Active => "Aktiv",
+        ProjectStatus.Paused => "Pausiert",
+        ProjectStatus.Completed => "Abgeschlossen",
+        ProjectStatus.Archived => "Archiviert",
+        _ => status.ToString()
+    };
+}

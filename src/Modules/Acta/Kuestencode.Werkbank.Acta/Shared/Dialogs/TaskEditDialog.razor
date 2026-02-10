@@ -1,0 +1,155 @@
+@using Kuestencode.Werkbank.Acta.Domain.Dtos
+@using Kuestencode.Werkbank.Acta.Domain.Enums
+@inject Kuestencode.Werkbank.Acta.Services.IProjectTaskService TaskService
+@inject ISnackbar Snackbar
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">
+            <MudIcon Icon="@(IsNew ? Icons.Material.Filled.Add : Icons.Material.Filled.Edit)" Class="mr-2" />
+            @(IsNew ? "Neue Aufgabe" : "Aufgabe bearbeiten")
+        </MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudStack Spacing="3">
+            <MudTextField @bind-Value="_title"
+                         Label="Titel"
+                         Required="true"
+                         RequiredError="Titel ist erforderlich"
+                         Variant="Variant.Outlined"
+                         Immediate="true" />
+
+            <MudTextField @bind-Value="_notes"
+                         Label="Notizen (optional)"
+                         Lines="3"
+                         Variant="Variant.Outlined" />
+
+            <MudDatePicker @bind-Date="_targetDate"
+                          Label="Zieldatum (optional)"
+                          DateFormat="dd.MM.yyyy"
+                          Variant="Variant.Outlined"
+                          Clearable="true" />
+
+            @if (!IsNew)
+            {
+                <MudSelect T="ProjectTaskStatus" @bind-Value="_status"
+                          Label="Status"
+                          Variant="Variant.Outlined">
+                    <MudSelectItem Value="ProjectTaskStatus.Open">Offen</MudSelectItem>
+                    <MudSelectItem Value="ProjectTaskStatus.Completed">Erledigt</MudSelectItem>
+                </MudSelect>
+            }
+        </MudStack>
+
+        @if (!string.IsNullOrEmpty(_errorMessage))
+        {
+            <MudAlert Severity="Severity.Error" Class="mt-4">@_errorMessage</MudAlert>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Abbrechen</MudButton>
+        <MudButton Color="Color.Primary" Variant="Variant.Filled"
+                  OnClick="Submit" Disabled="@_saving">
+            @if (_saving)
+            {
+                <MudProgressCircular Class="ms-n1" Size="Size.Small" Indeterminate="true" />
+                <MudText Class="ms-2">Speichert...</MudText>
+            }
+            else
+            {
+                <MudText>Speichern</MudText>
+            }
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter]
+    private IMudDialogInstance MudDialog { get; set; } = null!;
+
+    [Parameter, EditorRequired]
+    public Guid ProjectId { get; set; }
+
+    [Parameter]
+    public ProjectTask? Task { get; set; }
+
+    [Parameter]
+    public bool IsNew { get; set; } = true;
+
+    [Parameter]
+    public int NextSortOrder { get; set; } = 1;
+
+    private string _title = string.Empty;
+    private string? _notes;
+    private DateTime? _targetDate;
+    private ProjectTaskStatus _status = ProjectTaskStatus.Open;
+    private bool _saving;
+    private string _errorMessage = string.Empty;
+
+    protected override void OnParametersSet()
+    {
+        if (Task != null)
+        {
+            _title = Task.Title;
+            _notes = Task.Notes;
+            _targetDate = Task.TargetDate?.ToDateTime(TimeOnly.MinValue);
+            _status = Task.Status;
+        }
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+
+    private async Task Submit()
+    {
+        _errorMessage = string.Empty;
+
+        if (string.IsNullOrWhiteSpace(_title))
+        {
+            _errorMessage = "Bitte geben Sie einen Titel ein.";
+            return;
+        }
+
+        _saving = true;
+
+        try
+        {
+            if (IsNew)
+            {
+                var createDto = new CreateProjectTaskDto
+                {
+                    Title = _title.Trim(),
+                    Notes = _notes?.Trim(),
+                    TargetDate = _targetDate.HasValue ? DateOnly.FromDateTime(_targetDate.Value) : null,
+                    SortOrder = NextSortOrder
+                };
+
+                await TaskService.CreateAsync(ProjectId, createDto);
+                Snackbar.Add("Aufgabe wurde erstellt.", Severity.Success);
+            }
+            else if (Task != null)
+            {
+                var updateDto = new UpdateProjectTaskDto
+                {
+                    Title = _title.Trim(),
+                    Notes = _notes?.Trim(),
+                    TargetDate = _targetDate.HasValue ? DateOnly.FromDateTime(_targetDate.Value) : null,
+                    Status = _status,
+                    SortOrder = Task.SortOrder
+                };
+
+                await TaskService.UpdateAsync(Task.Id, updateDto);
+                Snackbar.Add("Aufgabe wurde aktualisiert.", Severity.Success);
+            }
+
+            MudDialog.Close(DialogResult.Ok(true));
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Fehler beim Speichern: {ex.Message}";
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+}
