@@ -208,6 +208,13 @@ public partial class Create
         );
     }
 
+    private async Task OnCustomerCreated(Customer customer)
+    {
+        _customers = await CustomerService.GetAllAsync();
+        _selectedCustomer = _customers.FirstOrDefault(c => c.Id == customer.Id) ?? customer;
+        StateHasChanged();
+    }
+
     private void AddItem()
     {
         var vatRate = _company?.IsKleinunternehmer == true ? 0 : 19;

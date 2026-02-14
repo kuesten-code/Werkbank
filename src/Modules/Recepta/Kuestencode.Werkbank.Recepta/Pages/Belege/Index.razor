@@ -1,0 +1,485 @@
+@page "/belege"
+@page "/recepta/belege"
+@using Kuestencode.Werkbank.Recepta.Controllers.Dtos
+@using Kuestencode.Shared.Contracts.Acta
+@inject IDocumentService DocumentService
+@inject ISupplierService SupplierService
+@inject ICachedProjectService ProjectCache
+@inject NavigationManager NavigationManager
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+
+<PageTitle>Belege - Küstencode Recepta</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4">
+    <MudText Typo="Typo.h4" GutterBottom="true">Belege</MudText>
+
+    <MudPaper Class="pa-4 mt-4">
+        <!-- Toolbar -->
+        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-4">
+            <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
+                <MudTextField Value="_searchString" Placeholder="Beleg suchen"
+                             Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search"
+                             IconSize="Size.Medium" Class="mt-0" Immediate="true" Style="max-width: 250px;"
+                             ValueChanged="OnSearchChanged" T="string" />
+            </MudStack>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                      StartIcon="@Icons.Material.Filled.Add"
+                        OnClick="ScanDocument">
+                Beleg erfassen
+            </MudButton>
+        </MudStack>
+
+        <!-- Filter -->
+        <MudGrid Class="mb-4">
+            <MudItem xs="12" sm="6" md="2">
+                <MudSelect T="string" Label="Status" Value="_statusFilter" ValueChanged="OnStatusFilterChanged"
+                          Clearable="true" Variant="Variant.Outlined" Margin="Margin.Dense">
+                    <MudSelectItem T="string" Value="@("Draft")">Entwurf</MudSelectItem>
+                    <MudSelectItem T="string" Value="@("Booked")">Verbucht</MudSelectItem>
+                    <MudSelectItem T="string" Value="@("Paid")">Bezahlt</MudSelectItem>
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="12" sm="6" md="@(_actaAvailable ? 2 : 3)">
+                <MudSelect T="Guid?" Label="Lieferant" Value="_supplierFilter" ValueChanged="OnSupplierFilterChanged"
+                          Clearable="true" Variant="Variant.Outlined" Margin="Margin.Dense">
+                    @foreach (var supplier in _suppliers)
+                    {
+                        <MudSelectItem T="Guid?" Value="@supplier.Id">@supplier.Name</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="12" sm="6" md="2">
+                <MudSelect T="string" Label="Kategorie" Value="_categoryFilter" ValueChanged="OnCategoryFilterChanged"
+                          Clearable="true" Variant="Variant.Outlined" Margin="Margin.Dense">
+                    <MudSelectItem T="string" Value="@("Material")">Material</MudSelectItem>
+                    <MudSelectItem T="string" Value="@("Subcontractor")">Fremdleistung</MudSelectItem>
+                    <MudSelectItem T="string" Value="@("Office")">Büro</MudSelectItem>
+                    <MudSelectItem T="string" Value="@("Travel")">Reise</MudSelectItem>
+                    <MudSelectItem T="string" Value="@("Other")">Sonstig</MudSelectItem>
+                </MudSelect>
+            </MudItem>
+            @if (_actaAvailable)
+            {
+                <MudItem xs="12" sm="6" md="2">
+                    <MudSelect T="Guid?" Label="Projekt" Value="_projectFilter" ValueChanged="OnProjectFilterChanged"
+                              Clearable="true" Variant="Variant.Outlined" Margin="Margin.Dense">
+                        @foreach (var project in _projects)
+                        {
+                            <MudSelectItem T="Guid?" Value="@_projectGuidMap.GetValueOrDefault(project.Id)">
+                                @project.ProjectNumber - @project.Name
+                            </MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudItem>
+            }
+            <MudItem xs="6" sm="3" md="2">
+                <MudDatePicker Date="_dateFrom" Label="Von" DateFormat="dd.MM.yyyy"
+                              Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true"
+                              DateChanged="OnDateFromChanged" />
+            </MudItem>
+            <MudItem xs="6" sm="3" md="2">
+                <MudDatePicker Date="_dateTo" Label="Bis" DateFormat="dd.MM.yyyy"
+                              Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true"
+                              DateChanged="OnDateToChanged" />
+            </MudItem>
+        </MudGrid>
+
+        <!-- Tabelle -->
+        <MudTable Items="@_documents" Hover="true" Breakpoint="Breakpoint.Sm"
+                 Loading="@_loading" LoadingProgressColor="Color.Info"
+                 RowsPerPage="25" SortLabel="Sortieren nach"
+                 OnRowClick="@(args => ViewDocument(args.Item!.Id))" T="DocumentDto" RowClass="cursor-pointer">
+            <HeaderContent>
+                <MudTh><MudTableSortLabel SortBy="new Func<DocumentDto, object>(x => x.DocumentNumber)" InitialDirection="SortDirection.None">Belegnr.</MudTableSortLabel></MudTh>
+                <MudTh><MudTableSortLabel SortBy="new Func<DocumentDto, object>(x => x.SupplierName)">Lieferant</MudTableSortLabel></MudTh>
+                <MudTh>Rechnungsnr.</MudTh>
+                <MudTh><MudTableSortLabel SortBy="new Func<DocumentDto, object>(x => x.InvoiceDate)" InitialDirection="SortDirection.Descending">Datum</MudTableSortLabel></MudTh>
+                <MudTh><MudTableSortLabel SortBy="new Func<DocumentDto, object>(x => x.AmountGross)">Brutto</MudTableSortLabel></MudTh>
+                <MudTh>Kategorie</MudTh>
+                <MudTh>Status</MudTh>
+                @if (_actaAvailable)
+                {
+                    <MudTh>Projekt</MudTh>
+                }
+                <MudTh Style="text-align: right">Aktionen</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd DataLabel="Belegnr.">@context.DocumentNumber</MudTd>
+                <MudTd DataLabel="Lieferant">@context.SupplierName</MudTd>
+                <MudTd DataLabel="Rechnungsnr.">@context.InvoiceNumber</MudTd>
+                <MudTd DataLabel="Datum">
+                    @{
+                        var isOverdue = context.IsOverdue;
+                    }
+                    <MudText Color="@(isOverdue ? Color.Error : Color.Default)">
+                        @context.InvoiceDate.ToString("dd.MM.yyyy")
+                    </MudText>
+                    @if (isOverdue)
+                    {
+                        <MudIcon Icon="@Icons.Material.Filled.Warning" Color="Color.Error" Size="Size.Small"
+                                Title="Überfällig" />
+                    }
+                </MudTd>
+                <MudTd DataLabel="Brutto">
+                    <MudText Typo="Typo.body2">@context.AmountGross.ToString("N2", _culture) €</MudText>
+                </MudTd>
+                <MudTd DataLabel="Kategorie">
+                    <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined"
+                            Color="@GetCategoryColor(context.Category)">
+                        @GetCategoryText(context.Category)
+                    </MudChip>
+                </MudTd>
+                <MudTd DataLabel="Status">
+                    <MudChip T="string" Size="Size.Small" Color="@GetStatusColor(context.Status)">
+                        @GetStatusText(context.Status)
+                    </MudChip>
+                </MudTd>
+                @if (_actaAvailable)
+                {
+                    <MudTd DataLabel="Projekt">
+                        @if (context.ProjectId.HasValue)
+                        {
+                            @GetProjectName(context.ProjectId.Value)
+                        }
+                        else
+                        {
+                            <MudText Color="Color.Secondary">-</MudText>
+                        }
+                    </MudTd>
+                }
+                <MudTd DataLabel="Aktionen" Style="text-align: right" @onclick:stopPropagation="true">
+                    <MudTooltip Text="Anzeigen">
+                        <MudIconButton Icon="@Icons.Material.Filled.Visibility"
+                                      Color="Color.Info" Size="Size.Small"
+                                      OnClick="@(() => ViewDocument(context.Id))" />
+                    </MudTooltip>
+                    @if (context.Status == "Draft")
+                    {
+                        <MudTooltip Text="Bearbeiten">
+                            <MudIconButton Icon="@Icons.Material.Filled.Edit"
+                                          Color="Color.Primary" Size="Size.Small"
+                                          OnClick="@(() => EditDocument(context.Id))" />
+                        </MudTooltip>
+                        <MudTooltip Text="Löschen">
+                            <MudIconButton Icon="@Icons.Material.Filled.Delete"
+                                          Color="Color.Error" Size="Size.Small"
+                                          OnClick="@(() => DeleteDocument(context))" />
+                        </MudTooltip>
+                    }
+                </MudTd>
+            </RowTemplate>
+            <NoRecordsContent>
+                <MudText Typo="Typo.body1" Align="Align.Center" Class="pa-4">
+                    @if (_loading)
+                    {
+                        <text>Lade Belege...</text>
+                    }
+                    else
+                    {
+                        <text>Keine Belege gefunden.</text>
+                    }
+                </MudText>
+            </NoRecordsContent>
+            <PagerContent>
+                <MudTablePager PageSizeOptions="new int[] { 10, 25, 50, 100 }" />
+            </PagerContent>
+        </MudTable>
+
+        <!-- Summenzeile -->
+        @if (_documents.Count > 0)
+        {
+            <MudDivider Class="my-2" />
+            <MudStack Row="true" Justify="Justify.FlexEnd" Spacing="6" Class="pa-2">
+                <MudStack AlignItems="AlignItems.End">
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">Gesamt Netto</MudText>
+                    <MudText Typo="Typo.subtitle2">@_totalNet.ToString("N2", _culture) €</MudText>
+                </MudStack>
+                <MudStack AlignItems="AlignItems.End">
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">Gesamt MwSt</MudText>
+                    <MudText Typo="Typo.subtitle2">@_totalTax.ToString("N2", _culture) €</MudText>
+                </MudStack>
+                <MudStack AlignItems="AlignItems.End">
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">Gesamt Brutto</MudText>
+                    <MudText Typo="Typo.subtitle1"><b>@_totalGross.ToString("N2", _culture) €</b></MudText>
+                </MudStack>
+            </MudStack>
+        }
+    </MudPaper>
+</MudContainer>
+
+<style>
+    .cursor-pointer {
+        cursor: pointer;
+    }
+</style>
+
+@code {
+    [SupplyParameterFromQuery(Name = "status")]
+    public string? StatusQueryParam { get; set; }
+
+    private readonly CultureInfo _culture = new("de-DE");
+    private bool _loading = true;
+
+    // Filter-State
+    private string _searchString = string.Empty;
+    private string? _statusFilter;
+    private Guid? _supplierFilter;
+    private string? _categoryFilter;
+    private Guid? _projectFilter;
+    private DateTime? _dateFrom;
+    private DateTime? _dateTo;
+
+    // Daten
+    private List<DocumentDto> _documents = new();
+    private List<SupplierDto> _suppliers = new();
+    private List<ActaProjectDto> _projects = new();
+    private Dictionary<Guid, string> _projectNames = new();
+    private Dictionary<int, Guid> _projectGuidMap = new();
+    private bool _actaAvailable;
+
+    // Summen
+    private decimal _totalNet;
+    private decimal _totalTax;
+    private decimal _totalGross;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Status aus Query-Parameter übernehmen
+        if (!string.IsNullOrEmpty(StatusQueryParam))
+        {
+            _statusFilter = StatusQueryParam switch
+            {
+                "draft" => "Draft",
+                "booked" => "Booked",
+                "paid" => "Paid",
+                _ => null
+            };
+        }
+
+        await LoadReferenceDataAsync();
+        await LoadDocumentsAsync();
+    }
+
+    private async Task LoadReferenceDataAsync()
+    {
+        try
+        {
+            var suppliers = await SupplierService.GetAllAsync();
+            _suppliers = suppliers.ToList();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Fehler beim Laden der Lieferanten: {ex.Message}", Severity.Warning);
+        }
+
+        try
+        {
+            _actaAvailable = await ProjectCache.IsActaAvailableAsync();
+            if (_actaAvailable)
+            {
+                _projects = await ProjectCache.GetProjectsAsync();
+
+                foreach (var project in _projects)
+                {
+                    var guid = DeterministicGuid(project.Id);
+                    _projectGuidMap[project.Id] = guid;
+                    _projectNames[guid] = $"{project.ProjectNumber} - {project.Name}";
+                }
+            }
+        }
+        catch
+        {
+            _actaAvailable = false;
+        }
+    }
+
+    private async Task LoadDocumentsAsync()
+    {
+        _loading = true;
+
+        try
+        {
+            DocumentStatus? status = null;
+            if (!string.IsNullOrEmpty(_statusFilter) && Enum.TryParse<DocumentStatus>(_statusFilter, out var parsed))
+            {
+                status = parsed;
+            }
+
+            DocumentCategory? category = null;
+            if (!string.IsNullOrEmpty(_categoryFilter) && Enum.TryParse<DocumentCategory>(_categoryFilter, out var parsedCat))
+            {
+                category = parsedCat;
+            }
+
+            var filter = new DocumentFilterDto
+            {
+                Status = status,
+                Category = category,
+                SupplierId = _supplierFilter,
+                ProjectId = _projectFilter,
+                From = _dateFrom.HasValue ? DateOnly.FromDateTime(_dateFrom.Value) : null,
+                To = _dateTo.HasValue ? DateOnly.FromDateTime(_dateTo.Value) : null,
+                Search = string.IsNullOrWhiteSpace(_searchString) ? null : _searchString
+            };
+
+            var documents = await DocumentService.GetAllAsync(filter);
+            _documents = documents.ToList();
+
+            UpdateTotals();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Fehler beim Laden: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private void UpdateTotals()
+    {
+        _totalNet = _documents.Sum(d => d.AmountNet);
+        _totalTax = _documents.Sum(d => d.AmountTax);
+        _totalGross = _documents.Sum(d => d.AmountGross);
+    }
+
+    // Filter-Event-Handler
+    private async Task OnSearchChanged(string value)
+    {
+        _searchString = value;
+        await LoadDocumentsAsync();
+    }
+
+    private async Task OnStatusFilterChanged(string? value)
+    {
+        _statusFilter = value;
+        await LoadDocumentsAsync();
+    }
+
+    private async Task OnSupplierFilterChanged(Guid? value)
+    {
+        _supplierFilter = value;
+        await LoadDocumentsAsync();
+    }
+
+    private async Task OnCategoryFilterChanged(string? value)
+    {
+        _categoryFilter = value;
+        await LoadDocumentsAsync();
+    }
+
+    private async Task OnProjectFilterChanged(Guid? value)
+    {
+        _projectFilter = value;
+        await LoadDocumentsAsync();
+    }
+
+    private async Task OnDateFromChanged(DateTime? value)
+    {
+        _dateFrom = value;
+        await LoadDocumentsAsync();
+    }
+
+    private async Task OnDateToChanged(DateTime? value)
+    {
+        _dateTo = value;
+        await LoadDocumentsAsync();
+    }
+
+    private void ScanDocument()
+    {
+        NavigationManager.NavigateTo("/recepta/belege/scan");
+    }
+
+    private void ViewDocument(Guid id)
+    {
+        NavigationManager.NavigateTo($"/recepta/belege/{id}/details");
+    }
+
+    private void EditDocument(Guid id)
+    {
+        NavigationManager.NavigateTo($"/recepta/belege/{id}");
+    }
+
+    private async Task DeleteDocument(DocumentDto document)
+    {
+        var parameters = new DialogParameters<Kuestencode.Werkbank.Recepta.Shared.Dialogs.ConfirmDialog>
+        {
+            { x => x.Title, "Beleg löschen" },
+            { x => x.ContentText, $"Möchten Sie den Beleg '{document.DocumentNumber}' wirklich löschen?" },
+            { x => x.ButtonText, "Löschen" },
+            { x => x.Color, Color.Error }
+        };
+
+        var dialog = await DialogService.ShowAsync<Kuestencode.Werkbank.Recepta.Shared.Dialogs.ConfirmDialog>("Löschen", parameters);
+        var result = await dialog.Result;
+
+        if (result != null && !result.Canceled)
+        {
+            try
+            {
+                await DocumentService.DeleteAsync(document.Id);
+                Snackbar.Add($"Beleg '{document.DocumentNumber}' wurde gelöscht.", Severity.Success);
+                await LoadDocumentsAsync();
+            }
+            catch (Exception ex)
+            {
+                Snackbar.Add($"Fehler beim Löschen: {ex.Message}", Severity.Error);
+            }
+        }
+    }
+
+    // Hilfsfunktionen
+    private string GetProjectName(Guid projectId)
+    {
+        return _projectNames.TryGetValue(projectId, out var name) ? name : projectId.ToString()[..8];
+    }
+
+    private static string GetStatusText(string status) => status switch
+    {
+        "Draft" => "Entwurf",
+        "Booked" => "Verbucht",
+        "Paid" => "Bezahlt",
+        _ => status
+    };
+
+    private static Color GetStatusColor(string status) => status switch
+    {
+        "Draft" => Color.Default,
+        "Booked" => Color.Info,
+        "Paid" => Color.Success,
+        _ => Color.Default
+    };
+
+    private static string GetCategoryText(string category) => category switch
+    {
+        "Material" => "Material",
+        "Subcontractor" => "Fremdleistung",
+        "Office" => "Büro",
+        "Travel" => "Reise",
+        "Other" => "Sonstig",
+        _ => category
+    };
+
+    private static Color GetCategoryColor(string category) => category switch
+    {
+        "Material" => Color.Primary,
+        "Subcontractor" => Color.Secondary,
+        "Office" => Color.Info,
+        "Travel" => Color.Warning,
+        "Other" => Color.Default,
+        _ => Color.Default
+    };
+
+    private static Guid DeterministicGuid(int id)
+    {
+        var bytes = new byte[16];
+        BitConverter.GetBytes(id).CopyTo(bytes, 0);
+        // Namespace-Kennung für Acta-Projekte
+        bytes[4] = 0xAC;
+        bytes[5] = 0x7A;
+        return new Guid(bytes);
+    }
+}

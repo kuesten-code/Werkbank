@@ -31,6 +31,10 @@
         <MudText Typo="Typo.body2" Class="pa-2">Keine Kunden gefunden</MudText>
     </NoItemsTemplate>
 </MudAutocomplete>
+@if (!Disabled)
+{
+    <InlineCustomerCreate OnCreated="OnInlineCustomerCreated" />
+}
 
 @code {
     [Parameter]
@@ -56,6 +60,15 @@
 
     [Parameter]
     public IEnumerable<Customer> Customers { get; set; } = Enumerable.Empty<Customer>();
+
+    [Parameter]
+    public EventCallback<Customer> OnCustomerCreated { get; set; }
+
+    private async Task OnInlineCustomerCreated(Customer customer)
+    {
+        BoundCustomer = customer;
+        await OnCustomerCreated.InvokeAsync(customer);
+    }
 
     private Task<IEnumerable<Customer>> SearchCustomers(string value, CancellationToken token)
     {

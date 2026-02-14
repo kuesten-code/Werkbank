@@ -31,6 +31,13 @@ public class CustomerController : ControllerBase
         return Ok(MapToDto(customer));
     }
 
+    [HttpGet("generate-number")]
+    public async Task<ActionResult<string>> GenerateNumber()
+    {
+        var number = await _customerService.GenerateCustomerNumberAsync();
+        return Ok(number);
+    }
+
     [HttpPost]
     public async Task<ActionResult<CustomerDto>> Create([FromBody] CreateCustomerRequest request)
     {

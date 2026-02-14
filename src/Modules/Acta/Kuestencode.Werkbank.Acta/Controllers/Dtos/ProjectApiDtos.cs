@@ -98,7 +98,12 @@ public class ProjectSummaryDto
     public decimal TotalInvoicedNet { get; set; }
     public int InvoiceCount { get; set; }
 
+    // Aus Recepta-Modul (falls verfügbar)
+    public decimal TotalExternalCostNet { get; set; }
+    public decimal TotalExternalCostGross { get; set; }
+    public int ExternalDocumentCount { get; set; }
+
     // Berechnet
-    public decimal? BudgetRemaining => BudgetNet.HasValue ? BudgetNet.Value - TotalLaborCost : null;
-    public decimal Profit => TotalInvoicedNet - TotalLaborCost;
+    public decimal? BudgetRemaining => BudgetNet.HasValue ? BudgetNet.Value - TotalLaborCost - TotalExternalCostNet : null;
+    public decimal Profit => TotalInvoicedNet - TotalLaborCost - TotalExternalCostNet;
 }

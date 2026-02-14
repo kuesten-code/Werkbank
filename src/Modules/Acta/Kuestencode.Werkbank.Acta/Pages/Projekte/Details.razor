@@ -5,6 +5,7 @@
 @using Kuestencode.Shared.ApiClients
 @using Kuestencode.Shared.Contracts.Navigation
 @using Kuestencode.Shared.Contracts.Rapport
+@using Kuestencode.Shared.Contracts.Recepta
 @inject Kuestencode.Werkbank.Acta.Services.IProjectService ProjectService
 @inject CoreInterfaces.ICustomerService CustomerService
 @inject ProjectStatusService StatusService
@@ -189,14 +190,89 @@
                                 <MudPaper Class="pa-4 d-flex flex-column align-center justify-center" Elevation="2" Style="height: 100%;">
                                     <MudIcon Icon="@Icons.Material.Filled.AccessTime" Size="Size.Large" Color="Color.Info" />
                                     <MudText Typo="Typo.h4" Class="mt-2">@(_projectHours?.TotalHours.ToString("N1", _culture) ?? "0") h</MudText>
-                                    <MudText Typo="Typo.body2">Aufwand</MudText>
+                                    <MudText Typo="Typo.body2">Aufwand intern</MudText>
                                 </MudPaper>
                             </MudItem>
                         }
 
-                        
+                        @if (_receptaAvailable)
+                        {
+                            <MudItem xs="12" md="4">
+                                <MudPaper Class="pa-4 d-flex flex-column align-center justify-center" Elevation="2" Style="height: 100%;">
+                                    <MudIcon Icon="@Icons.Material.Filled.ReceiptLong" Size="Size.Large" Color="Color.Warning" />
+                                    <MudText Typo="Typo.h4" Class="mt-2">@(_projectExpenses?.TotalNet.ToString("N0", _culture) ?? "0") €</MudText>
+                                    <MudText Typo="Typo.body2">Aufwand extern (netto)</MudText>
+                                    @if (_projectExpenses != null && _projectExpenses.DocumentCount > 0)
+                                    {
+                                        <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                            @_projectExpenses.DocumentCount Beleg(e) – @_projectExpenses.TotalGross.ToString("N2", _culture) € brutto
+                                        </MudText>
+                                    }
+                                </MudPaper>
+                            </MudItem>
+                        }
                     </MudGrid>
                 </MudTabPanel>
+
+                @* Tab 4: Belege (nur wenn Recepta verfügbar) *@
+                @if (_receptaAvailable)
+                {
+                    <MudTabPanel Text="Belege" Icon="@Icons.Material.Filled.ReceiptLong"
+                                BadgeData="@(_projectExpenses?.DocumentCount ?? 0)" BadgeColor="Color.Warning">
+                        @if (_projectExpenses == null || _projectExpenses.Documents.Count == 0)
+                        {
+                            <MudText Typo="Typo.body1" Color="Color.Secondary" Class="pa-4" Align="Align.Center">
+                                Keine Belege diesem Projekt zugeordnet.
+                            </MudText>
+                        }
+                        else
+                        {
+                            <MudTable Items="@_projectExpenses.Documents" Dense="true" Hover="true" Breakpoint="Breakpoint.Sm">
+                                <HeaderContent>
+                                    <MudTh>Belegnr.</MudTh>
+                                    <MudTh>Lieferant</MudTh>
+                                    <MudTh>Rechnungsnr.</MudTh>
+                                    <MudTh>Datum</MudTh>
+                                    <MudTh>Kategorie</MudTh>
+                                    <MudTh>Status</MudTh>
+                                    <MudTh Style="text-align: right;">Netto</MudTh>
+                                    <MudTh Style="text-align: right;">Brutto</MudTh>
+                                </HeaderContent>
+                                <RowTemplate>
+                                    <MudTd DataLabel="Belegnr.">
+                                        <MudLink Href="@($"/recepta/belege/{context.Id}")">@context.DocumentNumber</MudLink>
+                                    </MudTd>
+                                    <MudTd DataLabel="Lieferant">@context.SupplierName</MudTd>
+                                    <MudTd DataLabel="Rechnungsnr.">@context.InvoiceNumber</MudTd>
+                                    <MudTd DataLabel="Datum">@context.InvoiceDate.ToString("dd.MM.yyyy")</MudTd>
+                                    <MudTd DataLabel="Kategorie">
+                                        <MudChip T="string" Size="Size.Small" Color="@GetCategoryColor(context.Category)">
+                                            @GetCategoryText(context.Category)
+                                        </MudChip>
+                                    </MudTd>
+                                    <MudTd DataLabel="Status">
+                                        <MudChip T="string" Size="Size.Small" Color="@GetDocumentStatusColor(context.Status)">
+                                            @GetDocumentStatusText(context.Status)
+                                        </MudChip>
+                                    </MudTd>
+                                    <MudTd DataLabel="Netto" Style="text-align: right;">@context.AmountNet.ToString("N2", _culture) €</MudTd>
+                                    <MudTd DataLabel="Brutto" Style="text-align: right;">@context.AmountGross.ToString("N2", _culture) €</MudTd>
+                                </RowTemplate>
+                            </MudTable>
+
+                            <MudPaper Class="pa-3 mt-2" Elevation="0">
+                                <MudStack Row="true" Justify="Justify.FlexEnd" Spacing="4">
+                                    <MudText Typo="Typo.subtitle2">
+                                        Gesamt Netto: <strong>@_projectExpenses.TotalNet.ToString("N2", _culture) €</strong>
+                                    </MudText>
+                                    <MudText Typo="Typo.subtitle2">
+                                        Gesamt Brutto: <strong>@_projectExpenses.TotalGross.ToString("N2", _culture) €</strong>
+                                    </MudText>
+                                </MudStack>
+                            </MudPaper>
+                        }
+                    </MudTabPanel>
+                }
             </MudTabs>
 
             <!-- Actions -->
@@ -255,6 +331,8 @@
     private Customer? _customer;
     private bool _rapportAvailable;
     private ProjectHoursResponseDto? _projectHours;
+    private bool _receptaAvailable;
+    private ProjectExpensesResponseDto? _projectExpenses;
 
     protected override async Task OnInitializedAsync()
     {
@@ -275,9 +353,9 @@
                 _customer = await CustomerService.GetByIdAsync(_project.CustomerId);
             }
 
-            await CheckRapportAvailabilityAsync();
+            await CheckModuleAvailabilityAsync();
 
-            if (_rapportAvailable && _project != null)
+            if (_project != null)
             {
                 if (!_project.ExternalId.HasValue)
                 {
@@ -285,9 +363,14 @@
                     _project = await ProjectService.GetByIdAsync(Id);
                 }
 
-                if (_project?.ExternalId.HasValue == true)
+                if (_rapportAvailable && _project?.ExternalId.HasValue == true)
                 {
                     _projectHours = await HostApiClient.GetProjectHoursAsync(_project.ExternalId.Value);
+                }
+
+                if (_receptaAvailable)
+                {
+                    _projectExpenses = await HostApiClient.GetProjectExpensesAsync(Id);
                 }
             }
         }
@@ -308,26 +391,28 @@
         await LoadDataAsync(showLoading: false);
     }
 
-    private async Task CheckRapportAvailabilityAsync()
+    private async Task CheckModuleAvailabilityAsync()
     {
         try
         {
             var navItems = await HostApiClient.GetNavigationAsync();
-            _rapportAvailable = navItems.Any(IsRapportNavItem);
+            _rapportAvailable = navItems.Any(n => IsModuleNavItem(n, "/rapport"));
+            _receptaAvailable = navItems.Any(n => IsModuleNavItem(n, "/recepta"));
         }
         catch
         {
             _rapportAvailable = false;
+            _receptaAvailable = false;
         }
     }
 
-    private static bool IsRapportNavItem(NavItemDto item)
+    private static bool IsModuleNavItem(NavItemDto item, string pathPrefix)
     {
-        if (!string.IsNullOrWhiteSpace(item.Href) && item.Href.StartsWith("/rapport", StringComparison.OrdinalIgnoreCase))
+        if (!string.IsNullOrWhiteSpace(item.Href) && item.Href.StartsWith(pathPrefix, StringComparison.OrdinalIgnoreCase))
             return true;
 
         if (item.Children is { Count: > 0 })
-            return item.Children.Any(IsRapportNavItem);
+            return item.Children.Any(c => IsModuleNavItem(c, pathPrefix));
 
         return false;
     }
@@ -437,4 +522,40 @@
             }
         }
     }
+
+    // Recepta Hilfsmethoden
+    private static Color GetDocumentStatusColor(string status) => status switch
+    {
+        "Draft" => Color.Default,
+        "Booked" => Color.Info,
+        "Paid" => Color.Success,
+        _ => Color.Default
+    };
+
+    private static string GetDocumentStatusText(string status) => status switch
+    {
+        "Draft" => "Entwurf",
+        "Booked" => "Verbucht",
+        "Paid" => "Bezahlt",
+        _ => status
+    };
+
+    private static Color GetCategoryColor(string category) => category switch
+    {
+        "Material" => Color.Primary,
+        "Subcontractor" => Color.Secondary,
+        "Office" => Color.Info,
+        "Travel" => Color.Warning,
+        _ => Color.Default
+    };
+
+    private static string GetCategoryText(string category) => category switch
+    {
+        "Material" => "Material",
+        "Subcontractor" => "Fremdleistung",
+        "Office" => "Büro",
+        "Travel" => "Reise",
+        "Other" => "Sonstig",
+        _ => category
+    };
 }

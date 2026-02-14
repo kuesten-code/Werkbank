@@ -1,5 +1,6 @@
-host=1.4.0
-faktura2.3.2
-rapport1.2.0
-offerte1.0.0
-acta1.0.0
+host=1.5.0
+faktura=2.4.0
+rapport=1.3.0
+offerte=1.1.0
+acta=1.1.0
+recepta=1.0.0

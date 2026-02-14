@@ -1,0 +1,844 @@
+@page "/belege/scan"
+@using Kuestencode.Werkbank.Recepta.Controllers.Dtos
+@using Kuestencode.Shared.Contracts.Acta
+@inject IDocumentService DocumentService
+@inject IDocumentFileService FileService
+@inject ISupplierService SupplierService
+@inject IOcrPatternService OcrPatternService
+@inject ICachedProjectService ProjectCache
+@inject NavigationManager NavigationManager
+@inject ISnackbar Snackbar
+
+<PageTitle>Beleg erfassen - Küstencode Recepta</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4">
+    <MudText Typo="Typo.h4" GutterBottom="true">Beleg erfassen</MudText>
+
+    @* Phase 1: Upload *@
+    @if (_phase == ScanPhase.Upload)
+    {
+        <MudPaper Class="pa-8 mt-4" Elevation="2">
+            <MudStack AlignItems="AlignItems.Center" Spacing="4">
+                <MudIcon Icon="@Icons.Material.Filled.DocumentScanner" Size="Size.Large" Color="Color.Primary" />
+                <MudText Typo="Typo.h5">Dokument hochladen</MudText>
+                <MudText Typo="Typo.body2" Color="Color.Secondary">
+                    PDF, JPG, PNG oder XML (XRechnung/ZUGFeRD) – max. 20 MB
+                </MudText>
+
+                <MudFileUpload T="IBrowserFile" Accept=".pdf,.jpg,.jpeg,.png,.xml"
+                              FilesChanged="OnFileSelected" MaximumFileCount="1">
+                    <ActivatorContent>
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                                  StartIcon="@Icons.Material.Filled.CloudUpload" Size="Size.Large">
+                            Datei auswählen
+                        </MudButton>
+                    </ActivatorContent>
+                </MudFileUpload>
+
+                @if (!string.IsNullOrEmpty(_uploadError))
+                {
+                    <MudAlert Severity="Severity.Error">@_uploadError</MudAlert>
+                }
+            </MudStack>
+        </MudPaper>
+    }
+
+    @* Phase 2: Analyse *@
+    @if (_phase == ScanPhase.Analyzing)
+    {
+        <MudPaper Class="pa-8 mt-4" Elevation="2">
+            <MudStack AlignItems="AlignItems.Center" Spacing="4">
+                <MudProgressCircular Color="Color.Primary" Size="Size.Large" Indeterminate="true" />
+                <MudText Typo="Typo.h5">Dokument wird analysiert...</MudText>
+                <MudText Typo="Typo.body2" Color="Color.Secondary">
+                    Dokumenterkennung läuft (XRechnung/ZUGFeRD oder OCR).
+                </MudText>
+            </MudStack>
+        </MudPaper>
+    }
+
+    @* Phase 3: Ergebnis *@
+    @if (_phase == ScanPhase.Result)
+    {
+        @if (!string.IsNullOrEmpty(_errorMessage))
+        {
+            <MudAlert Severity="Severity.Error" Class="mt-4 mb-4">@_errorMessage</MudAlert>
+        }
+
+        <MudGrid Class="mt-4" Spacing="4">
+            @* Links: Dokumentvorschau (65%) *@
+            <MudItem xs="12" md="8">
+                <MudPaper Class="pa-4" Elevation="2" Style="position: sticky; top: 80px;">
+                    <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-3">
+                        <MudText Typo="Typo.h6">Dokumentvorschau</MudText>
+                        <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center">
+                            <MudIconButton Icon="@Icons.Material.Filled.ZoomOut" Size="Size.Small"
+                                          OnClick="ZoomOut" Disabled="@(_zoom <= 0.5)" />
+                            <MudText Typo="Typo.caption">@((_zoom * 100).ToString("0"))%</MudText>
+                            <MudIconButton Icon="@Icons.Material.Filled.ZoomIn" Size="Size.Small"
+                                          OnClick="ZoomIn" Disabled="@(_zoom >= 3.0)" />
+                        </MudStack>
+                    </MudStack>
+
+                    @if (_scanResult?.IsXRechnung == true)
+                    {
+                        <MudAlert Severity="Severity.Success" Class="mb-3" Icon="@Icons.Material.Filled.Code">
+                            <strong>XRechnung/ZUGFeRD erkannt</strong> — Alle Rechnungsdaten wurden strukturiert ausgelesen.
+                        </MudAlert>
+
+                        @if (_scanResult.XRechnungData?.LineItems.Count > 0)
+                        {
+                            <MudText Typo="Typo.subtitle2" Class="mb-2">Rechnungspositionen</MudText>
+                            <MudSimpleTable Dense="true" Bordered="true" Style="font-size: 0.85rem;">
+                                <thead>
+                                    <tr>
+                                        <th>Beschreibung</th>
+                                        <th style="text-align: right;">Menge</th>
+                                        <th style="text-align: right;">Einzelpreis</th>
+                                        <th style="text-align: right;">Netto</th>
+                                        <th style="text-align: right;">MwSt</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var item in _scanResult.XRechnungData.LineItems)
+                                    {
+                                        <tr>
+                                            <td>@(item.Description ?? "—")</td>
+                                            <td style="text-align: right;">@item.Quantity.ToString("N2", _culture) @item.UnitCode</td>
+                                            <td style="text-align: right;">@item.UnitPrice.ToString("N2", _culture) €</td>
+                                            <td style="text-align: right;">@item.NetAmount.ToString("N2", _culture) €</td>
+                                            <td style="text-align: right;">@item.TaxPercent.ToString("N0", _culture) %</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </MudSimpleTable>
+                        }
+                    }
+                    else if (_fileContentType?.StartsWith("image/") == true)
+                    {
+                        <div style="max-height: calc(100vh - 200px); overflow: auto; text-align: center; background: #f5f5f5; border-radius: 4px;">
+                            <img src="data:@_fileContentType;base64,@_fileBase64"
+                                 style="max-width: 100%; transform: scale(@_zoom); transform-origin: top center;"
+                                 alt="Scan-Vorschau" />
+                        </div>
+                    }
+                    else if (_fileContentType == "application/pdf")
+                    {
+                        <div style="height: calc(100vh - 200px); border-radius: 4px; overflow: hidden;">
+                            <embed src="data:application/pdf;base64,@_fileBase64"
+                                   type="application/pdf" width="100%" height="100%" />
+                        </div>
+                    }
+
+                    @* OCR-Rohtext (nur bei OCR-Scan) *@
+                    @if (_scanResult?.IsXRechnung != true)
+                    {
+                        <MudExpansionPanels Class="mt-4">
+                            <MudExpansionPanel Text="OCR-Rohtext anzeigen">
+                                <div style="max-height: 300px; overflow-y: auto;">
+                                    <MudText Typo="Typo.body2" Style="white-space: pre-wrap; font-family: monospace; font-size: 0.8rem;">
+                                        @(_scanResult?.OcrRawText ?? "Kein OCR-Text vorhanden.")
+                                    </MudText>
+                                </div>
+                            </MudExpansionPanel>
+                        </MudExpansionPanels>
+                    }
+                </MudPaper>
+            </MudItem>
+
+            @* Rechts: Formular (35%) *@
+            <MudItem xs="12" md="4">
+                <MudPaper Class="pa-5" Elevation="2">
+
+                    @* Belegnummer als readonly Header *@
+                    <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-2">
+                        <MudText Typo="Typo.h6">@_model.DocumentNumber</MudText>
+                        @if (_scanResult?.IsXRechnung == true)
+                        {
+                            <MudChip T="string" Size="Size.Small" Color="Color.Success" Variant="Variant.Filled"
+                                    Icon="@Icons.Material.Filled.Code">
+                                XRechnung erkannt
+                            </MudChip>
+                        }
+                        else if (_ocrDetected.Count > 0)
+                        {
+                            <MudChip T="string" Size="Size.Small" Color="Color.Info" Variant="Variant.Outlined"
+                                    Icon="@Icons.Material.Filled.AutoAwesome">
+                                @_ocrDetected.Count erkannt
+                            </MudChip>
+                        }
+                    </MudStack>
+
+                    <MudDivider Class="mb-4" />
+
+                    <EditForm Model="@_model" OnValidSubmit="SaveDocument">
+                        <DataAnnotationsValidator />
+
+                        @* Lieferant *@
+                        <MudText Typo="Typo.overline" Color="Color.Secondary" Class="mb-2">Lieferant</MudText>
+                        <MudSelect T="Guid?" Label="Lieferant" Value="_model.SupplierId"
+                                  ValueChanged="OnSupplierChanged"
+                                  Variant="Variant.Outlined" Required="true"
+                                  RequiredError="Lieferant ist erforderlich"
+                                  AnchorOrigin="Origin.BottomCenter">
+                            <MudSelectItem T="Guid?" Value="@((Guid?)null)">
+                                <em>— Lieferant wählen —</em>
+                            </MudSelectItem>
+                            @foreach (var supplier in _suppliers)
+                            {
+                                <MudSelectItem T="Guid?" Value="@supplier.Id">
+                                    @supplier.Name
+                                </MudSelectItem>
+                            }
+                        </MudSelect>
+                        @if (_scanResult?.SuggestedSupplierId.HasValue == true)
+                        {
+                            <MudText Typo="Typo.caption" Color="Color.Info" Class="mt-1 mb-2">
+                                <MudIcon Icon="@Icons.Material.Filled.AutoAwesome" Size="Size.Small" Class="mr-1" Style="vertical-align: text-bottom;" />
+                                Vorschlag: @_scanResult.SuggestedSupplierName
+                            </MudText>
+                        }
+                        @if (!_model.SupplierId.HasValue && !string.IsNullOrWhiteSpace(_scanResult?.SuggestedSupplierName) && _scanResult?.SuggestedSupplierId == null)
+                        {
+                            <MudAlert Severity="Severity.Warning" Dense="true" Class="mt-2 mb-1">
+                                <MudText Typo="Typo.body2">
+                                    „@_scanResult!.SuggestedSupplierName" wurde erkannt, ist aber nicht als Lieferant hinterlegt.
+                                </MudText>
+                            </MudAlert>
+                        }
+                        <Kuestencode.Werkbank.Recepta.Shared.Components.InlineSupplierCreate
+                            OnCreated="OnSupplierCreated"
+                            PrefilledName="@(_model.SupplierId.HasValue ? null : (_scanResult?.XRechnungData?.SupplierName ?? _scanResult?.SuggestedSupplierName))"
+                            PrefilledTaxId="@(_model.SupplierId.HasValue ? null : _scanResult?.XRechnungData?.SupplierTaxId)"
+                            PrefilledIban="@(_model.SupplierId.HasValue ? null : _scanResult?.XRechnungData?.SupplierIban)"
+                            PrefilledBic="@(_model.SupplierId.HasValue ? null : _scanResult?.XRechnungData?.SupplierBic)" />
+
+                        @* Rechnungsdetails *@
+                        <MudText Typo="Typo.overline" Color="Color.Secondary" Class="mt-6 mb-2">Rechnungsdetails</MudText>
+                        <MudTextField @bind-Value="_model.InvoiceNumber"
+                                     Label="Rechnungsnummer"
+                                     Required="true"
+                                     RequiredError="Rechnungsnummer ist erforderlich"
+                                     Variant="Variant.Outlined"
+                                     MaxLength="100"
+                                     Class="@OcrClass("InvoiceNumber")" />
+
+                        <MudDatePicker Date="_invoiceDate"
+                                      DateChanged="OnInvoiceDateChanged"
+                                      Label="Rechnungsdatum"
+                                      DateFormat="dd.MM.yyyy"
+                                      Variant="Variant.Outlined"
+                                      Required="true"
+                                      RequiredError="Datum ist erforderlich"
+                                      Class="@($"mt-3 {OcrClass("InvoiceDate")}")" />
+
+                        <MudDatePicker Date="_dueDate"
+                                      DateChanged="OnDueDateChanged"
+                                      Label="Fälligkeitsdatum"
+                                      DateFormat="dd.MM.yyyy"
+                                      Variant="Variant.Outlined"
+                                      Clearable="true"
+                                      Class="@($"mt-3 {OcrClass("DueDate")}")" />
+
+                        @* Beträge *@
+                        <MudText Typo="Typo.overline" Color="Color.Secondary" Class="mt-6 mb-2">Beträge</MudText>
+                        <MudNumericField Value="_model.AmountGross"
+                                        Label="Bruttobetrag" Variant="Variant.Outlined"
+                                        Adornment="Adornment.End" AdornmentText="€"
+                                        Format="N2" Culture="@_culture" Min="0"
+                                        ValueChanged="OnAmountGrossChanged" T="decimal"
+                                        Class="@OcrClass("AmountGross")" />
+
+                        <MudStack Row="true" Spacing="2" Class="mt-3">
+                            <MudNumericField Value="_model.AmountNet"
+                                            Label="Netto" Variant="Variant.Outlined"
+                                            Adornment="Adornment.End" AdornmentText="€"
+                                            Format="N2" Culture="@_culture"
+                                            ReadOnly="true"
+                                            Style="flex: 1;"
+                                            Class="@OcrClass("AmountNet")" T="decimal" />
+                            <MudNumericField @bind-Value="_model.AmountTax"
+                                            Label="MwSt" Variant="Variant.Outlined"
+                                            Adornment="Adornment.End" AdornmentText="€"
+                                            Format="N2" Culture="@_culture"
+                                            ReadOnly="true"
+                                            Style="flex: 1;" T="decimal" />
+                        </MudStack>
+
+                        <MudSelect T="decimal" Label="MwSt-Satz" Value="_model.TaxRate"
+                                  ValueChanged="OnTaxRateChanged"
+                                  Variant="Variant.Outlined"
+                                  Class="@($"mt-3 {OcrClass("TaxRate")}")">
+                            <MudSelectItem T="decimal" Value="19m">19 %</MudSelectItem>
+                            <MudSelectItem T="decimal" Value="7m">7 %</MudSelectItem>
+                            <MudSelectItem T="decimal" Value="0m">0 %</MudSelectItem>
+                        </MudSelect>
+
+                        @* Zuordnung *@
+                        <MudText Typo="Typo.overline" Color="Color.Secondary" Class="mt-6 mb-2">@(_actaAvailable ? "Zuordnung" : "Kategorie")</MudText>
+                        <MudSelect T="DocumentCategory" @bind-Value="_model.Category"
+                                  Label="Kategorie" Variant="Variant.Outlined">
+                            <MudSelectItem T="DocumentCategory" Value="DocumentCategory.Material">Material</MudSelectItem>
+                            <MudSelectItem T="DocumentCategory" Value="DocumentCategory.Subcontractor">Fremdleistung</MudSelectItem>
+                            <MudSelectItem T="DocumentCategory" Value="DocumentCategory.Office">Büro</MudSelectItem>
+                            <MudSelectItem T="DocumentCategory" Value="DocumentCategory.Travel">Reise</MudSelectItem>
+                            <MudSelectItem T="DocumentCategory" Value="DocumentCategory.Other">Sonstig</MudSelectItem>
+                        </MudSelect>
+                        @if (_actaAvailable)
+                        {
+                            <MudSelect T="Guid?" @bind-Value="_model.ProjectId"
+                                      Label="Projekt" Variant="Variant.Outlined"
+                                      Clearable="true" Class="mt-3">
+                                @foreach (var project in _projects)
+                                {
+                                    <MudSelectItem T="Guid?" Value="@_projectGuidMap.GetValueOrDefault(project.Id)">
+                                        @project.ProjectNumber - @project.Name
+                                    </MudSelectItem>
+                                }
+                            </MudSelect>
+                        }
+
+                        @* Notizen *@
+                        <MudText Typo="Typo.overline" Color="Color.Secondary" Class="mt-6 mb-2">Notizen</MudText>
+                        <MudTextField @bind-Value="_model.Notes"
+                                     Label="Notizen (optional)"
+                                     Lines="3"
+                                     Variant="Variant.Outlined"
+                                     MaxLength="2000" />
+
+                        @* Aktionen *@
+                        <MudDivider Class="my-4" />
+                        <MudStack Row="true" Justify="Justify.FlexEnd" Class="gap-2">
+                            <MudButton Variant="Variant.Filled" Color="Color.Default" OnClick="Cancel">
+                                Abbrechen
+                            </MudButton>
+                            <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                                      ButtonType="ButtonType.Submit"
+                                      Disabled="@_saving">
+                                @if (_saving)
+                                {
+                                    <MudProgressCircular Class="ms-n1" Size="Size.Small" Indeterminate="true" />
+                                    <MudText Class="ms-2">Speichert...</MudText>
+                                }
+                                else
+                                {
+                                    <MudText>Beleg speichern</MudText>
+                                }
+                            </MudButton>
+                        </MudStack>
+                    </EditForm>
+                </MudPaper>
+            </MudItem>
+        </MudGrid>
+    }
+</MudContainer>
+
+<style>
+    .ocr-detected .mud-input-control .mud-input {
+        background-color: rgba(33, 150, 243, 0.04);
+    }
+    .ocr-detected .mud-input-control .mud-input-label,
+    .ocr-detected .mud-input-control label.mud-input-label {
+        color: var(--mud-palette-info);
+    }
+    .xrechnung-detected .mud-input-control .mud-input {
+        background-color: rgba(76, 175, 80, 0.06);
+    }
+    .xrechnung-detected .mud-input-control .mud-input-label,
+    .xrechnung-detected .mud-input-control label.mud-input-label {
+        color: var(--mud-palette-success);
+    }
+</style>
+
+@code {
+    private enum ScanPhase { Upload, Analyzing, Result }
+
+    private readonly CultureInfo _culture = new("de-DE");
+    private ScanPhase _phase = ScanPhase.Upload;
+    private bool _saving;
+    private string _uploadError = string.Empty;
+    private string _errorMessage = string.Empty;
+
+    // Upload & Preview
+    private IBrowserFile? _uploadedFile;
+    private string? _fileBase64;
+    private string? _fileContentType;
+    private byte[]? _fileBytes;
+    private double _zoom = 1.0;
+
+    // Scan-Ergebnis
+    private ScanResultDto? _scanResult;
+    private HashSet<string> _ocrDetected = new();
+
+    // Formular
+    private DocumentFormModel _model = new();
+    private DateTime? _invoiceDate;
+    private DateTime? _dueDate;
+
+    // Referenzdaten
+    private List<SupplierDto> _suppliers = new();
+    private List<ActaProjectDto> _projects = new();
+    private Dictionary<int, Guid> _projectGuidMap = new();
+    private bool _actaAvailable;
+
+    private string OcrClass(string field) =>
+        _ocrDetected.Contains(field)
+            ? (_scanResult?.IsXRechnung == true ? "xrechnung-detected" : "ocr-detected")
+            : "";
+
+    private async Task OnFileSelected(IBrowserFile file)
+    {
+        _uploadError = string.Empty;
+
+        var allowedTypes = new[] { "application/pdf", "image/jpeg", "image/png", "image/jpg", "text/xml", "application/xml" };
+        var contentType = file.ContentType.ToLowerInvariant();
+        // Browser melden XML manchmal als leeren Content-Type
+        if (string.IsNullOrEmpty(contentType) && file.Name.EndsWith(".xml", StringComparison.OrdinalIgnoreCase))
+        {
+            contentType = "text/xml";
+        }
+        if (!allowedTypes.Contains(contentType))
+        {
+            _uploadError = "Nur PDF, JPG, PNG oder XML Dateien sind erlaubt.";
+            return;
+        }
+
+        if (file.Size > 20 * 1024 * 1024)
+        {
+            _uploadError = "Die Datei darf maximal 20 MB groß sein.";
+            return;
+        }
+
+        _uploadedFile = file;
+        _fileContentType = file.ContentType;
+
+        // Datei SOFORT lesen, bevor StateHasChanged() das MudFileUpload aus dem DOM entfernt.
+        await using var stream = file.OpenReadStream(maxAllowedSize: 20 * 1024 * 1024);
+        using var ms = new MemoryStream();
+        await stream.CopyToAsync(ms);
+        _fileBytes = ms.ToArray();
+        _fileBase64 = Convert.ToBase64String(_fileBytes);
+
+        _phase = ScanPhase.Analyzing;
+        StateHasChanged();
+
+        try
+        {
+            await LoadReferenceDataAsync();
+
+            using var scanStream = new MemoryStream(_fileBytes);
+            _scanResult = await DocumentService.CreateFromScanAsync(scanStream, file.Name);
+
+            await PopulateFormFromScanResult();
+
+            _phase = ScanPhase.Result;
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Fehler bei der Analyse: {ex.Message}";
+            _phase = ScanPhase.Result;
+        }
+    }
+
+    private async Task LoadReferenceDataAsync()
+    {
+        try
+        {
+            var suppliers = await SupplierService.GetAllAsync();
+            _suppliers = suppliers.ToList();
+        }
+        catch { /* Fehler ignorieren */ }
+
+        try
+        {
+            _actaAvailable = await ProjectCache.IsActaAvailableAsync();
+            if (_actaAvailable)
+            {
+                _projects = await ProjectCache.GetProjectsAsync();
+                foreach (var project in _projects)
+                {
+                    _projectGuidMap[project.Id] = DeterministicGuid(project.Id);
+                }
+            }
+        }
+        catch { _actaAvailable = false; }
+    }
+
+    private async Task PopulateFormFromScanResult()
+    {
+        if (_scanResult == null) return;
+
+        _ocrDetected.Clear();
+
+        // Belegnummer generieren
+        try
+        {
+            _model.DocumentNumber = await DocumentService.GenerateDocumentNumberAsync();
+        }
+        catch { _model.DocumentNumber = string.Empty; }
+
+        // Lieferant
+        if (_scanResult.SuggestedSupplierId.HasValue)
+        {
+            _model.SupplierId = _scanResult.SuggestedSupplierId;
+        }
+
+        if (_scanResult.IsXRechnung)
+        {
+            PopulateFromXRechnung();
+        }
+        else
+        {
+            PopulateFromOcr();
+        }
+
+        RecalculateFromGross();
+    }
+
+    private void PopulateFromXRechnung()
+    {
+        var xData = _scanResult!.XRechnungData;
+
+        // Alle XRechnung-Felder als erkannt markieren
+        if (!string.IsNullOrWhiteSpace(_scanResult.InvoiceNumber))
+        {
+            _model.InvoiceNumber = _scanResult.InvoiceNumber;
+            _ocrDetected.Add("InvoiceNumber");
+        }
+
+        if (_scanResult.InvoiceDate.HasValue)
+        {
+            _invoiceDate = _scanResult.InvoiceDate.Value.ToDateTime(TimeOnly.MinValue);
+            _ocrDetected.Add("InvoiceDate");
+        }
+        else
+        {
+            _invoiceDate = DateTime.Today;
+        }
+
+        if (_scanResult.DueDate.HasValue)
+        {
+            _dueDate = _scanResult.DueDate.Value.ToDateTime(TimeOnly.MinValue);
+            _ocrDetected.Add("DueDate");
+        }
+
+        if (_scanResult.AmountNet.HasValue)
+        {
+            _model.AmountNet = _scanResult.AmountNet.Value;
+            _ocrDetected.Add("AmountNet");
+        }
+
+        if (_scanResult.AmountGross.HasValue)
+        {
+            _model.AmountGross = _scanResult.AmountGross.Value;
+            _ocrDetected.Add("AmountGross");
+        }
+
+        if (_scanResult.TaxRate.HasValue)
+        {
+            _model.TaxRate = _scanResult.TaxRate.Value;
+            _ocrDetected.Add("TaxRate");
+        }
+        else
+        {
+            _model.TaxRate = 19m;
+        }
+
+        // Positionen als Notizen anhängen
+        if (xData?.LineItems.Count > 0)
+        {
+            var lines = xData.LineItems.Select(li =>
+                $"• {li.Description}: {li.Quantity:N2} x {li.UnitPrice:N2} € = {li.NetAmount:N2} € ({li.TaxPercent:N0}% MwSt)");
+            _model.Notes = string.Join("\n", lines);
+        }
+    }
+
+    private void PopulateFromOcr()
+    {
+        // Rechnungsnummer
+        if (!string.IsNullOrWhiteSpace(_scanResult!.InvoiceNumber))
+        {
+            _model.InvoiceNumber = _scanResult.InvoiceNumber;
+            _ocrDetected.Add("InvoiceNumber");
+        }
+
+        // Rechnungsdatum
+        if (_scanResult.InvoiceDate.HasValue)
+        {
+            _invoiceDate = _scanResult.InvoiceDate.Value.ToDateTime(TimeOnly.MinValue);
+            _ocrDetected.Add("InvoiceDate");
+        }
+        else
+        {
+            _invoiceDate = DateTime.Today;
+        }
+
+        // Beträge
+        if (_scanResult.AmountNet.HasValue)
+        {
+            _model.AmountNet = _scanResult.AmountNet.Value;
+            _ocrDetected.Add("AmountNet");
+        }
+
+        if (_scanResult.TaxRate.HasValue)
+        {
+            _model.TaxRate = _scanResult.TaxRate.Value;
+            _ocrDetected.Add("TaxRate");
+        }
+        else
+        {
+            _model.TaxRate = 19m;
+        }
+
+        if (_scanResult.AmountGross.HasValue)
+        {
+            _model.AmountGross = _scanResult.AmountGross.Value;
+            _ocrDetected.Add("AmountGross");
+        }
+
+        // OCR-Rohtext merken
+        _model.OcrRawText = _scanResult.OcrRawText;
+    }
+
+    // Brutto ist das Haupteingabefeld — Netto und MwSt werden berechnet
+    private void OnAmountGrossChanged(decimal value)
+    {
+        _model.AmountGross = value;
+        RecalculateFromGross();
+    }
+
+    private void OnTaxRateChanged(decimal value)
+    {
+        _model.TaxRate = value;
+        RecalculateFromGross();
+    }
+
+    private void RecalculateFromGross()
+    {
+        if (_model.TaxRate > 0)
+        {
+            _model.AmountNet = Math.Round(_model.AmountGross / (1 + _model.TaxRate / 100m), 2);
+            _model.AmountTax = _model.AmountGross - _model.AmountNet;
+        }
+        else
+        {
+            _model.AmountNet = _model.AmountGross;
+            _model.AmountTax = 0;
+        }
+    }
+
+    private async Task OnSupplierChanged(Guid? value)
+    {
+        _model.SupplierId = value;
+
+        // Bei XRechnung keine Pattern-Neuextraktion (Daten sind strukturiert)
+        if (_scanResult?.IsXRechnung == true) return;
+
+        // OCR-Felder mit Patterns des neuen Lieferanten neu extrahieren
+        if (!string.IsNullOrWhiteSpace(_model.OcrRawText))
+        {
+            await ReExtractFieldsAsync(value);
+        }
+    }
+
+    private async Task ReExtractFieldsAsync(Guid? supplierId)
+    {
+        try
+        {
+            var fields = await OcrPatternService.ExtractFieldsAsync(supplierId, _model.OcrRawText!);
+
+            _ocrDetected.Clear();
+
+            if (fields.TryGetValue("InvoiceNumber", out var invoiceNumber) && !string.IsNullOrWhiteSpace(invoiceNumber))
+            {
+                _model.InvoiceNumber = invoiceNumber;
+                _ocrDetected.Add("InvoiceNumber");
+            }
+
+            if (fields.TryGetValue("InvoiceDate", out var invoiceDateStr) &&
+                DateOnly.TryParse(invoiceDateStr, CultureInfo.InvariantCulture, out var invoiceDate))
+            {
+                _invoiceDate = invoiceDate.ToDateTime(TimeOnly.MinValue);
+                _ocrDetected.Add("InvoiceDate");
+            }
+
+            if (fields.TryGetValue("AmountNet", out var amountNetStr) &&
+                decimal.TryParse(amountNetStr, NumberStyles.Any, CultureInfo.InvariantCulture, out var amountNet))
+            {
+                _model.AmountNet = amountNet;
+                _ocrDetected.Add("AmountNet");
+            }
+
+            if (fields.TryGetValue("AmountGross", out var amountGrossStr) &&
+                decimal.TryParse(amountGrossStr, NumberStyles.Any, CultureInfo.InvariantCulture, out var amountGross))
+            {
+                _model.AmountGross = amountGross;
+                _ocrDetected.Add("AmountGross");
+            }
+
+            if (fields.TryGetValue("TaxRate", out var taxRateStr) &&
+                decimal.TryParse(taxRateStr, NumberStyles.Any, CultureInfo.InvariantCulture, out var taxRate))
+            {
+                _model.TaxRate = taxRate;
+                _ocrDetected.Add("TaxRate");
+            }
+
+            RecalculateFromGross();
+
+            if (fields.Count > 0)
+            {
+                var supplierName = _suppliers.FirstOrDefault(s => s.Id == supplierId)?.Name ?? "Lieferant";
+                Snackbar.Add($"{fields.Count} Feld(er) mit Mustern von '{supplierName}' erkannt.", Severity.Info);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Felderkennung fehlgeschlagen: {ex.Message}", Severity.Warning);
+        }
+    }
+
+    private async Task OnSupplierCreated(SupplierDto supplier)
+    {
+        // Lieferantenliste neu laden und neuen Lieferanten auswählen
+        try
+        {
+            var suppliers = await SupplierService.GetAllAsync();
+            _suppliers = suppliers.ToList();
+        }
+        catch { /* Liste beibehalten */ }
+
+        _model.SupplierId = supplier.Id;
+        StateHasChanged();
+    }
+
+    private void OnInvoiceDateChanged(DateTime? value)
+    {
+        _invoiceDate = value;
+    }
+
+    private void OnDueDateChanged(DateTime? value)
+    {
+        _dueDate = value;
+    }
+
+    // Zoom
+    private void ZoomIn() => _zoom = Math.Min(_zoom + 0.25, 3.0);
+    private void ZoomOut() => _zoom = Math.Max(_zoom - 0.25, 0.5);
+
+    // Speichern
+    private async Task SaveDocument()
+    {
+        _errorMessage = string.Empty;
+
+        if (!_model.SupplierId.HasValue || _model.SupplierId == Guid.Empty)
+        {
+            _errorMessage = "Bitte wählen Sie einen Lieferanten aus.";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(_model.InvoiceNumber))
+        {
+            _errorMessage = "Bitte geben Sie eine Rechnungsnummer ein.";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(_model.DocumentNumber))
+        {
+            _errorMessage = "Bitte geben Sie eine Belegnummer ein.";
+            return;
+        }
+
+        _saving = true;
+
+        try
+        {
+            var dto = new CreateDocumentDto
+            {
+                DocumentNumber = _model.DocumentNumber,
+                SupplierId = _model.SupplierId!.Value,
+                InvoiceNumber = _model.InvoiceNumber,
+                InvoiceDate = _invoiceDate.HasValue ? DateOnly.FromDateTime(_invoiceDate.Value) : DateOnly.FromDateTime(DateTime.Today),
+                DueDate = _dueDate.HasValue ? DateOnly.FromDateTime(_dueDate.Value) : null,
+                AmountNet = _model.AmountNet,
+                TaxRate = _model.TaxRate,
+                AmountTax = _model.AmountTax,
+                AmountGross = _model.AmountGross,
+                Category = _model.Category,
+                ProjectId = _model.ProjectId,
+                OcrRawText = _model.OcrRawText,
+                Notes = _model.Notes
+            };
+
+            var document = await DocumentService.CreateAsync(dto);
+
+            // Datei als Anhang hochladen
+            if (_fileBytes != null && _uploadedFile != null)
+            {
+                try
+                {
+                    using var fileStream = new MemoryStream(_fileBytes);
+                    await FileService.UploadAsync(document.Id, fileStream, _uploadedFile.Name, _fileContentType ?? "application/octet-stream");
+                }
+                catch (Exception ex)
+                {
+                    Snackbar.Add($"Beleg erstellt, aber Datei-Upload fehlgeschlagen: {ex.Message}", Severity.Warning);
+                }
+            }
+
+            // Lerneffekt triggern (nur bei OCR, nicht bei XRechnung)
+            if (_scanResult?.IsXRechnung != true)
+            {
+                try
+                {
+                    await DocumentService.LearnPatternsAsync(document.Id);
+                    var supplierName = _suppliers.FirstOrDefault(s => s.Id == _model.SupplierId)?.Name;
+                    if (!string.IsNullOrEmpty(supplierName))
+                    {
+                        Snackbar.Add($"Muster für '{supplierName}' gelernt.", Severity.Info);
+                    }
+                }
+                catch { /* Lerneffekt ist optional */ }
+            }
+
+            Snackbar.Add($"Beleg '{document.DocumentNumber}' wurde erstellt.", Severity.Success);
+            NavigationManager.NavigateTo($"/recepta/belege/{document.Id}");
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Fehler beim Speichern: {ex.Message}";
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private void Cancel()
+    {
+        NavigationManager.NavigateTo("/recepta/belege");
+    }
+
+    private static Guid DeterministicGuid(int id)
+    {
+        var bytes = new byte[16];
+        BitConverter.GetBytes(id).CopyTo(bytes, 0);
+        bytes[4] = 0xAC;
+        bytes[5] = 0x7A;
+        return new Guid(bytes);
+    }
+
+    private class DocumentFormModel
+    {
+        public string DocumentNumber { get; set; } = string.Empty;
+        public Guid? SupplierId { get; set; }
+        public string InvoiceNumber { get; set; } = string.Empty;
+        public decimal AmountNet { get; set; }
+        public decimal TaxRate { get; set; } = 19m;
+        public decimal AmountTax { get; set; }
+        public decimal AmountGross { get; set; }
+        public DocumentCategory Category { get; set; } = DocumentCategory.Other;
+        public Guid? ProjectId { get; set; }
+        public string? OcrRawText { get; set; }
+        public string? Notes { get; set; }
+    }
+}

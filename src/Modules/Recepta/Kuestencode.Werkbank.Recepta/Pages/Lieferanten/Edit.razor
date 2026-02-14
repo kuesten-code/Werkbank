@@ -1,0 +1,459 @@
+@page "/lieferanten/neu"
+@page "/lieferanten/{Id:guid}"
+@using Kuestencode.Werkbank.Recepta.Controllers.Dtos
+@inject ISupplierService SupplierService
+@inject IDocumentService DocumentService
+@inject NavigationManager NavigationManager
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+
+<PageTitle>@(_isNew ? "Neuer Lieferant" : "Lieferant bearbeiten") - Küstencode Recepta</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="mt-4">
+    @if (_loading)
+    {
+        <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+    }
+    else if (!_isNew && _supplier == null)
+    {
+        <MudAlert Severity="Severity.Error">Lieferant nicht gefunden.</MudAlert>
+    }
+    else
+    {
+        <MudPaper Class="pa-4">
+            <MudText Typo="Typo.h4" GutterBottom="true">@(_isNew ? "Neuer Lieferant" : "Lieferant bearbeiten")</MudText>
+            @if (!_isNew)
+            {
+                <MudText Typo="Typo.subtitle1" Color="Color.Secondary" Class="mb-4">@_supplier!.SupplierNumber</MudText>
+            }
+
+            @if (!string.IsNullOrEmpty(_errorMessage))
+            {
+                <MudAlert Severity="Severity.Error" Class="my-4">@_errorMessage</MudAlert>
+            }
+
+            <EditForm Model="@_model" OnValidSubmit="SaveChanges">
+                <DataAnnotationsValidator />
+
+                <!-- Stammdaten -->
+                <MudText Typo="Typo.h6" Class="mt-4 mb-2">Stammdaten</MudText>
+                <MudGrid>
+                    <MudItem xs="12" sm="4">
+                        @if (_isNew)
+                        {
+                            <MudTextField @bind-Value="_model.SupplierNumber"
+                                         Label="Lieferantennummer"
+                                         Required="true"
+                                         RequiredError="Lieferantennummer ist erforderlich"
+                                         Variant="Variant.Outlined"
+                                         MaxLength="50"
+                                         Immediate="true"
+                                         HelperText="Wird automatisch generiert, kann angepasst werden" />
+                        }
+                        else
+                        {
+                            <MudTextField Label="Lieferantennummer" Value="@_supplier!.SupplierNumber"
+                                         ReadOnly="true" Variant="Variant.Outlined" />
+                        }
+                    </MudItem>
+                    <MudItem xs="12" sm="8">
+                        <MudTextField @bind-Value="_model.Name"
+                                     Label="Name"
+                                     Required="true"
+                                     RequiredError="Name ist erforderlich"
+                                     Variant="Variant.Outlined"
+                                     MaxLength="200"
+                                     Immediate="true" />
+                    </MudItem>
+                </MudGrid>
+
+                <!-- Adresse -->
+                <MudText Typo="Typo.h6" Class="mt-6 mb-2">Adresse</MudText>
+                <MudGrid>
+                    <MudItem xs="12">
+                        <MudTextField @bind-Value="_model.Address"
+                                     Label="Straße"
+                                     Variant="Variant.Outlined"
+                                     MaxLength="200" />
+                    </MudItem>
+                    <MudItem xs="12" sm="3">
+                        <MudTextField @bind-Value="_model.PostalCode"
+                                     Label="PLZ"
+                                     Variant="Variant.Outlined"
+                                     MaxLength="10" />
+                    </MudItem>
+                    <MudItem xs="12" sm="5">
+                        <MudTextField @bind-Value="_model.City"
+                                     Label="Ort"
+                                     Variant="Variant.Outlined"
+                                     MaxLength="100" />
+                    </MudItem>
+                    <MudItem xs="12" sm="4">
+                        <MudTextField @bind-Value="_model.Country"
+                                     Label="Land"
+                                     Variant="Variant.Outlined"
+                                     MaxLength="50" />
+                    </MudItem>
+                </MudGrid>
+
+                <!-- Kontakt -->
+                <MudText Typo="Typo.h6" Class="mt-6 mb-2">Kontakt</MudText>
+                <MudGrid>
+                    <MudItem xs="12" sm="6">
+                        <MudTextField @bind-Value="_model.Email"
+                                     Label="E-Mail"
+                                     Variant="Variant.Outlined"
+                                     MaxLength="200"
+                                     InputType="InputType.Email" />
+                    </MudItem>
+                    <MudItem xs="12" sm="6">
+                        <MudTextField @bind-Value="_model.Phone"
+                                     Label="Telefon"
+                                     Variant="Variant.Outlined"
+                                     MaxLength="50"
+                                     InputType="InputType.Telephone" />
+                    </MudItem>
+                </MudGrid>
+
+                <!-- Steuer & Bank -->
+                <MudText Typo="Typo.h6" Class="mt-6 mb-2">Steuer & Bankverbindung</MudText>
+                <MudGrid>
+                    <MudItem xs="12" sm="4">
+                        <MudTextField @bind-Value="_model.TaxId"
+                                     Label="USt-ID"
+                                     Variant="Variant.Outlined"
+                                     MaxLength="50" />
+                    </MudItem>
+                    <MudItem xs="12" sm="5">
+                        <MudTextField @bind-Value="_model.Iban"
+                                     Label="IBAN"
+                                     Variant="Variant.Outlined"
+                                     MaxLength="34" />
+                    </MudItem>
+                    <MudItem xs="12" sm="3">
+                        <MudTextField @bind-Value="_model.Bic"
+                                     Label="BIC"
+                                     Variant="Variant.Outlined"
+                                     MaxLength="11" />
+                    </MudItem>
+                </MudGrid>
+
+                <!-- Notizen -->
+                <MudText Typo="Typo.h6" Class="mt-6 mb-2">Notizen</MudText>
+                <MudGrid>
+                    <MudItem xs="12">
+                        <MudTextField @bind-Value="_model.Notes"
+                                     Label="Notizen (optional)"
+                                     Lines="3"
+                                     Variant="Variant.Outlined"
+                                     MaxLength="2000" />
+                    </MudItem>
+                </MudGrid>
+
+                <!-- Actions -->
+                <MudStack Row="true" Justify="Justify.SpaceBetween" Class="mt-6">
+                    <MudStack Row="true">
+                        @if (!_isNew && _supplier!.DocumentCount == 0)
+                        {
+                            <MudButton Variant="Variant.Outlined" Color="Color.Error"
+                                      StartIcon="@Icons.Material.Filled.Delete"
+                                      OnClick="DeleteSupplier">
+                                Löschen
+                            </MudButton>
+                        }
+                    </MudStack>
+
+                    <MudStack Row="true" Class="gap-2">
+                        <MudButton Variant="Variant.Filled" Color="Color.Default" OnClick="Cancel">
+                            Abbrechen
+                        </MudButton>
+
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                                  ButtonType="ButtonType.Submit"
+                                  Disabled="@_saving">
+                            @if (_saving)
+                            {
+                                <MudProgressCircular Class="ms-n1" Size="Size.Small" Indeterminate="true" />
+                                <MudText Class="ms-2">Speichert...</MudText>
+                            }
+                            else
+                            {
+                                <MudText>@(_isNew ? "Lieferant erstellen" : "Änderungen speichern")</MudText>
+                            }
+                        </MudButton>
+                    </MudStack>
+                </MudStack>
+            </EditForm>
+        </MudPaper>
+
+        @* Belege dieses Lieferanten *@
+        @if (!_isNew && _documents.Count > 0)
+        {
+            <MudPaper Class="pa-4 mt-4">
+                <MudText Typo="Typo.h6" GutterBottom="true">Belege dieses Lieferanten (@_documents.Count)</MudText>
+
+                <MudTable Items="@_documents" Hover="true" Breakpoint="Breakpoint.Sm"
+                         Dense="true" RowsPerPage="5"
+                         OnRowClick="@(args => NavigateToDocument(args.Item!.Id))" T="DocumentDto" RowClass="cursor-pointer">
+                    <HeaderContent>
+                        <MudTh>Belegnr.</MudTh>
+                        <MudTh>Rechnungsnr.</MudTh>
+                        <MudTh>Datum</MudTh>
+                        <MudTh>Brutto</MudTh>
+                        <MudTh>Status</MudTh>
+                    </HeaderContent>
+                    <RowTemplate>
+                        <MudTd DataLabel="Belegnr.">@context.DocumentNumber</MudTd>
+                        <MudTd DataLabel="Rechnungsnr.">@context.InvoiceNumber</MudTd>
+                        <MudTd DataLabel="Datum">@context.InvoiceDate.ToString("dd.MM.yyyy")</MudTd>
+                        <MudTd DataLabel="Brutto">@context.AmountGross.ToString("N2", _culture) €</MudTd>
+                        <MudTd DataLabel="Status">
+                            <MudChip T="string" Color="@GetStatusColor(context.Status)" Size="Size.Small">
+                                @GetStatusText(context.Status)
+                            </MudChip>
+                        </MudTd>
+                    </RowTemplate>
+                    <PagerContent>
+                        <MudTablePager PageSizeOptions="new int[] { 5, 10, 25 }" />
+                    </PagerContent>
+                </MudTable>
+            </MudPaper>
+        }
+    }
+</MudContainer>
+
+<style>
+    .cursor-pointer {
+        cursor: pointer;
+    }
+</style>
+
+@code {
+    [Parameter]
+    public Guid? Id { get; set; }
+
+    private readonly CultureInfo _culture = new("de-DE");
+    private bool _isNew => Id == null;
+    private bool _loading = true;
+    private bool _saving;
+    private string _errorMessage = string.Empty;
+
+    private SupplierDto? _supplier;
+    private EditModel _model = new();
+    private List<DocumentDto> _documents = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (_isNew)
+        {
+            try
+            {
+                _model.SupplierNumber = await SupplierService.GenerateSupplierNumberAsync();
+            }
+            catch (Exception ex)
+            {
+                Snackbar.Add($"Lieferantennummer konnte nicht generiert werden: {ex.Message}", Severity.Warning);
+            }
+            _model.Country = "DE";
+            _loading = false;
+        }
+        else
+        {
+            await LoadSupplierAsync();
+        }
+    }
+
+    private async Task LoadSupplierAsync()
+    {
+        _loading = true;
+
+        try
+        {
+            _supplier = await SupplierService.GetByIdAsync(Id!.Value);
+
+            if (_supplier != null)
+            {
+                _model = new EditModel
+                {
+                    SupplierNumber = _supplier.SupplierNumber,
+                    Name = _supplier.Name,
+                    Address = _supplier.Address,
+                    PostalCode = _supplier.PostalCode,
+                    City = _supplier.City,
+                    Country = _supplier.Country,
+                    Email = _supplier.Email,
+                    Phone = _supplier.Phone,
+                    TaxId = _supplier.TaxId,
+                    Iban = _supplier.Iban,
+                    Bic = _supplier.Bic,
+                    Notes = _supplier.Notes
+                };
+
+                // Belege dieses Lieferanten laden
+                var filter = new DocumentFilterDto { SupplierId = Id };
+                var documents = await DocumentService.GetAllAsync(filter);
+                _documents = documents.ToList();
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Fehler beim Laden: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private bool ValidateForm()
+    {
+        _errorMessage = string.Empty;
+
+        if (string.IsNullOrWhiteSpace(_model.Name))
+        {
+            _errorMessage = "Bitte geben Sie einen Namen ein.";
+            return false;
+        }
+
+        if (_isNew && string.IsNullOrWhiteSpace(_model.SupplierNumber))
+        {
+            _errorMessage = "Bitte geben Sie eine Lieferantennummer ein.";
+            return false;
+        }
+
+        return true;
+    }
+
+    private async Task SaveChanges()
+    {
+        if (!ValidateForm()) return;
+
+        _saving = true;
+        _errorMessage = string.Empty;
+
+        try
+        {
+            if (_isNew)
+            {
+                var dto = new CreateSupplierDto
+                {
+                    SupplierNumber = _model.SupplierNumber,
+                    Name = _model.Name,
+                    Address = _model.Address,
+                    PostalCode = _model.PostalCode,
+                    City = _model.City,
+                    Country = _model.Country ?? "DE",
+                    Email = _model.Email,
+                    Phone = _model.Phone,
+                    TaxId = _model.TaxId,
+                    Iban = _model.Iban,
+                    Bic = _model.Bic,
+                    Notes = _model.Notes
+                };
+
+                var supplier = await SupplierService.CreateAsync(dto);
+                Snackbar.Add($"Lieferant '{supplier.Name}' wurde erstellt.", Severity.Success);
+                NavigationManager.NavigateTo($"/recepta/lieferanten/{supplier.Id}");
+            }
+            else
+            {
+                var dto = new UpdateSupplierDto
+                {
+                    Name = _model.Name,
+                    Address = _model.Address,
+                    PostalCode = _model.PostalCode,
+                    City = _model.City,
+                    Country = _model.Country ?? "DE",
+                    Email = _model.Email,
+                    Phone = _model.Phone,
+                    TaxId = _model.TaxId,
+                    Iban = _model.Iban,
+                    Bic = _model.Bic,
+                    Notes = _model.Notes
+                };
+
+                await SupplierService.UpdateAsync(Id!.Value, dto);
+                Snackbar.Add($"Lieferant '{_model.Name}' wurde aktualisiert.", Severity.Success);
+                NavigationManager.NavigateTo("/recepta/lieferanten");
+            }
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Fehler beim Speichern: {ex.Message}";
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private async Task DeleteSupplier()
+    {
+        var parameters = new DialogParameters<Kuestencode.Werkbank.Recepta.Shared.Dialogs.ConfirmDialog>
+        {
+            { x => x.Title, "Lieferant löschen" },
+            { x => x.ContentText, $"Möchten Sie den Lieferanten '{_supplier!.Name}' wirklich löschen?" },
+            { x => x.ButtonText, "Löschen" },
+            { x => x.Color, Color.Error }
+        };
+
+        var dialog = await DialogService.ShowAsync<Kuestencode.Werkbank.Recepta.Shared.Dialogs.ConfirmDialog>("Löschen", parameters);
+        var result = await dialog.Result;
+
+        if (result != null && !result.Canceled)
+        {
+            try
+            {
+                await SupplierService.DeleteAsync(Id!.Value);
+                Snackbar.Add($"Lieferant '{_supplier!.Name}' wurde gelöscht.", Severity.Success);
+                NavigationManager.NavigateTo("/recepta/lieferanten");
+            }
+            catch (Exception ex)
+            {
+                Snackbar.Add($"Fehler beim Löschen: {ex.Message}", Severity.Error);
+            }
+        }
+    }
+
+    private void NavigateToDocument(Guid documentId)
+    {
+        NavigationManager.NavigateTo($"/recepta/belege/{documentId}");
+    }
+
+    private void Cancel()
+    {
+        NavigationManager.NavigateTo("/recepta/lieferanten");
+    }
+
+    private static string GetStatusText(string status) => status switch
+    {
+        "Draft" => "Entwurf",
+        "Booked" => "Verbucht",
+        "Paid" => "Bezahlt",
+        _ => status
+    };
+
+    private static Color GetStatusColor(string status) => status switch
+    {
+        "Draft" => Color.Default,
+        "Booked" => Color.Info,
+        "Paid" => Color.Success,
+        _ => Color.Default
+    };
+
+    private class EditModel
+    {
+        public string SupplierNumber { get; set; } = string.Empty;
+        public string Name { get; set; } = string.Empty;
+        public string? Address { get; set; }
+        public string? PostalCode { get; set; }
+        public string? City { get; set; }
+        public string? Country { get; set; } = "DE";
+        public string? Email { get; set; }
+        public string? Phone { get; set; }
+        public string? TaxId { get; set; }
+        public string? Iban { get; set; }
+        public string? Bic { get; set; }
+        public string? Notes { get; set; }
+    }
+}

@@ -28,16 +28,16 @@
 │  │  • E-Mail-Konfiguration                                                │  │
 │  └────────────────────────────────────────────────────────────────────────┘  │
 │                                  │                                            │
-│         ┌──────────────┬────────────┼────────────┬──────────────┐              │
-│         ▼              ▼            ▼            ▼              │              │
-│  ┌─────────────┐┌─────────────┐┌─────────────┐┌─────────────┐ │              │
-│  │   Faktura   ││   Offerte   ││   Rapport   ││    Acta     │ │              │
-│  │             ││             ││             ││             │ │              │
-│  │• Rechnungen ││• Angebote   ││• Zeiterfas. ││• Projekte   │ │              │
-│  │• PDF/XRechn.││• PDF-Export ││• PDF/CSV    ││• Aufgaben   │ │              │
-│  │• E-Mail     ││• E-Mail     ││• Timer      ││• State Mach.│ │              │
-│  │• GiroCode   ││• → Faktura  ││• → Faktura  ││• ↔ Rapport  │ │              │
-│  └─────────────┘└─────────────┘└─────────────┘└─────────────┘ │              │
+│    ┌───────────┬───────────┬───────────┬───────────┬───────────┐              │
+│    ▼           ▼           ▼           ▼           ▼           │              │
+│  ┌───────────┐┌───────────┐┌───────────┐┌───────────┐┌───────────┐          │
+│  │  Faktura  ││  Offerte  ││  Rapport  ││   Acta    ││  Recepta  │          │
+│  │           ││           ││           ││           ││           │          │
+│  │• Rechnung.││• Angebote ││• Zeiterfas││• Projekte ││• Eingangs-│          │
+│  │• PDF/XR.  ││• PDF-Exp. ││• PDF/CSV  ││• Aufgaben ││  rechnung.│          │
+│  │• E-Mail   ││• E-Mail   ││• Timer    ││• State M. ││• XRechn.  │          │
+│  │• GiroCode ││• → Faktura││• → Faktura││• ↔ Rapport││• OCR      │          │
+│  └───────────┘└───────────┘└───────────┘└───────────┘└───────────┘          │
 │                                                                               │
 └──────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -53,9 +53,9 @@ Kuestencode.Shared.UI              Kuestencode.Shared.Contracts
        │                                      │
        └──────────────┬───────────────────────┘
                       │
-       ┌──────────────┼──────────────┬──────────────┐
-       ▼              ▼              ▼              ▼
-   Faktura        Offerte        Rapport         Acta
+       ┌──────────────┼──────────────┬──────────────┬──────────────┐
+       ▼              ▼              ▼              ▼              ▼
+   Faktura        Offerte        Rapport         Acta         Recepta
 ```
 
 ## Schichten-Architektur
@@ -220,6 +220,7 @@ Jede Schicht hat eine klare Verantwortung:
 | Offerte | Angebotsverwaltung, PDF, E-Mail |
 | Rapport | Zeiterfassung, Tätigkeitsnachweise |
 | Acta | Projektverwaltung, Aufgabenmanagement |
+| Recepta | Eingangsrechnungen, XRechnung/ZUGFeRD, OCR |
 
 ## Erweiterbarkeit
 
@@ -358,6 +359,18 @@ spec:
 - Cross-Modul-Integration mit Rapport (Zeiterfassung auf Projekte, Aufwand-Karte)
 - 3-Schichten-Architektur: Domain, Data, Application
 - DB-Schema: `acta`
+
+### Kuestencode.Recepta
+
+- Eingangsrechnungsverwaltung (CRUD, Statusworkflow: Draft → Booked → Paid)
+- XRechnung/ZUGFeRD-Import (XML direkt, ZUGFeRD-PDF mit eingebettetem XML)
+- OCR-Texterkennung (Tesseract) mit selbstlernendem Pattern-Matching pro Lieferant
+- Lieferantenverwaltung mit USt-ID/IBAN-basiertem Auto-Matching
+- Dateianhänge auf Dateisystem (PDF, JPG, PNG)
+- Kategorisierung (Material, Subcontractor, Office, Travel, Other)
+- Cross-Modul-Integration mit Acta (Projektzuordnung, Kostenauswertung)
+- 3-Schichten-Architektur: Domain, Data, Application
+- DB-Schema: `recepta`
 
 ## Tests
 

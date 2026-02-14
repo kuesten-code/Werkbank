@@ -53,6 +53,20 @@ Projektverwaltung und Aufgabenmanagement für strukturiertes Arbeiten.
 - Budget-Tracking und Fortschrittsanzeige
 - Cross-Modul-Integration mit Rapport (Zeiterfassung auf Projekte buchen)
 
+### Recepta
+
+Eingangsrechnungsverwaltung mit intelligenter Dokumenterkennung.
+
+**Features:**
+- Eingangsrechnungen erfassen, verwalten und verfolgen (Entwurf, Gebucht, Bezahlt)
+- XRechnung/ZUGFeRD-Import (XML und ZUGFeRD-PDF) mit 100% strukturierter Datenübernahme
+- OCR-Texterkennung mit selbstlernendem Musterabgleich pro Lieferant
+- 3-Phasen-Scan-Workflow: Upload → Analyse → Formular
+- Lieferantenverwaltung mit USt-ID, IBAN und automatischem Matching
+- Dateianhänge mit Vorschau (PDF, JPG, PNG)
+- Kategorisierung (Material, Fremdleistung, Büro, Reise, Sonstig)
+- Cross-Modul-Integration mit Acta (Belege auf Projekte buchen, Kostenauswertung)
+
 ## Technologie-Stack
 
 | Bereich | Technologie |
@@ -60,7 +74,7 @@ Projektverwaltung und Aufgabenmanagement für strukturiertes Arbeiten.
 | Framework | .NET 9, Blazor Server |
 | UI | MudBlazor 8.0 (Material Design) |
 | Datenbank | PostgreSQL 16, Entity Framework Core 9 |
-| PDF | QuestPDF, iText7 (ZUGFeRD) |
+| PDF | QuestPDF, iText7 (ZUGFeRD), ZUGFeRD-csharp (Recepta) |
 | E-Mail | MailKit, MimeKit |
 | Container | Docker, Docker Compose |
 
@@ -87,6 +101,7 @@ Die Anwendung ist dann erreichbar unter:
 - **Offerte:** http://localhost:8080/offerte
 - **Rapport:** http://localhost:8080/rapport
 - **Acta:** http://localhost:8080/acta
+- **Recepta:** http://localhost:8080/recepta
 
 ### Produktions-Deployment
 
@@ -118,7 +133,8 @@ src/
 │   ├── Faktura/             # Rechnungsmodul
 │   ├── Offerte/             # Angebotsmodul
 │   ├── Rapport/             # Zeiterfassungsmodul
-│   └── Acta/                # Projektverwaltungsmodul
+│   ├── Acta/                # Projektverwaltungsmodul
+│   └── Recepta/             # Eingangsrechnungsmodul
 ├── Kuestencode.Shared.Contracts/    # DTOs für Modul-Kommunikation
 └── Kuestencode.Shared.ApiClients/   # HTTP-Clients für API-Aufrufe
 ```

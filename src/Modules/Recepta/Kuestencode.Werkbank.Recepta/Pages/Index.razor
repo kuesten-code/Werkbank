@@ -1,0 +1,146 @@
+@page "/"
+@page "/recepta"
+@using Kuestencode.Werkbank.Recepta.Domain.Dtos
+@using Kuestencode.Werkbank.Recepta.Services
+@inject IDocumentService DocumentService
+@inject ISupplierService SupplierService
+@inject NavigationManager NavigationManager
+
+<PageTitle>Recepta - Übersicht</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4">
+    <MudText Typo="Typo.h4" GutterBottom="true">Recepta Übersicht</MudText>
+
+    @if (_loading)
+    {
+        <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+    }
+    else
+    {
+        <MudGrid>
+            <MudItem xs="12" sm="6" md="4" lg="2">
+                <MudPaper Class="pa-4 cursor-pointer" Elevation="2" @onclick="@(() => NavigateToBelege("draft"))">
+                    <MudStack AlignItems="AlignItems.Center">
+                        <MudIcon Icon="@Icons.Material.Filled.Edit" Size="Size.Large" Color="Color.Default" />
+                        <MudText Typo="Typo.h4">@_draftCount</MudText>
+                        <MudText Typo="Typo.body2">Entwürfe</MudText>
+                    </MudStack>
+                </MudPaper>
+            </MudItem>
+
+            <MudItem xs="12" sm="6" md="4" lg="2">
+                <MudPaper Class="pa-4 cursor-pointer" Elevation="2" @onclick="@(() => NavigateToBelege("booked"))">
+                    <MudStack AlignItems="AlignItems.Center">
+                        <MudIcon Icon="@Icons.Material.Filled.BookmarkAdded" Size="Size.Large" Color="Color.Info" />
+                        <MudText Typo="Typo.h4">@_bookedCount</MudText>
+                        <MudText Typo="Typo.body2">Verbucht</MudText>
+                    </MudStack>
+                </MudPaper>
+            </MudItem>
+
+            <MudItem xs="12" sm="6" md="4" lg="2">
+                <MudPaper Class="pa-4 cursor-pointer" Elevation="2" @onclick="@(() => NavigateToBelege("paid"))">
+                    <MudStack AlignItems="AlignItems.Center">
+                        <MudIcon Icon="@Icons.Material.Filled.Paid" Size="Size.Large" Color="Color.Success" />
+                        <MudText Typo="Typo.h4">@_paidCount</MudText>
+                        <MudText Typo="Typo.body2">Bezahlt</MudText>
+                    </MudStack>
+                </MudPaper>
+            </MudItem>
+
+            <MudItem xs="12" sm="6" md="4" lg="2">
+                <MudPaper Class="pa-4 cursor-pointer" Elevation="2" @onclick="@(() => NavigateToBelege(null))">
+                    <MudStack AlignItems="AlignItems.Center">
+                        <MudIcon Icon="@Icons.Material.Filled.Receipt" Size="Size.Large" Color="Color.Primary" />
+                        <MudText Typo="Typo.h4">@_totalCount</MudText>
+                        <MudText Typo="Typo.body2">Gesamt</MudText>
+                    </MudStack>
+                </MudPaper>
+            </MudItem>
+
+            <MudItem xs="12" sm="6" md="4" lg="2">
+                <MudPaper Class="pa-4" Elevation="2">
+                    <MudStack AlignItems="AlignItems.Center">
+                        <MudIcon Icon="@Icons.Material.Filled.Warning" Size="Size.Large" Color="Color.Warning" />
+                        <MudText Typo="Typo.h4">@_overdueCount</MudText>
+                        <MudText Typo="Typo.body2">Überfällig</MudText>
+                    </MudStack>
+                </MudPaper>
+            </MudItem>
+
+            <MudItem xs="12" sm="6" md="4" lg="2">
+                <MudPaper Class="pa-4 cursor-pointer" Elevation="2" @onclick="@(() => NavigationManager.NavigateTo("/recepta/lieferanten"))">
+                    <MudStack AlignItems="AlignItems.Center">
+                        <MudIcon Icon="@Icons.Material.Filled.Business" Size="Size.Large" Color="Color.Secondary" />
+                        <MudText Typo="Typo.h4">@_supplierCount</MudText>
+                        <MudText Typo="Typo.body2">Lieferanten</MudText>
+                    </MudStack>
+                </MudPaper>
+            </MudItem>
+        </MudGrid>
+
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-6"
+                  StartIcon="@Icons.Material.Filled.Add"
+                  OnClick="@(() => NavigationManager.NavigateTo("/recepta/belege"))">
+            Alle Belege anzeigen
+        </MudButton>
+
+        <MudButton Variant="Variant.Outlined" Color="Color.Primary" Class="mt-6 ml-2"
+                  StartIcon="@Icons.Material.Filled.Business"
+                  OnClick="@(() => NavigationManager.NavigateTo("/recepta/lieferanten"))">
+            Lieferanten verwalten
+        </MudButton>
+    }
+</MudContainer>
+
+<style>
+    .cursor-pointer {
+        cursor: pointer;
+    }
+    .cursor-pointer:hover {
+        background-color: rgba(0, 0, 0, 0.04);
+    }
+</style>
+
+@code {
+    private bool _loading = true;
+    private int _draftCount;
+    private int _bookedCount;
+    private int _paidCount;
+    private int _totalCount;
+    private int _overdueCount;
+    private int _supplierCount;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadStatsAsync();
+    }
+
+    private async Task LoadStatsAsync()
+    {
+        try
+        {
+            var documents = (await DocumentService.GetAllAsync(new DocumentFilterDto())).ToList();
+            var suppliers = (await SupplierService.GetAllAsync()).ToList();
+
+            _draftCount = documents.Count(d => d.Status == "Draft");
+            _bookedCount = documents.Count(d => d.Status == "Booked");
+            _paidCount = documents.Count(d => d.Status == "Paid");
+            _totalCount = documents.Count;
+            _overdueCount = documents.Count(d => d.IsOverdue);
+            _supplierCount = suppliers.Count;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private void NavigateToBelege(string? statusFilter)
+    {
+        var url = string.IsNullOrEmpty(statusFilter)
+            ? "/recepta/belege"
+            : $"/recepta/belege?status={statusFilter}";
+        NavigationManager.NavigateTo(url);
+    }
+}
