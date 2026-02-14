@@ -1,0 +1,1013 @@
+@page "/belege/{Id:guid}"
+@using Kuestencode.Werkbank.Recepta.Controllers.Dtos
+@using Kuestencode.Werkbank.Recepta.Domain.Dtos
+@using Kuestencode.Werkbank.Recepta.Domain.Enums
+@using Kuestencode.Shared.Contracts.Acta
+@inject IDocumentService DocumentService
+@inject IDocumentFileService FileService
+@inject ISupplierService SupplierService
+@inject ICachedProjectService ProjectCache
+@inject NavigationManager NavigationManager
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+
+<PageTitle>@(_isNew ? "Neuer Beleg" : "Beleg bearbeiten") - Küstencode Recepta</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4">
+    @if (_loading)
+    {
+        <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+    }
+    else if (!_isNew && _document == null)
+    {
+        <MudAlert Severity="Severity.Error">Beleg nicht gefunden.</MudAlert>
+    }
+    else
+    {
+        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-4">
+            <MudStack>
+                @if (_isNew)
+                {
+                    <MudText Typo="Typo.h4">Neuer Beleg</MudText>
+                }
+                else
+                {
+                    <MudText Typo="Typo.h4">Beleg @_document!.DocumentNumber</MudText>
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                        <MudChip T="string" Color="@GetStatusColor(_document!.Status)" Size="Size.Small">
+                            @GetStatusText(_document!.Status)
+                        </MudChip>
+                        <MudText Typo="Typo.subtitle1" Color="Color.Secondary">@_document!.SupplierName</MudText>
+                        @if (_document!.IsOverdue)
+                        {
+                            <MudChip T="string" Color="Color.Error" Size="Size.Small" Icon="@Icons.Material.Filled.Warning">
+                                Überfällig
+                            </MudChip>
+                        }
+                    </MudStack>
+                }
+            </MudStack>
+
+            @* Status-Aktionen (nur im Edit-Modus) *@
+            @if (!_isNew)
+            {
+                <MudStack Row="true" Spacing="2">
+                    @if (_document!.Status == "Draft")
+                    {
+                        <MudButton Variant="Variant.Filled" Color="Color.Info"
+                                  StartIcon="@Icons.Material.Filled.CheckCircle"
+                                  OnClick="MarkAsBooked" Disabled="@_statusChanging">
+                            Als gebucht markieren
+                        </MudButton>
+                    }
+                    else if (_document.Status == "Booked")
+                    {
+                        <MudButton Variant="Variant.Outlined" Color="Color.Default"
+                                  StartIcon="@Icons.Material.Filled.Undo"
+                                  OnClick="RevertToDraft" Disabled="@_statusChanging">
+                            Zurück zu Entwurf
+                        </MudButton>
+                        <MudButton Variant="Variant.Filled" Color="Color.Success"
+                                  StartIcon="@Icons.Material.Filled.Paid"
+                                  OnClick="MarkAsPaid" Disabled="@_statusChanging">
+                            Als bezahlt markieren
+                        </MudButton>
+                    }
+                    @if (_statusChanging)
+                    {
+                        <MudProgressCircular Size="Size.Small" Indeterminate="true" />
+                    }
+                </MudStack>
+            }
+        </MudStack>
+
+        @if (!string.IsNullOrEmpty(_errorMessage))
+        {
+            <MudAlert Severity="Severity.Error" Class="mb-4">@_errorMessage</MudAlert>
+        }
+
+        <MudGrid>
+            @* Links: Dateien (nur im Edit-Modus) *@
+            @if (!_isNew)
+            {
+            <MudItem xs="12" md="5">
+                <MudPaper Class="pa-4" Elevation="2" Style="position: sticky; top: 80px;">
+                    <MudText Typo="Typo.h6" GutterBottom="true">Dokumente</MudText>
+
+                    @* Vorschau der ausgewählten Datei *@
+                    @if (_previewBase64 != null)
+                    {
+                        @if (_previewContentType?.StartsWith("image/") == true)
+                        {
+                            <div style="max-height: 500px; overflow: auto; text-align: center;">
+                                <img src="data:@_previewContentType;base64,@_previewBase64"
+                                     style="max-width: 100%; transform: scale(@_zoom); transform-origin: top center;"
+                                     alt="Dokumentvorschau" />
+                            </div>
+                        }
+                        else if (_previewContentType == "application/pdf")
+                        {
+                            <div style="height: 500px;">
+                                <embed src="data:application/pdf;base64,@_previewBase64"
+                                       type="application/pdf" width="100%" height="100%" />
+                            </div>
+                        }
+
+                        <MudStack Row="true" Justify="Justify.Center" Class="mt-2" Spacing="1">
+                            <MudIconButton Icon="@Icons.Material.Filled.ZoomOut" Size="Size.Small"
+                                          OnClick="ZoomOut" Disabled="@(_zoom <= 0.5)" />
+                            <MudText Typo="Typo.caption" Class="align-self-center">@((_zoom * 100).ToString("0"))%</MudText>
+                            <MudIconButton Icon="@Icons.Material.Filled.ZoomIn" Size="Size.Small"
+                                          OnClick="ZoomIn" Disabled="@(_zoom >= 3.0)" />
+                        </MudStack>
+
+                        <MudDivider Class="my-3" />
+                    }
+
+                    @* Dateiliste *@
+                    @if (_files.Count > 0)
+                    {
+                        <MudList T="DocumentFileDto" Dense="true">
+                            @foreach (var file in _files)
+                            {
+                                <MudListItem T="DocumentFileDto" Icon="@GetFileIcon(file.ContentType)"
+                                            OnClick="@(() => PreviewFile(file))"
+                                            Class="@(_selectedFileId == file.Id ? "mud-primary-text" : "")">
+                                    <div class="d-flex align-center justify-space-between" style="width: 100%;">
+                                        <MudStack Spacing="0">
+                                            <MudText Typo="Typo.body2">@file.FileName</MudText>
+                                            <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                                @FormatFileSize(file.FileSize) – @file.CreatedAt.ToString("dd.MM.yyyy HH:mm")
+                                            </MudText>
+                                        </MudStack>
+                                        <MudStack Row="true" Spacing="0">
+                                            <MudTooltip Text="Herunterladen">
+                                                <MudIconButton Icon="@Icons.Material.Filled.Download" Size="Size.Small"
+                                                              OnClick="@(() => DownloadFile(file))" />
+                                            </MudTooltip>
+                                            @if (_isDraft)
+                                            {
+                                                <MudTooltip Text="Löschen">
+                                                    <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small"
+                                                                  Color="Color.Error"
+                                                                  OnClick="@(() => DeleteFile(file))" />
+                                                </MudTooltip>
+                                            }
+                                        </MudStack>
+                                    </div>
+                                </MudListItem>
+                            }
+                        </MudList>
+                    }
+                    else
+                    {
+                        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="my-4" Align="Align.Center">
+                            Keine Dateien vorhanden.
+                        </MudText>
+                    }
+
+                    @* Upload *@
+                    @if (_isDraft)
+                    {
+                        <MudDivider Class="my-3" />
+                        <MudFileUpload T="IBrowserFile" Accept=".pdf,.jpg,.jpeg,.png"
+                                      FilesChanged="OnFileUpload" MaximumFileCount="1">
+                            <ActivatorContent>
+                                <MudButton Variant="Variant.Outlined" Color="Color.Primary"
+                                          StartIcon="@Icons.Material.Filled.CloudUpload"
+                                          FullWidth="true"
+                                          Disabled="@_uploading">
+                                    @if (_uploading)
+                                    {
+                                        <MudProgressCircular Class="ms-n1" Size="Size.Small" Indeterminate="true" />
+                                        <MudText Class="ms-2">Wird hochgeladen...</MudText>
+                                    }
+                                    else
+                                    {
+                                        <MudText>Datei hochladen</MudText>
+                                    }
+                                </MudButton>
+                            </ActivatorContent>
+                        </MudFileUpload>
+                    }
+                </MudPaper>
+
+                @* OCR-Rohtext *@
+                @if (!string.IsNullOrEmpty(_document!.OcrRawText))
+                {
+                    <MudExpansionPanels Class="mt-4">
+                        <MudExpansionPanel Text="OCR-Rohtext anzeigen">
+                            <div style="max-height: 400px; overflow-y: auto;">
+                                <MudText Typo="Typo.body2" Style="white-space: pre-wrap; font-family: monospace; font-size: 0.8rem;">
+                                    @_document.OcrRawText
+                                </MudText>
+                            </div>
+                        </MudExpansionPanel>
+                    </MudExpansionPanels>
+                }
+            </MudItem>
+            }
+
+            @* Rechts: Formular *@
+            <MudItem xs="12" md="@(_isNew ? 12 : 7)">
+                <MudPaper Class="pa-4" Elevation="2">
+                    <MudText Typo="Typo.h6" GutterBottom="true">Belegdaten</MudText>
+
+                    @if (!_isNew && !_isDraft)
+                    {
+                        <MudAlert Severity="Severity.Info" Dense="true" Class="mb-4">
+                            Beleg ist @GetStatusText(_document!.Status).ToLower() – Felder sind schreibgeschützt.
+                        </MudAlert>
+                    }
+
+                    <EditForm Model="@_model" OnValidSubmit="SaveDocument">
+                        <DataAnnotationsValidator />
+
+                        <!-- Stammdaten -->
+                        <MudGrid>
+                            <MudItem xs="12" sm="6">
+                                @if (_isNew)
+                                {
+                                    <MudTextField @bind-Value="_model.DocumentNumber"
+                                                 Label="Belegnummer"
+                                                 Required="true"
+                                                 RequiredError="Belegnummer ist erforderlich"
+                                                 Variant="Variant.Outlined"
+                                                 MaxLength="50"
+                                                 Immediate="true"
+                                                 HelperText="Wird automatisch generiert, kann angepasst werden" />
+                                }
+                                else
+                                {
+                                    <MudTextField Label="Belegnummer" Value="@_document!.DocumentNumber"
+                                                 ReadOnly="true" Variant="Variant.Outlined" />
+                                }
+                            </MudItem>
+                            <MudItem xs="12" sm="6">
+                                <MudSelect T="Guid?" Label="Lieferant" Value="_model.SupplierId"
+                                          ValueChanged="OnSupplierChanged"
+                                          Variant="Variant.Outlined" Required="true"
+                                          RequiredError="Lieferant ist erforderlich"
+                                          AnchorOrigin="Origin.BottomCenter"
+                                          ReadOnly="@(!_isDraft)">
+                                    <MudSelectItem T="Guid?" Value="@((Guid?)null)">
+                                        <em>— Lieferant wählen —</em>
+                                    </MudSelectItem>
+                                    @foreach (var supplier in _suppliers)
+                                    {
+                                        <MudSelectItem T="Guid?" Value="@supplier.Id">
+                                            @supplier.Name
+                                        </MudSelectItem>
+                                    }
+                                </MudSelect>
+                                @if (_isDraft)
+                                {
+                                    <Kuestencode.Werkbank.Recepta.Shared.Components.InlineSupplierCreate
+                                        OnCreated="OnSupplierCreated" />
+                                }
+                            </MudItem>
+                        </MudGrid>
+
+                        <!-- Rechnungsdetails -->
+                        <MudText Typo="Typo.h6" Class="mt-4 mb-2">Rechnungsdetails</MudText>
+                        <MudGrid>
+                            <MudItem xs="12" sm="6">
+                                <MudTextField @bind-Value="_model.InvoiceNumber"
+                                             Label="Rechnungsnummer"
+                                             Required="true"
+                                             RequiredError="Rechnungsnummer ist erforderlich"
+                                             Variant="Variant.Outlined"
+                                             MaxLength="100"
+                                             ReadOnly="@(!_isDraft)" />
+                            </MudItem>
+                            <MudItem xs="12" sm="3">
+                                <MudDatePicker Date="_invoiceDate"
+                                              DateChanged="OnInvoiceDateChanged"
+                                              Label="Rechnungsdatum"
+                                              DateFormat="dd.MM.yyyy"
+                                              Variant="Variant.Outlined"
+                                              Required="true"
+                                              RequiredError="Datum ist erforderlich"
+                                              ReadOnly="@(!_isDraft)" />
+                            </MudItem>
+                            <MudItem xs="12" sm="3">
+                                <MudDatePicker Date="_dueDate"
+                                              DateChanged="OnDueDateChanged"
+                                              Label="Fälligkeitsdatum"
+                                              DateFormat="dd.MM.yyyy"
+                                              Variant="Variant.Outlined"
+                                              Clearable="@_isDraft"
+                                              ReadOnly="@(!_isDraft)" />
+                            </MudItem>
+                        </MudGrid>
+
+                        <!-- Beträge -->
+                        <MudText Typo="Typo.h6" Class="mt-4 mb-2">Beträge</MudText>
+                        <MudGrid>
+                            <MudItem xs="12" sm="3">
+                                <MudNumericField Value="_model.AmountNet"
+                                                Label="Netto" Variant="Variant.Outlined"
+                                                Adornment="Adornment.End" AdornmentText="€"
+                                                Format="N2" Culture="@_culture" Min="0"
+                                                ValueChanged="OnAmountNetChanged" T="decimal"
+                                                ReadOnly="@(!_isDraft)" />
+                            </MudItem>
+                            <MudItem xs="12" sm="3">
+                                <MudSelect T="decimal" Label="MwSt-Satz" Value="_model.TaxRate"
+                                          ValueChanged="OnTaxRateChanged"
+                                          Variant="Variant.Outlined"
+                                          ReadOnly="@(!_isDraft)">
+                                    <MudSelectItem T="decimal" Value="19m">19 %</MudSelectItem>
+                                    <MudSelectItem T="decimal" Value="7m">7 %</MudSelectItem>
+                                    <MudSelectItem T="decimal" Value="0m">0 %</MudSelectItem>
+                                </MudSelect>
+                            </MudItem>
+                            <MudItem xs="12" sm="3">
+                                <MudNumericField @bind-Value="_model.AmountTax"
+                                                Label="MwSt" Variant="Variant.Outlined"
+                                                Adornment="Adornment.End" AdornmentText="€"
+                                                Format="N2" Culture="@_culture"
+                                                ReadOnly="true" />
+                            </MudItem>
+                            <MudItem xs="12" sm="3">
+                                <MudNumericField @bind-Value="_model.AmountGross"
+                                                Label="Brutto" Variant="Variant.Outlined"
+                                                Adornment="Adornment.End" AdornmentText="€"
+                                                Format="N2" Culture="@_culture"
+                                                ReadOnly="true" />
+                            </MudItem>
+                        </MudGrid>
+
+                        <!-- Kategorie & Projekt -->
+                        <MudText Typo="Typo.h6" Class="mt-4 mb-2">@(_actaAvailable ? "Zuordnung" : "Kategorie")</MudText>
+                        <MudGrid>
+                            <MudItem xs="12" sm="@(_actaAvailable ? 6 : 12)">
+                                <MudSelect T="DocumentCategory" @bind-Value="_model.Category"
+                                          Label="Kategorie" Variant="Variant.Outlined"
+                                          ReadOnly="@(!_isDraft)">
+                                    <MudSelectItem T="DocumentCategory" Value="DocumentCategory.Material">Material</MudSelectItem>
+                                    <MudSelectItem T="DocumentCategory" Value="DocumentCategory.Subcontractor">Fremdleistung</MudSelectItem>
+                                    <MudSelectItem T="DocumentCategory" Value="DocumentCategory.Office">Büro</MudSelectItem>
+                                    <MudSelectItem T="DocumentCategory" Value="DocumentCategory.Travel">Reise</MudSelectItem>
+                                    <MudSelectItem T="DocumentCategory" Value="DocumentCategory.Other">Sonstig</MudSelectItem>
+                                </MudSelect>
+                            </MudItem>
+                            @if (_actaAvailable)
+                            {
+                                <MudItem xs="12" sm="6">
+                                    <MudSelect T="Guid?" @bind-Value="_model.ProjectId"
+                                              Label="Projekt" Variant="Variant.Outlined"
+                                              Clearable="@_isDraft"
+                                              ReadOnly="@(!_isDraft)">
+                                        @foreach (var project in _projects)
+                                        {
+                                            <MudSelectItem T="Guid?" Value="@_projectGuidMap.GetValueOrDefault(project.Id)">
+                                                @project.ProjectNumber - @project.Name
+                                            </MudSelectItem>
+                                        }
+                                    </MudSelect>
+                                </MudItem>
+                            }
+                        </MudGrid>
+
+                        <!-- Notizen -->
+                        <MudGrid Class="mt-4">
+                            <MudItem xs="12">
+                                <MudTextField @bind-Value="_model.Notes"
+                                             Label="Notizen (optional)"
+                                             Lines="2"
+                                             Variant="Variant.Outlined"
+                                             MaxLength="2000"
+                                             ReadOnly="@(!_isDraft)" />
+                            </MudItem>
+                        </MudGrid>
+
+                        <!-- Aktionen -->
+                        <MudStack Row="true" Justify="Justify.SpaceBetween" Class="mt-6">
+                            <MudStack Row="true">
+                                @if (!_isNew && _isDraft)
+                                {
+                                    <MudButton Variant="Variant.Outlined" Color="Color.Error"
+                                              StartIcon="@Icons.Material.Filled.Delete"
+                                              OnClick="DeleteDocument">
+                                        Löschen
+                                    </MudButton>
+                                }
+                            </MudStack>
+
+                            <MudStack Row="true" Class="gap-2">
+                                <MudButton Variant="Variant.Filled" Color="Color.Default" OnClick="Cancel">
+                                    @(_isNew ? "Abbrechen" : "Zurück")
+                                </MudButton>
+                                @if (_isNew || _isDraft)
+                                {
+                                    <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                                              ButtonType="ButtonType.Submit"
+                                              Disabled="@_saving">
+                                        @if (_saving)
+                                        {
+                                            <MudProgressCircular Class="ms-n1" Size="Size.Small" Indeterminate="true" />
+                                            <MudText Class="ms-2">Speichert...</MudText>
+                                        }
+                                        else
+                                        {
+                                            <MudText>@(_isNew ? "Beleg erstellen" : "Änderungen speichern")</MudText>
+                                        }
+                                    </MudButton>
+                                }
+                            </MudStack>
+                        </MudStack>
+                    </EditForm>
+                </MudPaper>
+            </MudItem>
+        </MudGrid>
+    }
+</MudContainer>
+
+@code {
+    [Parameter]
+    public Guid? Id { get; set; }
+
+    private readonly CultureInfo _culture = new("de-DE");
+    private bool _isNew => Id == null;
+    private bool _loading = true;
+    private bool _saving;
+    private bool _uploading;
+    private bool _statusChanging;
+    private string _errorMessage = string.Empty;
+
+    private bool _isDraft => _isNew || _document?.Status == "Draft";
+
+    // Dokument
+    private DocumentDto? _document;
+    private DocumentFormModel _model = new();
+    private DateTime? _invoiceDate;
+    private DateTime? _dueDate;
+
+    // Dateien
+    private List<DocumentFileDto> _files = new();
+    private Guid? _selectedFileId;
+    private string? _previewBase64;
+    private string? _previewContentType;
+    private double _zoom = 1.0;
+
+    // Referenzdaten
+    private List<SupplierDto> _suppliers = new();
+    private List<ActaProjectDto> _projects = new();
+    private Dictionary<int, Guid> _projectGuidMap = new();
+    private bool _actaAvailable;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (_isNew)
+        {
+            await LoadNewDocumentAsync();
+        }
+        else
+        {
+            await LoadDocumentAsync();
+        }
+    }
+
+    private async Task LoadNewDocumentAsync()
+    {
+        _loading = true;
+
+        try
+        {
+            _model = new DocumentFormModel
+            {
+                TaxRate = 19m,
+                Category = DocumentCategory.Other
+            };
+
+            _invoiceDate = DateTime.Today;
+
+            // Belegnummer generieren
+            try
+            {
+                _model.DocumentNumber = await DocumentService.GenerateDocumentNumberAsync();
+            }
+            catch (Exception ex)
+            {
+                Snackbar.Add($"Belegnummer konnte nicht generiert werden: {ex.Message}", Severity.Warning);
+            }
+
+            await LoadReferenceDataAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Fehler beim Laden: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task LoadDocumentAsync()
+    {
+        _loading = true;
+        _previewBase64 = null;
+        _previewContentType = null;
+        _selectedFileId = null;
+        _files = new();
+
+        try
+        {
+            _document = await DocumentService.GetByIdAsync(Id!.Value);
+            if (_document == null) return;
+
+            // Formular befüllen
+            _model = new DocumentFormModel
+            {
+                DocumentNumber = _document.DocumentNumber,
+                SupplierId = _document.SupplierId,
+                InvoiceNumber = _document.InvoiceNumber,
+                AmountNet = _document.AmountNet,
+                TaxRate = _document.TaxRate,
+                AmountTax = _document.AmountTax,
+                AmountGross = _document.AmountGross,
+                Category = Enum.TryParse<DocumentCategory>(_document.Category, out var cat) ? cat : DocumentCategory.Other,
+                ProjectId = _document.ProjectId,
+                Notes = _document.Notes
+            };
+
+            _invoiceDate = _document.InvoiceDate.ToDateTime(TimeOnly.MinValue);
+            _dueDate = _document.DueDate?.ToDateTime(TimeOnly.MinValue);
+
+            // Referenzdaten und Dateien sequentiell laden (DbContext ist nicht thread-safe)
+            await LoadReferenceDataAsync();
+            _files = await FileService.GetByDocumentIdAsync(Id!.Value);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Fehler beim Laden: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _loading = false;
+        }
+
+        // Erste Datei als Vorschau laden — NACH _loading = false,
+        // damit die UI bereits gerendert ist und der Preview-Bereich existiert
+        if (_files.Count > 0)
+        {
+            await PreviewFile(_files[0]);
+            StateHasChanged();
+        }
+    }
+
+    private async Task LoadReferenceDataAsync()
+    {
+        try
+        {
+            var suppliers = await SupplierService.GetAllAsync();
+            _suppliers = suppliers.ToList();
+        }
+        catch { /* Fehler ignorieren */ }
+
+        try
+        {
+            _actaAvailable = await ProjectCache.IsActaAvailableAsync();
+            if (_actaAvailable)
+            {
+                _projects = await ProjectCache.GetProjectsAsync();
+                foreach (var project in _projects)
+                {
+                    _projectGuidMap[project.Id] = DeterministicGuid(project.Id);
+                }
+            }
+        }
+        catch { _actaAvailable = false; }
+    }
+
+    private async Task LoadFilesAsync()
+    {
+        try
+        {
+            _files = await FileService.GetByDocumentIdAsync(Id!.Value);
+        }
+        catch { _files = new(); }
+    }
+
+    // Datei-Vorschau
+    private async Task PreviewFile(DocumentFileDto file)
+    {
+        try
+        {
+            _selectedFileId = file.Id;
+            var (stream, _, contentType) = await FileService.DownloadAsync(file.Id);
+            await using (stream)
+            {
+                using var ms = new MemoryStream();
+                await stream.CopyToAsync(ms);
+                _previewBase64 = Convert.ToBase64String(ms.ToArray());
+                _previewContentType = contentType;
+            }
+            _zoom = 1.0;
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Vorschau fehlgeschlagen: {ex.Message}", Severity.Warning);
+        }
+    }
+
+    private async Task DownloadFile(DocumentFileDto file)
+    {
+        // In Blazor Server: Datei über die API-URL bereitstellen
+        NavigationManager.NavigateTo($"/api/recepta/files/{file.Id}", forceLoad: true);
+    }
+
+    private async Task OnFileUpload(IBrowserFile file)
+    {
+        if (_uploading) return;
+
+        var allowedTypes = new[] { "application/pdf", "image/jpeg", "image/png", "image/jpg" };
+        if (!allowedTypes.Contains(file.ContentType.ToLowerInvariant()))
+        {
+            Snackbar.Add("Nur PDF, JPG oder PNG Dateien sind erlaubt.", Severity.Warning);
+            return;
+        }
+
+        if (file.Size > 20 * 1024 * 1024)
+        {
+            Snackbar.Add("Die Datei darf maximal 20 MB groß sein.", Severity.Warning);
+            return;
+        }
+
+        _uploading = true;
+
+        // Datei SOFORT lesen, bevor StateHasChanged() die MudFileUpload-Referenz ungültig macht
+        await using var stream = file.OpenReadStream(maxAllowedSize: 20 * 1024 * 1024);
+        using var ms = new MemoryStream();
+        await stream.CopyToAsync(ms);
+        ms.Position = 0;
+
+        try
+        {
+            var uploadedFile = await FileService.UploadAsync(Id!.Value, ms, file.Name, file.ContentType);
+            Snackbar.Add($"Datei '{file.Name}' hochgeladen.", Severity.Success);
+
+            // Dateiliste aktualisieren und neue Datei als Vorschau setzen
+            await LoadFilesAsync();
+            var newFile = _files.FirstOrDefault(f => f.Id == uploadedFile.Id);
+            if (newFile != null)
+            {
+                await PreviewFile(newFile);
+            }
+
+            // Dokument-Daten aktualisieren (FileCount)
+            _document = await DocumentService.GetByIdAsync(Id!.Value);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Upload fehlgeschlagen: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _uploading = false;
+        }
+    }
+
+    private async Task DeleteFile(DocumentFileDto file)
+    {
+        var parameters = new DialogParameters<Kuestencode.Werkbank.Recepta.Shared.Dialogs.ConfirmDialog>
+        {
+            { x => x.Title, "Datei löschen" },
+            { x => x.ContentText, $"Möchten Sie die Datei '{file.FileName}' wirklich löschen?" },
+            { x => x.ButtonText, "Löschen" },
+            { x => x.Color, Color.Error }
+        };
+
+        var dialog = await DialogService.ShowAsync<Kuestencode.Werkbank.Recepta.Shared.Dialogs.ConfirmDialog>("Löschen", parameters);
+        var result = await dialog.Result;
+
+        if (result != null && !result.Canceled)
+        {
+            try
+            {
+                await FileService.DeleteAsync(file.Id);
+                Snackbar.Add($"Datei '{file.FileName}' gelöscht.", Severity.Success);
+
+                // Vorschau zurücksetzen falls aktuelle Datei gelöscht
+                if (_selectedFileId == file.Id)
+                {
+                    _previewBase64 = null;
+                    _previewContentType = null;
+                    _selectedFileId = null;
+                }
+
+                await LoadFilesAsync();
+
+                // Nächste Datei als Vorschau
+                if (_files.Count > 0 && _selectedFileId == null)
+                {
+                    await PreviewFile(_files[0]);
+                }
+
+                _document = await DocumentService.GetByIdAsync(Id!.Value);
+            }
+            catch (Exception ex)
+            {
+                Snackbar.Add($"Fehler beim Löschen: {ex.Message}", Severity.Error);
+            }
+        }
+    }
+
+    // Zoom
+    private void ZoomIn() => _zoom = Math.Min(_zoom + 0.25, 3.0);
+    private void ZoomOut() => _zoom = Math.Max(_zoom - 0.25, 0.5);
+
+    // Betragsberechnung
+    private void OnAmountNetChanged(decimal value)
+    {
+        _model.AmountNet = value;
+        RecalculateAmounts();
+    }
+
+    private void OnTaxRateChanged(decimal value)
+    {
+        _model.TaxRate = value;
+        RecalculateAmounts();
+    }
+
+    private void RecalculateAmounts()
+    {
+        _model.AmountTax = Math.Round(_model.AmountNet * _model.TaxRate / 100m, 2);
+        _model.AmountGross = _model.AmountNet + _model.AmountTax;
+    }
+
+    private void OnSupplierChanged(Guid? value)
+    {
+        _model.SupplierId = value;
+    }
+
+    private async Task OnSupplierCreated(SupplierDto supplier)
+    {
+        try
+        {
+            var suppliers = await SupplierService.GetAllAsync();
+            _suppliers = suppliers.ToList();
+        }
+        catch { /* Liste beibehalten */ }
+
+        _model.SupplierId = supplier.Id;
+        StateHasChanged();
+    }
+
+    private void OnInvoiceDateChanged(DateTime? value)
+    {
+        _invoiceDate = value;
+    }
+
+    private void OnDueDateChanged(DateTime? value)
+    {
+        _dueDate = value;
+    }
+
+    // Speichern
+    private async Task SaveDocument()
+    {
+        _errorMessage = string.Empty;
+
+        if (_isNew && string.IsNullOrWhiteSpace(_model.DocumentNumber))
+        {
+            _errorMessage = "Bitte geben Sie eine Belegnummer ein.";
+            return;
+        }
+
+        if (!_model.SupplierId.HasValue || _model.SupplierId == Guid.Empty)
+        {
+            _errorMessage = "Bitte wählen Sie einen Lieferanten aus.";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(_model.InvoiceNumber))
+        {
+            _errorMessage = "Bitte geben Sie eine Rechnungsnummer ein.";
+            return;
+        }
+
+        if (_model.AmountGross <= 0)
+        {
+            _errorMessage = "Der Bruttobetrag muss größer als 0 sein.";
+            return;
+        }
+
+        _saving = true;
+
+        try
+        {
+            if (_isNew)
+            {
+                var createDto = new CreateDocumentDto
+                {
+                    DocumentNumber = _model.DocumentNumber,
+                    SupplierId = _model.SupplierId!.Value,
+                    InvoiceNumber = _model.InvoiceNumber,
+                    InvoiceDate = _invoiceDate.HasValue ? DateOnly.FromDateTime(_invoiceDate.Value) : DateOnly.FromDateTime(DateTime.Today),
+                    DueDate = _dueDate.HasValue ? DateOnly.FromDateTime(_dueDate.Value) : null,
+                    AmountNet = _model.AmountNet,
+                    TaxRate = _model.TaxRate,
+                    AmountTax = _model.AmountTax,
+                    AmountGross = _model.AmountGross,
+                    Category = _model.Category,
+                    ProjectId = _model.ProjectId,
+                    Notes = _model.Notes
+                };
+
+                var document = await DocumentService.CreateAsync(createDto);
+                Snackbar.Add($"Beleg '{document.DocumentNumber}' wurde erstellt.", Severity.Success);
+                NavigationManager.NavigateTo($"/recepta/belege/{document.Id}");
+            }
+            else
+            {
+                var dto = new UpdateDocumentDto
+                {
+                    SupplierId = _model.SupplierId!.Value,
+                    InvoiceNumber = _model.InvoiceNumber,
+                    InvoiceDate = _invoiceDate.HasValue ? DateOnly.FromDateTime(_invoiceDate.Value) : DateOnly.FromDateTime(DateTime.Today),
+                    DueDate = _dueDate.HasValue ? DateOnly.FromDateTime(_dueDate.Value) : null,
+                    AmountNet = _model.AmountNet,
+                    TaxRate = _model.TaxRate,
+                    AmountTax = _model.AmountTax,
+                    AmountGross = _model.AmountGross,
+                    Category = _model.Category,
+                    ProjectId = _model.ProjectId,
+                    Notes = _model.Notes
+                };
+
+                await DocumentService.UpdateAsync(Id!.Value, dto);
+
+                // Lerneffekt triggern
+                try
+                {
+                    await DocumentService.LearnPatternsAsync(Id!.Value);
+                }
+                catch { /* Lerneffekt ist optional */ }
+
+                Snackbar.Add("Beleg wurde aktualisiert.", Severity.Success);
+
+                // Dokument neu laden
+                _document = await DocumentService.GetByIdAsync(Id!.Value);
+            }
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Fehler beim Speichern: {ex.Message}";
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    // Status-Aktionen
+    private async Task MarkAsBooked()
+    {
+        _statusChanging = true;
+        try
+        {
+            await DocumentService.ChangeStatusAsync(Id!.Value, DocumentStatus.Booked);
+            Snackbar.Add("Beleg als gebucht markiert.", Severity.Success);
+            _document = await DocumentService.GetByIdAsync(Id!.Value);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Fehler: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _statusChanging = false;
+        }
+    }
+
+    private async Task MarkAsPaid()
+    {
+        _statusChanging = true;
+        try
+        {
+            await DocumentService.ChangeStatusAsync(Id!.Value, DocumentStatus.Paid);
+            Snackbar.Add("Beleg als bezahlt markiert.", Severity.Success);
+            _document = await DocumentService.GetByIdAsync(Id!.Value);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Fehler: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _statusChanging = false;
+        }
+    }
+
+    private async Task RevertToDraft()
+    {
+        _statusChanging = true;
+        try
+        {
+            await DocumentService.ChangeStatusAsync(Id!.Value, DocumentStatus.Draft);
+            Snackbar.Add("Beleg auf Entwurf zurückgesetzt.", Severity.Success);
+            _document = await DocumentService.GetByIdAsync(Id!.Value);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Fehler: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _statusChanging = false;
+        }
+    }
+
+    // Löschen
+    private async Task DeleteDocument()
+    {
+        var parameters = new DialogParameters<Kuestencode.Werkbank.Recepta.Shared.Dialogs.ConfirmDialog>
+        {
+            { x => x.Title, "Beleg löschen" },
+            { x => x.ContentText, $"Möchten Sie den Beleg '{_document!.DocumentNumber}' wirklich löschen? Alle zugehörigen Dateien werden ebenfalls gelöscht." },
+            { x => x.ButtonText, "Löschen" },
+            { x => x.Color, Color.Error }
+        };
+
+        var dialog = await DialogService.ShowAsync<Kuestencode.Werkbank.Recepta.Shared.Dialogs.ConfirmDialog>("Löschen", parameters);
+        var result = await dialog.Result;
+
+        if (result != null && !result.Canceled)
+        {
+            try
+            {
+                await DocumentService.DeleteAsync(Id!.Value);
+                Snackbar.Add($"Beleg '{_document!.DocumentNumber}' wurde gelöscht.", Severity.Success);
+                NavigationManager.NavigateTo("/recepta/belege");
+            }
+            catch (Exception ex)
+            {
+                Snackbar.Add($"Fehler beim Löschen: {ex.Message}", Severity.Error);
+            }
+        }
+    }
+
+    private void Cancel()
+    {
+        NavigationManager.NavigateTo("/recepta/belege");
+    }
+
+    // Hilfsmethoden
+    private static string GetStatusText(string status) => status switch
+    {
+        "Draft" => "Entwurf",
+        "Booked" => "Verbucht",
+        "Paid" => "Bezahlt",
+        _ => status
+    };
+
+    private static Color GetStatusColor(string status) => status switch
+    {
+        "Draft" => Color.Default,
+        "Booked" => Color.Info,
+        "Paid" => Color.Success,
+        _ => Color.Default
+    };
+
+    private static string GetFileIcon(string contentType) => contentType switch
+    {
+        "application/pdf" => Icons.Material.Filled.PictureAsPdf,
+        _ when contentType.StartsWith("image/") => Icons.Material.Filled.Image,
+        _ => Icons.Material.Filled.InsertDriveFile
+    };
+
+    private static string FormatFileSize(long bytes)
+    {
+        if (bytes < 1024)
+            return $"{bytes} B";
+        if (bytes < 1024 * 1024)
+            return $"{bytes / 1024.0:F1} KB";
+        return $"{bytes / (1024.0 * 1024.0):F1} MB";
+    }
+
+    private static Guid DeterministicGuid(int id)
+    {
+        var bytes = new byte[16];
+        BitConverter.GetBytes(id).CopyTo(bytes, 0);
+        bytes[4] = 0xAC;
+        bytes[5] = 0x7A;
+        return new Guid(bytes);
+    }
+
+    private class DocumentFormModel
+    {
+        public string DocumentNumber { get; set; } = string.Empty;
+        public Guid? SupplierId { get; set; }
+        public string InvoiceNumber { get; set; } = string.Empty;
+        public decimal AmountNet { get; set; }
+        public decimal TaxRate { get; set; } = 19m;
+        public decimal AmountTax { get; set; }
+        public decimal AmountGross { get; set; }
+        public DocumentCategory Category { get; set; } = DocumentCategory.Other;
+        public Guid? ProjectId { get; set; }
+        public string? Notes { get; set; }
+    }
+}

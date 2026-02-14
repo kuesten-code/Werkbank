@@ -1,0 +1,48 @@
+@using Kuestencode.Shared.ApiClients
+@using Kuestencode.Shared.Contracts.Navigation
+@inject IHostApiClient HostApiClient
+@inject NavigationManager NavigationManager
+@implements IDisposable
+
+<MudNavMenu>
+    @if (_loading)
+    {
+        <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+    }
+    else if (_navItems.Count == 0)
+    {
+        <MudText Typo="Typo.caption" Color="Color.Secondary">Navigation nicht verfuegbar</MudText>
+    }
+    else
+    {
+        @foreach (var navItem in _navItems)
+        {
+            <NavItemRenderer Item="navItem" CurrentUri="@_currentUri" />
+        }
+    }
+</MudNavMenu>
+
+@code {
+    private List<NavItemDto> _navItems = new();
+    private bool _loading = true;
+    private string _currentUri = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _currentUri = NavigationManager.Uri;
+        NavigationManager.LocationChanged += HandleLocationChanged;
+        _navItems = await HostApiClient.GetNavigationAsync();
+        _loading = false;
+    }
+
+    private void HandleLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
+    {
+        _currentUri = e.Location;
+        StateHasChanged();
+    }
+
+    public void Dispose()
+    {
+        NavigationManager.LocationChanged -= HandleLocationChanged;
+    }
+}

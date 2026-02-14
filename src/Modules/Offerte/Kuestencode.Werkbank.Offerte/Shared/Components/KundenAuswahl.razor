@@ -22,6 +22,10 @@
         <MudText Typo="Typo.caption">@customer.CustomerNumber - @customer.City</MudText>
     </ItemTemplate>
 </MudAutocomplete>
+@if (!Disabled)
+{
+    <InlineCustomerCreate OnCreated="OnCustomerCreated" />
+}
 
 @code {
     private bool _hasError;
@@ -49,6 +53,13 @@
         await SelectedCustomerChanged.InvokeAsync(customer);
     }
 
+    private async Task OnCustomerCreated(Customer customer)
+    {
+        _customers = await CustomerService.GetAllAsync();
+        SelectedCustomer = _customers.FirstOrDefault(c => c.Id == customer.Id) ?? customer;
+        await SelectedCustomerChanged.InvokeAsync(SelectedCustomer);
+    }
+
     private async Task<IEnumerable<Customer>> SearchCustomersAsync(string? value, CancellationToken token)
     {
         try
@@ -68,7 +79,7 @@
                 c.CustomerNumber.Contains(value, StringComparison.OrdinalIgnoreCase) ||
                 (c.City?.Contains(value, StringComparison.OrdinalIgnoreCase) ?? false));
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             _hasError = true;
             _errorText = "Fehler beim Laden der Kunden";

@@ -23,6 +23,7 @@
     <!-- Reference to Core project -->
     <ProjectReference Include="..\Core\Kuestencode.Core.csproj" />
     <ProjectReference Include="..\Kuestencode.Shared.Contracts\Kuestencode.Shared.Contracts.csproj" />
+    <ProjectReference Include="..\Kuestencode.Shared.ApiClients\Kuestencode.Shared.ApiClients.csproj" />
   </ItemGroup>
 
 </Project>

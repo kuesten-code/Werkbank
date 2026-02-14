@@ -1,0 +1,43 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>Kuestencode.Werkbank.Recepta</RootNamespace>
+    <AssemblyName>Kuestencode.Werkbank.Recepta</AssemblyName>
+    <IsPackable>false</IsPackable>
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Database -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="9.0.0" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="9.0.0">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="9.0.2" />
+
+    <!-- UI Framework -->
+    <PackageReference Include="MudBlazor" Version="8.0.0" />
+
+    <!-- Swagger (API-Dokumentation) -->
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="7.2.0" />
+    <PackageReference Include="ZUGFeRD-csharp" Version="17.4.0" />
+    <PackageReference Include="ZUGFeRD.PDF-csharp" Version="17.4.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Modul-interne Referenzen -->
+    <ProjectReference Include="..\Kuestencode.Werkbank.Recepta.Domain\Kuestencode.Werkbank.Recepta.Domain.csproj" />
+    <ProjectReference Include="..\Kuestencode.Werkbank.Recepta.Data\Kuestencode.Werkbank.Recepta.Data.csproj" />
+
+    <!-- Werkbank Core und Shared Libraries -->
+    <ProjectReference Include="..\..\..\Core\Kuestencode.Core.csproj" />
+    <ProjectReference Include="..\..\..\Shared.UI\Kuestencode.Shared.UI.csproj" />
+    <ProjectReference Include="..\..\..\Kuestencode.Shared.Contracts\Kuestencode.Shared.Contracts.csproj" />
+    <ProjectReference Include="..\..\..\Kuestencode.Shared.ApiClients\Kuestencode.Shared.ApiClients.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -3,6 +3,7 @@ using Kuestencode.Shared.Contracts.Acta;
 using Kuestencode.Shared.Contracts.Host;
 using Kuestencode.Shared.Contracts.Navigation;
 using Kuestencode.Shared.Contracts.Rapport;
+using Kuestencode.Shared.Contracts.Recepta;
 
 namespace Kuestencode.Shared.ApiClients;
 
@@ -131,5 +132,34 @@ public class HostApiClient : IHostApiClient
         {
             return null;
         }
+    }
+
+    public async Task<ProjectExpensesResponseDto?> GetProjectExpensesAsync(Guid projectId)
+    {
+        try
+        {
+            var response = await _httpClient.GetAsync($"/api/recepta/documents/project/{projectId}/expenses").ConfigureAwait(false);
+            if (!response.IsSuccessStatusCode) return null;
+            return await response.Content.ReadFromJsonAsync<ProjectExpensesResponseDto>().ConfigureAwait(false);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    public async Task<string> GenerateCustomerNumberAsync()
+    {
+        var response = await _httpClient.GetAsync("/api/customer/generate-number").ConfigureAwait(false);
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+    }
+
+    public async Task<CustomerDto> CreateCustomerAsync(CreateCustomerRequest request)
+    {
+        var response = await _httpClient.PostAsJsonAsync("/api/customer", request).ConfigureAwait(false);
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync<CustomerDto>().ConfigureAwait(false)
+               ?? throw new InvalidOperationException("Failed to deserialize created customer.");
     }
 }

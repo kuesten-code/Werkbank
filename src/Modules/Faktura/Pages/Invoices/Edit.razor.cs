@@ -163,6 +163,13 @@ public partial class Edit
         );
     }
 
+    private async Task OnCustomerCreated(Customer customer)
+    {
+        _customers = await CustomerService.GetAllAsync();
+        _selectedCustomer = _customers.FirstOrDefault(c => c.Id == customer.Id) ?? customer;
+        StateHasChanged();
+    }
+
     private void AddItem()
     {
         if (_invoice == null) return;

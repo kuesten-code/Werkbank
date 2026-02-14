@@ -1,0 +1,156 @@
+@page "/lieferanten"
+@page "/recepta/lieferanten"
+@using Kuestencode.Werkbank.Recepta.Controllers.Dtos
+@inject ISupplierService SupplierService
+@inject NavigationManager NavigationManager
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+
+<PageTitle>Lieferanten - Küstencode Recepta</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4">
+    <MudText Typo="Typo.h4" GutterBottom="true">Lieferanten</MudText>
+
+    <MudPaper Class="pa-4 mt-4">
+        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-4">
+            <MudTextField Value="_searchString" Placeholder="Lieferant suchen"
+                         Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search"
+                         IconSize="Size.Medium" Class="mt-0" Immediate="true" Style="max-width: 300px;"
+                         ValueChanged="OnSearchChanged" T="string" />
+            <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                      StartIcon="@Icons.Material.Filled.Add" OnClick="CreateSupplier">
+                Neuer Lieferant
+            </MudButton>
+        </MudStack>
+
+        <MudTable Items="@_suppliers" Hover="true" Breakpoint="Breakpoint.Sm"
+                 Loading="@_loading" LoadingProgressColor="Color.Info"
+                 RowsPerPage="10" SortLabel="Sortieren nach"
+                 OnRowClick="@(args => EditSupplier(args.Item!.Id))" T="SupplierDto" RowClass="cursor-pointer">
+            <HeaderContent>
+                <MudTh><MudTableSortLabel SortBy="new Func<SupplierDto, object>(x => x.SupplierNumber)">Lieferantennr.</MudTableSortLabel></MudTh>
+                <MudTh><MudTableSortLabel SortBy="new Func<SupplierDto, object>(x => x.Name)">Name</MudTableSortLabel></MudTh>
+                <MudTh><MudTableSortLabel SortBy="new Func<SupplierDto, object>(x => x.City ?? string.Empty)">Ort</MudTableSortLabel></MudTh>
+                <MudTh><MudTableSortLabel SortBy="new Func<SupplierDto, object>(x => x.DocumentCount)">Belege</MudTableSortLabel></MudTh>
+                <MudTh Style="text-align: right">Aktionen</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd DataLabel="Lieferantennr.">@context.SupplierNumber</MudTd>
+                <MudTd DataLabel="Name">@context.Name</MudTd>
+                <MudTd DataLabel="Ort">@(context.City ?? "-")</MudTd>
+                <MudTd DataLabel="Belege">@context.DocumentCount</MudTd>
+                <MudTd DataLabel="Aktionen" Style="text-align: right" @onclick:stopPropagation="true">
+                    <MudTooltip Text="Bearbeiten">
+                        <MudIconButton Icon="@Icons.Material.Filled.Edit"
+                                      Color="Color.Primary" Size="Size.Small"
+                                      OnClick="@(() => EditSupplier(context.Id))" />
+                    </MudTooltip>
+                    @if (context.DocumentCount == 0)
+                    {
+                        <MudTooltip Text="Löschen">
+                            <MudIconButton Icon="@Icons.Material.Filled.Delete"
+                                          Color="Color.Error" Size="Size.Small"
+                                          OnClick="@(() => DeleteSupplier(context))" />
+                        </MudTooltip>
+                    }
+                </MudTd>
+            </RowTemplate>
+            <NoRecordsContent>
+                <MudText Typo="Typo.body1" Align="Align.Center" Class="pa-4">
+                    @if (_loading)
+                    {
+                        <text>Lade Lieferanten...</text>
+                    }
+                    else
+                    {
+                        <text>Noch keine Lieferanten angelegt.</text>
+                    }
+                </MudText>
+            </NoRecordsContent>
+            <PagerContent>
+                <MudTablePager PageSizeOptions="new int[] { 10, 25, 50, 100 }" />
+            </PagerContent>
+        </MudTable>
+    </MudPaper>
+</MudContainer>
+
+<style>
+    .cursor-pointer {
+        cursor: pointer;
+    }
+</style>
+
+@code {
+    private bool _loading = true;
+    private string _searchString = string.Empty;
+    private List<SupplierDto> _suppliers = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDataAsync();
+    }
+
+    private async Task LoadDataAsync()
+    {
+        _loading = true;
+
+        try
+        {
+            var search = string.IsNullOrWhiteSpace(_searchString) ? null : _searchString;
+            var suppliers = await SupplierService.GetAllAsync(search);
+            _suppliers = suppliers.ToList();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Fehler beim Laden: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task OnSearchChanged(string value)
+    {
+        _searchString = value;
+        await LoadDataAsync();
+    }
+
+    private void CreateSupplier()
+    {
+        NavigationManager.NavigateTo("/recepta/lieferanten/neu");
+    }
+
+    private void EditSupplier(Guid id)
+    {
+        NavigationManager.NavigateTo($"/recepta/lieferanten/{id}");
+    }
+
+    private async Task DeleteSupplier(SupplierDto supplier)
+    {
+        var parameters = new DialogParameters<Kuestencode.Werkbank.Recepta.Shared.Dialogs.ConfirmDialog>
+        {
+            { x => x.Title, "Lieferant löschen" },
+            { x => x.ContentText, $"Möchten Sie den Lieferanten '{supplier.Name}' wirklich löschen?" },
+            { x => x.ButtonText, "Löschen" },
+            { x => x.Color, Color.Error }
+        };
+
+        var dialog = await DialogService.ShowAsync<Kuestencode.Werkbank.Recepta.Shared.Dialogs.ConfirmDialog>("Löschen", parameters);
+        var result = await dialog.Result;
+
+        if (result != null && !result.Canceled)
+        {
+            try
+            {
+                await SupplierService.DeleteAsync(supplier.Id);
+                Snackbar.Add($"Lieferant '{supplier.Name}' wurde gelöscht.", Severity.Success);
+                await LoadDataAsync();
+            }
+            catch (Exception ex)
+            {
+                Snackbar.Add($"Fehler beim Löschen: {ex.Message}", Severity.Error);
+            }
+        }
+    }
+}

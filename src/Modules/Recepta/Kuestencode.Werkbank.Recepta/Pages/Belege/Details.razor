@@ -1,0 +1,534 @@
+@page "/belege/{Id:guid}/details"
+@using Kuestencode.Werkbank.Recepta.Controllers.Dtos
+@using Kuestencode.Werkbank.Recepta.Domain.Dtos
+@using Kuestencode.Werkbank.Recepta.Domain.Enums
+@using Kuestencode.Shared.Contracts.Acta
+@inject IDocumentService DocumentService
+@inject IDocumentFileService FileService
+@inject ISupplierService SupplierService
+@inject ICachedProjectService ProjectCache
+@inject NavigationManager NavigationManager
+@inject ISnackbar Snackbar
+
+<PageTitle>Beleg @(_document?.DocumentNumber ?? "") - Küstencode Recepta</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4">
+    @if (_loading)
+    {
+        <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+    }
+    else if (_document == null)
+    {
+        <MudAlert Severity="Severity.Error">Beleg nicht gefunden.</MudAlert>
+        <MudButton Variant="Variant.Text" Class="mt-2" OnClick="GoBack">Zurück zur Übersicht</MudButton>
+    }
+    else
+    {
+        @* Header *@
+        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-4">
+            <MudStack>
+                <MudText Typo="Typo.h4">Beleg @_document.DocumentNumber</MudText>
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                    <MudChip T="string" Color="@GetStatusColor(_document.Status)" Size="Size.Small">
+                        @GetStatusText(_document.Status)
+                    </MudChip>
+                    <MudText Typo="Typo.subtitle1" Color="Color.Secondary">@_document.SupplierName</MudText>
+                    @if (_document.IsOverdue)
+                    {
+                        <MudChip T="string" Color="Color.Error" Size="Size.Small" Icon="@Icons.Material.Filled.Warning">
+                            Überfällig
+                        </MudChip>
+                    }
+                </MudStack>
+            </MudStack>
+
+            <MudStack Row="true" Spacing="2">
+                @if (_document.Status == "Draft")
+                {
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                              StartIcon="@Icons.Material.Filled.Edit"
+                              OnClick="EditDocument">
+                        Bearbeiten
+                    </MudButton>
+                    <MudButton Variant="Variant.Filled" Color="Color.Info"
+                              StartIcon="@Icons.Material.Filled.CheckCircle"
+                              OnClick="MarkAsBooked" Disabled="@_statusChanging">
+                        Als gebucht markieren
+                    </MudButton>
+                }
+                else if (_document.Status == "Booked")
+                {
+                    <MudButton Variant="Variant.Outlined" Color="Color.Default"
+                              StartIcon="@Icons.Material.Filled.Undo"
+                              OnClick="RevertToDraft" Disabled="@_statusChanging">
+                        Zurück zu Entwurf
+                    </MudButton>
+                    <MudButton Variant="Variant.Filled" Color="Color.Success"
+                              StartIcon="@Icons.Material.Filled.Paid"
+                              OnClick="MarkAsPaid" Disabled="@_statusChanging">
+                        Als bezahlt markieren
+                    </MudButton>
+                }
+                @if (_statusChanging)
+                {
+                    <MudProgressCircular Size="Size.Small" Indeterminate="true" />
+                }
+            </MudStack>
+        </MudStack>
+
+        <MudGrid>
+            @* Links: Dateien *@
+            <MudItem xs="12" md="5">
+                <MudPaper Class="pa-4" Elevation="2" Style="position: sticky; top: 80px;">
+                    <MudText Typo="Typo.h6" GutterBottom="true">Dokumente</MudText>
+
+                    @* Vorschau *@
+                    @if (_previewBase64 != null)
+                    {
+                        @if (_previewContentType?.StartsWith("image/") == true)
+                        {
+                            <div style="max-height: 500px; overflow: auto; text-align: center;">
+                                <img src="data:@_previewContentType;base64,@_previewBase64"
+                                     style="max-width: 100%; transform: scale(@_zoom); transform-origin: top center;"
+                                     alt="Dokumentvorschau" />
+                            </div>
+                        }
+                        else if (_previewContentType == "application/pdf")
+                        {
+                            <div style="height: 500px;">
+                                <embed src="data:application/pdf;base64,@_previewBase64"
+                                       type="application/pdf" width="100%" height="100%" />
+                            </div>
+                        }
+
+                        <MudStack Row="true" Justify="Justify.Center" Class="mt-2" Spacing="1">
+                            <MudIconButton Icon="@Icons.Material.Filled.ZoomOut" Size="Size.Small"
+                                          OnClick="ZoomOut" Disabled="@(_zoom <= 0.5)" />
+                            <MudText Typo="Typo.caption" Class="align-self-center">@((_zoom * 100).ToString("0"))%</MudText>
+                            <MudIconButton Icon="@Icons.Material.Filled.ZoomIn" Size="Size.Small"
+                                          OnClick="ZoomIn" Disabled="@(_zoom >= 3.0)" />
+                        </MudStack>
+
+                        <MudDivider Class="my-3" />
+                    }
+
+                    @* Dateiliste *@
+                    @if (_files.Count > 0)
+                    {
+                        <MudList T="DocumentFileDto" Dense="true">
+                            @foreach (var file in _files)
+                            {
+                                <MudListItem T="DocumentFileDto" Icon="@GetFileIcon(file.ContentType)"
+                                            OnClick="@(() => PreviewFile(file))"
+                                            Class="@(_selectedFileId == file.Id ? "mud-primary-text" : "")">
+                                    <div class="d-flex align-center justify-space-between" style="width: 100%;">
+                                        <MudStack Spacing="0">
+                                            <MudText Typo="Typo.body2">@file.FileName</MudText>
+                                            <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                                @FormatFileSize(file.FileSize) – @file.CreatedAt.ToString("dd.MM.yyyy HH:mm")
+                                            </MudText>
+                                        </MudStack>
+                                        <MudTooltip Text="Herunterladen">
+                                            <MudIconButton Icon="@Icons.Material.Filled.Download" Size="Size.Small"
+                                                          OnClick="@(() => DownloadFile(file))" />
+                                        </MudTooltip>
+                                    </div>
+                                </MudListItem>
+                            }
+                        </MudList>
+                    }
+                    else
+                    {
+                        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="my-4" Align="Align.Center">
+                            Keine Dateien vorhanden.
+                        </MudText>
+                    }
+                </MudPaper>
+
+                @* OCR-Rohtext *@
+                @if (!string.IsNullOrEmpty(_document.OcrRawText))
+                {
+                    <MudExpansionPanels Class="mt-4">
+                        <MudExpansionPanel Text="OCR-Rohtext anzeigen">
+                            <div style="max-height: 400px; overflow-y: auto;">
+                                <MudText Typo="Typo.body2" Style="white-space: pre-wrap; font-family: monospace; font-size: 0.8rem;">
+                                    @_document.OcrRawText
+                                </MudText>
+                            </div>
+                        </MudExpansionPanel>
+                    </MudExpansionPanels>
+                }
+            </MudItem>
+
+            @* Rechts: Belegdaten (read-only) *@
+            <MudItem xs="12" md="7">
+                <MudPaper Class="pa-4" Elevation="2">
+                    <MudText Typo="Typo.h6" GutterBottom="true">Belegdaten</MudText>
+
+                    @* Stammdaten *@
+                    <MudSimpleTable Dense="true" Class="mb-4">
+                        <tbody>
+                            <tr>
+                                <td style="width: 180px;"><strong>Belegnummer</strong></td>
+                                <td>@_document.DocumentNumber</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Lieferant</strong></td>
+                                <td>@_document.SupplierName</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Status</strong></td>
+                                <td>
+                                    <MudChip T="string" Size="Size.Small" Color="@GetStatusColor(_document.Status)">
+                                        @GetStatusText(_document.Status)
+                                    </MudChip>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </MudSimpleTable>
+
+                    @* Rechnungsdetails *@
+                    <MudText Typo="Typo.h6" Class="mt-4 mb-2">Rechnungsdetails</MudText>
+                    <MudSimpleTable Dense="true" Class="mb-4">
+                        <tbody>
+                            <tr>
+                                <td style="width: 180px;"><strong>Rechnungsnummer</strong></td>
+                                <td>@_document.InvoiceNumber</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Rechnungsdatum</strong></td>
+                                <td>@_document.InvoiceDate.ToString("dd.MM.yyyy")</td>
+                            </tr>
+                            @if (_document.DueDate.HasValue)
+                            {
+                                <tr>
+                                    <td><strong>Fälligkeitsdatum</strong></td>
+                                    <td>
+                                        <MudText Color="@(_document.IsOverdue ? Color.Error : Color.Default)">
+                                            @_document.DueDate.Value.ToString("dd.MM.yyyy")
+                                            @if (_document.IsOverdue)
+                                            {
+                                                <text> (überfällig)</text>
+                                            }
+                                        </MudText>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </MudSimpleTable>
+
+                    @* Beträge *@
+                    <MudText Typo="Typo.h6" Class="mt-4 mb-2">Beträge</MudText>
+                    <MudSimpleTable Dense="true" Class="mb-4">
+                        <tbody>
+                            <tr>
+                                <td style="width: 180px;"><strong>Netto</strong></td>
+                                <td>@_document.AmountNet.ToString("N2", _culture) €</td>
+                            </tr>
+                            <tr>
+                                <td><strong>MwSt (@_document.TaxRate.ToString("0")%)</strong></td>
+                                <td>@_document.AmountTax.ToString("N2", _culture) €</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Brutto</strong></td>
+                                <td><strong>@_document.AmountGross.ToString("N2", _culture) €</strong></td>
+                            </tr>
+                        </tbody>
+                    </MudSimpleTable>
+
+                    @* Zuordnung *@
+                    <MudText Typo="Typo.h6" Class="mt-4 mb-2">@(_projectName != null ? "Zuordnung" : "Kategorie")</MudText>
+                    <MudSimpleTable Dense="true" Class="mb-4">
+                        <tbody>
+                            <tr>
+                                <td style="width: 180px;"><strong>Kategorie</strong></td>
+                                <td>
+                                    <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined"
+                                            Color="@GetCategoryColor(_document.Category)">
+                                        @GetCategoryText(_document.Category)
+                                    </MudChip>
+                                </td>
+                            </tr>
+                            @if (_projectName != null)
+                            {
+                                <tr>
+                                    <td><strong>Projekt</strong></td>
+                                    <td>@_projectName</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </MudSimpleTable>
+
+                    @* Notizen *@
+                    @if (!string.IsNullOrWhiteSpace(_document.Notes))
+                    {
+                        <MudText Typo="Typo.h6" Class="mt-4 mb-2">Notizen</MudText>
+                        <MudPaper Class="pa-3" Elevation="0" Style="background: var(--mud-palette-background-grey);">
+                            <MudText Typo="Typo.body2" Style="white-space: pre-line;">@_document.Notes</MudText>
+                        </MudPaper>
+                    }
+
+                    @* Meta *@
+                    <MudDivider Class="my-4" />
+                    <MudStack Row="true" Spacing="4">
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">
+                            Erstellt: @_document.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")
+                        </MudText>
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">
+                            Geändert: @_document.UpdatedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")
+                        </MudText>
+                    </MudStack>
+                </MudPaper>
+            </MudItem>
+        </MudGrid>
+
+        @* Footer Actions *@
+        <MudStack Row="true" Justify="Justify.SpaceBetween" Class="mt-4">
+            <MudButton Variant="Variant.Filled" Color="Color.Default"
+                      StartIcon="@Icons.Material.Filled.ArrowBack"
+                      OnClick="GoBack">
+                Zurück zur Übersicht
+            </MudButton>
+
+            @if (_document.Status == "Draft")
+            {
+                <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                          StartIcon="@Icons.Material.Filled.Edit"
+                          OnClick="EditDocument">
+                    Bearbeiten
+                </MudButton>
+            }
+        </MudStack>
+    }
+</MudContainer>
+
+@code {
+    [Parameter]
+    public Guid Id { get; set; }
+
+    private readonly CultureInfo _culture = new("de-DE");
+    private bool _loading = true;
+    private bool _statusChanging;
+
+    private DocumentDto? _document;
+    private List<DocumentFileDto> _files = new();
+    private Guid? _selectedFileId;
+    private string? _previewBase64;
+    private string? _previewContentType;
+    private double _zoom = 1.0;
+
+    private string? _projectName;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _loading = true;
+
+        try
+        {
+            _document = await DocumentService.GetByIdAsync(Id);
+            if (_document == null) return;
+
+            // Dateien und Projektname sequentiell laden (DbContext ist nicht thread-safe)
+            _files = await FileService.GetByDocumentIdAsync(Id);
+
+            if (_document.ProjectId.HasValue)
+            {
+                await LoadProjectNameAsync(_document.ProjectId.Value);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Fehler beim Laden: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _loading = false;
+        }
+
+        // Erste Datei als Vorschau — NACH _loading = false,
+        // damit die UI bereits gerendert ist und der Preview-Bereich existiert
+        if (_files.Count > 0)
+        {
+            await PreviewFile(_files[0]);
+            StateHasChanged();
+        }
+    }
+
+    private async Task LoadProjectNameAsync(Guid projectId)
+    {
+        try
+        {
+            var available = await ProjectCache.IsActaAvailableAsync();
+            if (!available) return;
+
+            var projects = await ProjectCache.GetProjectsAsync();
+            // Deterministischen GUID-Vergleich nutzen
+            foreach (var project in projects)
+            {
+                if (DeterministicGuid(project.Id) == projectId)
+                {
+                    _projectName = $"{project.ProjectNumber} - {project.Name}";
+                    break;
+                }
+            }
+        }
+        catch { /* Projekt-Name ist optional */ }
+    }
+
+    private async Task PreviewFile(DocumentFileDto file)
+    {
+        try
+        {
+            _selectedFileId = file.Id;
+            var (stream, _, contentType) = await FileService.DownloadAsync(file.Id);
+            await using (stream)
+            {
+                using var ms = new MemoryStream();
+                await stream.CopyToAsync(ms);
+                _previewBase64 = Convert.ToBase64String(ms.ToArray());
+                _previewContentType = contentType;
+            }
+            _zoom = 1.0;
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Vorschau fehlgeschlagen: {ex.Message}", Severity.Warning);
+        }
+    }
+
+    private void DownloadFile(DocumentFileDto file)
+    {
+        NavigationManager.NavigateTo($"/api/recepta/files/{file.Id}", forceLoad: true);
+    }
+
+    private void ZoomIn() => _zoom = Math.Min(_zoom + 0.25, 3.0);
+    private void ZoomOut() => _zoom = Math.Max(_zoom - 0.25, 0.5);
+
+    private void EditDocument()
+    {
+        NavigationManager.NavigateTo($"/recepta/belege/{Id}");
+    }
+
+    private async Task MarkAsBooked()
+    {
+        _statusChanging = true;
+        try
+        {
+            await DocumentService.ChangeStatusAsync(Id, DocumentStatus.Booked);
+            Snackbar.Add("Beleg als gebucht markiert.", Severity.Success);
+            _document = await DocumentService.GetByIdAsync(Id);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Fehler: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _statusChanging = false;
+        }
+    }
+
+    private async Task MarkAsPaid()
+    {
+        _statusChanging = true;
+        try
+        {
+            await DocumentService.ChangeStatusAsync(Id, DocumentStatus.Paid);
+            Snackbar.Add("Beleg als bezahlt markiert.", Severity.Success);
+            _document = await DocumentService.GetByIdAsync(Id);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Fehler: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _statusChanging = false;
+        }
+    }
+
+    private async Task RevertToDraft()
+    {
+        _statusChanging = true;
+        try
+        {
+            await DocumentService.ChangeStatusAsync(Id, DocumentStatus.Draft);
+            Snackbar.Add("Beleg auf Entwurf zurückgesetzt.", Severity.Success);
+            _document = await DocumentService.GetByIdAsync(Id);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Fehler: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _statusChanging = false;
+        }
+    }
+
+    private void GoBack()
+    {
+        NavigationManager.NavigateTo("/recepta/belege");
+    }
+
+    private static string GetStatusText(string status) => status switch
+    {
+        "Draft" => "Entwurf",
+        "Booked" => "Verbucht",
+        "Paid" => "Bezahlt",
+        _ => status
+    };
+
+    private static Color GetStatusColor(string status) => status switch
+    {
+        "Draft" => Color.Default,
+        "Booked" => Color.Info,
+        "Paid" => Color.Success,
+        _ => Color.Default
+    };
+
+    private static string GetCategoryText(string category) => category switch
+    {
+        "Material" => "Material",
+        "Subcontractor" => "Fremdleistung",
+        "Office" => "Büro",
+        "Travel" => "Reise",
+        "Other" => "Sonstig",
+        _ => category
+    };
+
+    private static Color GetCategoryColor(string category) => category switch
+    {
+        "Material" => Color.Primary,
+        "Subcontractor" => Color.Secondary,
+        "Office" => Color.Info,
+        "Travel" => Color.Warning,
+        "Other" => Color.Default,
+        _ => Color.Default
+    };
+
+    private static string GetFileIcon(string contentType) => contentType switch
+    {
+        "application/pdf" => Icons.Material.Filled.PictureAsPdf,
+        _ when contentType.StartsWith("image/") => Icons.Material.Filled.Image,
+        _ => Icons.Material.Filled.InsertDriveFile
+    };
+
+    private static string FormatFileSize(long bytes)
+    {
+        if (bytes < 1024)
+            return $"{bytes} B";
+        if (bytes < 1024 * 1024)
+            return $"{bytes / 1024.0:F1} KB";
+        return $"{bytes / (1024.0 * 1024.0):F1} MB";
+    }
+
+    private static Guid DeterministicGuid(int id)
+    {
+        var bytes = new byte[16];
+        BitConverter.GetBytes(id).CopyTo(bytes, 0);
+        bytes[4] = 0xAC;
+        bytes[5] = 0x7A;
+        return new Guid(bytes);
+    }
+}

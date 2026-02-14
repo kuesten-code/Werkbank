@@ -74,11 +74,19 @@ builder.Services.AddHttpClient<IActaApiClient, ActaApiClient>(client =>
     client.BaseAddress = new Uri(actaUrl);
 });
 
+// Add HttpClient fuer Recepta-API
+builder.Services.AddHttpClient<IReceptaApiClient, ReceptaApiClient>(client =>
+{
+    var receptaUrl = builder.Configuration.GetValue<string>("ServiceUrls:Recepta") ?? "http://localhost:8085";
+    client.BaseAddress = new Uri(receptaUrl);
+});
+
 // Add YARP Reverse Proxy for Faktura, Rapport, and Offerte modules
 var fakturaServiceUrl = builder.Configuration.GetValue<string>("ServiceUrls:Faktura") ?? "http://localhost:8081";
 var rapportServiceUrl = builder.Configuration.GetValue<string>("ServiceUrls:Rapport") ?? "http://localhost:8082";
 var offerteServiceUrl = builder.Configuration.GetValue<string>("ServiceUrls:Offerte") ?? "http://localhost:8083";
 var actaServiceUrl = builder.Configuration.GetValue<string>("ServiceUrls:Acta") ?? "http://localhost:8084";
+var receptaServiceUrl = builder.Configuration.GetValue<string>("ServiceUrls:Recepta") ?? "http://localhost:8085";
 builder.Services.AddReverseProxy()
     .LoadFromMemory(
         routes: new[]
@@ -154,6 +162,24 @@ builder.Services.AddReverseProxy()
                 {
                     Path = "/_acta/{**catch-all}"
                 }
+            },
+            new Yarp.ReverseProxy.Configuration.RouteConfig
+            {
+                RouteId = "recepta-route",
+                ClusterId = "recepta-cluster",
+                Match = new Yarp.ReverseProxy.Configuration.RouteMatch
+                {
+                    Path = "/recepta/{**catch-all}"
+                }
+            },
+            new Yarp.ReverseProxy.Configuration.RouteConfig
+            {
+                RouteId = "recepta-blazor-route",
+                ClusterId = "recepta-cluster",
+                Match = new Yarp.ReverseProxy.Configuration.RouteMatch
+                {
+                    Path = "/_recepta/{**catch-all}"
+                }
             }
         },
         clusters: new[]
@@ -188,6 +214,14 @@ builder.Services.AddReverseProxy()
                 Destinations = new Dictionary<string, Yarp.ReverseProxy.Configuration.DestinationConfig>
                 {
                     { "acta", new Yarp.ReverseProxy.Configuration.DestinationConfig { Address = actaServiceUrl } }
+                }
+            },
+            new Yarp.ReverseProxy.Configuration.ClusterConfig
+            {
+                ClusterId = "recepta-cluster",
+                Destinations = new Dictionary<string, Yarp.ReverseProxy.Configuration.DestinationConfig>
+                {
+                    { "recepta", new Yarp.ReverseProxy.Configuration.DestinationConfig { Address = receptaServiceUrl } }
                 }
             }
         });

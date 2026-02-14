@@ -1,0 +1,163 @@
+@using Kuestencode.Core.Models
+@using Kuestencode.Shared.ApiClients
+@using Kuestencode.Shared.Contracts.Host
+@inject IHostApiClient HostApiClient
+@inject ISnackbar Snackbar
+
+@if (!_showForm)
+{
+    <MudButton Variant="Variant.Text" Color="Color.Primary" Size="Size.Small"
+              StartIcon="@Icons.Material.Filled.PersonAdd"
+              OnClick="ShowForm" Class="mt-1">
+        Neuen Kunden anlegen
+    </MudButton>
+}
+else
+{
+    <MudPaper Class="pa-3 mt-2" Elevation="1" Style="border-left: 3px solid var(--mud-palette-primary);">
+        <MudText Typo="Typo.subtitle2" Class="mb-2">Neuer Kunde</MudText>
+
+        <MudTextField @bind-Value="_name"
+                     Label="Name"
+                     Required="true"
+                     Variant="Variant.Outlined"
+                     Margin="Margin.Dense"
+                     MaxLength="200"
+                     Immediate="true" />
+
+        <MudGrid Class="mt-1" Spacing="1">
+            <MudItem xs="12">
+                <MudTextField @bind-Value="_address"
+                             Label="Adresse"
+                             Variant="Variant.Outlined"
+                             Margin="Margin.Dense"
+                             MaxLength="500" />
+            </MudItem>
+            <MudItem xs="4">
+                <MudTextField @bind-Value="_postalCode"
+                             Label="PLZ"
+                             Variant="Variant.Outlined"
+                             Margin="Margin.Dense"
+                             MaxLength="10" />
+            </MudItem>
+            <MudItem xs="8">
+                <MudTextField @bind-Value="_city"
+                             Label="Stadt"
+                             Variant="Variant.Outlined"
+                             Margin="Margin.Dense"
+                             MaxLength="100" />
+            </MudItem>
+        </MudGrid>
+
+        @if (!string.IsNullOrEmpty(_error))
+        {
+            <MudAlert Severity="Severity.Error" Dense="true" Class="mt-2">@_error</MudAlert>
+        }
+
+        <MudStack Row="true" Justify="Justify.FlexEnd" Class="mt-2 gap-1">
+            <MudButton Variant="Variant.Text" Color="Color.Default" Size="Size.Small"
+                      OnClick="Cancel" Disabled="@_saving">
+                Abbrechen
+            </MudButton>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small"
+                      OnClick="CreateCustomer" Disabled="@_saving">
+                @if (_saving)
+                {
+                    <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="me-1" Style="width: 16px; height: 16px;" />
+                }
+                Anlegen
+            </MudButton>
+        </MudStack>
+    </MudPaper>
+}
+
+@code {
+    [Parameter]
+    public EventCallback<Customer> OnCreated { get; set; }
+
+    [Parameter]
+    public string? PrefilledName { get; set; }
+
+    private bool _showForm;
+    private bool _saving;
+    private string _error = string.Empty;
+
+    private string _name = string.Empty;
+    private string? _address;
+    private string? _postalCode;
+    private string? _city;
+
+    private void ShowForm()
+    {
+        _showForm = true;
+        _error = string.Empty;
+        _name = PrefilledName ?? string.Empty;
+        _address = null;
+        _postalCode = null;
+        _city = null;
+    }
+
+    private void Cancel()
+    {
+        _showForm = false;
+        _error = string.Empty;
+    }
+
+    private async Task CreateCustomer()
+    {
+        _error = string.Empty;
+
+        if (string.IsNullOrWhiteSpace(_name))
+        {
+            _error = "Name ist erforderlich.";
+            return;
+        }
+
+        _saving = true;
+
+        try
+        {
+            var customerNumber = await HostApiClient.GenerateCustomerNumberAsync();
+
+            var request = new CreateCustomerRequest
+            {
+                CustomerNumber = customerNumber,
+                Name = _name.Trim(),
+                Address = _address ?? string.Empty,
+                PostalCode = _postalCode ?? string.Empty,
+                City = _city ?? string.Empty,
+                Country = "Deutschland"
+            };
+
+            var dto = await HostApiClient.CreateCustomerAsync(request);
+
+            var created = new Customer
+            {
+                Id = dto.Id,
+                CustomerNumber = dto.CustomerNumber,
+                Name = dto.Name,
+                Address = dto.Address,
+                PostalCode = dto.PostalCode,
+                City = dto.City,
+                Country = dto.Country,
+                Email = dto.Email,
+                Phone = dto.Phone,
+                Notes = dto.Notes,
+                Salutation = dto.Salutation
+            };
+
+            Snackbar.Add($"Kunde '{created.Name}' wurde angelegt.", Severity.Success);
+            _showForm = false;
+
+            await OnCreated.InvokeAsync(created);
+        }
+        catch (Exception ex)
+        {
+            _error = $"Fehler: {ex.Message}";
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+}

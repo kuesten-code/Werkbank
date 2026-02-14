@@ -1,0 +1,185 @@
+@using Kuestencode.Werkbank.Recepta.Controllers.Dtos
+@inject ISupplierService SupplierService
+@inject ISnackbar Snackbar
+
+@if (!_showForm)
+{
+    <MudButton Variant="Variant.Text" Color="Color.Primary" Size="Size.Small"
+              StartIcon="@Icons.Material.Filled.Add"
+              OnClick="ShowForm" Class="mt-1">
+        Neuen Lieferanten anlegen
+    </MudButton>
+}
+else
+{
+    <MudPaper Class="pa-3 mt-2" Elevation="1" Style="border-left: 3px solid var(--mud-palette-primary);">
+        <MudText Typo="Typo.subtitle2" Class="mb-2">Neuer Lieferant</MudText>
+
+        <MudTextField @bind-Value="_name"
+                     Label="Name"
+                     Required="true"
+                     Variant="Variant.Outlined"
+                     Margin="Margin.Dense"
+                     MaxLength="200"
+                     Immediate="true" />
+
+        <MudGrid Class="mt-1" Spacing="1">
+            <MudItem xs="12">
+                <MudTextField @bind-Value="_address"
+                             Label="Straße"
+                             Variant="Variant.Outlined"
+                             Margin="Margin.Dense"
+                             MaxLength="200" />
+            </MudItem>
+            <MudItem xs="4">
+                <MudTextField @bind-Value="_postalCode"
+                             Label="PLZ"
+                             Variant="Variant.Outlined"
+                             Margin="Margin.Dense"
+                             MaxLength="10" />
+            </MudItem>
+            <MudItem xs="8">
+                <MudTextField @bind-Value="_city"
+                             Label="Ort"
+                             Variant="Variant.Outlined"
+                             Margin="Margin.Dense"
+                             MaxLength="100" />
+            </MudItem>
+            <MudItem xs="12">
+                <MudTextField @bind-Value="_taxId"
+                             Label="USt-ID"
+                             Variant="Variant.Outlined"
+                             Margin="Margin.Dense"
+                             MaxLength="20" />
+            </MudItem>
+            <MudItem xs="8">
+                <MudTextField @bind-Value="_iban"
+                             Label="IBAN"
+                             Variant="Variant.Outlined"
+                             Margin="Margin.Dense"
+                             MaxLength="34" />
+            </MudItem>
+            <MudItem xs="4">
+                <MudTextField @bind-Value="_bic"
+                             Label="BIC"
+                             Variant="Variant.Outlined"
+                             Margin="Margin.Dense"
+                             MaxLength="11" />
+            </MudItem>
+        </MudGrid>
+
+        @if (!string.IsNullOrEmpty(_error))
+        {
+            <MudAlert Severity="Severity.Error" Dense="true" Class="mt-2">@_error</MudAlert>
+        }
+
+        <MudStack Row="true" Justify="Justify.FlexEnd" Class="mt-2 gap-1">
+            <MudButton Variant="Variant.Text" Color="Color.Default" Size="Size.Small"
+                      OnClick="Cancel" Disabled="@_saving">
+                Abbrechen
+            </MudButton>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small"
+                      OnClick="CreateSupplier" Disabled="@_saving">
+                @if (_saving)
+                {
+                    <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="me-1" Style="width: 16px; height: 16px;" />
+                }
+                Anlegen
+            </MudButton>
+        </MudStack>
+    </MudPaper>
+}
+
+@code {
+    [Parameter]
+    public EventCallback<SupplierDto> OnCreated { get; set; }
+
+    [Parameter]
+    public string? PrefilledName { get; set; }
+
+    [Parameter]
+    public string? PrefilledTaxId { get; set; }
+
+    [Parameter]
+    public string? PrefilledIban { get; set; }
+
+    [Parameter]
+    public string? PrefilledBic { get; set; }
+
+    private bool _showForm;
+    private bool _saving;
+    private string _error = string.Empty;
+
+    private string _name = string.Empty;
+    private string? _address;
+    private string? _postalCode;
+    private string? _city;
+    private string? _taxId;
+    private string? _iban;
+    private string? _bic;
+
+    private void ShowForm()
+    {
+        _showForm = true;
+        _error = string.Empty;
+        _name = PrefilledName ?? string.Empty;
+        _address = null;
+        _postalCode = null;
+        _city = null;
+        _taxId = PrefilledTaxId;
+        _iban = PrefilledIban;
+        _bic = PrefilledBic;
+    }
+
+    private void Cancel()
+    {
+        _showForm = false;
+        _error = string.Empty;
+    }
+
+    private async Task CreateSupplier()
+    {
+        _error = string.Empty;
+
+        if (string.IsNullOrWhiteSpace(_name))
+        {
+            _error = "Name ist erforderlich.";
+            return;
+        }
+
+        _saving = true;
+
+        try
+        {
+            var supplierNumber = await SupplierService.GenerateSupplierNumberAsync();
+
+            var dto = new CreateSupplierDto
+            {
+                SupplierNumber = supplierNumber,
+                Name = _name.Trim(),
+                Address = _address,
+                PostalCode = _postalCode,
+                City = _city,
+                Country = "DE",
+                TaxId = _taxId,
+                Iban = _iban,
+                Bic = _bic
+            };
+
+            var supplier = await SupplierService.CreateAsync(dto);
+
+            Snackbar.Add($"Lieferant '{supplier.Name}' wurde angelegt.", Severity.Success);
+            _showForm = false;
+
+            await OnCreated.InvokeAsync(supplier);
+        }
+        catch (Exception ex)
+        {
+            _error = $"Fehler: {ex.Message}";
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+}
