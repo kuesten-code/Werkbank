@@ -2,11 +2,14 @@ using Microsoft.AspNetCore.Mvc;
 using Kuestencode.Core.Interfaces;
 using Kuestencode.Core.Models;
 using Kuestencode.Shared.Contracts.Host;
+using Kuestencode.Werkbank.Host.Auth;
+using Kuestencode.Werkbank.Host.Models;
 
 namespace Kuestencode.Werkbank.Host.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[RequireRole(UserRole.Admin, UserRole.Buero)]
 public class CustomerController : ControllerBase
 {
     private readonly ICustomerService _customerService;

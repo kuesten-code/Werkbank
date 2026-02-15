@@ -21,5 +21,26 @@ public class TeamMember
 
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
+
+    // Auth
+    public UserRole Role { get; set; } = UserRole.Mitarbeiter;
+    public string? PasswordHash { get; set; }
+
+    // Einladung
+    public string? InviteToken { get; set; }
+    public DateTime? InviteTokenExpires { get; set; }
+    public DateTime? InviteAcceptedAt { get; set; }
+
+    // Passwort-Reset
+    public string? ResetToken { get; set; }
+    public DateTime? ResetTokenExpires { get; set; }
+
+    // Lockout
+    public int FailedLoginAttempts { get; set; } = 0;
+    public DateTime? LockoutUntil { get; set; }
+    public bool IsLockedByAdmin { get; set; } = false;
+
+    // Computed
+    public bool HasCompletedSetup => InviteAcceptedAt.HasValue;
 }
 

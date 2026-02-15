@@ -24,6 +24,7 @@ public class RapportDbContext : DbContext
     }
 
     public DbSet<TimeEntry> TimeEntries { get; set; } = null!;
+    public DbSet<TimeEntryAudit> TimeEntryAudits { get; set; } = null!;
     public DbSet<RapportSettings> Settings { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -67,6 +68,16 @@ modelBuilder.Entity<TimeEntry>(entity =>
             entity.Property(e => e.IsManual).HasDefaultValue(false);
             entity.Property(e => e.IsDeleted).HasDefaultValue(false);
             entity.Property(e => e.Status).IsRequired();
+            entity.HasIndex(e => e.TeamMemberId);
+            entity.Property(e => e.TeamMemberName).HasMaxLength(200);
+        });
+
+        modelBuilder.Entity<TimeEntryAudit>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.TimeEntryId);
+            entity.Property(e => e.Action).HasMaxLength(20).IsRequired();
+            entity.Property(e => e.ChangedByUserName).HasMaxLength(200);
         });
     }
 }

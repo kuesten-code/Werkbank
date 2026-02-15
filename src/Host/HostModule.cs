@@ -1,9 +1,11 @@
 using Kuestencode.Core.Interfaces;
+using Kuestencode.Werkbank.Host.Auth;
 using Kuestencode.Werkbank.Host.Data;
 using Kuestencode.Werkbank.Host.Data.Repositories;
 using Kuestencode.Werkbank.Host.Services;
 using Kuestencode.Werkbank.Host.Services.Email;
 using Kuestencode.Werkbank.Host.Services.Pdf;
+using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.EntityFrameworkCore;
 
 namespace Kuestencode.Werkbank.Host;
@@ -29,7 +31,17 @@ public static class HostModule
         services.AddScoped<ICompanyService, CompanyService>();
         services.AddScoped<ICustomerService, CustomerService>();
         services.AddSingleton<PasswordEncryptionService>();
+        services.AddSingleton<IPasswordService, PasswordService>();
         services.AddScoped<ITeamMemberService, TeamMemberService>();
+        services.AddScoped<IInviteService, InviteService>();
+        services.AddScoped<IPasswordResetService, PasswordResetService>();
+        services.AddScoped<IAuthService, AuthService>();
+        services.AddScoped<IWerkbankSettingsService, WerkbankSettingsService>();
+
+        // Auth
+        services.AddScoped<WerkbankAuthStateProvider>();
+        services.AddScoped<AuthenticationStateProvider>(sp =>
+            sp.GetRequiredService<WerkbankAuthStateProvider>());
 
         // Engines
         services.AddScoped<IEmailEngine, EmailEngine>();

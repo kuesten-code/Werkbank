@@ -1,11 +1,14 @@
 using Kuestencode.Shared.ApiClients;
 using Kuestencode.Shared.Contracts.Recepta;
+using Kuestencode.Werkbank.Host.Auth;
+using Kuestencode.Werkbank.Host.Models;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Kuestencode.Werkbank.Host.Controllers;
 
 [ApiController]
 [Route("api/recepta")]
+[RequireRole(UserRole.Admin, UserRole.Buero)]
 public class ReceptaProxyController : ControllerBase
 {
     private readonly IReceptaApiClient _receptaApiClient;

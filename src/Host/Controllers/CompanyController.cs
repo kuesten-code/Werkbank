@@ -3,12 +3,15 @@ using Kuestencode.Core.Enums;
 using Kuestencode.Core.Interfaces;
 using Kuestencode.Core.Models;
 using Kuestencode.Shared.Contracts.Host;
+using Kuestencode.Werkbank.Host.Auth;
+using Kuestencode.Werkbank.Host.Models;
 using Kuestencode.Werkbank.Host.Services;
 
 namespace Kuestencode.Werkbank.Host.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[RequireRole(UserRole.Admin)]
 public class CompanyController : ControllerBase
 {
     private readonly ICompanyService _companyService;

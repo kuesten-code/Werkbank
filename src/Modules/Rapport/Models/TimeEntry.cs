@@ -70,6 +70,17 @@ public class TimeEntry : BaseEntity
     public TimeEntryStatus Status { get; set; } = TimeEntryStatus.Running;
 
     /// <summary>
+    /// Optional team member who owns this entry.
+    /// </summary>
+    public Guid? TeamMemberId { get; set; }
+
+    /// <summary>
+    /// Cached team member name for display.
+    /// </summary>
+    [MaxLength(200)]
+    public string? TeamMemberName { get; set; }
+
+    /// <summary>
     /// Marks the entry as deleted without removing it from the database.
     /// </summary>
     public bool IsDeleted { get; set; } = false;

@@ -1,6 +1,8 @@
+@using System.Security.Claims
 @using Kuestencode.Shared.Contracts.Navigation
 @inject IHostNavigationService NavigationService
 @inject NavigationManager NavigationManager
+@inject AuthenticationStateProvider AuthStateProvider
 @implements IDisposable
 
 <MudNavMenu>
@@ -13,12 +15,121 @@
 @code {
     private List<NavItemDto> _navItems = new();
     private string _currentUri = string.Empty;
+    private UserRole _currentRole = UserRole.Mitarbeiter;
+    private bool _authEnabled = false;
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
         _currentUri = NavigationManager.Uri;
         NavigationManager.LocationChanged += HandleLocationChanged;
-        _navItems = NavigationService.GetNavigationItems();
+
+        await LoadRoleAsync();
+        _navItems = FilterNavigationByRole(NavigationService.GetNavigationItems());
+    }
+
+    private async Task LoadRoleAsync()
+    {
+        try
+        {
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            var user = authState.User;
+
+            if (user.Identity?.AuthenticationType == "NoAuth")
+            {
+                _currentRole = UserRole.Admin;
+                _authEnabled = false;
+                return;
+            }
+
+            _authEnabled = user.Identity?.IsAuthenticated == true;
+
+            var roleClaim = user.FindFirstValue(ClaimTypes.Role);
+            if (!string.IsNullOrEmpty(roleClaim) && Enum.TryParse<UserRole>(roleClaim, out var role))
+            {
+                _currentRole = role;
+            }
+        }
+        catch
+        {
+            _currentRole = UserRole.Mitarbeiter;
+        }
+    }
+
+    private List<NavItemDto> FilterNavigationByRole(List<NavItemDto> items)
+    {
+        var filtered = new List<NavItemDto>();
+
+        foreach (var item in items)
+        {
+            if (item.Type == NavItemType.Divider)
+            {
+                filtered.Add(item);
+                continue;
+            }
+
+            // Werkbank-Logo immer anzeigen
+            if (item.Href == "/")
+            {
+                filtered.Add(item);
+                continue;
+            }
+
+            // Einstellungen + Benutzerverwaltung: nur Admin
+            if (item.Label == "Einstellungen" || item.Href == "/team-members")
+            {
+                if (_currentRole == UserRole.Admin)
+                    filtered.Add(item);
+                continue;
+            }
+
+            // Kunden: Admin + Büro
+            if (item.Href == "/customers")
+            {
+                if (_currentRole <= UserRole.Buero)
+                    filtered.Add(item);
+                continue;
+            }
+
+            // Modul-Navigation (Faktura, Offerte, Recepta, Acta): Admin + Büro
+            // Rapport: Alle
+            if (item.Type == NavItemType.Group || item.Type == NavItemType.Link)
+            {
+                var href = item.Href ?? "";
+                var label = item.Label ?? "";
+
+                if (label.Equals("Rapport", StringComparison.OrdinalIgnoreCase) ||
+                    href.StartsWith("/rapport", StringComparison.OrdinalIgnoreCase))
+                {
+                    filtered.Add(item);
+                    continue;
+                }
+
+                // Andere Module: Admin + Büro
+                if (_currentRole <= UserRole.Buero)
+                    filtered.Add(item);
+            }
+        }
+
+        // Aufeinanderfolgende Divider entfernen
+        return CleanDividers(filtered);
+    }
+
+    private static List<NavItemDto> CleanDividers(List<NavItemDto> items)
+    {
+        var result = new List<NavItemDto>();
+        for (int i = 0; i < items.Count; i++)
+        {
+            if (items[i].Type == NavItemType.Divider)
+            {
+                // Kein Divider am Anfang/Ende oder doppelte Divider
+                if (result.Count == 0 || result[^1].Type == NavItemType.Divider)
+                    continue;
+                if (i == items.Count - 1)
+                    continue;
+            }
+            result.Add(items[i]);
+        }
+        return result;
     }
 
     private void HandleLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)

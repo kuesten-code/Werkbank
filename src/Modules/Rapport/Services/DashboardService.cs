@@ -24,9 +24,9 @@ public class DashboardService
     /// <summary>
     /// Returns aggregated hours by customer.
     /// </summary>
-    public async Task<Dictionary<int, CustomerHoursDto>> GetHoursByCustomerAsync(DateTime from, DateTime to)
+    public async Task<Dictionary<int, CustomerHoursDto>> GetHoursByCustomerAsync(DateTime from, DateTime to, Guid? teamMemberId = null)
     {
-        var entries = await GetEntriesAsync(from, to, null, null);
+        var entries = await GetEntriesAsync(from, to, null, null, teamMemberId);
         var roundingMinutes = await GetRoundingMinutesAsync();
         return BuildCustomerAggregation(entries, roundingMinutes, _roundingService);
     }
@@ -34,9 +34,9 @@ public class DashboardService
     /// <summary>
     /// Returns aggregated hours for a single customer with project breakdown.
     /// </summary>
-    public async Task<CustomerHoursDto?> GetHoursByCustomerAndProjectAsync(int customerId, DateTime from, DateTime to)
+    public async Task<CustomerHoursDto?> GetHoursByCustomerAndProjectAsync(int customerId, DateTime from, DateTime to, Guid? teamMemberId = null)
     {
-        var entries = await GetEntriesAsync(from, to, new[] { customerId }, null);
+        var entries = await GetEntriesAsync(from, to, new[] { customerId }, null, teamMemberId);
         var roundingMinutes = await GetRoundingMinutesAsync();
         var aggregation = BuildCustomerAggregation(entries, roundingMinutes, _roundingService);
         return aggregation.TryGetValue(customerId, out var dto) ? dto : null;
@@ -45,9 +45,9 @@ public class DashboardService
     /// <summary>
     /// Returns the top customers by hours within a date range.
     /// </summary>
-    public async Task<List<CustomerHoursDto>> GetTopCustomersAsync(DateTime from, DateTime to, int limit = 5)
+    public async Task<List<CustomerHoursDto>> GetTopCustomersAsync(DateTime from, DateTime to, int limit = 5, Guid? teamMemberId = null)
     {
-        var aggregation = await GetHoursByCustomerAsync(from, to);
+        var aggregation = await GetHoursByCustomerAsync(from, to, teamMemberId);
         return aggregation.Values
             .OrderByDescending(c => c.TotalHours)
             .Take(limit)
@@ -61,7 +61,8 @@ public class DashboardService
         DateTime from,
         DateTime to,
         IEnumerable<int>? customerIds,
-        IEnumerable<int>? projectIds)
+        IEnumerable<int>? projectIds,
+        Guid? teamMemberId = null)
     {
         var (context, query) = await _timeEntryRepository.CreateQueryContextAsync();
         await using (context)
@@ -79,6 +80,11 @@ public class DashboardService
             if (projectIds != null && projectIds.Any())
             {
                 query = query.Where(e => e.ProjectId.HasValue && projectIds.Contains(e.ProjectId.Value));
+            }
+
+            if (teamMemberId.HasValue)
+            {
+                query = query.Where(e => e.TeamMemberId == teamMemberId.Value);
             }
 
             return await query.OrderBy(e => e.StartTime).ToListAsync();

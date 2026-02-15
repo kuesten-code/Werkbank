@@ -1,4 +1,4 @@
-﻿using System.Linq;
+using System.Linq;
 using Kuestencode.Rapport.Models;
 using Microsoft.EntityFrameworkCore;
 
@@ -15,26 +15,34 @@ public class TimeEntryRepository : Repository<TimeEntry>
     }
 
     /// <summary>
-    /// Returns the currently running entry, if any.
+    /// Returns the currently running entry for a specific user, if any.
     /// </summary>
-    public async Task<TimeEntry?> GetRunningEntryAsync()
+    public async Task<TimeEntry?> GetRunningEntryAsync(Guid? teamMemberId = null)
     {
         await using var context = await _contextFactory.CreateDbContextAsync();
-        return await context.Set<TimeEntry>()
-            .Where(e => e.Status == TimeEntryStatus.Running && e.EndTime == null)
-            .FirstOrDefaultAsync();
+        var query = context.Set<TimeEntry>()
+            .Where(e => e.Status == TimeEntryStatus.Running && e.EndTime == null);
+
+        if (teamMemberId.HasValue)
+            query = query.Where(e => e.TeamMemberId == teamMemberId.Value);
+
+        return await query.FirstOrDefaultAsync();
     }
 
     /// <summary>
-    /// Returns the currently running entry with customer data loaded.
+    /// Returns the currently running entry with customer data loaded for a specific user.
     /// </summary>
-    public async Task<TimeEntry?> GetRunningEntryWithCustomerAsync()
+    public async Task<TimeEntry?> GetRunningEntryWithCustomerAsync(Guid? teamMemberId = null)
     {
         await using var context = await _contextFactory.CreateDbContextAsync();
-        return await context.Set<TimeEntry>()
+        var query = context.Set<TimeEntry>()
             .Include(e => e.Customer)
-            .Where(e => e.Status == TimeEntryStatus.Running && e.EndTime == null)
-            .FirstOrDefaultAsync();
+            .Where(e => e.Status == TimeEntryStatus.Running && e.EndTime == null);
+
+        if (teamMemberId.HasValue)
+            query = query.Where(e => e.TeamMemberId == teamMemberId.Value);
+
+        return await query.FirstOrDefaultAsync();
     }
 
     /// <summary>
@@ -100,15 +108,20 @@ public class TimeEntryRepository : Repository<TimeEntry>
     }
 
     /// <summary>
-    /// Returns entries that overlap the given time range.
+    /// Returns entries that overlap the given time range for a specific user.
     /// </summary>
-    public async Task<List<TimeEntry>> GetOverlappingEntriesAsync(DateTime start, DateTime end, int? excludeId = null)
+    public async Task<List<TimeEntry>> GetOverlappingEntriesAsync(DateTime start, DateTime end, int? excludeId = null, Guid? teamMemberId = null)
     {
         await using var context = await _contextFactory.CreateDbContextAsync();
         var query = context.Set<TimeEntry>().Where(e => e.StartTime < end && (e.EndTime ?? DateTime.UtcNow) > start);
         if (excludeId.HasValue)
         {
             query = query.Where(e => e.Id != excludeId.Value);
+        }
+
+        if (teamMemberId.HasValue)
+        {
+            query = query.Where(e => e.TeamMemberId == teamMemberId.Value);
         }
 
         return await query.ToListAsync();

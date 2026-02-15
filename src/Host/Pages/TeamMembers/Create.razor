@@ -1,6 +1,7 @@
 @page "/team-members/create"
 @using Kuestencode.Werkbank.Host.Models
 @inject Kuestencode.Werkbank.Host.Services.ITeamMemberService TeamMemberService
+@inject Kuestencode.Werkbank.Host.Services.IInviteService InviteService
 @inject NavigationManager NavigationManager
 @inject ISnackbar Snackbar
 
@@ -25,12 +26,30 @@
                 </MudItem>
 
                 <MudItem xs="12">
-                    <MudTextField Label="Email (optional)" @bind-Value="_member.Email"
-                                 For="@(() => _member.Email)" InputType="InputType.Email" />
+                    <MudTextField Label="Email" @bind-Value="_member.Email"
+                                 For="@(() => _member.Email)" InputType="InputType.Email" Required="true" />
+                </MudItem>
+
+                <MudItem xs="12">
+                    <MudSelect T="UserRole" Label="Rolle" @bind-Value="_member.Role">
+                        <MudSelectItem T="UserRole" Value="UserRole.Admin">Admin</MudSelectItem>
+                        <MudSelectItem T="UserRole" Value="UserRole.Buero">Buero</MudSelectItem>
+                        <MudSelectItem T="UserRole" Value="UserRole.Mitarbeiter">Mitarbeiter</MudSelectItem>
+                    </MudSelect>
                 </MudItem>
 
                 <MudItem xs="12">
                     <MudCheckBox @bind-Value="_member.IsActive" Label="Aktiv" />
+                </MudItem>
+
+                <MudItem xs="12">
+                    <MudCheckBox @bind-Value="_sendInvite" Label="Einladung direkt senden" />
+                    @if (_sendInvite)
+                    {
+                        <MudText Typo="Typo.caption" Color="Color.Info" Class="mt-1">
+                            Benutzer erhaelt eine E-Mail mit Einladungslink.
+                        </MudText>
+                    }
                 </MudItem>
 
                 <MudItem xs="12" Class="d-flex justify-end gap-2">
@@ -55,8 +74,9 @@
 </MudContainer>
 
 @code {
-    private TeamMember _member = new();
+    private TeamMember _member = new TeamMember();
     private bool _saving;
+    private bool _sendInvite = true;
     private string? _errorMessage;
 
     private async Task HandleSubmit()
@@ -66,8 +86,25 @@
 
         try
         {
-            await TeamMemberService.CreateAsync(_member);
-            Snackbar.Add("Mitarbeiter wurde erstellt.", Severity.Success);
+            var created = await TeamMemberService.CreateAsync(_member);
+
+            if (_sendInvite && !string.IsNullOrWhiteSpace(created.Email))
+            {
+                try
+                {
+                    await InviteService.CreateInviteAsync(created.Id);
+                    Snackbar.Add("Mitarbeiter erstellt und Einladung gesendet.", Severity.Success);
+                }
+                catch (Exception ex)
+                {
+                    Snackbar.Add($"Mitarbeiter erstellt, aber Einladung fehlgeschlagen: {ex.Message}", Severity.Warning);
+                }
+            }
+            else
+            {
+                Snackbar.Add("Mitarbeiter wurde erstellt.", Severity.Success);
+            }
+
             NavigationManager.NavigateTo("/team-members");
         }
         catch (Exception ex)

@@ -111,7 +111,13 @@ public class HostNavigationService : IHostNavigationService
             Type = NavItemType.Link
         });
 
-
+        settingsByCategory[NavSettingsCategory.Allgemein].Add(new NavItemDto
+        {
+            Label = "Authentifizierung",
+            Href = "/settings/auth",
+            Icon = "",
+            Type = NavItemType.Link
+        });
 
         // Add Host email settings to "Versand"
         settingsByCategory[NavSettingsCategory.Versand].Add(new NavItemDto

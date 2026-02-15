@@ -1,6 +1,7 @@
 @page "/team-members/edit/{Id:guid}"
 @using Kuestencode.Werkbank.Host.Models
 @inject Kuestencode.Werkbank.Host.Services.ITeamMemberService TeamMemberService
+@inject Kuestencode.Werkbank.Host.Services.IInviteService InviteService
 @inject NavigationManager NavigationManager
 @inject ISnackbar Snackbar
 
@@ -39,13 +40,57 @@
                     </MudItem>
 
                     <MudItem xs="12">
-                        <MudTextField Label="Email (optional)" @bind-Value="_member.Email"
-                                     For="@(() => _member.Email)" InputType="InputType.Email" />
+                        <MudTextField Label="Email" @bind-Value="_member.Email"
+                                     For="@(() => _member.Email)" InputType="InputType.Email" Required="true" />
+                    </MudItem>
+
+                    <MudItem xs="12">
+                        <MudSelect T="UserRole" Label="Rolle" @bind-Value="_member.Role">
+                            <MudSelectItem T="UserRole" Value="UserRole.Admin">Admin</MudSelectItem>
+                            <MudSelectItem T="UserRole" Value="UserRole.Buero">Buero</MudSelectItem>
+                            <MudSelectItem T="UserRole" Value="UserRole.Mitarbeiter">Mitarbeiter</MudSelectItem>
+                        </MudSelect>
                     </MudItem>
 
                     <MudItem xs="12">
                         <MudCheckBox @bind-Value="_member.IsActive" Label="Aktiv" />
                     </MudItem>
+
+                    @if (_member.IsLockedByAdmin)
+                    {
+                        <MudItem xs="12">
+                            <MudAlert Severity="Severity.Warning" Class="mb-2">
+                                Dieser Account ist gesperrt.
+                            </MudAlert>
+                            <MudButton Variant="Variant.Outlined" Color="Color.Warning"
+                                      StartIcon="@Icons.Material.Filled.LockOpen"
+                                      OnClick="UnlockAccount">
+                                Account entsperren
+                            </MudButton>
+                        </MudItem>
+                    }
+
+                    @if (!string.IsNullOrEmpty(_member.Email))
+                    {
+                        <MudItem xs="12">
+                            <MudButton Variant="Variant.Outlined" Color="Color.Info"
+                                      StartIcon="@Icons.Material.Filled.Send"
+                                      OnClick="SendNewInvite" Disabled="@_sendingInvite">
+                                @if (_sendingInvite)
+                                {
+                                    <MudProgressCircular Class="ms-n1" Size="Size.Small" Indeterminate="true" />
+                                    <MudText Class="ms-2">Sendet...</MudText>
+                                }
+                                else
+                                {
+                                    <MudText>Neuen Einladungslink senden</MudText>
+                                }
+                            </MudButton>
+                            <MudText Typo="Typo.caption" Class="mt-1">
+                                Setzt das bisherige Passwort zurueck. Benutzer muss ein neues Passwort setzen.
+                            </MudText>
+                        </MudItem>
+                    }
 
                     <MudItem xs="12" Class="d-flex justify-end gap-2">
                         <MudButton Variant="Variant.Filled" Color="Color.Default"
@@ -74,6 +119,7 @@
 
     private bool _loading = true;
     private bool _saving;
+    private bool _sendingInvite;
     private string? _errorMessage;
     private TeamMember? _member;
 
@@ -120,6 +166,47 @@
         finally
         {
             _saving = false;
+        }
+    }
+
+    private async Task UnlockAccount()
+    {
+        if (_member == null) return;
+
+        _member.IsLockedByAdmin = false;
+        _member.FailedLoginAttempts = 0;
+        _member.LockoutUntil = null;
+
+        try
+        {
+            await TeamMemberService.UpdateAsync(_member);
+            Snackbar.Add("Account wurde entsperrt.", Severity.Success);
+            await LoadMember();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Fehler: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task SendNewInvite()
+    {
+        if (_member == null) return;
+
+        _sendingInvite = true;
+        try
+        {
+            await InviteService.CreateInviteAsync(_member.Id);
+            Snackbar.Add("Neuer Einladungslink wurde gesendet.", Severity.Success);
+            await LoadMember();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Fehler: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _sendingInvite = false;
         }
     }
 

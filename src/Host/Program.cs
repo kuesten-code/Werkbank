@@ -260,6 +260,9 @@ app.UseStaticFiles();
 
 app.UseRouting();
 
+// Auth Middleware
+app.UseMiddleware<Kuestencode.Werkbank.Host.Middleware.AuthMiddleware>();
+
 // Map Reverse Proxy for Faktura module (before other routes)
 app.MapReverseProxy();
 
