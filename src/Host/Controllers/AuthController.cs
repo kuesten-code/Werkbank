@@ -33,6 +33,16 @@ public class AuthController : ControllerBase
             });
         }
 
+        // Set cookie for cross-module authentication
+        Response.Cookies.Append("werkbank_auth_cookie", result.Token!, new CookieOptions
+        {
+            HttpOnly = true,
+            Secure = false, // Allow HTTP for development (Docker uses HTTP internally)
+            SameSite = SameSiteMode.Lax,
+            Path = "/",
+            Expires = DateTimeOffset.UtcNow.AddDays(7)
+        });
+
         return Ok(new
         {
             token = result.Token,
@@ -43,6 +53,18 @@ public class AuthController : ControllerBase
                 role = (int)result.User.Role
             }
         });
+    }
+
+    [HttpPost("logout")]
+    public IActionResult Logout()
+    {
+        // Delete cookie
+        Response.Cookies.Delete("werkbank_auth_cookie", new CookieOptions
+        {
+            Path = "/"
+        });
+
+        return Ok(new { message = "Logged out successfully" });
     }
 
     [HttpGet("me")]

@@ -1,0 +1,138 @@
+@inject Kuestencode.Werkbank.Host.Services.IMobileTokenService MobileTokenService
+
+<div class="mobile-pin-setup">
+    <h2>Willkommen!</h2>
+    <p>Wähle eine 4-stellige PIN für deinen Zugang.</p>
+
+    <div class="pin-display">
+        @for (int i = 0; i < 4; i++)
+        {
+            <div class="pin-dot @(_pin.Length > i ? "filled" : "")"></div>
+        }
+    </div>
+
+    @if (!string.IsNullOrEmpty(_error))
+    {
+        <div class="pin-error">@_error</div>
+    }
+
+    @if (!_confirmMode)
+    {
+        <p class="pin-hint">PIN eingeben</p>
+    }
+    else
+    {
+        <p class="pin-hint">PIN wiederholen</p>
+    }
+
+    <div class="pin-pad">
+        @foreach (var num in new[] { "1", "2", "3", "4", "5", "6", "7", "8", "9", "", "0", "←" })
+        {
+            @if (num == "")
+            {
+                <div class="pin-key empty"></div>
+            }
+            else if (num == "←")
+            {
+                <button class="pin-key delete" @onclick="DeleteDigit">
+                    ←
+                </button>
+            }
+            else
+            {
+                <button class="pin-key" @onclick="() => AddDigit(num)">@num</button>
+            }
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter] public string Token { get; set; } = string.Empty;
+    [Parameter] public EventCallback OnPinSet { get; set; }
+
+    private string _pin = "";
+    private string _firstPin = "";
+    private bool _confirmMode = false;
+    private string? _error;
+
+    private static readonly string[] ForbiddenPins = new[]
+    {
+        "0000", "1111", "2222", "3333", "4444",
+        "5555", "6666", "7777", "8888", "9999",
+        "1234", "4321", "0123", "3210"
+    };
+
+    private async Task AddDigit(string digit)
+    {
+        if (_pin.Length >= 4) return;
+
+        _error = null;
+        _pin += digit;
+
+        if (_pin.Length == 4)
+        {
+            await HandlePinComplete();
+        }
+    }
+
+    private void DeleteDigit()
+    {
+        if (_pin.Length > 0)
+        {
+            _pin = _pin.Substring(0, _pin.Length - 1);
+            _error = null;
+        }
+    }
+
+    private async Task HandlePinComplete()
+    {
+        if (!_confirmMode)
+        {
+            // Prüfe ob PIN zu einfach
+            if (ForbiddenPins.Contains(_pin))
+            {
+                _error = "PIN zu einfach. Wähle eine andere.";
+                _pin = "";
+                return;
+            }
+
+            _firstPin = _pin;
+            _pin = "";
+            _confirmMode = true;
+        }
+        else
+        {
+            // Bestätigung prüfen
+            if (_pin != _firstPin)
+            {
+                _error = "PINs stimmen nicht überein.";
+                _pin = "";
+                _firstPin = "";
+                _confirmMode = false;
+                return;
+            }
+
+            // PIN speichern
+            try
+            {
+                await MobileTokenService.SetPinAsync(Token, _pin);
+                await OnPinSet.InvokeAsync();
+            }
+            catch (InvalidOperationException ex)
+            {
+                _error = ex.Message;
+                _pin = "";
+                _firstPin = "";
+                _confirmMode = false;
+            }
+            catch (Exception ex)
+            {
+                _error = $"Fehler: {ex.Message}";
+                _pin = "";
+                _firstPin = "";
+                _confirmMode = false;
+            }
+        }
+    }
+
+}

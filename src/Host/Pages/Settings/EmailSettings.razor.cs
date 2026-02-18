@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.Linq;
@@ -62,12 +62,12 @@ public partial class EmailSettings
                 _hasStoredPassword = true;
                 _model.SmtpPassword = string.Empty;
             }
-            Snackbar.Add("Email Settings gespeichert", Severity.Success);
+            Snackbar.Add("E-Mail-Einstellungen gespeichert", Severity.Success);
         }
         catch (Exception ex)
         {
             _errorMessage = $"Fehler beim Speichern: {ex.Message}";
-            Snackbar.Add("Fehler beim Speichern der Email Settings", Severity.Error);
+            Snackbar.Add("Fehler beim Speichern der E-Mail-Einstellungen", Severity.Error);
         }
         finally
         {
@@ -83,11 +83,11 @@ public partial class EmailSettings
             _company = await CompanyService.GetCompanyAsync();
             _hasStoredPassword = !string.IsNullOrWhiteSpace(_company.SmtpPassword);
             _model = EmailSettingsModel.FromCompany(_company);
-            Snackbar.Add("Formular zurueckgesetzt", Severity.Info);
+            Snackbar.Add("Formular zurückgesetzt", Severity.Info);
         }
         catch (Exception ex)
         {
-            _errorMessage = $"Fehler beim Zuruecksetzen: {ex.Message}";
+            _errorMessage = $"Fehler beim Zurücksetzen: {ex.Message}";
         }
         finally
         {
@@ -165,8 +165,8 @@ public partial class EmailSettings
         [MaxLength(500)]
         public string SmtpPassword { get; set; } = string.Empty;
 
-        [Required(ErrorMessage = "Absender Email ist erforderlich")]
-        [EmailAddress(ErrorMessage = "Ungueltige Email-Adresse")]
+        [Required(ErrorMessage = "Absender-E-Mail ist erforderlich")]
+        [EmailAddress(ErrorMessage = "Ungültige E-Mail-Adresse")]
         [MaxLength(200)]
         public string SenderEmail { get; set; } = string.Empty;
 
@@ -192,3 +192,4 @@ public partial class EmailSettings
         }
     }
 }
+

@@ -1,17 +1,19 @@
-@page "/settings/auth"
+﻿@page "/settings/auth"
+@using Kuestencode.Shared.Contracts.Host
 @using Kuestencode.Werkbank.Host.Models
 @inject Kuestencode.Werkbank.Host.Services.IWerkbankSettingsService SettingsService
 @inject Kuestencode.Werkbank.Host.Services.ITeamMemberService TeamMemberService
 @inject Kuestencode.Core.Interfaces.ICompanyService CompanyService
 @inject ISnackbar Snackbar
 
-<PageTitle>Einstellungen | Authentifizierung - Kuestencode Werkbank</PageTitle>
+<PageTitle>Einstellungen | Authentifizierung - Küstencode Werkbank</PageTitle>
 
+<RoleGuard AllowedRoles="@(new List<UserRole> { UserRole.Admin })" RedirectTo="/rapport">
 <MudContainer MaxWidth="MaxWidth.Medium" Class="mt-4">
     <MudPaper Elevation="2" Class="pa-4">
         <MudText Typo="Typo.h4" GutterBottom="true">Einstellungen | Authentifizierung</MudText>
         <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">
-            Konfigurieren Sie die Benutzeranmeldung fuer die Werkbank.
+            Konfigurieren Sie die Benutzeranmeldung für die Werkbank.
         </MudText>
 
         @if (_loading)
@@ -28,7 +30,7 @@
             @if (_settings.AuthEnabled)
             {
                 <MudAlert Severity="Severity.Success" Class="mb-4">
-                    Authentifizierung ist aktiviert. Benutzer muessen sich anmelden.
+                    Authentifizierung ist aktiviert. Benutzer müssen sich anmelden.
                 </MudAlert>
             }
             else
@@ -44,7 +46,7 @@
                     <MudTextField Label="Basis-URL der Werkbank"
                                  @bind-Value="_settings.BaseUrl"
                                  Placeholder="https://werkbank.example.com"
-                                 HelperText="Wird fuer Einladungs- und Passwort-Reset-Links benoetigt. Muss mit http:// oder https:// beginnen."
+                                 HelperText="Wird für Einladungs- und Passwort-Reset-Links benötigt. Muss mit http:// oder https:// beginnen."
                                  Required="true" />
                 </MudItem>
             </MudGrid>
@@ -54,7 +56,7 @@
             @if (!_canEnableAuth && !_settings.AuthEnabled)
             {
                 <MudAlert Severity="Severity.Warning" Class="mb-4">
-                    Authentifizierung kann erst aktiviert werden, wenn folgende Voraussetzungen erfuellt sind:
+                    Authentifizierung kann erst aktiviert werden, wenn folgende Voraussetzungen erfüllt sind:
                 </MudAlert>
 
                 <MudList T="string" Dense="true" Class="mb-4">
@@ -91,8 +93,8 @@
             @if (_settings.AuthEnabled)
             {
                 <MudAlert Severity="Severity.Warning" Class="mt-4">
-                    <strong>Achtung:</strong> Wenn die Authentifizierung aktiviert ist, muessen sich alle Benutzer anmelden.
-                    Stellen Sie sicher, dass mindestens ein Admin-Benutzer Zugang hat, bevor Sie diese Einstellung aendern.
+                    <strong>Achtung:</strong> Wenn die Authentifizierung aktiviert ist, müssen sich alle Benutzer anmelden.
+                    Stellen Sie sicher, dass mindestens ein Admin-Benutzer Zugang hat, bevor Sie diese Einstellung ändern.
                 </MudAlert>
             }
 
@@ -113,6 +115,7 @@
         }
     </MudPaper>
 </MudContainer>
+</RoleGuard>
 
 @code {
     private WerkbankSettings _settings = new();
@@ -203,3 +206,4 @@
         }
     }
 }
+

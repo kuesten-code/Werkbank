@@ -16,10 +16,10 @@
     <link href="_content/MudBlazor/MudBlazor.min.css" rel="stylesheet" />
     <link href="_content/Kuestencode.Shared.UI/css/shared.css" rel="stylesheet" />
     <link href="css/site.css" rel="stylesheet" />
-    <component type="typeof(HeadOutlet)" render-mode="ServerPrerendered" />
+    <component type="typeof(HeadOutlet)" render-mode="Server" />
 </head>
 <body>
-    <component type="typeof(App)" render-mode="ServerPrerendered" />
+    <component type="typeof(App)" render-mode="Server" />
 
     <div id="blazor-error-ui">
         <environment include="Staging,Production">
@@ -35,6 +35,31 @@
     <script src="_framework/blazor.server.js"></script>
     <script src="_content/MudBlazor/MudBlazor.min.js"></script>
     <script>
+        window.werkbankAuth = {
+            login: async function (email, password) {
+                const response = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ email, password })
+                });
+
+                const raw = await response.text();
+                return JSON.stringify({
+                    ok: response.ok,
+                    status: response.status,
+                    payload: raw
+                });
+            },
+            logout: async function () {
+                await fetch('/api/auth/logout', {
+                    method: 'POST',
+                    credentials: 'include'
+                });
+                return true;
+            }
+        };
+
         function downloadFile(filename, base64Data) {
             const linkSource = `data:application/pdf;base64,${base64Data}`;
             const downloadLink = document.createElement("a");

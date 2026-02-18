@@ -40,6 +40,14 @@ public class TeamMember
     public DateTime? LockoutUntil { get; set; }
     public bool IsLockedByAdmin { get; set; } = false;
 
+    // Mobiler Schnellzugang (für Mitarbeiter-Zeiterfassung)
+    [MaxLength(20)]
+    public string? MobileToken { get; set; }                    // z.B. "a8f3x9k2m4"
+    public string? PinHash { get; set; }                        // 4-stellige PIN, gehashed
+    public bool MobilePinSet { get; set; } = false;             // PIN bereits gewählt?
+    public int MobilePinFailedAttempts { get; set; } = 0;       // Fehlversuche
+    public bool MobileTokenLocked { get; set; } = false;        // Nach 3 Fehlversuchen gesperrt
+
     // Computed
     public bool HasCompletedSetup => InviteAcceptedAt.HasValue;
 }

@@ -1,11 +1,14 @@
-@page "/team-members/edit/{Id:guid}"
+﻿@page "/team-members/edit/{Id:guid}"
 @using Kuestencode.Werkbank.Host.Models
 @inject Kuestencode.Werkbank.Host.Services.ITeamMemberService TeamMemberService
 @inject Kuestencode.Werkbank.Host.Services.IInviteService InviteService
+@inject Kuestencode.Werkbank.Host.Services.IMobileTokenService MobileTokenService
 @inject NavigationManager NavigationManager
 @inject ISnackbar Snackbar
+@inject IJSRuntime JSRuntime
+@inject Kuestencode.Werkbank.Host.Services.IWerkbankSettingsService WerkbankSettingsService
 
-<PageTitle>Mitarbeiter bearbeiten - Kuestencode Werkbank</PageTitle>
+<PageTitle>Mitarbeiter bearbeiten - Küstencode Werkbank</PageTitle>
 
 <MudContainer MaxWidth="MaxWidth.Medium" Class="mt-4">
     <MudPaper Class="pa-4">
@@ -20,7 +23,7 @@
             <MudAlert Severity="Severity.Error">Mitarbeiter nicht gefunden.</MudAlert>
             <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-4"
                       OnClick="Cancel">
-                Zurueck zur Liste
+                Zurück zur Liste
             </MudButton>
         }
         else
@@ -40,14 +43,14 @@
                     </MudItem>
 
                     <MudItem xs="12">
-                        <MudTextField Label="Email" @bind-Value="_member.Email"
+                        <MudTextField Label="E-Mail" @bind-Value="_member.Email"
                                      For="@(() => _member.Email)" InputType="InputType.Email" Required="true" />
                     </MudItem>
 
                     <MudItem xs="12">
                         <MudSelect T="UserRole" Label="Rolle" @bind-Value="_member.Role">
                             <MudSelectItem T="UserRole" Value="UserRole.Admin">Admin</MudSelectItem>
-                            <MudSelectItem T="UserRole" Value="UserRole.Buero">Buero</MudSelectItem>
+                            <MudSelectItem T="UserRole" Value="UserRole.Buero">Büro</MudSelectItem>
                             <MudSelectItem T="UserRole" Value="UserRole.Mitarbeiter">Mitarbeiter</MudSelectItem>
                         </MudSelect>
                     </MudItem>
@@ -87,8 +90,82 @@
                                 }
                             </MudButton>
                             <MudText Typo="Typo.caption" Class="mt-1">
-                                Setzt das bisherige Passwort zurueck. Benutzer muss ein neues Passwort setzen.
+                                Setzt das bisherige Passwort zurück. Benutzer muss ein neues Passwort setzen.
                             </MudText>
+                        </MudItem>
+                    }
+
+                    @* Mobiler Zugang (nur für Mitarbeiter) *@
+                    @if (_member.Role == UserRole.Mitarbeiter)
+                    {
+                        <MudItem xs="12">
+                            <MudDivider Class="my-4" />
+                            <MudText Typo="Typo.h6" Class="mb-3">Mobiler Zugang</MudText>
+
+                            @if (string.IsNullOrEmpty(_member.MobileToken))
+                            {
+                                <MudText Typo="Typo.body2" Class="mb-2">
+                                    Kein mobiler Zugang eingerichtet. Ermöglicht die Zeiterfassung über das Handy mit PIN-Zugang.
+                                </MudText>
+                                <MudButton Variant="Variant.Outlined" Color="Color.Secondary"
+                                          StartIcon="@Icons.Material.Filled.PhoneAndroid"
+                                          OnClick="CreateMobileAccess">
+                                    Mobilen Zugang erstellen
+                                </MudButton>
+                            }
+                            else
+                            {
+                                <MudPaper Class="pa-3" Elevation="0" Style="background-color: var(--mud-palette-background-grey);">
+                                    <MudStack Spacing="2">
+                                        <div>
+                                            <MudText Typo="Typo.body2" Class="mb-1"><strong>Zugangslink:</strong></MudText>
+                                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                                                <code style="flex: 1; padding: 0.5rem; background: white; border-radius: 4px;">
+                                                    @_mobileUrl
+                                                </code>
+                                                <MudTooltip Text="Link kopieren">
+                                                    <MudIconButton Icon="@Icons.Material.Filled.ContentCopy"
+                                                                  Color="Color.Primary"
+                                                                  OnClick="CopyMobileLink" />
+                                                </MudTooltip>
+                                            </MudStack>
+                                        </div>
+
+                                        <MudStack Row="true" Spacing="3">
+                                            <MudChip T="string" Size="Size.Small" Color="@(_member.MobilePinSet ? Color.Success : Color.Default)">
+                                                PIN: @(_member.MobilePinSet ? "Gesetzt" : "Nicht gesetzt")
+                                            </MudChip>
+                                            @if (_member.MobileTokenLocked)
+                                            {
+                                                <MudChip T="string" Size="Size.Small" Color="Color.Error">
+                                                    Gesperrt
+                                                </MudChip>
+                                            }
+                                        </MudStack>
+
+                                        <MudStack Row="true" Spacing="2" Class="mt-2">
+                                            @if (_member.MobileTokenLocked)
+                                            {
+                                                <MudButton Variant="Variant.Text" Color="Color.Warning"
+                                                          Size="Size.Small"
+                                                          StartIcon="@Icons.Material.Filled.LockOpen"
+                                                          OnClick="UnlockMobileAccess">
+                                                    Entsperren
+                                                </MudButton>
+                                            }
+                                            <MudButton Variant="Variant.Text" Color="Color.Secondary"
+                                                      Size="Size.Small"
+                                                      StartIcon="@Icons.Material.Filled.Refresh"
+                                                      OnClick="ResetMobileAccess">
+                                                Neuen Link generieren
+                                            </MudButton>
+                                        </MudStack>
+                                    </MudStack>
+                                </MudPaper>
+                                <MudText Typo="Typo.caption" Class="mt-2">
+                                    Der Mitarbeiter kann mit diesem Link über das Handy seine Arbeitszeiten erfassen.
+                                </MudText>
+                            }
                         </MudItem>
                     }
 
@@ -122,6 +199,7 @@
     private bool _sendingInvite;
     private string? _errorMessage;
     private TeamMember? _member;
+    private string _mobileUrl = "";
 
     protected override async Task OnInitializedAsync()
     {
@@ -134,6 +212,7 @@
         try
         {
             _member = await TeamMemberService.GetByIdAsync(Id);
+            await UpdateMobileUrl();
         }
         catch (Exception ex)
         {
@@ -143,6 +222,19 @@
         {
             _loading = false;
         }
+    }
+
+    private async Task UpdateMobileUrl()
+    {
+        if (_member == null || string.IsNullOrEmpty(_member.MobileToken))
+        {
+            _mobileUrl = "";
+            return;
+        }
+
+        var settings = await WerkbankSettingsService.GetSettingsAsync();
+        var baseUrl = !string.IsNullOrWhiteSpace(settings.BaseUrl) ? settings.BaseUrl.TrimEnd('/') : "http://localhost:8080";
+        _mobileUrl = $"{baseUrl}/m/{_member.MobileToken}";
     }
 
     private async Task HandleSubmit()
@@ -214,4 +306,68 @@
     {
         NavigationManager.NavigateTo("/team-members");
     }
+
+    // Mobile Access Methods
+
+    private async Task CreateMobileAccess()
+    {
+        if (_member == null) return;
+
+        try
+        {
+            var token = await MobileTokenService.CreateMobileAccessAsync(_member.Id);
+            Snackbar.Add("Mobiler Zugang wurde erstellt.", Severity.Success);
+            await LoadMember();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Fehler: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task ResetMobileAccess()
+    {
+        if (_member == null) return;
+
+        try
+        {
+            await MobileTokenService.ResetMobileAccessAsync(_member.Id);
+            Snackbar.Add("Neuer Zugangslink wurde generiert. Alte PIN wurde gelöscht.", Severity.Warning);
+            await LoadMember();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Fehler: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task UnlockMobileAccess()
+    {
+        if (_member == null) return;
+
+        try
+        {
+            await MobileTokenService.UnlockMobileAccessAsync(_member.Id);
+            Snackbar.Add("Mobiler Zugang wurde entsperrt.", Severity.Success);
+            await LoadMember();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Fehler: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task CopyMobileLink()
+    {
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("navigator.clipboard.writeText", _mobileUrl);
+            Snackbar.Add("Link wurde kopiert.", Severity.Success);
+        }
+        catch
+        {
+            Snackbar.Add("Fehler beim Kopieren.", Severity.Error);
+        }
+    }
 }
+

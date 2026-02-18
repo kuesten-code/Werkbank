@@ -1,0 +1,47 @@
+/* Auth Pages Styling (Login, Register, Forgot Password, etc.) */
+
+.auth-container {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #2C4356 0%, #2BA9A0 100%);
+    padding: 20px;
+}
+
+.auth-card {
+    max-width: 400px;
+    width: 100%;
+    margin: 0 auto;
+}
+
+/* Mobile optimizations */
+@media (max-width: 600px) {
+    .auth-card {
+        max-width: 100%;
+        padding: 24px !important;
+    }
+
+    .auth-container {
+        padding: 10px;
+    }
+
+    /* Larger touch targets on mobile */
+    .auth-card .mud-button {
+        min-height: 48px;
+    }
+
+    .auth-card .mud-input {
+        font-size: 16px; /* Prevents zoom on iOS */
+    }
+}
+
+/* Focus styles for accessibility */
+.auth-card .mud-input-root:focus-within {
+    box-shadow: 0 0 0 2px rgba(43, 169, 160, 0.3);
+}
+
+/* Loading state */
+.auth-card .mud-button-root:disabled {
+    opacity: 0.6;
+}

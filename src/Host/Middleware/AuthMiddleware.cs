@@ -18,7 +18,17 @@ public class AuthMiddleware
     {
         "/api/auth/login",
         "/api/auth/forgot-password",
-        "/api/auth/reset-password"
+        "/api/auth/reset-password",
+        "/api/modules/register",
+        "/api/modules/health",
+        "/api/setup/required",
+        "/api/setup/complete"
+    };
+
+    private static readonly string[] PublicPathPrefixes = new[]
+    {
+        "/api/mobile/",  // Mobile API (Token-Status, PIN setzen/prüfen)
+        "/m/"            // Mobile Blazor-Seiten
     };
 
     public AuthMiddleware(RequestDelegate next, IConfiguration configuration, ILogger<AuthMiddleware> logger)
@@ -60,13 +70,28 @@ public class AuthMiddleware
             return;
         }
 
-        // Auth aktiviert: JWT prüfen
         var token = ExtractToken(context);
+
+        // Interne Modul-Kommunikation ohne User-Token durchlassen (z.B. Health/technische Calls).
+        // Wenn ein Token vorhanden ist, wird IMMER validiert.
+        var isInternal = IsInternalModuleRequest(context);
+        if (isInternal && string.IsNullOrEmpty(token))
+        {
+            _logger.LogDebug("AuthMiddleware: Internal request without token bypassed auth. Path={Path}", path);
+            await _next(context);
+            return;
+        }
+
+        // Auth aktiviert: JWT prüfen
         if (string.IsNullOrEmpty(token))
         {
             // API-Requests bekommen 401
             if (path.StartsWith("/api/", StringComparison.OrdinalIgnoreCase))
             {
+                var remoteIp = context.Connection.RemoteIpAddress;
+                var hostHeader = context.Request.Host.Host;
+                _logger.LogWarning("AuthMiddleware: 401 no token. Path={Path}, RemoteIP={RemoteIP}, Host={Host}",
+                    path, remoteIp, hostHeader);
                 context.Response.StatusCode = 401;
                 return;
             }
@@ -79,6 +104,7 @@ public class AuthMiddleware
         var principal = ValidateToken(token);
         if (principal == null)
         {
+            // Ungültiger Token: API-Requests bekommen 401
             if (path.StartsWith("/api/", StringComparison.OrdinalIgnoreCase))
             {
                 context.Response.StatusCode = 401;
@@ -89,6 +115,7 @@ public class AuthMiddleware
             return;
         }
 
+        // Gültiger Token: User-Context setzen
         context.User = principal;
         await _next(context);
     }
@@ -104,6 +131,12 @@ public class AuthMiddleware
             path.StartsWith("/css", StringComparison.OrdinalIgnoreCase) ||
             path.StartsWith("/company/logos", StringComparison.OrdinalIgnoreCase) ||
             path.Contains('.'))
+        {
+            return true;
+        }
+
+        // Public Path Prefixes (z.B. /api/mobile/, /m/)
+        if (PublicPathPrefixes.Any(prefix => path.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)))
         {
             return true;
         }
@@ -126,12 +159,58 @@ public class AuthMiddleware
         return false;
     }
 
+    private bool IsInternalModuleRequest(HttpContext context)
+    {
+        // Requests von internen Modulen durchlassen (nicht vom Browser)
+        // Module kommunizieren direkt über Docker-Netzwerk (host:8080)
+        // Browser-Requests kommen über den externen Port (localhost:8080)
+        var host = context.Request.Host.Host;
+
+        // Docker-interne Requests: Hostname ist "host" (Docker-Service-Name) statt "localhost"
+        if (string.Equals(host, "host", StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        // Also check for other Docker service names (faktura, rapport, etc.)
+        var knownServiceNames = new[] { "faktura", "rapport", "offerte", "acta", "recepta", "postgres" };
+        if (knownServiceNames.Any(name => string.Equals(host, name, StringComparison.OrdinalIgnoreCase)))
+            return true;
+
+        // Check remote IP — handle both IPv4 and IPv6-mapped IPv4 (::ffff:172.x.x.x)
+        var remoteIp = context.Connection.RemoteIpAddress;
+        if (remoteIp != null)
+        {
+            // Normalize IPv6-mapped IPv4 to plain IPv4
+            var ip = remoteIp.IsIPv4MappedToIPv6
+                ? remoteIp.MapToIPv4().ToString()
+                : remoteIp.ToString();
+
+            if (ip.StartsWith("172.") || ip.StartsWith("10.") || ip.StartsWith("192.168."))
+                return true;
+
+            // Also check for IPv6 link-local (fe80::) and unique-local (fd/fc)
+            if (ip.StartsWith("fe80:") || ip.StartsWith("fd") || ip.StartsWith("fc"))
+                return true;
+        }
+
+        var path = context.Request.Path.Value;
+        _logger.LogDebug("AuthMiddleware: IsInternalModuleRequest=false. Path={Path}, Host={Host}, RemoteIP={RemoteIP}",
+            path, host, remoteIp);
+        return false;
+    }
+
     private static string? ExtractToken(HttpContext context)
     {
+        // First try Authorization header
         var authHeader = context.Request.Headers.Authorization.FirstOrDefault();
         if (!string.IsNullOrEmpty(authHeader) && authHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
         {
             return authHeader["Bearer ".Length..].Trim();
+        }
+
+        // Fallback to cookie
+        if (context.Request.Cookies.TryGetValue("werkbank_auth_cookie", out var cookieToken))
+        {
+            return cookieToken;
         }
 
         return null;

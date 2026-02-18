@@ -1,10 +1,13 @@
-﻿@page "/time-entries"
+﻿@using Kuestencode.Shared.Contracts.Host
+@page "/time-entries"
 @inject TimeEntryService TimeEntryService
 @inject ICustomerService CustomerService
 @inject IProjectService ProjectService
 @inject IDialogService DialogService
 @inject ISnackbar Snackbar
 @inject NavigationManager NavigationManager
+@inject IUserContextService UserContextService
+@inject TeamMemberCacheService TeamMemberCacheService
 
 <PageTitle>Zeiteinträge - Küstencode Rapport</PageTitle>
 
@@ -22,6 +25,17 @@
         <MudItem xs="12" md="3">
             <MudDatePicker Label="Bis" @bind-Date="_toDate" Variant="Variant.Outlined" />
         </MudItem>
+        @if (_isAdminOrBuero)
+        {
+            <MudItem xs="12" md="3">
+                <MudSelect T="Guid?" Label="Mitarbeiter" @bind-Value="_selectedTeamMemberId" Variant="Variant.Outlined" Clearable="true">
+                    @foreach (var member in _teamMembers)
+                    {
+                        <MudSelectItem T="Guid?" Value="@member.Id">@member.DisplayName</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+        }
         <MudItem xs="12" md="3">
             <MudSelect T="Customer" Label="Kunden" Variant="Variant.Outlined" MultiSelection="true"
                        SelectedValues="_selectedCustomers"
@@ -56,40 +70,72 @@
     </MudGrid>
 </MudPaper>
 
-<MudTable Items="_entries" Hover="true">
+<MudTable Items="_entries" Hover="true" Dense="@_isMobile">
     <HeaderContent>
         <MudTh>Datum</MudTh>
-        <MudTh>Zeit</MudTh>
+        @if (!_isMobile)
+        {
+            <MudTh>Zeit</MudTh>
+        }
         <MudTh>Kunde</MudTh>
-        <MudTh>Projekt</MudTh>
+        @if (!_isMobile)
+        {
+            <MudTh>Projekt</MudTh>
+        }
         <MudTh>Dauer</MudTh>
-        <MudTh>Typ</MudTh>
+        @if (_isAdminOrBuero)
+        {
+            <MudTh>Mitarbeiter</MudTh>
+        }
+        @if (!_isMobile)
+        {
+            <MudTh>Typ</MudTh>
+        }
         <MudTh>Aktionen</MudTh>
     </HeaderContent>
     <RowTemplate>
-        <MudTd>@context.StartTime.ToLocalTime().ToString("dd.MM.yyyy")</MudTd>
-        <MudTd>
-            @context.StartTime.ToLocalTime().ToString("HH:mm") -
-            @(context.EndTime?.ToLocalTime().ToString("HH:mm") ?? "...")
-        </MudTd>
-        <MudTd>@(context.CustomerName ?? "—")</MudTd>
-        <MudTd>@(string.IsNullOrWhiteSpace(context.ProjectName) ? "—" : context.ProjectName)</MudTd>
-        <MudTd>@FormatDuration(context.Duration)</MudTd>
-        <MudTd>
-            @if (context.IsManual || context.Status == TimeEntryStatus.Manual)
+        <MudTd DataLabel="Datum">@context.StartTime.ToLocalTime().ToString("dd.MM.yyyy")</MudTd>
+        @if (!_isMobile)
+        {
+            <MudTd DataLabel="Zeit">
+                @context.StartTime.ToLocalTime().ToString("HH:mm") -
+                @(context.EndTime?.ToLocalTime().ToString("HH:mm") ?? "...")
+            </MudTd>
+        }
+        <MudTd DataLabel="Kunde">
+            @(context.CustomerName ?? "—")
+            @if (_isMobile && !string.IsNullOrWhiteSpace(context.ProjectName))
             {
-                <MudIcon Icon="@Icons.Material.Filled.Edit" Size="Size.Small" />
-                <span class="ml-1">Manuell</span>
-            }
-            else
-            {
-                <MudIcon Icon="@Icons.Material.Filled.Timer" Size="Size.Small" />
-                <span class="ml-1">Timer</span>
+                <br/><small>@context.ProjectName</small>
             }
         </MudTd>
-        <MudTd>
-            <MudIconButton Icon="@Icons.Material.Filled.Edit" OnClick="@(() => EditEntry(context.Id))" />
-            <MudIconButton Icon="@Icons.Material.Filled.Delete" OnClick="@(() => DeleteEntryAsync(context.Id))" />
+        @if (!_isMobile)
+        {
+            <MudTd DataLabel="Projekt">@(string.IsNullOrWhiteSpace(context.ProjectName) ? "—" : context.ProjectName)</MudTd>
+        }
+        <MudTd DataLabel="Dauer">@FormatDuration(context.Duration)</MudTd>
+        @if (_isAdminOrBuero)
+        {
+            <MudTd DataLabel="Mitarbeiter">@(context.TeamMemberName ?? "—")</MudTd>
+        }
+        @if (!_isMobile)
+        {
+            <MudTd DataLabel="Typ">
+                @if (context.IsManual || context.Status == TimeEntryStatus.Manual)
+                {
+                    <MudIcon Icon="@Icons.Material.Filled.Edit" Size="Size.Small" />
+                    <span class="ml-1">Manuell</span>
+                }
+                else
+                {
+                    <MudIcon Icon="@Icons.Material.Filled.Timer" Size="Size.Small" />
+                    <span class="ml-1">Timer</span>
+                }
+            </MudTd>
+        }
+        <MudTd DataLabel="Aktionen">
+            <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="@(_isMobile ? Size.Small : Size.Medium)" OnClick="@(() => EditEntry(context.Id))" />
+            <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="@(_isMobile ? Size.Small : Size.Medium)" OnClick="@(() => DeleteEntryAsync(context.Id))" />
         </MudTd>
     </RowTemplate>
 </MudTable>
@@ -106,6 +152,10 @@
     private string _typeFilter = "Alle";
     private bool _projectsAvailable;
     private bool _onlyWithoutProject;
+    private bool _isAdminOrBuero;
+    private List<TeamMemberDto> _teamMembers = new();
+    private Guid? _selectedTeamMemberId;
+    private bool _isMobile;
 
     protected override async Task OnInitializedAsync()
     {
@@ -116,6 +166,15 @@
             _allProjects = (await ProjectService.GetAllProjectsAsync()).ToList();
             UpdateProjectOptions();
         }
+
+        _isAdminOrBuero = await UserContextService.IsAdminOrBueroAsync();
+        if (_isAdminOrBuero)
+        {
+            _teamMembers = await TeamMemberCacheService.GetActiveTeamMembersAsync();
+        }
+
+        // Check if mobile (simple heuristic)
+        _isMobile = false; // TODO: Could use JS interop to detect screen size
 
         await LoadEntriesAsync();
     }
@@ -133,7 +192,9 @@
         var projectIds = _selectedProjects.Select(p => p.Id).ToList();
         var onlyWithoutProject = _onlyWithoutProject ? true : (bool?)null;
 
-        _entries = await TimeEntryService.GetEntriesAsync(_fromDate, _toDate, customerIds, projectIds, manualOnly, onlyWithoutProject);
+        // Mitarbeiter: Nur eigene Einträge sehen (wird vom Service automatisch gefiltert)
+        // Admin/Büro: Können nach Mitarbeiter filtern oder alle sehen
+        _entries = await TimeEntryService.GetEntriesAsync(_fromDate, _toDate, customerIds, projectIds, manualOnly, onlyWithoutProject, _selectedTeamMemberId);
     }
 
     private async Task DeleteEntryAsync(int id)
@@ -177,6 +238,7 @@
         _toDate = null;
         _selectedCustomers.Clear();
         _selectedProjects.Clear();
+        _selectedTeamMemberId = null;
         _onlyWithoutProject = false;
         _typeFilter = "Alle";
         UpdateProjectOptions();

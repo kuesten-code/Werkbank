@@ -1,0 +1,80 @@
+@page "/m/{Token}"
+@layout MobileLayout
+@attribute [Microsoft.AspNetCore.Authorization.AllowAnonymous]
+@inject NavigationManager NavigationManager
+@inject Kuestencode.Werkbank.Host.Services.IMobileTokenService MobileTokenService
+
+<PageTitle>Mobiler Zugang - Küstencode Werkbank</PageTitle>
+
+<link rel="stylesheet" href="/css/mobile.css" />
+
+@if (_isLoading)
+{
+    <div class="mobile-loading">
+        <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+    </div>
+}
+else if (!_tokenValid)
+{
+    <div class="mobile-error">
+        <MudIcon Icon="@Icons.Material.Filled.ErrorOutline" Style="font-size: 4rem;" Color="Color.Secondary" />
+        <h2>Ungültiger Link</h2>
+        <p>Dieser Zugangslink ist ungültig oder abgelaufen. Bitte wende dich an deinen Administrator.</p>
+    </div>
+}
+else if (_isLocked)
+{
+    <MobileLocked />
+}
+else if (!_pinSet)
+{
+    <MobileSetPin Token="@Token" OnPinSet="OnPinSet" />
+}
+else
+{
+    <MobileEnterPin Token="@Token" UserName="@_userName" OnSuccess="OnPinVerified" />
+}
+
+@code {
+    [Parameter] public string Token { get; set; } = string.Empty;
+
+    private bool _isLoading = true;
+    private bool _tokenValid;
+    private bool _pinSet;
+    private bool _isLocked;
+    private string _userName = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var member = await MobileTokenService.ValidateTokenAsync(Token);
+            if (member != null)
+            {
+                _tokenValid = true;
+                _pinSet = member.MobilePinSet;
+                _isLocked = member.MobileTokenLocked;
+                _userName = member.DisplayName ?? "";
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading mobile token status: {ex.Message}");
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private void OnPinSet()
+    {
+        _pinSet = true;
+    }
+
+    private void OnPinVerified()
+    {
+        NavigationManager.NavigateTo($"/m/{Token}/rapport");
+    }
+
+}

@@ -1,10 +1,13 @@
+using Kuestencode.Shared.Contracts.Host;
 using Kuestencode.Shared.Contracts.Navigation;
+using Kuestencode.Shared.UI.Services;
 
 namespace Kuestencode.Werkbank.Host.Services;
 
 public interface IHostNavigationService
 {
     List<NavItemDto> GetNavigationItems();
+    List<NavItemDto> GetVisibleNavigationItems(UserRole currentUserRole, bool authEnabled);
 }
 
 public class HostNavigationService : IHostNavigationService
@@ -26,20 +29,23 @@ public class HostNavigationService : IHostNavigationService
                 Href = "/",
                 Icon = "/company/logos/Werkbank_Logo.png",
                 Type = NavItemType.Link
+                // No AllowedRoles = accessible for all
             },
             new NavItemDto
             {
                 Label = "Kunden",
                 Href = "/customers",
                 Icon = "",
-                Type = NavItemType.Link
+                Type = NavItemType.Link,
+                AllowedRoles = new List<UserRole> { UserRole.Buero, UserRole.Admin }
             },
             new NavItemDto
             {
                 Label = "Mitarbeiter",
                 Href = "/team-members",
                 Icon = "",
-                Type = NavItemType.Link
+                Type = NavItemType.Link,
+                AllowedRoles = new List<UserRole> { UserRole.Admin }
             }
         };
 
@@ -90,6 +96,18 @@ public class HostNavigationService : IHostNavigationService
         return items;
     }
 
+    public List<NavItemDto> GetVisibleNavigationItems(UserRole currentUserRole, bool authEnabled)
+    {
+        var allItems = GetNavigationItems();
+
+        if (!authEnabled)
+        {
+            return allItems;
+        }
+
+        return NavigationFilterService.FilterNavigationByRole(allItems, currentUserRole);
+    }
+
     private static NavItemDto BuildSettingsGroup(List<NavItemDto> moduleSettingsItems)
     {
         // Group settings by category
@@ -102,13 +120,14 @@ public class HostNavigationService : IHostNavigationService
             { NavSettingsCategory.Abrechnung, new List<NavItemDto>() }
         };
 
-        // Add Host settings to "Allgemein"
+        // Add Host settings to "Allgemein" - nur Admin
         settingsByCategory[NavSettingsCategory.Allgemein].Add(new NavItemDto
         {
             Label = "Firmendaten",
             Href = "/settings/company",
             Icon = "",
-            Type = NavItemType.Link
+            Type = NavItemType.Link,
+            AllowedRoles = new List<UserRole> { UserRole.Admin }
         });
 
         settingsByCategory[NavSettingsCategory.Allgemein].Add(new NavItemDto
@@ -116,16 +135,18 @@ public class HostNavigationService : IHostNavigationService
             Label = "Authentifizierung",
             Href = "/settings/auth",
             Icon = "",
-            Type = NavItemType.Link
+            Type = NavItemType.Link,
+            AllowedRoles = new List<UserRole> { UserRole.Admin }
         });
 
-        // Add Host email settings to "Versand"
+        // Add Host email settings to "Versand" - nur Admin
         settingsByCategory[NavSettingsCategory.Versand].Add(new NavItemDto
         {
             Label = "SMTP-Server",
             Href = "/settings/email",
             Icon = "",
-            Type = NavItemType.Link
+            Type = NavItemType.Link,
+            AllowedRoles = new List<UserRole> { UserRole.Admin }
         });
 
         // Distribute module settings by category
@@ -135,18 +156,19 @@ public class HostNavigationService : IHostNavigationService
 
             if (!string.IsNullOrEmpty(moduleSettings.Href))
             {
-                // Direct link
+                // Direct link - preserve AllowedRoles
                 settingsByCategory[category].Add(new NavItemDto
                 {
                     Label = moduleSettings.Label,
                     Href = moduleSettings.Href,
                     Icon = moduleSettings.Icon,
-                    Type = NavItemType.Link
+                    Type = NavItemType.Link,
+                    AllowedRoles = moduleSettings.AllowedRoles
                 });
             }
             else if (moduleSettings.Children.Count > 0)
             {
-                // Multiple children - add them all to the category
+                // Multiple children - add them all to the category (they already have AllowedRoles)
                 settingsByCategory[category].AddRange(moduleSettings.Children);
             }
         }
@@ -175,7 +197,8 @@ public class HostNavigationService : IHostNavigationService
                     Label = categoryLabels[category],
                     Href = items[0].Href,
                     Icon = "",
-                    Type = NavItemType.Link
+                    Type = NavItemType.Link,
+                    AllowedRoles = items[0].AllowedRoles
                 });
             }
             else
@@ -195,7 +218,8 @@ public class HostNavigationService : IHostNavigationService
             Label = "Einstellungen",
             Icon = "",
             Type = NavItemType.Group,
-            Children = settingsChildren
+            Children = settingsChildren,
+            AllowedRoles = new List<UserRole> { UserRole.Admin }
         };
     }
 

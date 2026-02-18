@@ -1,5 +1,9 @@
-@inherits LayoutComponentBase
+﻿@inherits LayoutComponentBase
 @inject IJSRuntime JSRuntime
+@inject AuthenticationStateProvider AuthStateProvider
+@inject NavigationManager NavigationManager
+@using Kuestencode.Werkbank.Host.Auth
+@implements IDisposable
 
 <MudThemeProvider @ref="_themeProvider" Theme="@_theme" IsDarkMode="@_isDarkMode" />
 <MudPopoverProvider />
@@ -18,6 +22,14 @@
                           Color="Color.Inherit"
                           OnClick="@ToggleDarkMode" />
         </MudTooltip>
+        @if (_authEnabled)
+        {
+            <MudTooltip Text="Abmelden">
+                <MudIconButton Icon="@Icons.Material.Filled.Logout"
+                              Color="Color.Inherit"
+                              OnClick="@HandleLogout" />
+            </MudTooltip>
+        }
     </MudAppBar>
     <MudDrawer @bind-Open="_drawerOpen" ClipMode="DrawerClipMode.Always" Elevation="2">
         <NavMenu />
@@ -32,8 +44,16 @@
 @code {
     private bool _drawerOpen = true;
     private bool _isDarkMode = false;
+    private bool _authEnabled = false;
     private MudBlazor.MudTheme _theme = KuestenCodeTheme.Theme;
     private MudThemeProvider? _themeProvider;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Subscribe to authentication state changes
+        AuthStateProvider.AuthenticationStateChanged += OnAuthenticationStateChanged;
+        await CheckAuthStatus();
+    }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -49,6 +69,28 @@
         }
     }
 
+    private async void OnAuthenticationStateChanged(Task<AuthenticationState> task)
+    {
+        await CheckAuthStatus();
+    }
+
+    private async Task CheckAuthStatus()
+    {
+        try
+        {
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            var user = authState.User;
+
+            // If NoAuth, authentication is disabled
+            _authEnabled = user.Identity?.AuthenticationType != "NoAuth" && user.Identity?.IsAuthenticated == true;
+            StateHasChanged();
+        }
+        catch
+        {
+            _authEnabled = false;
+        }
+    }
+
     void DrawerToggle()
     {
         _drawerOpen = !_drawerOpen;
@@ -61,4 +103,29 @@
         // Speichere Präferenz in localStorage
         await JSRuntime.InvokeVoidAsync("localStorage.setItem", "darkMode", _isDarkMode.ToString());
     }
+
+    async Task HandleLogout()
+    {
+        try
+        {
+            await JSRuntime.InvokeAsync<bool>("werkbankAuth.logout");
+        }
+        catch
+        {
+            // Ignore errors and continue with local logout state.
+        }
+
+        if (AuthStateProvider is WerkbankAuthStateProvider werkbankAuth)
+        {
+            await werkbankAuth.LogoutAsync();
+        }
+
+        NavigationManager.NavigateTo("/login", forceLoad: true);
+    }
+
+    public void Dispose()
+    {
+        AuthStateProvider.AuthenticationStateChanged -= OnAuthenticationStateChanged;
+    }
 }
+

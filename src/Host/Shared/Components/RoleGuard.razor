@@ -1,0 +1,81 @@
+@using System.Security.Claims
+@using Kuestencode.Shared.Contracts.Host
+@inject AuthenticationStateProvider AuthStateProvider
+@inject NavigationManager NavigationManager
+
+@if (_isAuthorized)
+{
+    @ChildContent
+}
+else if (_isLoading)
+{
+    <MudProgressLinear Indeterminate="true" />
+}
+else
+{
+    <MudAlert Severity="Severity.Warning" Class="mt-4">
+        <MudText>Sie haben keine Berechtigung, diese Seite zu sehen.</MudText>
+        <MudButton Href="/rapport" Variant="Variant.Text" Color="Color.Primary" Class="mt-2">
+            Zurück zu Rapport
+        </MudButton>
+    </MudAlert>
+}
+
+@code {
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+
+    [Parameter]
+    public List<UserRole>? AllowedRoles { get; set; }
+
+    [Parameter]
+    public string? RedirectTo { get; set; }
+
+    private bool _isAuthorized = false;
+    private bool _isLoading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+
+        // If no authentication (NoAuth mode), allow all
+        if (user.Identity?.AuthenticationType == "NoAuth")
+        {
+            _isAuthorized = true;
+            _isLoading = false;
+            return;
+        }
+
+        // Check if user is authenticated
+        if (user.Identity?.IsAuthenticated != true)
+        {
+            _isAuthorized = false;
+            _isLoading = false;
+            return;
+        }
+
+        // If no AllowedRoles specified, allow all authenticated users
+        if (AllowedRoles == null || AllowedRoles.Count == 0)
+        {
+            _isAuthorized = true;
+            _isLoading = false;
+            return;
+        }
+
+        // Check user role
+        var roleClaim = user.FindFirstValue(ClaimTypes.Role);
+        if (!string.IsNullOrEmpty(roleClaim) && Enum.TryParse<UserRole>(roleClaim, out var role))
+        {
+            _isAuthorized = AllowedRoles.Contains(role);
+        }
+
+        _isLoading = false;
+
+        // Redirect if not authorized and RedirectTo is specified
+        if (!_isAuthorized && !string.IsNullOrEmpty(RedirectTo))
+        {
+            NavigationManager.NavigateTo(RedirectTo, forceLoad: true);
+        }
+    }
+}

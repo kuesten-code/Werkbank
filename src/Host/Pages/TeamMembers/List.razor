@@ -1,4 +1,5 @@
-@page "/team-members"
+﻿@page "/team-members"
+@using Kuestencode.Shared.Contracts.Host
 @using Kuestencode.Werkbank.Host.Models
 @inject Kuestencode.Werkbank.Host.Services.ITeamMemberService TeamMemberService
 @inject Kuestencode.Werkbank.Host.Services.IInviteService InviteService
@@ -6,14 +7,15 @@
 @inject IDialogService DialogService
 @inject ISnackbar Snackbar
 
-<PageTitle>Mitarbeiter - Kuestencode Werkbank</PageTitle>
+<PageTitle>Mitarbeiter - Küstencode Werkbank</PageTitle>
 
+<RoleGuard AllowedRoles="@(new List<UserRole> { UserRole.Admin })" RedirectTo="/rapport">
 <MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4">
     <MudText Typo="Typo.h4" GutterBottom="true">Mitarbeiter</MudText>
 
     <MudPaper Class="pa-4 mt-4">
         <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-4">
-            <MudTextField @bind-Value="_searchString" Placeholder="Suche nach Name oder Email"
+            <MudTextField @bind-Value="_searchString" Placeholder="Suche nach Name oder E-Mail"
                          Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search"
                          IconSize="Size.Medium" Class="mt-0" Immediate="true" />
             <MudButton Variant="Variant.Filled" Color="Color.Primary"
@@ -27,14 +29,14 @@
                  RowsPerPage="10">
             <HeaderContent>
                 <MudTh>Name</MudTh>
-                <MudTh>Email</MudTh>
+                <MudTh>E-Mail</MudTh>
                 <MudTh>Rolle</MudTh>
                 <MudTh>Status</MudTh>
                 <MudTh Style="text-align: right">Aktionen</MudTh>
             </HeaderContent>
             <RowTemplate>
                 <MudTd DataLabel="Name">@context.DisplayName</MudTd>
-                <MudTd DataLabel="Email">@context.Email</MudTd>
+                <MudTd DataLabel="E-Mail">@context.Email</MudTd>
                 <MudTd DataLabel="Rolle">
                     <MudChip T="string" Size="Size.Small" Color="@GetRoleColor(context.Role)">
                         @GetRoleLabel(context.Role)
@@ -71,7 +73,7 @@
                         </MudMenuItem>
                         <MudMenuItem OnClick="@(() => DeleteMember(context))"
                                     Icon="@Icons.Material.Filled.Delete" IconColor="Color.Error">
-                            Loeschen
+                            Löschen
                         </MudMenuItem>
                     </MudMenu>
                 </MudTd>
@@ -82,6 +84,7 @@
         </MudTable>
     </MudPaper>
 </MudContainer>
+</RoleGuard>
 
 @code {
     private List<TeamMember> _members = new();
@@ -126,7 +129,7 @@
     private static string GetRoleLabel(UserRole role) => role switch
     {
         UserRole.Admin => "Admin",
-        UserRole.Buero => "Buero",
+        UserRole.Buero => "Büro",
         UserRole.Mitarbeiter => "Mitarbeiter",
         _ => role.ToString()
     };
@@ -212,12 +215,12 @@
     {
         var parameters = new DialogParameters
         {
-            { "ContentText", $"Moechten Sie den Mitarbeiter '{member.DisplayName}' wirklich loeschen?" },
-            { "ButtonText", "Loeschen" },
+            { "ContentText", $"Möchten Sie den Mitarbeiter '{member.DisplayName}' wirklich löschen?" },
+            { "ButtonText", "Löschen" },
             { "Color", Color.Error }
         };
 
-        var dialog = await DialogService.ShowAsync<ConfirmDialog>("Mitarbeiter loeschen", parameters);
+        var dialog = await DialogService.ShowAsync<ConfirmDialog>("Mitarbeiter löschen", parameters);
         var result = await dialog.Result;
 
         if (result != null && !result.Canceled)
@@ -225,13 +228,14 @@
             try
             {
                 await TeamMemberService.DeleteAsync(member.Id);
-                Snackbar.Add($"Mitarbeiter '{member.DisplayName}' wurde geloescht.", Severity.Success);
+                Snackbar.Add($"Mitarbeiter '{member.DisplayName}' wurde gelöscht.", Severity.Success);
                 await LoadMembers();
             }
             catch (Exception ex)
             {
-                Snackbar.Add($"Fehler beim Loeschen: {ex.Message}", Severity.Error);
+                Snackbar.Add($"Fehler beim Löschen: {ex.Message}", Severity.Error);
             }
         }
     }
 }
+

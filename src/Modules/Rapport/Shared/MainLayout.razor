@@ -1,5 +1,9 @@
 @inherits LayoutComponentBase
 @inject IJSRuntime JSRuntime
+@inject AuthenticationStateProvider AuthStateProvider
+@inject NavigationManager NavigationManager
+@using Microsoft.AspNetCore.Components.Authorization
+@implements IDisposable
 
 <MudThemeProvider @ref="_themeProvider" Theme="@_theme" IsDarkMode="@_isDarkMode" />
 <MudPopoverProvider />
@@ -10,13 +14,18 @@
     <MudAppBar Elevation="1">
         <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start" OnClick="@((e) => DrawerToggle())" />
         <MudStack Row="false" Spacing="0" Class="ml-3">
-            <MudText Typo="Typo.h5">Kuestencode Rapport</MudText>
+            <MudText Typo="Typo.h5">Küstencode Rapport</MudText>
         </MudStack>
         <MudSpacer />
-        <MudTooltip Text="@(_isDarkMode ? "Light mode" : "Dark mode")">
+        <MudTooltip Text="@(_isDarkMode ? "Hell-Modus" : "Dunkel-Modus")">
             <MudIconButton Icon="@(_isDarkMode ? Icons.Material.Filled.LightMode : Icons.Material.Filled.DarkMode)"
                           Color="Color.Inherit"
                           OnClick="@ToggleDarkMode" />
+        </MudTooltip>
+        <MudTooltip Text="Abmelden">
+            <MudIconButton Icon="@Icons.Material.Filled.Logout"
+                          Color="Color.Inherit"
+                          OnClick="@HandleLogout" />
         </MudTooltip>
     </MudAppBar>
     <MudDrawer @bind-Open="_drawerOpen" ClipMode="DrawerClipMode.Always" Elevation="2">
@@ -32,8 +41,16 @@
 @code {
     private bool _drawerOpen = true;
     private bool _isDarkMode = false;
+    private bool _authEnabled = false;
     private MudBlazor.MudTheme _theme = KuestenCodeTheme.Theme;
     private MudThemeProvider? _themeProvider;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Subscribe to authentication state changes
+        AuthStateProvider.AuthenticationStateChanged += OnAuthenticationStateChanged;
+        await CheckAuthStatus();
+    }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -49,6 +66,36 @@
         }
     }
 
+    private async void OnAuthenticationStateChanged(Task<AuthenticationState> task)
+    {
+        await CheckAuthStatus();
+    }
+
+    private async Task CheckAuthStatus()
+    {
+        try
+        {
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            var user = authState.User;
+
+            // Show logout button if user is authenticated (regardless of auth type, except NoAuth)
+            if (user.Identity?.IsAuthenticated == true)
+            {
+                _authEnabled = user.Identity.AuthenticationType != "NoAuth";
+            }
+            else
+            {
+                _authEnabled = false;
+            }
+
+            StateHasChanged();
+        }
+        catch
+        {
+            _authEnabled = false;
+        }
+    }
+
     void DrawerToggle()
     {
         _drawerOpen = !_drawerOpen;
@@ -60,5 +107,16 @@
 
         // Save preference in localStorage
         await JSRuntime.InvokeVoidAsync("localStorage.setItem", "darkMode", _isDarkMode.ToString());
+    }
+
+    async Task HandleLogout()
+    {
+        // Navigate to Host logout
+        NavigationManager.NavigateTo("/login", forceLoad: true);
+    }
+
+    public void Dispose()
+    {
+        AuthStateProvider.AuthenticationStateChanged -= OnAuthenticationStateChanged;
     }
 }

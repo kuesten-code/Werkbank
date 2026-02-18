@@ -1,3 +1,5 @@
+using Kuestencode.Shared.Contracts.Host;
+
 namespace Kuestencode.Shared.Contracts.Navigation;
 
 public record NavItemDto
@@ -12,6 +14,11 @@ public record NavItemDto
     /// Category for Settings items. Used by the Host to group settings by task.
     /// </summary>
     public NavSettingsCategory? Category { get; init; }
+
+    /// <summary>
+    /// Allowed roles for this navigation item. If null or empty, all authenticated users can access.
+    /// </summary>
+    public List<UserRole>? AllowedRoles { get; init; }
 }
 
 public enum NavItemType

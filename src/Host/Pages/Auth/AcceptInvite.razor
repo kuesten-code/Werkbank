@@ -1,19 +1,21 @@
 @page "/invite/{Token}"
 @using Kuestencode.Werkbank.Host.Auth
 @using Kuestencode.Werkbank.Host.Services
+@using System.Text.Json
 @layout EmptyLayout
 @inject IInviteService InviteService
-@inject IAuthService AuthService
 @inject WerkbankAuthStateProvider AuthStateProvider
 @inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
 @inject ISnackbar Snackbar
 
-<PageTitle>Einladung annehmen - Kuestencode Werkbank</PageTitle>
+<PageTitle>Einladung annehmen - Küstencode Werkbank</PageTitle>
 
 <MudContainer MaxWidth="MaxWidth.Small" Class="d-flex align-center" Style="min-height: 100vh;">
     <MudPaper Elevation="4" Class="pa-8 w-100">
         <MudStack AlignItems="AlignItems.Center" Class="mb-6">
-            <MudText Typo="Typo.h4">Kuestencode Werkbank</MudText>
+            <MudImage Src="/company/logos/logo_no_name.png" Alt="Küstencode Werkbank Logo" Width="80" Class="mb-3" />
+            <MudText Typo="Typo.h4">Küstencode Werkbank</MudText>
         </MudStack>
 
         @if (_loading)
@@ -23,7 +25,7 @@
         else if (!_tokenValid)
         {
             <MudAlert Severity="Severity.Error" Class="mb-4">
-                Diese Einladung ist ungueltig oder abgelaufen. Bitte wenden Sie sich an Ihren Administrator.
+                Diese Einladung ist ungültig oder abgelaufen. Bitte wenden Sie sich an Ihren Administrator.
             </MudAlert>
             <MudButton Variant="Variant.Filled" Color="Color.Primary"
                       OnClick="@(() => NavigationManager.NavigateTo("/login"))">
@@ -39,7 +41,7 @@
         else
         {
             <MudText Typo="Typo.body1" Class="mb-4">
-                Willkommen <strong>@_memberName</strong>! Bitte vergeben Sie ein Passwort fuer Ihren Account.
+                Willkommen <strong>@_memberName</strong>! Bitte vergeben Sie ein Passwort für Ihren Account.
             </MudText>
 
             @if (!string.IsNullOrEmpty(_errorMessage))
@@ -61,7 +63,7 @@
                              AdornmentIcon="@_passwordIcon"
                              OnAdornmentClick="TogglePasswordVisibility" />
 
-                <MudTextField Label="Passwort bestaetigen"
+                <MudTextField Label="Passwort bestätigen"
                              @bind-Value="_model.ConfirmPassword"
                              For="@(() => _model.ConfirmPassword)"
                              InputType="@_passwordInputType"
@@ -138,7 +140,7 @@
     {
         if (_model.Password != _model.ConfirmPassword)
         {
-            _errorMessage = "Passwoerter stimmen nicht ueberein.";
+            _errorMessage = "Passwörter stimmen nicht überein.";
             return;
         }
 
@@ -155,21 +157,29 @@
         {
             await InviteService.AcceptInviteAsync(Token, _model.Password);
 
-            // Auto-Login nach erfolgreicher Einrichtung
-            var authResult = await AuthService.LoginAsync(_memberEmail, _model.Password);
-            if (authResult.Success && !string.IsNullOrEmpty(authResult.Token))
-            {
-                await AuthStateProvider.LoginAsync(authResult.Token);
-                _success = true;
-                Snackbar.Add("Willkommen bei der Kuestencode Werkbank!", Severity.Success);
+            var resultJson = await JSRuntime.InvokeAsync<string>("werkbankAuth.login", _memberEmail, _model.Password);
+            using var envelope = JsonDocument.Parse(resultJson);
+            var payloadRaw = envelope.RootElement.GetProperty("payload").GetString() ?? "{}";
+            using var payload = JsonDocument.Parse(payloadRaw);
 
-                // Kurze Verzoegerung, dann Weiterleitung
+            if (envelope.RootElement.GetProperty("ok").GetBoolean())
+            {
+                if (payload.RootElement.TryGetProperty("token", out var tokenElement))
+                {
+                    var token = tokenElement.GetString();
+                    if (!string.IsNullOrWhiteSpace(token))
+                    {
+                        await AuthStateProvider.LoginAsync(token);
+                    }
+                }
+
+                _success = true;
+                Snackbar.Add("Willkommen bei der Küstencode Werkbank!", Severity.Success);
                 await Task.Delay(1500);
                 NavigationManager.NavigateTo("/", forceLoad: true);
             }
             else
             {
-                // Passwort gesetzt, aber Auto-Login fehlgeschlagen
                 Snackbar.Add("Account eingerichtet. Bitte melden Sie sich an.", Severity.Success);
                 NavigationManager.NavigateTo("/login");
             }
@@ -190,8 +200,8 @@
         [System.ComponentModel.DataAnnotations.MinLength(8, ErrorMessage = "Mindestens 8 Zeichen")]
         public string Password { get; set; } = string.Empty;
 
-        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Bestaetigung ist erforderlich")]
-        [System.ComponentModel.DataAnnotations.Compare(nameof(Password), ErrorMessage = "Passwoerter stimmen nicht ueberein")]
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Bestätigung ist erforderlich")]
+        [System.ComponentModel.DataAnnotations.Compare(nameof(Password), ErrorMessage = "Passwörter stimmen nicht �berein")]
         public string ConfirmPassword { get; set; } = string.Empty;
     }
 }

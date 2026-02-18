@@ -1,0 +1,345 @@
+/* Mobile Layout */
+.mobile-layout {
+    min-height: 100vh;
+    background: #f5f7fa;
+}
+
+.mobile-header {
+    background: white;
+    padding: 1rem;
+    text-align: center;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.mobile-logo {
+    height: 32px;
+}
+
+.mobile-content {
+    padding: 1.5rem;
+    max-width: 400px;
+    margin: 0 auto;
+}
+
+/* Loading & Error States */
+.mobile-loading {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 4rem 1rem;
+}
+
+.mobile-error {
+    text-align: center;
+    padding: 3rem 1rem;
+}
+
+.mobile-error i {
+    font-size: 4rem;
+    color: #6c757d;
+    margin-bottom: 1rem;
+}
+
+.mobile-error h2 {
+    color: #212529;
+    margin-bottom: 0.5rem;
+}
+
+.mobile-error p {
+    color: #6c757d;
+}
+
+/* PIN Display */
+.pin-display {
+    display: flex;
+    justify-content: center;
+    gap: 1rem;
+    margin: 2rem 0;
+}
+
+.pin-dot {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    border: 2px solid #dee2e6;
+    background: white;
+    transition: all 0.2s;
+}
+
+.pin-dot.filled {
+    background: #0d6efd;
+    border-color: #0d6efd;
+}
+
+/* PIN Pad */
+.pin-pad {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.75rem;
+    max-width: 280px;
+    margin: 0 auto;
+}
+
+.pin-key {
+    aspect-ratio: 1;
+    border: none;
+    border-radius: 50%;
+    background: white;
+    font-size: 1.5rem;
+    font-weight: 500;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    cursor: pointer;
+    transition: transform 0.1s, box-shadow 0.1s;
+}
+
+.pin-key:active:not(:disabled) {
+    transform: scale(0.95);
+    box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+}
+
+.pin-key:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.pin-key.delete {
+    background: #f8f9fa;
+    font-size: 1.25rem;
+}
+
+.pin-key.empty {
+    background: transparent;
+    box-shadow: none;
+    cursor: default;
+}
+
+.pin-error {
+    color: #dc3545;
+    text-align: center;
+    margin-bottom: 1rem;
+    font-weight: 500;
+}
+
+.pin-hint {
+    text-align: center;
+    color: #6c757d;
+    margin-bottom: 1rem;
+}
+
+/* PIN Setup */
+.mobile-pin-setup h2,
+.mobile-pin-enter h2 {
+    text-align: center;
+    font-size: 1.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.mobile-pin-setup p,
+.mobile-pin-enter p {
+    text-align: center;
+    color: #6c757d;
+    margin-bottom: 1.5rem;
+}
+
+/* Locked State */
+.mobile-locked {
+    text-align: center;
+    padding: 3rem 1rem;
+}
+
+.mobile-locked i {
+    font-size: 4rem;
+    color: #dc3545;
+    margin-bottom: 1rem;
+}
+
+.mobile-locked h2 {
+    color: #212529;
+    margin-bottom: 0.5rem;
+}
+
+.mobile-locked p {
+    color: #6c757d;
+    margin-bottom: 1rem;
+}
+
+/* Mobile Rapport */
+.mobile-rapport {
+    padding-bottom: 2rem;
+}
+
+.rapport-header {
+    text-align: center;
+    margin-bottom: 1.5rem;
+}
+
+.rapport-header h2 {
+    margin: 0;
+    font-size: 1.25rem;
+}
+
+.rapport-date {
+    color: #6c757d;
+    font-size: 0.875rem;
+}
+
+.rapport-success {
+    background: #d1e7dd;
+    color: #0f5132;
+    padding: 0.75rem;
+    border-radius: 8px;
+    text-align: center;
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+}
+
+/* Form Elements */
+.form-group {
+    margin-bottom: 1rem;
+}
+
+.form-group label {
+    display: block;
+    font-weight: 500;
+    margin-bottom: 0.5rem;
+    color: #212529;
+}
+
+.form-select-mobile,
+.form-input-mobile {
+    width: 100%;
+    padding: 0.75rem;
+    font-size: 1rem;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    background: white;
+}
+
+.form-select-mobile:focus,
+.form-input-mobile:focus {
+    outline: none;
+    border-color: #0d6efd;
+}
+
+/* Hours Input */
+.hours-input {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+}
+
+.hours-btn {
+    width: 48px;
+    height: 48px;
+    border: none;
+    border-radius: 50%;
+    background: #e9ecef;
+    font-size: 1.5rem;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.hours-btn:active {
+    background: #dee2e6;
+}
+
+.hours-value {
+    font-size: 2rem;
+    font-weight: 600;
+    min-width: 80px;
+    text-align: center;
+}
+
+/* Save Button */
+.btn-save-mobile {
+    width: 100%;
+    padding: 1rem;
+    font-size: 1rem;
+    font-weight: 500;
+    border: none;
+    border-radius: 8px;
+    background: #0d6efd;
+    color: white;
+    cursor: pointer;
+    margin-top: 1rem;
+    transition: background 0.2s;
+}
+
+.btn-save-mobile:active:not(:disabled) {
+    background: #0b5ed7;
+}
+
+.btn-save-mobile:disabled {
+    background: #6c757d;
+    cursor: not-allowed;
+}
+
+.spinner-small {
+    display: inline-block;
+    width: 1rem;
+    height: 1rem;
+    border: 2px solid rgba(255,255,255,0.3);
+    border-radius: 50%;
+    border-top-color: white;
+    animation: spin 0.6s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* Rapport Today */
+.rapport-today {
+    margin-top: 2rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid #dee2e6;
+}
+
+.rapport-today h3 {
+    font-size: 1rem;
+    margin-bottom: 1rem;
+}
+
+.entry-card {
+    background: white;
+    border-radius: 8px;
+    padding: 0.75rem;
+    margin-bottom: 0.5rem;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+}
+
+.entry-project {
+    flex: 1;
+    font-weight: 500;
+}
+
+.entry-hours {
+    font-weight: 600;
+    color: #0d6efd;
+}
+
+.entry-desc {
+    width: 100%;
+    font-size: 0.875rem;
+    color: #6c757d;
+    margin-top: 0.25rem;
+}
+
+.entry-total {
+    text-align: right;
+    font-weight: 600;
+    padding-top: 0.5rem;
+}
+
+.no-entries {
+    color: #6c757d;
+    text-align: center;
+    font-style: italic;
+}

@@ -1,4 +1,5 @@
 ﻿@using System.ComponentModel.DataAnnotations
+@using Kuestencode.Shared.Contracts.Host
 @page "/time-entries/create"
 @inject TimeEntryService TimeEntryService
 @inject SettingsService SettingsService
@@ -6,6 +7,8 @@
 @inject IProjectService ProjectService
 @inject ISnackbar Snackbar
 @inject NavigationManager NavigationManager
+@inject IUserContextService UserContextService
+@inject TeamMemberCacheService TeamMemberCacheService
 
 <PageTitle>Manueller Eintrag - Küstencode Rapport</PageTitle>
 
@@ -22,6 +25,17 @@
         <MudItem xs="12" md="3">
             <MudTimePicker Label="Endzeit" @bind-Time="_endTime" @bind-Time:after="UpdateDuration" Variant="Variant.Outlined" />
         </MudItem>
+        @if (_isAdminOrBuero)
+        {
+            <MudItem xs="12" md="6">
+                <MudSelect T="Guid?" Label="Mitarbeiter" @bind-Value="_selectedTeamMemberId" Variant="Variant.Outlined">
+                    @foreach (var member in _teamMembers)
+                    {
+                        <MudSelectItem T="Guid?" Value="@member.Id">@member.DisplayName</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+        }
         <MudItem xs="12" md="6">
             <ProjectSelector Projects="_projects"
                              IsAvailable="_projectsAvailable"
@@ -67,6 +81,9 @@
     private IProject? _selectedProject;
     private int? _selectedProjectId;
     private string _durationDisplay = "00:00:00";
+    private bool _isAdminOrBuero;
+    private List<TeamMemberDto> _teamMembers = new();
+    private Guid? _selectedTeamMemberId;
 
     protected override async Task OnInitializedAsync()
     {
@@ -81,6 +98,15 @@
         {
             _projects = new List<IProject>();
         }
+
+        _isAdminOrBuero = await UserContextService.IsAdminOrBueroAsync();
+        if (_isAdminOrBuero)
+        {
+            _teamMembers = await TeamMemberCacheService.GetActiveTeamMembersAsync();
+        }
+
+        var currentUserId = await UserContextService.GetCurrentUserIdAsync();
+        _selectedTeamMemberId = currentUserId;
 
         if (_settings.DefaultProjectId.HasValue && _projectsAvailable)
         {
@@ -152,12 +178,29 @@
 
         try
         {
+            Guid? teamMemberId;
+            string? teamMemberName;
+
+            if (_isAdminOrBuero && _selectedTeamMemberId.HasValue)
+            {
+                teamMemberId = _selectedTeamMemberId;
+                var member = await TeamMemberCacheService.GetByIdAsync(_selectedTeamMemberId.Value);
+                teamMemberName = member?.DisplayName;
+            }
+            else
+            {
+                teamMemberId = await UserContextService.GetCurrentUserIdAsync();
+                teamMemberName = await UserContextService.GetCurrentUserNameAsync();
+            }
+
             await TimeEntryService.CreateManualEntryAsync(
                 startUtc,
                 endUtc,
                 _selectedProjectId,
                 _selectedProjectId.HasValue ? null : _selectedCustomer?.Id,
-                _description);
+                _description,
+                teamMemberId,
+                teamMemberName);
 
             Snackbar.Add("Eintrag wurde gespeichert.", Severity.Success);
             NavigationManager.NavigateTo("/rapport/time-entries");

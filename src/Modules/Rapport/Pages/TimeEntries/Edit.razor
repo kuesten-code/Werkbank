@@ -6,6 +6,8 @@
 @inject IProjectService ProjectService
 @inject ISnackbar Snackbar
 @inject NavigationManager NavigationManager
+@inject IUserContextService UserContextService
+@inject TimeEntryAuditService AuditService
 
 <PageTitle>Eintrag bearbeiten - Küstencode Rapport</PageTitle>
 
@@ -20,8 +22,29 @@ else if (_entry == null)
     <MudText Typo="Typo.subtitle1">Eintrag nicht gefunden.</MudText>
     <MudButton Variant="Variant.Text" OnClick="Cancel">Zurück</MudButton>
 }
+else if (!_canEdit)
+{
+    <MudAlert Severity="Severity.Warning" Class="mb-4">
+        <MudText>Sie haben keine Berechtigung, diesen Eintrag zu bearbeiten.</MudText>
+        @if (_entry.TeamMemberId != null)
+        {
+            <MudText>Dieser Eintrag gehört: @(_entry.TeamMemberName ?? "Unbekannt")</MudText>
+        }
+        @if (!_isWithinEditWindow)
+        {
+            <MudText>Einträge können nur innerhalb von 14 Tagen bearbeitet werden.</MudText>
+        }
+    </MudAlert>
+    <MudButton Variant="Variant.Text" OnClick="Cancel">Zurück</MudButton>
+}
 else
 {
+    @if (_latestAudit != null)
+    {
+        <MudAlert Severity="Severity.Info" Class="mb-4">
+            Bearbeitet von @(_latestAudit.ChangedByUserName ?? "Unbekannt") am @_latestAudit.ChangedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")
+        </MudAlert>
+    }
     <MudPaper Elevation="2" Class="pa-6">
         <MudGrid>
             <MudItem xs="12" md="6">
@@ -84,6 +107,9 @@ else
     private IProject? _selectedProject;
     private int? _selectedProjectId;
     private string _durationDisplay = "00:00:00";
+    private bool _canEdit;
+    private bool _isWithinEditWindow;
+    private TimeEntryAudit? _latestAudit;
 
     protected override async Task OnInitializedAsync()
     {
@@ -107,6 +133,10 @@ else
         _entry = await TimeEntryService.GetEntryAsync(Id);
         if (_entry != null)
         {
+            _canEdit = await TimeEntryService.CanEditEntryAsync(_entry);
+            _isWithinEditWindow = (DateTime.UtcNow - _entry.StartTime) < TimeSpan.FromDays(14);
+            _latestAudit = await AuditService.GetLatestUpdateAuditAsync(Id);
+
             var startLocal = _entry.StartTime.ToLocalTime();
             _date = startLocal.Date;
             _startTime = startLocal.TimeOfDay;

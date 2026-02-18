@@ -4,6 +4,7 @@ using MudBlazor.Services;
 using Kuestencode.Werkbank.Host;
 using Kuestencode.Werkbank.Host.Data;
 using Kuestencode.Werkbank.Host.Services;
+using Kuestencode.Werkbank.Host.Middleware;
 using Kuestencode.Shared.ApiClients;
 using Kuestencode.Shared.Contracts.Navigation;
 using QuestPDF.Infrastructure;
@@ -19,6 +20,7 @@ CultureInfo.DefaultThreadCurrentUICulture = culture;
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container
+builder.Services.AddHttpContextAccessor();
 builder.Services.AddRazorPages();
 builder.Services.AddServerSideBlazor();
 builder.Services.AddControllers();
@@ -260,11 +262,28 @@ app.UseStaticFiles();
 
 app.UseRouting();
 
+// Setup Redirect Middleware (must come before Auth)
+app.UseSetupRedirect();
+
 // Auth Middleware
 app.UseMiddleware<Kuestencode.Werkbank.Host.Middleware.AuthMiddleware>();
 
 // Map Reverse Proxy for Faktura module (before other routes)
-app.MapReverseProxy();
+// Add transform to forward werkbank_auth_cookie as Authorization header to modules
+app.MapReverseProxy(proxyPipeline =>
+{
+    proxyPipeline.Use((context, next) =>
+    {
+        // If no Authorization header exists but the auth cookie does, add it as Bearer token
+        if (!context.Request.Headers.ContainsKey("Authorization")
+            && context.Request.Cookies.TryGetValue("werkbank_auth_cookie", out var token)
+            && !string.IsNullOrEmpty(token))
+        {
+            context.Request.Headers["Authorization"] = $"Bearer {token}";
+        }
+        return next();
+    });
+});
 
 app.MapControllers();
 app.MapBlazorHub();

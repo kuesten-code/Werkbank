@@ -1,11 +1,11 @@
-@page "/team-members/create"
+﻿@page "/team-members/create"
 @using Kuestencode.Werkbank.Host.Models
 @inject Kuestencode.Werkbank.Host.Services.ITeamMemberService TeamMemberService
 @inject Kuestencode.Werkbank.Host.Services.IInviteService InviteService
 @inject NavigationManager NavigationManager
 @inject ISnackbar Snackbar
 
-<PageTitle>Neuer Mitarbeiter - Kuestencode Werkbank</PageTitle>
+<PageTitle>Neuer Mitarbeiter - Küstencode Werkbank</PageTitle>
 
 <MudContainer MaxWidth="MaxWidth.Medium" Class="mt-4">
     <MudPaper Class="pa-4">
@@ -26,14 +26,14 @@
                 </MudItem>
 
                 <MudItem xs="12">
-                    <MudTextField Label="Email" @bind-Value="_member.Email"
+                    <MudTextField Label="E-Mail" @bind-Value="_member.Email"
                                  For="@(() => _member.Email)" InputType="InputType.Email" Required="true" />
                 </MudItem>
 
                 <MudItem xs="12">
                     <MudSelect T="UserRole" Label="Rolle" @bind-Value="_member.Role">
                         <MudSelectItem T="UserRole" Value="UserRole.Admin">Admin</MudSelectItem>
-                        <MudSelectItem T="UserRole" Value="UserRole.Buero">Buero</MudSelectItem>
+                        <MudSelectItem T="UserRole" Value="UserRole.Buero">Büro</MudSelectItem>
                         <MudSelectItem T="UserRole" Value="UserRole.Mitarbeiter">Mitarbeiter</MudSelectItem>
                     </MudSelect>
                 </MudItem>
@@ -47,7 +47,7 @@
                     @if (_sendInvite)
                     {
                         <MudText Typo="Typo.caption" Color="Color.Info" Class="mt-1">
-                            Benutzer erhaelt eine E-Mail mit Einladungslink.
+                            Benutzer erhält eine E-Mail mit Einladungslink.
                         </MudText>
                     }
                 </MudItem>
@@ -123,3 +123,4 @@
         NavigationManager.NavigateTo("/team-members");
     }
 }
+

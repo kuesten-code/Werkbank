@@ -1,0 +1,447 @@
+@page "/m/{Token}/rapport"
+@layout MobileLayout
+@attribute [Microsoft.AspNetCore.Authorization.AllowAnonymous]
+@using Kuestencode.Werkbank.Host.Models.MobileRapport
+@inject NavigationManager NavigationManager
+@inject Kuestencode.Werkbank.Host.Services.IMobileTokenService MobileTokenService
+@inject Kuestencode.Werkbank.Host.Services.IMobileRapportService MobileRapportService
+
+<PageTitle>Zeiterfassung - Küstencode Werkbank</PageTitle>
+
+<link rel="stylesheet" href="/css/mobile.css" />
+
+@if (!_isAuthenticated)
+{
+    <div class="mobile-error">
+        <MudIcon Icon="@Icons.Material.Filled.Lock" Style="font-size: 4rem;" Color="Color.Warning" />
+        <h2>Nicht angemeldet</h2>
+        <p>Bitte melde dich zuerst an.</p>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" Href="@($"/m/{Token}")" Class="mt-3">
+            Zur Anmeldung
+        </MudButton>
+    </div>
+}
+else
+{
+    <div class="mobile-rapport">
+        <!-- Datum Navigation -->
+        <div class="rapport-header" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem; padding: 0.5rem; background: white; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+            <MudIconButton Icon="@Icons.Material.Filled.ChevronLeft"
+                          OnClick="PreviousDay"
+                          Disabled="@(_selectedDate <= _minDate)"
+                          Style="width: 44px; height: 44px;" />
+            <div style="text-align: center; cursor: pointer; padding: 0.5rem 1rem;" @onclick="ShowDatePicker">
+                <div style="font-size: 0.75rem; color: #6c757d; text-transform: uppercase;">
+                    @_selectedDate.ToString("dddd", new System.Globalization.CultureInfo("de-DE"))
+                </div>
+                <div style="font-weight: 600; font-size: 1rem;">
+                    @_selectedDate.ToString("d. MMMM yyyy", new System.Globalization.CultureInfo("de-DE"))
+                </div>
+            </div>
+            <MudIconButton Icon="@Icons.Material.Filled.ChevronRight"
+                          OnClick="NextDay"
+                          Disabled="@IsToday"
+                          Style="width: 44px; height: 44px;" />
+        </div>
+
+        <!-- Erfolgs-/Fehlermeldung -->
+        @if (!string.IsNullOrEmpty(_message))
+        {
+            <MudAlert Severity="@(_messageType == "success" ? Severity.Success : Severity.Error)" Class="mb-4">
+                @_message
+            </MudAlert>
+        }
+
+        <!-- Erfassungsformular -->
+        <MudPaper Class="pa-4 mb-4">
+            <MudStack Spacing="3">
+                <MudSelect T="int?" Label="Projekt" @bind-Value="_selectedProjectId" Variant="Variant.Outlined">
+                    @foreach (var project in _projects)
+                    {
+                        <MudSelectItem T="int?" Value="@project.Id">@project.Name</MudSelectItem>
+                    }
+                </MudSelect>
+
+                <div>
+                    <MudText Typo="Typo.body2" Class="mb-2">Stunden</MudText>
+                    <div style="display: flex; align-items: center; justify-content: center; gap: 1.5rem; padding: 1rem 0;">
+                        <MudIconButton Icon="@Icons.Material.Filled.Remove"
+                                      OnClick="@(() => AdjustHours(-0.5m))"
+                                      Disabled="@(_hours <= 0.5m)"
+                                      Style="width: 56px; height: 56px; background: #e9ecef; border-radius: 50%;" />
+                        <div style="text-align: center; min-width: 100px;">
+                            <div style="font-size: 2.5rem; font-weight: 700; line-height: 1; color: #0d6efd;">
+                                @_hours.ToString("0.0")
+                            </div>
+                            <div style="font-size: 0.875rem; color: #6c757d; margin-top: 0.25rem;">
+                                Std.
+                            </div>
+                        </div>
+                        <MudIconButton Icon="@Icons.Material.Filled.Add"
+                                      OnClick="@(() => AdjustHours(0.5m))"
+                                      Disabled="@(_hours >= 24m)"
+                                      Style="width: 56px; height: 56px; background: #e9ecef; border-radius: 50%;" />
+                    </div>
+                    <div style="display: flex; justify-content: center; gap: 0.5rem; margin-top: 0.75rem;">
+                        <MudChip T="string" OnClick="@(() => _hours = 4m)" Color="@(_hours == 4m ? Color.Primary : Color.Default)">4h</MudChip>
+                        <MudChip T="string" OnClick="@(() => _hours = 6m)" Color="@(_hours == 6m ? Color.Primary : Color.Default)">6h</MudChip>
+                        <MudChip T="string" OnClick="@(() => _hours = 8m)" Color="@(_hours == 8m ? Color.Primary : Color.Default)">8h</MudChip>
+                        <MudChip T="string" OnClick="@(() => _hours = 10m)" Color="@(_hours == 10m ? Color.Primary : Color.Default)">10h</MudChip>
+                    </div>
+                </div>
+
+                <MudTextField T="string" Label="Beschreibung (optional)" @bind-Value="_description"
+                             Variant="Variant.Outlined" Lines="2" />
+
+                <MudButton Variant="Variant.Filled"
+                          Color="Color.Primary"
+                          FullWidth="true"
+                          OnClick="SaveEntry"
+                          Disabled="@(!CanSave || _isSaving)">
+                    @if (_isSaving)
+                    {
+                        <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                        <span>Speichern...</span>
+                    }
+                    else if (_isEditing)
+                    {
+                        <MudIcon Icon="@Icons.Material.Filled.Check" Class="mr-2" />
+                        <span>Änderungen speichern</span>
+                    }
+                    else
+                    {
+                        <MudIcon Icon="@Icons.Material.Filled.Add" Class="mr-2" />
+                        <span>Eintrag speichern</span>
+                    }
+                </MudButton>
+
+                @if (_isEditing)
+                {
+                    <MudButton Variant="Variant.Text" FullWidth="true" OnClick="CancelEdit">
+                        Abbrechen
+                    </MudButton>
+                }
+            </MudStack>
+        </MudPaper>
+
+        <!-- Tagesübersicht -->
+        <MudPaper Class="pa-4">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; padding-bottom: 0.75rem; border-bottom: 1px solid #e9ecef;">
+                <MudText Typo="Typo.h6">Einträge</MudText>
+                @if (_dayEntries.Any())
+                {
+                    <MudText Typo="Typo.body1" Style="font-weight: 600; color: #0d6efd;">
+                        @_dayEntries.Sum(e => e.Hours).ToString("0.0") Std.
+                    </MudText>
+                }
+            </div>
+
+            @if (_isLoadingEntries)
+            {
+                <div style="text-align: center; padding: 2rem;">
+                    <MudProgressCircular Indeterminate="true" />
+                </div>
+            }
+            else if (!_dayEntries.Any())
+            {
+                <div style="text-align: center; padding: 2rem; color: #6c757d;">
+                    <MudIcon Icon="@Icons.Material.Filled.AccessTime" Style="font-size: 2.5rem; opacity: 0.5; margin-bottom: 0.5rem;" />
+                    <MudText>Keine Einträge für diesen Tag</MudText>
+                </div>
+            }
+            else
+            {
+                <MudStack Spacing="2">
+                    @foreach (var entry in _dayEntries)
+                    {
+                        <MudPaper Elevation="0" Style="@($"background: {(_editingEntryId == entry.Id ? "#e7f1ff" : "#f8f9fa")}; border-radius: 8px; padding: 0.875rem; {(_editingEntryId == entry.Id ? "border: 2px solid #0d6efd;" : "")}")">
+                            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                                <div style="flex: 1; padding-right: 1rem;">
+                                    <MudText Typo="Typo.body1" Style="font-weight: 500;">@entry.ProjectName</MudText>
+                                    @if (!string.IsNullOrEmpty(entry.Description))
+                                    {
+                                        <MudText Typo="Typo.body2" Color="Color.Secondary">@entry.Description</MudText>
+                                    }
+                                </div>
+                                <MudText Typo="Typo.body1" Style="font-weight: 700; color: #0d6efd; white-space: nowrap;">
+                                    @entry.Hours.ToString("0.0") h
+                                </MudText>
+                            </div>
+                            @if (entry.CanEdit || entry.CanDelete)
+                            {
+                                <div style="display: flex; gap: 0.5rem; margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid #e9ecef;">
+                                    @if (entry.CanEdit)
+                                    {
+                                        <MudButton Variant="Variant.Text"
+                                                  Color="Color.Primary"
+                                                  Size="Size.Small"
+                                                  StartIcon="@Icons.Material.Filled.Edit"
+                                                  OnClick="@(() => EditEntry(entry))"
+                                                  Style="flex: 1;">
+                                            Bearbeiten
+                                        </MudButton>
+                                    }
+                                    @if (entry.CanDelete)
+                                    {
+                                        <MudButton Variant="Variant.Text"
+                                                  Color="Color.Error"
+                                                  Size="Size.Small"
+                                                  StartIcon="@Icons.Material.Filled.Delete"
+                                                  OnClick="@(() => _deletingEntry = entry)"
+                                                  Style="flex: 1;">
+                                            Löschen
+                                        </MudButton>
+                                    }
+                                </div>
+                            }
+                        </MudPaper>
+                    }
+                </MudStack>
+            }
+        </MudPaper>
+    </div>
+}
+
+<!-- Löschen-Bestätigungsdialog -->
+@if (_deletingEntry != null)
+{
+    <div style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 1rem;" @onclick="@(() => _deletingEntry = null)">
+        <MudPaper Class="pa-4" Style="width: 100%; max-width: 320px; text-align: center;" @onclick:stopPropagation>
+            <MudText Typo="Typo.h6" Class="mb-2">Eintrag löschen?</MudText>
+            <MudText Color="Color.Secondary" Class="mb-4">@_deletingEntry.ProjectName – @_deletingEntry.Hours.ToString("0.0") Std.</MudText>
+            <MudStack Row="true" Spacing="2">
+                <MudButton Variant="Variant.Text" OnClick="@(() => _deletingEntry = null)" FullWidth="true">Abbrechen</MudButton>
+                <MudButton Color="Color.Error" Variant="Variant.Filled" OnClick="DeleteEntry" FullWidth="true">Löschen</MudButton>
+            </MudStack>
+        </MudPaper>
+    </div>
+}
+
+@code {
+    [Parameter] public string Token { get; set; } = string.Empty;
+
+    private bool _isAuthenticated;
+    private string _displayName = "";
+
+    // Datum
+    private DateOnly _selectedDate = DateOnly.FromDateTime(DateTime.Today);
+    private DateOnly _minDate => DateOnly.FromDateTime(DateTime.Today.AddDays(-14));
+    private DateOnly _maxDate => DateOnly.FromDateTime(DateTime.Today);
+    private bool IsToday => _selectedDate == DateOnly.FromDateTime(DateTime.Today);
+
+    // Daten
+    private List<ProjectSelectDto> _projects = new();
+    private List<TimeEntryDto> _dayEntries = new();
+
+    // Formular
+    private int? _selectedProjectId;
+    private decimal _hours = 8.0m;
+    private string? _description;
+
+    // Edit Mode
+    private bool _isEditing => _editingEntryId.HasValue;
+    private int? _editingEntryId;
+
+    // Delete
+    private TimeEntryDto? _deletingEntry;
+
+    // UI State
+    private bool _isSaving;
+    private bool _isLoadingEntries;
+    private string? _message;
+    private string _messageType = "success";
+    private Guid _teamMemberId;
+
+    private bool CanSave => _selectedProjectId.HasValue && _hours > 0;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            // Validate token and get team member
+            var member = await MobileTokenService.ValidateTokenAsync(Token);
+            if (member != null)
+            {
+                _isAuthenticated = true;
+                _teamMemberId = member.Id;
+                _displayName = member.DisplayName ?? "Mitarbeiter";
+                await LoadProjects();
+                await LoadEntries();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"RapportFull OnInitializedAsync error: {ex}");
+            _message = $"Fehler: {ex.Message}";
+            _messageType = "error";
+        }
+    }
+
+    private async Task LoadProjects()
+    {
+        try
+        {
+            _projects = await MobileRapportService.GetProjectsAsync(_teamMemberId);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading projects: {ex.Message}");
+        }
+    }
+
+    private async Task LoadEntries()
+    {
+        _isLoadingEntries = true;
+        StateHasChanged();
+
+        try
+        {
+            _dayEntries = await MobileRapportService.GetEntriesAsync(_teamMemberId, _selectedDate);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading entries: {ex.Message}");
+            _dayEntries = new List<TimeEntryDto>();
+        }
+        finally
+        {
+            _isLoadingEntries = false;
+        }
+    }
+
+    private void AdjustHours(decimal delta)
+    {
+        _hours = Math.Clamp(_hours + delta, 0.5m, 24m);
+    }
+
+    private async Task SaveEntry()
+    {
+        if (!CanSave || _isSaving) return;
+
+        _isSaving = true;
+        _message = null;
+
+        try
+        {
+            if (_isEditing)
+            {
+                var dto = new UpdateTimeEntryDto
+                {
+                    CustomerId = _selectedProjectId!.Value,
+                    Date = _selectedDate,
+                    Hours = _hours,
+                    Description = _description
+                };
+
+                await MobileRapportService.UpdateEntryAsync(_teamMemberId, _editingEntryId!.Value, dto);
+                ShowMessage("Eintrag aktualisiert", "success");
+            }
+            else
+            {
+                var dto = new CreateTimeEntryDto
+                {
+                    CustomerId = _selectedProjectId!.Value,
+                    Date = _selectedDate,
+                    Hours = _hours,
+                    Description = _description
+                };
+
+                await MobileRapportService.CreateEntryAsync(_teamMemberId, dto);
+                ShowMessage("Eintrag gespeichert", "success");
+            }
+
+            ResetForm();
+            await LoadEntries();
+        }
+        catch (Exception ex)
+        {
+            ShowMessage($"Fehler: {ex.Message}", "error");
+        }
+        finally
+        {
+            _isSaving = false;
+        }
+    }
+
+    private void EditEntry(TimeEntryDto entry)
+    {
+        _editingEntryId = entry.Id;
+        _selectedProjectId = entry.CustomerId;
+        _hours = entry.Hours;
+        _description = entry.Description;
+    }
+
+    private void CancelEdit()
+    {
+        ResetForm();
+    }
+
+    private void ResetForm()
+    {
+        _editingEntryId = null;
+        _selectedProjectId = null;
+        _hours = 8.0m;
+        _description = null;
+    }
+
+    private async Task DeleteEntry()
+    {
+        if (_deletingEntry == null) return;
+
+        try
+        {
+            await MobileRapportService.DeleteEntryAsync(_teamMemberId, _deletingEntry.Id);
+            ShowMessage("Eintrag gelöscht", "success");
+
+            if (_editingEntryId == _deletingEntry.Id)
+            {
+                ResetForm();
+            }
+
+            await LoadEntries();
+        }
+        catch (Exception ex)
+        {
+            ShowMessage($"Fehler: {ex.Message}", "error");
+        }
+        finally
+        {
+            _deletingEntry = null;
+        }
+    }
+
+    private void PreviousDay()
+    {
+        if (_selectedDate > _minDate)
+        {
+            _selectedDate = _selectedDate.AddDays(-1);
+            _ = LoadEntries();
+        }
+    }
+
+    private void NextDay()
+    {
+        if (_selectedDate < _maxDate)
+        {
+            _selectedDate = _selectedDate.AddDays(1);
+            _ = LoadEntries();
+        }
+    }
+
+    private void ShowDatePicker()
+    {
+        // TODO: Implement date picker dialog
+    }
+
+    private void ShowMessage(string message, string type)
+    {
+        _message = message;
+        _messageType = type;
+
+        _ = Task.Delay(3000).ContinueWith(_ =>
+        {
+            _message = null;
+            InvokeAsync(StateHasChanged);
+        });
+    }
+}

@@ -1,0 +1,82 @@
+@namespace Kuestencode.Werkbank.Host.Pages.Setup.Steps
+@using Kuestencode.Werkbank.Host.Services
+
+<MudStack Spacing="3">
+    <MudText Typo="Typo.h5">URL-Konfiguration</MudText>
+    <MudText Typo="Typo.body1">Lege fest, wie auf die Werkbank zugegriffen werden kann.</MudText>
+
+    <MudCheckBox @bind-Value="Data.LocalOnly" Label="Nur lokaler Zugriff" Color="Color.Primary" />
+
+    @if (Data.LocalOnly)
+    {
+        <MudAlert Severity="Severity.Info">
+            Die Werkbank ist nur lokal unter http://localhost erreichbar.
+            Du kannst diese Einstellung später in den Einstellungen ändern.
+        </MudAlert>
+    }
+    else
+    {
+        <MudTextField @bind-Value="Data.BaseUrl" Label="Basis-URL" Variant="Variant.Outlined"
+                      Placeholder="https://beispiel.de"
+                      HelperText="Die URL, unter der die Werkbank erreichbar sein soll"
+                      Required="true" RequiredError="Basis-URL ist erforderlich"
+                      Error="@(!IsValidUrl())"
+                      ErrorText="URL muss mit http:// oder https:// beginnen" />
+    }
+
+    @if (!string.IsNullOrEmpty(_error))
+    {
+        <MudAlert Severity="Severity.Error">@_error</MudAlert>
+    }
+
+    <MudStack Row="true" Justify="Justify.SpaceBetween" Class="mt-4">
+        <MudButton Variant="Variant.Text" OnClick="@(() => OnBack.InvokeAsync())">
+            <MudIcon Icon="@Icons.Material.Filled.ArrowBack" Class="mr-2" />
+            Zurück
+        </MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                   OnClick="HandleNext"
+                   Disabled="@(!IsValid())">
+            Weiter
+            <MudIcon Icon="@Icons.Material.Filled.ArrowForward" Class="ml-2" />
+        </MudButton>
+    </MudStack>
+</MudStack>
+
+@code {
+    [Parameter] public SetupData Data { get; set; } = new();
+    [Parameter] public EventCallback OnNext { get; set; }
+    [Parameter] public EventCallback OnBack { get; set; }
+
+    private string? _error;
+
+    private bool IsValidUrl()
+    {
+        if (Data.LocalOnly || string.IsNullOrWhiteSpace(Data.BaseUrl))
+            return true;
+
+        return Data.BaseUrl.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
+               Data.BaseUrl.StartsWith("https://", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private bool IsValid()
+    {
+        if (Data.LocalOnly)
+            return true;
+
+        return !string.IsNullOrWhiteSpace(Data.BaseUrl) && IsValidUrl();
+    }
+
+    private async Task HandleNext()
+    {
+        _error = null;
+
+        if (!Data.LocalOnly && !IsValidUrl())
+        {
+            _error = "URL muss mit http:// oder https:// beginnen";
+            return;
+        }
+
+        await OnNext.InvokeAsync();
+    }
+}

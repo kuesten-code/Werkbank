@@ -335,7 +335,23 @@ namespace Kuestencode.Werkbank.Host.Data.Migrations
                     b.Property<DateTime?>("LockoutUntil")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<int>("MobilePinFailedAttempts")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("MobilePinSet")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("MobileToken")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<bool>("MobileTokenLocked")
+                        .HasColumnType("boolean");
+
                     b.Property<string>("PasswordHash")
+                        .HasColumnType("text");
+
+                    b.Property<string>("PinHash")
                         .HasColumnType("text");
 
                     b.Property<string>("ResetToken")

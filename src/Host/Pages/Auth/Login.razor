@@ -1,19 +1,22 @@
 @page "/login"
 @using Kuestencode.Werkbank.Host.Auth
-@using Kuestencode.Werkbank.Host.Services
+@using System.Text.Json
 @layout EmptyLayout
-@inject IAuthService AuthService
 @inject WerkbankAuthStateProvider AuthStateProvider
 @inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
 @inject ISnackbar Snackbar
 
-<PageTitle>Anmeldung - Kuestencode Werkbank</PageTitle>
+<PageTitle>Anmelden - Küstencode Werkbank</PageTitle>
 
-<MudContainer MaxWidth="MaxWidth.Small" Class="d-flex align-center" Style="min-height: 100vh;">
-    <MudPaper Elevation="4" Class="pa-8 w-100">
-        <MudStack AlignItems="AlignItems.Center" Class="mb-6">
-            <MudText Typo="Typo.h4">Kuestencode Werkbank</MudText>
-            <MudText Typo="Typo.body2" Color="Color.Secondary">Bitte melden Sie sich an</MudText>
+<link rel="stylesheet" href="/css/auth.css?v=2" />
+
+<div class="auth-container">
+    <MudPaper Elevation="4" Class="auth-card pa-6">
+        <MudStack AlignItems="AlignItems.Center" Spacing="2" Class="mb-4">
+            <MudImage Src="/company/logos/logo_no_name.png" Alt="Küstencode Werkbank Logo" Width="100" Class="mb-1" />
+            <MudText Typo="Typo.h4" Color="Color.Primary">Küstencode Werkbank</MudText>
+            <MudText Typo="Typo.h6">Anmelden</MudText>
         </MudStack>
 
         @if (!string.IsNullOrEmpty(_errorMessage))
@@ -24,49 +27,72 @@
         @if (_lockedForMinutes.HasValue)
         {
             <MudAlert Severity="Severity.Warning" Class="mb-4">
-                Account ist fuer @_lockedForMinutes Minuten gesperrt. Bitte versuchen Sie es spaeter erneut.
+                <strong>Account gesperrt</strong>
+                <br />
+                Noch @_lockedForMinutes Minuten bis zur nächsten Anmeldung.
             </MudAlert>
         }
 
         <EditForm Model="@_model" OnValidSubmit="HandleLogin">
             <DataAnnotationsValidator />
 
-            <MudTextField Label="Email"
+            <MudTextField @ref="_emailField"
+                         Label="E-Mail"
                          @bind-Value="_model.Email"
                          For="@(() => _model.Email)"
                          InputType="InputType.Email"
+                         Variant="Variant.Outlined"
                          Required="true"
-                         Class="mb-4"
-                         Immediate="true" />
+                         Disabled="@(_loading || _lockedForMinutes.HasValue)"
+                         Class="mb-3"
+                         Immediate="true"
+                         @onkeydown="@((e) => HandleKeyDown(e, "email"))" />
 
             <MudTextField Label="Passwort"
                          @bind-Value="_model.Password"
                          For="@(() => _model.Password)"
                          InputType="@_passwordInputType"
+                         Variant="Variant.Outlined"
                          Required="true"
-                         Class="mb-4"
+                         Disabled="@(_loading || _lockedForMinutes.HasValue)"
+                         Class="mb-3"
                          Adornment="Adornment.End"
                          AdornmentIcon="@_passwordIcon"
-                         OnAdornmentClick="TogglePasswordVisibility" />
+                         OnAdornmentClick="TogglePasswordVisibility"
+                         @onkeydown="@((e) => HandleKeyDown(e, "password"))" />
 
-            <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mt-2">
-                <MudLink Href="/forgot-password" Typo="Typo.body2">Passwort vergessen?</MudLink>
-                <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled"
-                          Color="Color.Primary" Disabled="@_loading">
-                    @if (_loading)
-                    {
-                        <MudProgressCircular Class="ms-n1" Size="Size.Small" Indeterminate="true" />
-                        <MudText Class="ms-2">Anmeldung...</MudText>
-                    }
-                    else
-                    {
-                        <MudText>Anmelden</MudText>
-                    }
-                </MudButton>
-            </MudStack>
+            <MudCheckBox @bind-Value="_model.RememberMe"
+                        Label="Angemeldet bleiben (30 Tage)"
+                        Color="Color.Primary"
+                        Disabled="@(_loading || _lockedForMinutes.HasValue)"
+                        Class="mb-4" />
+
+            <MudButton ButtonType="ButtonType.Submit"
+                      Variant="Variant.Filled"
+                      Color="Color.Primary"
+                      FullWidth="true"
+                      Size="Size.Large"
+                      Disabled="@(_loading || _lockedForMinutes.HasValue)"
+                      Class="mb-3">
+                @if (_loading)
+                {
+                    <MudProgressCircular Class="me-2" Size="Size.Small" Indeterminate="true" />
+                    <span>Anmeldung...</span>
+                }
+                else
+                {
+                    <span>Anmelden</span>
+                }
+            </MudButton>
+
+            <MudText Align="Align.Center">
+                <MudLink Href="/auth/forgot-password" Typo="Typo.body2" Color="Color.Secondary">
+                    Passwort vergessen?
+                </MudLink>
+            </MudText>
         </EditForm>
     </MudPaper>
-</MudContainer>
+</div>
 
 @code {
     private LoginModel _model = new();
@@ -76,6 +102,33 @@
     private bool _passwordVisible;
     private InputType _passwordInputType = InputType.Password;
     private string _passwordIcon = Icons.Material.Filled.VisibilityOff;
+    private MudTextField<string>? _emailField;
+    private string? _returnUrl;
+
+    [Parameter]
+    [SupplyParameterFromQuery]
+    public string? ReturnUrl { get; set; }
+
+    protected override void OnInitialized()
+    {
+        _returnUrl = ReturnUrl ?? "/";
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && _emailField != null)
+        {
+            await _emailField.FocusAsync();
+        }
+    }
+
+    private void HandleKeyDown(KeyboardEventArgs e, string field)
+    {
+        if (e.Key == "Enter")
+        {
+            // Enter submits via EditForm
+        }
+    }
 
     private void TogglePasswordVisibility()
     {
@@ -92,17 +145,34 @@
 
         try
         {
-            var result = await AuthService.LoginAsync(_model.Email, _model.Password);
+            var resultJson = await JSRuntime.InvokeAsync<string>("werkbankAuth.login", _model.Email, _model.Password);
+            using var envelope = JsonDocument.Parse(resultJson);
+            var payloadRaw = envelope.RootElement.GetProperty("payload").GetString() ?? "{}";
+            using var payload = JsonDocument.Parse(payloadRaw);
 
-            if (result.Success && !string.IsNullOrEmpty(result.Token))
+            if (envelope.RootElement.GetProperty("ok").GetBoolean())
             {
-                await AuthStateProvider.LoginAsync(result.Token);
-                NavigationManager.NavigateTo("/", forceLoad: true);
+                if (payload.RootElement.TryGetProperty("token", out var tokenElement))
+                {
+                    var token = tokenElement.GetString();
+                    if (!string.IsNullOrWhiteSpace(token))
+                    {
+                        await AuthStateProvider.LoginAsync(token);
+                    }
+                }
+
+                NavigationManager.NavigateTo(_returnUrl ?? "/", forceLoad: true);
+                return;
             }
-            else
+
+            _errorMessage = payload.RootElement.TryGetProperty("error", out var errorElement)
+                ? errorElement.GetString() ?? "Anmeldung fehlgeschlagen."
+                : "Anmeldung fehlgeschlagen.";
+
+            if (payload.RootElement.TryGetProperty("lockedForMinutes", out var lockElement) &&
+                lockElement.ValueKind == JsonValueKind.Number)
             {
-                _errorMessage = result.Error ?? "Anmeldung fehlgeschlagen.";
-                _lockedForMinutes = result.LockedForMinutes;
+                _lockedForMinutes = lockElement.GetInt32();
             }
         }
         catch (Exception ex)
@@ -117,11 +187,13 @@
 
     private class LoginModel
     {
-        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Email ist erforderlich")]
-        [System.ComponentModel.DataAnnotations.EmailAddress(ErrorMessage = "Ungueltige Email-Adresse")]
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "E-Mail ist erforderlich")]
+        [System.ComponentModel.DataAnnotations.EmailAddress(ErrorMessage = "Ungültige E-Mail-Adresse")]
         public string Email { get; set; } = string.Empty;
 
         [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Passwort ist erforderlich")]
         public string Password { get; set; } = string.Empty;
+
+        public bool RememberMe { get; set; }
     }
 }
