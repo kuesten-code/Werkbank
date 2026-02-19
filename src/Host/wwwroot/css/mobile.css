@@ -168,6 +168,28 @@
     padding-bottom: 2rem;
 }
 
+.mobile-rapport .mud-input-slot {
+    background-color: #ffffff !important;
+}
+
+.mobile-rapport .mud-select-input {
+    background-color: #ffffff !important;
+}
+
+.mobile-project-select .mud-input-control {
+    background-color: #ffffff !important;
+    border-radius: 8px;
+}
+
+.mobile-project-select .mud-input-slot {
+    background-color: #ffffff !important;
+}
+
+.mud-popover .mud-paper,
+.mud-popover .mud-list {
+    background-color: #ffffff !important;
+}
+
 .rapport-header {
     text-align: center;
     margin-bottom: 1.5rem;

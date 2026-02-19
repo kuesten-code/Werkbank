@@ -1,4 +1,4 @@
-@page "/m/{Token}/rapport"
+﻿@page "/m/{Token}/rapport"
 @layout MobileLayout
 @attribute [Microsoft.AspNetCore.Authorization.AllowAnonymous]
 @using Kuestencode.Werkbank.Host.Models.MobileRapport
@@ -24,12 +24,11 @@
 else
 {
     <div class="mobile-rapport">
-        <!-- Datum Navigation -->
         <div class="rapport-header" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem; padding: 0.5rem; background: white; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
             <MudIconButton Icon="@Icons.Material.Filled.ChevronLeft"
-                          OnClick="PreviousDay"
-                          Disabled="@(_selectedDate <= _minDate)"
-                          Style="width: 44px; height: 44px;" />
+                           OnClick="PreviousDay"
+                           Disabled="@(_selectedDate <= _minDate)"
+                           Style="width: 44px; height: 44px;" />
             <div style="text-align: center; cursor: pointer; padding: 0.5rem 1rem;" @onclick="ShowDatePicker">
                 <div style="font-size: 0.75rem; color: #6c757d; text-transform: uppercase;">
                     @_selectedDate.ToString("dddd", new System.Globalization.CultureInfo("de-DE"))
@@ -39,12 +38,18 @@ else
                 </div>
             </div>
             <MudIconButton Icon="@Icons.Material.Filled.ChevronRight"
-                          OnClick="NextDay"
-                          Disabled="@IsToday"
-                          Style="width: 44px; height: 44px;" />
+                           OnClick="NextDay"
+                           Disabled="IsToday"
+                           Style="width: 44px; height: 44px;" />
         </div>
 
-        <!-- Erfolgs-/Fehlermeldung -->
+        <MudPaper Class="pa-3 mb-4">
+            <MudStack Row="true" Spacing="1">
+                <MudButton Variant="Variant.Filled" Color="Color.Primary">Zeiten</MudButton>
+                <MudButton Variant="Variant.Outlined" Color="Color.Default" Href="@($"/m/{Token}/tasks")">Aufgaben</MudButton>
+            </MudStack>
+        </MudPaper>
+
         @if (!string.IsNullOrEmpty(_message))
         {
             <MudAlert Severity="@(_messageType == "success" ? Severity.Success : Severity.Error)" Class="mb-4">
@@ -52,52 +57,61 @@ else
             </MudAlert>
         }
 
-        <!-- Erfassungsformular -->
         <MudPaper Class="pa-4 mb-4">
             <MudStack Spacing="3">
-                <MudSelect T="int?" Label="Projekt" @bind-Value="_selectedProjectId" Variant="Variant.Outlined">
-                    @foreach (var project in _projects)
+                @if (_projectsAvailable)
+                {
+                    <MudSelect T="int?"
+                               Class="mobile-project-select"
+                               Label="Projekt"
+                               Value="_selectedProjectId"
+                               ValueChanged="OnProjectChanged"
+                               Variant="Variant.Outlined"
+                               Clearable="true">
+                        <MudSelectItem T="int?" Value="@(null)">Kein Projekt</MudSelectItem>
+                        @foreach (var project in _projects)
+                        {
+                            <MudSelectItem T="int?" Value="@project.Id">@FormatProject(project)</MudSelectItem>
+                        }
+                    </MudSelect>
+                }
+
+                <MudSelect T="int?"
+                           Label="Kunde"
+                           @bind-Value="_selectedCustomerId"
+                           Variant="Variant.Outlined"
+                           Disabled="@(_selectedProjectId.HasValue)">
+                    @foreach (var customer in _customers)
                     {
-                        <MudSelectItem T="int?" Value="@project.Id">@project.Name</MudSelectItem>
+                        <MudSelectItem T="int?" Value="@customer.Id">@FormatCustomer(customer)</MudSelectItem>
                     }
                 </MudSelect>
 
-                <div>
-                    <MudText Typo="Typo.body2" Class="mb-2">Stunden</MudText>
-                    <div style="display: flex; align-items: center; justify-content: center; gap: 1.5rem; padding: 1rem 0;">
-                        <MudIconButton Icon="@Icons.Material.Filled.Remove"
-                                      OnClick="@(() => AdjustHours(-0.5m))"
-                                      Disabled="@(_hours <= 0.5m)"
-                                      Style="width: 56px; height: 56px; background: #e9ecef; border-radius: 50%;" />
-                        <div style="text-align: center; min-width: 100px;">
-                            <div style="font-size: 2.5rem; font-weight: 700; line-height: 1; color: #0d6efd;">
-                                @_hours.ToString("0.0")
-                            </div>
-                            <div style="font-size: 0.875rem; color: #6c757d; margin-top: 0.25rem;">
-                                Std.
-                            </div>
-                        </div>
-                        <MudIconButton Icon="@Icons.Material.Filled.Add"
-                                      OnClick="@(() => AdjustHours(0.5m))"
-                                      Disabled="@(_hours >= 24m)"
-                                      Style="width: 56px; height: 56px; background: #e9ecef; border-radius: 50%;" />
-                    </div>
-                    <div style="display: flex; justify-content: center; gap: 0.5rem; margin-top: 0.75rem;">
-                        <MudChip T="string" OnClick="@(() => _hours = 4m)" Color="@(_hours == 4m ? Color.Primary : Color.Default)">4h</MudChip>
-                        <MudChip T="string" OnClick="@(() => _hours = 6m)" Color="@(_hours == 6m ? Color.Primary : Color.Default)">6h</MudChip>
-                        <MudChip T="string" OnClick="@(() => _hours = 8m)" Color="@(_hours == 8m ? Color.Primary : Color.Default)">8h</MudChip>
-                        <MudChip T="string" OnClick="@(() => _hours = 10m)" Color="@(_hours == 10m ? Color.Primary : Color.Default)">10h</MudChip>
-                    </div>
-                </div>
+                <MudTimePicker Label="Startzeit"
+                               @bind-Time="_startTime"
+                               AmPm="false"
+                               Variant="Variant.Outlined" />
+
+                <MudTimePicker Label="Endzeit"
+                               @bind-Time="_endTime"
+                               AmPm="false"
+                               Variant="Variant.Outlined" />
+
+                @if (DurationInHours > 0)
+                {
+                    <MudAlert Severity="Severity.Info" Dense="true">
+                        Dauer: @DurationInHours.ToString("0.00") Std.
+                    </MudAlert>
+                }
 
                 <MudTextField T="string" Label="Beschreibung (optional)" @bind-Value="_description"
-                             Variant="Variant.Outlined" Lines="2" />
+                              Variant="Variant.Outlined" Lines="2" />
 
                 <MudButton Variant="Variant.Filled"
-                          Color="Color.Primary"
-                          FullWidth="true"
-                          OnClick="SaveEntry"
-                          Disabled="@(!CanSave || _isSaving)">
+                           Color="Color.Primary"
+                           FullWidth="true"
+                           OnClick="SaveEntry"
+                           Disabled="@(!CanSave || _isSaving)">
                     @if (_isSaving)
                     {
                         <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
@@ -124,7 +138,6 @@ else
             </MudStack>
         </MudPaper>
 
-        <!-- Tagesübersicht -->
         <MudPaper Class="pa-4">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; padding-bottom: 0.75rem; border-bottom: 1px solid #e9ecef;">
                 <MudText Typo="Typo.h6">Einträge</MudText>
@@ -157,7 +170,11 @@ else
                         <MudPaper Elevation="0" Style="@($"background: {(_editingEntryId == entry.Id ? "#e7f1ff" : "#f8f9fa")}; border-radius: 8px; padding: 0.875rem; {(_editingEntryId == entry.Id ? "border: 2px solid #0d6efd;" : "")}")">
                             <div style="display: flex; justify-content: space-between; align-items: flex-start;">
                                 <div style="flex: 1; padding-right: 1rem;">
-                                    <MudText Typo="Typo.body1" Style="font-weight: 500;">@entry.ProjectName</MudText>
+                                    <MudText Typo="Typo.body1" Style="font-weight: 500;">@GetEntryHeadline(entry)</MudText>
+                                    @if (!string.IsNullOrWhiteSpace(entry.ProjectName) && !string.IsNullOrWhiteSpace(entry.CustomerName))
+                                    {
+                                        <MudText Typo="Typo.caption" Color="Color.Secondary">Kunde: @entry.CustomerName</MudText>
+                                    }
                                     @if (!string.IsNullOrEmpty(entry.Description))
                                     {
                                         <MudText Typo="Typo.body2" Color="Color.Secondary">@entry.Description</MudText>
@@ -173,22 +190,22 @@ else
                                     @if (entry.CanEdit)
                                     {
                                         <MudButton Variant="Variant.Text"
-                                                  Color="Color.Primary"
-                                                  Size="Size.Small"
-                                                  StartIcon="@Icons.Material.Filled.Edit"
-                                                  OnClick="@(() => EditEntry(entry))"
-                                                  Style="flex: 1;">
+                                                   Color="Color.Primary"
+                                                   Size="Size.Small"
+                                                   StartIcon="@Icons.Material.Filled.Edit"
+                                                   OnClick="@(() => EditEntry(entry))"
+                                                   Style="flex: 1;">
                                             Bearbeiten
                                         </MudButton>
                                     }
                                     @if (entry.CanDelete)
                                     {
                                         <MudButton Variant="Variant.Text"
-                                                  Color="Color.Error"
-                                                  Size="Size.Small"
-                                                  StartIcon="@Icons.Material.Filled.Delete"
-                                                  OnClick="@(() => _deletingEntry = entry)"
-                                                  Style="flex: 1;">
+                                                   Color="Color.Error"
+                                                   Size="Size.Small"
+                                                   StartIcon="@Icons.Material.Filled.Delete"
+                                                   OnClick="@(() => _deletingEntry = entry)"
+                                                   Style="flex: 1;">
                                             Löschen
                                         </MudButton>
                                     }
@@ -202,13 +219,12 @@ else
     </div>
 }
 
-<!-- Löschen-Bestätigungsdialog -->
 @if (_deletingEntry != null)
 {
     <div style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 1rem;" @onclick="@(() => _deletingEntry = null)">
-        <MudPaper Class="pa-4" Style="width: 100%; max-width: 320px; text-align: center;" @onclick:stopPropagation>
+        <MudPaper Class="pa-4" Style="width: 100%; max-width: 320px; text-align: center; background-color: #ffffff; color: #212529;" @onclick:stopPropagation>
             <MudText Typo="Typo.h6" Class="mb-2">Eintrag löschen?</MudText>
-            <MudText Color="Color.Secondary" Class="mb-4">@_deletingEntry.ProjectName – @_deletingEntry.Hours.ToString("0.0") Std.</MudText>
+            <MudText Color="Color.Secondary" Class="mb-4">@GetEntryHeadline(_deletingEntry) - @_deletingEntry.Hours.ToString("0.0") Std.</MudText>
             <MudStack Row="true" Spacing="2">
                 <MudButton Variant="Variant.Text" OnClick="@(() => _deletingEntry = null)" FullWidth="true">Abbrechen</MudButton>
                 <MudButton Color="Color.Error" Variant="Variant.Filled" OnClick="DeleteEntry" FullWidth="true">Löschen</MudButton>
@@ -221,72 +237,93 @@ else
     [Parameter] public string Token { get; set; } = string.Empty;
 
     private bool _isAuthenticated;
-    private string _displayName = "";
-
-    // Datum
     private DateOnly _selectedDate = DateOnly.FromDateTime(DateTime.Today);
     private DateOnly _minDate => DateOnly.FromDateTime(DateTime.Today.AddDays(-14));
     private DateOnly _maxDate => DateOnly.FromDateTime(DateTime.Today);
     private bool IsToday => _selectedDate == DateOnly.FromDateTime(DateTime.Today);
 
-    // Daten
+    private bool _projectsAvailable;
     private List<ProjectSelectDto> _projects = new();
+    private List<CustomerSelectDto> _customers = new();
     private List<TimeEntryDto> _dayEntries = new();
 
-    // Formular
     private int? _selectedProjectId;
-    private decimal _hours = 8.0m;
+    private int? _selectedCustomerId;
+    private TimeSpan? _startTime = new TimeSpan(8, 0, 0);
+    private TimeSpan? _endTime = new TimeSpan(16, 0, 0);
     private string? _description;
 
-    // Edit Mode
     private bool _isEditing => _editingEntryId.HasValue;
     private int? _editingEntryId;
-
-    // Delete
     private TimeEntryDto? _deletingEntry;
 
-    // UI State
     private bool _isSaving;
     private bool _isLoadingEntries;
     private string? _message;
     private string _messageType = "success";
     private Guid _teamMemberId;
 
-    private bool CanSave => _selectedProjectId.HasValue && _hours > 0;
+    private decimal DurationInHours
+        => _startTime.HasValue && _endTime.HasValue && _endTime > _startTime
+            ? (decimal)(_endTime.Value - _startTime.Value).TotalHours
+            : 0m;
+
+    private bool CanSave
+        => (_selectedProjectId.HasValue || _selectedCustomerId.HasValue)
+           && _startTime.HasValue
+           && _endTime.HasValue
+           && _endTime > _startTime;
 
     protected override async Task OnInitializedAsync()
     {
         try
         {
-            // Validate token and get team member
             var member = await MobileTokenService.ValidateTokenAsync(Token);
             if (member != null)
             {
                 _isAuthenticated = true;
                 _teamMemberId = member.Id;
-                _displayName = member.DisplayName ?? "Mitarbeiter";
-                await LoadProjects();
+                await LoadLookupData();
                 await LoadEntries();
             }
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"RapportFull OnInitializedAsync error: {ex}");
             _message = $"Fehler: {ex.Message}";
             _messageType = "error";
         }
     }
 
-    private async Task LoadProjects()
+    private async Task LoadLookupData()
     {
-        try
+        _customers = await MobileRapportService.GetCustomersAsync(_teamMemberId);
+        _projectsAvailable = await MobileRapportService.IsProjectSelectionAvailableAsync(_teamMemberId);
+
+        if (_projectsAvailable)
         {
             _projects = await MobileRapportService.GetProjectsAsync(_teamMemberId);
         }
-        catch (Exception ex)
+        else
         {
-            Console.WriteLine($"Error loading projects: {ex.Message}");
+            _projects = new List<ProjectSelectDto>();
+            _selectedProjectId = null;
         }
+    }
+
+    private async Task OnProjectChanged(int? projectId)
+    {
+        _selectedProjectId = projectId;
+
+        if (!projectId.HasValue)
+            return;
+
+        var project = _projects.FirstOrDefault(p => p.Id == projectId.Value);
+        if (project != null)
+        {
+            _selectedCustomerId = project.CustomerId;
+        }
+
+        await InvokeAsync(StateHasChanged);
     }
 
     private async Task LoadEntries()
@@ -300,8 +337,8 @@ else
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error loading entries: {ex.Message}");
             _dayEntries = new List<TimeEntryDto>();
+            ShowMessage($"Fehler beim Laden: {ex.Message}", "error");
         }
         finally
         {
@@ -309,14 +346,10 @@ else
         }
     }
 
-    private void AdjustHours(decimal delta)
-    {
-        _hours = Math.Clamp(_hours + delta, 0.5m, 24m);
-    }
-
     private async Task SaveEntry()
     {
-        if (!CanSave || _isSaving) return;
+        if (!CanSave || _isSaving)
+            return;
 
         _isSaving = true;
         _message = null;
@@ -327,9 +360,11 @@ else
             {
                 var dto = new UpdateTimeEntryDto
                 {
-                    CustomerId = _selectedProjectId!.Value,
+                    ProjectId = _selectedProjectId,
+                    CustomerId = _selectedProjectId.HasValue ? null : _selectedCustomerId,
                     Date = _selectedDate,
-                    Hours = _hours,
+                    StartTime = _startTime,
+                    EndTime = _endTime,
                     Description = _description
                 };
 
@@ -340,9 +375,11 @@ else
             {
                 var dto = new CreateTimeEntryDto
                 {
-                    CustomerId = _selectedProjectId!.Value,
+                    ProjectId = _selectedProjectId,
+                    CustomerId = _selectedProjectId.HasValue ? null : _selectedCustomerId,
                     Date = _selectedDate,
-                    Hours = _hours,
+                    StartTime = _startTime,
+                    EndTime = _endTime,
                     Description = _description
                 };
 
@@ -363,12 +400,22 @@ else
         }
     }
 
-    private void EditEntry(TimeEntryDto entry)
+    private async Task EditEntry(TimeEntryDto entry)
     {
         _editingEntryId = entry.Id;
-        _selectedProjectId = entry.CustomerId;
-        _hours = entry.Hours;
+        _startTime = entry.StartTime;
+        _endTime = entry.EndTime;
         _description = entry.Description;
+
+        _selectedCustomerId = entry.CustomerId;
+        if (_projectsAvailable)
+        {
+            await OnProjectChanged(entry.ProjectId);
+        }
+        else
+        {
+            _selectedProjectId = null;
+        }
     }
 
     private void CancelEdit()
@@ -380,13 +427,16 @@ else
     {
         _editingEntryId = null;
         _selectedProjectId = null;
-        _hours = 8.0m;
+        _selectedCustomerId = null;
+        _startTime = new TimeSpan(8, 0, 0);
+        _endTime = new TimeSpan(16, 0, 0);
         _description = null;
     }
 
     private async Task DeleteEntry()
     {
-        if (_deletingEntry == null) return;
+        if (_deletingEntry == null)
+            return;
 
         try
         {
@@ -430,7 +480,6 @@ else
 
     private void ShowDatePicker()
     {
-        // TODO: Implement date picker dialog
     }
 
     private void ShowMessage(string message, string type)
@@ -443,5 +492,36 @@ else
             _message = null;
             InvokeAsync(StateHasChanged);
         });
+    }
+
+    private static string FormatProject(ProjectSelectDto project)
+    {
+        if (string.IsNullOrWhiteSpace(project.ProjectNumber))
+        {
+            return $"{project.Name} - {project.CustomerName}";
+        }
+
+        return $"{project.Name} - {project.CustomerName} ({project.ProjectNumber})";
+    }
+
+    private static string FormatCustomer(CustomerSelectDto customer)
+    {
+        if (string.IsNullOrWhiteSpace(customer.CustomerNumber))
+        {
+            return customer.Name;
+        }
+
+        return $"{customer.Name} ({customer.CustomerNumber})";
+    }
+
+    private static string GetEntryHeadline(TimeEntryDto entry)
+    {
+        if (!string.IsNullOrWhiteSpace(entry.ProjectName))
+            return entry.ProjectName;
+
+        if (!string.IsNullOrWhiteSpace(entry.CustomerName))
+            return entry.CustomerName;
+
+        return "Unbekannt";
     }
 }

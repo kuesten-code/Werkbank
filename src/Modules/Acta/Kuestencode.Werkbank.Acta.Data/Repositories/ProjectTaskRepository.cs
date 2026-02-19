@@ -30,6 +30,17 @@ public class ProjectTaskRepository : IProjectTaskRepository
             .ToListAsync();
     }
 
+    public async Task<List<ProjectTask>> GetByAssignedUserIdAsync(Guid assignedUserId)
+    {
+        return await _context.Tasks
+            .Include(t => t.Project)
+            .Where(t => t.AssignedUserId == assignedUserId)
+            .OrderBy(t => t.Status)
+            .ThenBy(t => t.TargetDate)
+            .ThenBy(t => t.SortOrder)
+            .ToListAsync();
+    }
+
     public async Task AddAsync(ProjectTask task)
     {
         await _context.Tasks.AddAsync(task);

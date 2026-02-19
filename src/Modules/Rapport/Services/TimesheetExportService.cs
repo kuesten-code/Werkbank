@@ -111,13 +111,14 @@ public class TimesheetExportService
             foreach (var entry in group.OrderBy(e => e.StartTime))
             {
                 var duration = (entry.EndTime ?? now) - entry.StartTime;
+                var startInBerlin = RapportTimeZone.UtcToBerlin(entry.StartTime);
                 if (settings.RoundingMinutes > 0)
                 {
                     duration = _roundingService.RoundDuration(duration, settings.RoundingMinutes);
                 }
                 groupDto.Entries.Add(new TimesheetEntryDto
                 {
-                    Date = entry.StartTime.Date,
+                    Date = startInBerlin.Date,
                     StartTime = entry.StartTime,
                     EndTime = entry.EndTime,
                     Description = string.IsNullOrWhiteSpace(entry.Description) ? "" : entry.Description.Trim(),
@@ -183,8 +184,7 @@ public class TimesheetExportService
         return value.Kind switch
         {
             DateTimeKind.Utc => value,
-            DateTimeKind.Local => value.ToUniversalTime(),
-            _ => DateTime.SpecifyKind(value, DateTimeKind.Local).ToUniversalTime()
+            _ => RapportTimeZone.BerlinToUtc(value)
         };
     }
 }

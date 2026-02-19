@@ -1,4 +1,4 @@
-using System.Security.Claims;
+﻿using System.Security.Claims;
 using Kuestencode.Werkbank.Host.Models.MobileRapport;
 using Kuestencode.Werkbank.Host.Services;
 using Microsoft.AspNetCore.Mvc;
@@ -20,9 +20,6 @@ public class MobileRapportController : ControllerBase
         _logger = logger;
     }
 
-    /// <summary>
-    /// Get projects for dropdown
-    /// </summary>
     [HttpGet("projects")]
     public async Task<IActionResult> GetProjects()
     {
@@ -42,9 +39,6 @@ public class MobileRapportController : ControllerBase
         }
     }
 
-    /// <summary>
-    /// Get time entries for a specific date or date range
-    /// </summary>
     [HttpGet("entries")]
     public async Task<IActionResult> GetEntries(
         [FromQuery] string? date = null,
@@ -71,7 +65,6 @@ public class MobileRapportController : ControllerBase
             }
             else
             {
-                // Default: today
                 entries = await _mobileRapportService.GetEntriesAsync(teamMemberId, DateOnly.FromDateTime(DateTime.Today));
             }
 
@@ -84,9 +77,6 @@ public class MobileRapportController : ControllerBase
         }
     }
 
-    /// <summary>
-    /// Create a new time entry
-    /// </summary>
     [HttpPost("entries")]
     public async Task<IActionResult> CreateEntry([FromBody] CreateTimeEntryDto dto)
     {
@@ -94,8 +84,12 @@ public class MobileRapportController : ControllerBase
         if (teamMemberId == Guid.Empty)
             return Unauthorized();
 
-        if (dto.Hours <= 0 || dto.Hours > 24)
-            return BadRequest(new { error = "Stunden müssen zwischen 0 und 24 liegen" });
+        if (!dto.StartTime.HasValue || !dto.EndTime.HasValue)
+            return BadRequest(new { error = "Bitte Start- und Endzeit auswählen" });
+        if (dto.EndTime <= dto.StartTime)
+            return BadRequest(new { error = "Endzeit muss nach der Startzeit liegen" });
+        if (!dto.ProjectId.HasValue && !dto.CustomerId.HasValue)
+            return BadRequest(new { error = "Bitte Kunde oder Projekt auswählen" });
 
         try
         {
@@ -109,9 +103,6 @@ public class MobileRapportController : ControllerBase
         }
     }
 
-    /// <summary>
-    /// Update an existing time entry
-    /// </summary>
     [HttpPut("entries/{id:int}")]
     public async Task<IActionResult> UpdateEntry(int id, [FromBody] UpdateTimeEntryDto dto)
     {
@@ -119,8 +110,12 @@ public class MobileRapportController : ControllerBase
         if (teamMemberId == Guid.Empty)
             return Unauthorized();
 
-        if (dto.Hours <= 0 || dto.Hours > 24)
-            return BadRequest(new { error = "Stunden müssen zwischen 0 und 24 liegen" });
+        if (!dto.StartTime.HasValue || !dto.EndTime.HasValue)
+            return BadRequest(new { error = "Bitte Start- und Endzeit auswählen" });
+        if (dto.EndTime <= dto.StartTime)
+            return BadRequest(new { error = "Endzeit muss nach der Startzeit liegen" });
+        if (!dto.ProjectId.HasValue && !dto.CustomerId.HasValue)
+            return BadRequest(new { error = "Bitte Kunde oder Projekt auswählen" });
 
         try
         {
@@ -138,9 +133,6 @@ public class MobileRapportController : ControllerBase
         }
     }
 
-    /// <summary>
-    /// Delete a time entry
-    /// </summary>
     [HttpDelete("entries/{id:int}")]
     public async Task<IActionResult> DeleteEntry(int id)
     {
@@ -171,6 +163,7 @@ public class MobileRapportController : ControllerBase
         {
             return userId;
         }
+
         return Guid.Empty;
     }
 }

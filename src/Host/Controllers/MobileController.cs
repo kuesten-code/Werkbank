@@ -73,6 +73,18 @@ public class MobileController : ControllerBase
 
         if (result.Success)
         {
+            if (!string.IsNullOrWhiteSpace(result.JwtToken))
+            {
+                Response.Cookies.Append("werkbank_auth_cookie", result.JwtToken, new CookieOptions
+                {
+                    HttpOnly = true,
+                    Secure = false,
+                    SameSite = SameSiteMode.Lax,
+                    Path = "/",
+                    Expires = DateTimeOffset.UtcNow.AddDays(30)
+                });
+            }
+
             return Ok(new
             {
                 success = true,

@@ -38,8 +38,10 @@ public class TimesheetCsvService
             {
                 var durationHours = (decimal)entry.Duration.TotalHours;
                 var durationText = FormatDuration(entry.Duration);
-                var startText = entry.StartTime.ToLocalTime().ToString("HH:mm");
-                var endText = entry.EndTime?.ToLocalTime().ToString("HH:mm") ?? "";
+                var startInBerlin = RapportTimeZone.UtcToBerlin(entry.StartTime);
+                var endInBerlin = entry.EndTime.HasValue ? RapportTimeZone.UtcToBerlin(entry.EndTime.Value) : (DateTime?)null;
+                var startText = startInBerlin.ToString("HH:mm");
+                var endText = endInBerlin?.ToString("HH:mm") ?? "";
 
                 var row = new List<string>
                 {

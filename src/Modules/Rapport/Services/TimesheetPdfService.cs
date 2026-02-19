@@ -125,7 +125,8 @@ public class TimesheetPdfService
                 page.Content().Element(ComposeContent);
                 page.Footer().AlignCenter().Column(col =>
                 {
-                    col.Item().Text($"Erstellt am {DateTime.Now:dd.MM.yyyy}").FontSize(8).FontColor(Colors.Grey.Medium);
+                    var nowInBerlin = RapportTimeZone.UtcToBerlin(DateTime.UtcNow);
+                    col.Item().Text($"Erstellt am {nowInBerlin:dd.MM.yyyy}").FontSize(8).FontColor(Colors.Grey.Medium);
                     if (!string.IsNullOrWhiteSpace(_settings.PdfFooterText))
                     {
                         col.Item().Text(_settings.PdfFooterText).FontSize(8).FontColor(Colors.Grey.Medium);
@@ -296,8 +297,10 @@ public class TimesheetPdfService
 
                     table.Cell().Element(CellBody).Text(entry.Date.ToString("dd.MM.yyyy"));
                     table.Cell().Element(CellBody).Text(string.IsNullOrWhiteSpace(entry.Description) ? "–" : entry.Description);
-                    table.Cell().Element(CellBody).AlignRight().Text(entry.StartTime.ToLocalTime().ToString("HH:mm"));
-                    table.Cell().Element(CellBody).AlignRight().Text(entry.EndTime?.ToLocalTime().ToString("HH:mm") ?? "–");
+                    var startInBerlin = RapportTimeZone.UtcToBerlin(entry.StartTime);
+                    var endInBerlin = entry.EndTime.HasValue ? RapportTimeZone.UtcToBerlin(entry.EndTime.Value) : (DateTime?)null;
+                    table.Cell().Element(CellBody).AlignRight().Text(startInBerlin.ToString("HH:mm"));
+                    table.Cell().Element(CellBody).AlignRight().Text(endInBerlin?.ToString("HH:mm") ?? "–");
                     table.Cell().Element(CellBody).AlignRight().Text(FormatDuration(entry.Duration));
                     if (includeAmount)
                         table.Cell().Element(CellBody).AlignRight().Text(amount.ToString("C", CultureInfo.GetCultureInfo("de-DE")));

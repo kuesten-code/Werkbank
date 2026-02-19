@@ -8,7 +8,6 @@ namespace Kuestencode.Werkbank.Host.Controllers;
 
 [ApiController]
 [Route("api/team-members")]
-[RequireRole(UserRole.Admin)]
 public class TeamMembersController : ControllerBase
 {
     private readonly ITeamMemberService _teamMemberService;
@@ -22,6 +21,7 @@ public class TeamMembersController : ControllerBase
 
     [HttpGet]
     [ProducesResponseType(StatusCodes.Status200OK)]
+    [RequireRole(UserRole.Admin, UserRole.Buero)]
     public async Task<ActionResult<List<TeamMemberDto>>> GetTeamMembersAsync()
     {
         var members = await _teamMemberService.GetAllAsync(includeInactive: true);
@@ -29,6 +29,7 @@ public class TeamMembersController : ControllerBase
     }
 
     [HttpPost("{id}/invite")]
+    [RequireRole(UserRole.Admin)]
     public async Task<IActionResult> SendInvite(Guid id)
     {
         try

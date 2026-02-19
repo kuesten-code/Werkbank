@@ -1,4 +1,5 @@
 ﻿@using Kuestencode.Shared.Contracts.Host
+@using Kuestencode.Rapport.Services
 @page "/time-entries"
 @inject TimeEntryService TimeEntryService
 @inject ICustomerService CustomerService
@@ -94,12 +95,12 @@
         <MudTh>Aktionen</MudTh>
     </HeaderContent>
     <RowTemplate>
-        <MudTd DataLabel="Datum">@context.StartTime.ToLocalTime().ToString("dd.MM.yyyy")</MudTd>
+        <MudTd DataLabel="Datum">@RapportTimeZone.UtcToBerlin(context.StartTime).ToString("dd.MM.yyyy")</MudTd>
         @if (!_isMobile)
         {
             <MudTd DataLabel="Zeit">
-                @context.StartTime.ToLocalTime().ToString("HH:mm") -
-                @(context.EndTime?.ToLocalTime().ToString("HH:mm") ?? "...")
+                @RapportTimeZone.UtcToBerlin(context.StartTime).ToString("HH:mm") -
+                @(context.EndTime.HasValue ? RapportTimeZone.UtcToBerlin(context.EndTime.Value).ToString("HH:mm") : "...")
             </MudTd>
         }
         <MudTd DataLabel="Kunde">
@@ -303,6 +304,9 @@
         return $"{totalHours:00}:{duration.Minutes:00}:{duration.Seconds:00}";
     }
 }
+
+
+
 
 
 

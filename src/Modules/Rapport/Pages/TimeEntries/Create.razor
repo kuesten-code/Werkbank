@@ -1,4 +1,5 @@
-﻿@using System.ComponentModel.DataAnnotations
+﻿@using Kuestencode.Rapport.Services
+@using System.ComponentModel.DataAnnotations
 @using Kuestencode.Shared.Contracts.Host
 @page "/time-entries/create"
 @inject TimeEntryService TimeEntryService
@@ -100,12 +101,27 @@
         }
 
         _isAdminOrBuero = await UserContextService.IsAdminOrBueroAsync();
+        var currentUserId = await UserContextService.GetCurrentUserIdAsync();
+        var currentUserName = await UserContextService.GetCurrentUserNameAsync();
+
         if (_isAdminOrBuero)
         {
             _teamMembers = await TeamMemberCacheService.GetActiveTeamMembersAsync();
+
+            // Ensure current user is selectable/displayed even if cache/API is temporarily incomplete.
+            if (currentUserId.HasValue && _teamMembers.All(m => m.Id != currentUserId.Value))
+            {
+                _teamMembers.Insert(0, new TeamMemberDto
+                {
+                    Id = currentUserId.Value,
+                    DisplayName = string.IsNullOrWhiteSpace(currentUserName) ? "Aktueller Benutzer" : currentUserName,
+                    Email = string.Empty,
+                    Role = string.Empty,
+                    IsActive = true
+                });
+            }
         }
 
-        var currentUserId = await UserContextService.GetCurrentUserIdAsync();
         _selectedTeamMemberId = currentUserId;
 
         if (_settings.DefaultProjectId.HasValue && _projectsAvailable)
@@ -171,26 +187,27 @@
 
         var startLocal = _date.Value.Date + _startTime.Value;
         var endLocal = _date.Value.Date + _endTime.Value;
-        var startUtc = DateTime.SpecifyKind(startLocal, DateTimeKind.Utc);
-        var endUtc = DateTime.SpecifyKind(endLocal, DateTimeKind.Utc);
+        var startUtc = RapportTimeZone.BerlinToUtc(startLocal);
+        var endUtc = RapportTimeZone.BerlinToUtc(endLocal);
 
         _durationDisplay = FormatDuration(endLocal - startLocal);
 
         try
         {
-            Guid? teamMemberId;
-            string? teamMemberName;
+            var currentUserId = await UserContextService.GetCurrentUserIdAsync();
+            var currentUserName = await UserContextService.GetCurrentUserNameAsync();
+
+            Guid? teamMemberId = currentUserId;
+            string? teamMemberName = currentUserName;
 
             if (_isAdminOrBuero && _selectedTeamMemberId.HasValue)
             {
                 teamMemberId = _selectedTeamMemberId;
-                var member = await TeamMemberCacheService.GetByIdAsync(_selectedTeamMemberId.Value);
-                teamMemberName = member?.DisplayName;
-            }
-            else
-            {
-                teamMemberId = await UserContextService.GetCurrentUserIdAsync();
-                teamMemberName = await UserContextService.GetCurrentUserNameAsync();
+                if (teamMemberId != currentUserId)
+                {
+                    var member = await TeamMemberCacheService.GetByIdAsync(_selectedTeamMemberId.Value);
+                    teamMemberName = member?.DisplayName ?? currentUserName;
+                }
             }
 
             await TimeEntryService.CreateManualEntryAsync(
@@ -242,4 +259,6 @@
         return $"{totalHours:00}:{duration.Minutes:00}:{duration.Seconds:00}";
     }
 }
+
+
 

@@ -15,10 +15,12 @@ public interface IJwtTokenService
 public class JwtTokenService : IJwtTokenService
 {
     private readonly IConfiguration _configuration;
+    private readonly ILogger<JwtTokenService> _logger;
 
-    public JwtTokenService(IConfiguration configuration)
+    public JwtTokenService(IConfiguration configuration, ILogger<JwtTokenService> logger)
     {
         _configuration = configuration;
+        _logger = logger;
     }
 
     public string GenerateToken(TeamMember member)
@@ -26,6 +28,8 @@ public class JwtTokenService : IJwtTokenService
         var secret = GetOrGenerateJwtSecret();
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secret));
         var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+        var issuer = _configuration["Jwt:Issuer"] ?? "KuestencodeWerkbank";
+        var expiresInDays = _configuration.GetValue("Jwt:ExpiresInDays", 30);
 
         var claims = new[]
         {
@@ -36,10 +40,10 @@ public class JwtTokenService : IJwtTokenService
         };
 
         var token = new JwtSecurityToken(
-            issuer: "KuestencodeWerkbank",
-            audience: "KuestencodeWerkbank",
+            issuer: issuer,
+            audience: issuer,
             claims: claims,
-            expires: DateTime.UtcNow.AddDays(30),
+            expires: DateTime.UtcNow.AddDays(expiresInDays),
             signingCredentials: credentials
         );
 
@@ -50,15 +54,23 @@ public class JwtTokenService : IJwtTokenService
     {
         var secret = _configuration["Jwt:Secret"];
 
-        if (string.IsNullOrEmpty(secret))
+        if (!string.IsNullOrWhiteSpace(secret) && secret.Length >= 32)
+            return secret;
+
+        var filePath = Path.Combine(AppContext.BaseDirectory, "data", "jwt-secret.txt");
+        var dir = Path.GetDirectoryName(filePath)!;
+        Directory.CreateDirectory(dir);
+
+        if (File.Exists(filePath))
         {
-            secret = GenerateRandomSecret();
+            var stored = File.ReadAllText(filePath).Trim();
+            if (stored.Length >= 32)
+                return stored;
         }
 
-        if (secret.Length < 32)
-        {
-            throw new InvalidOperationException("JWT Secret muss mindestens 32 Zeichen lang sein.");
-        }
+        secret = GenerateRandomSecret();
+        File.WriteAllText(filePath, secret);
+        _logger.LogInformation("JWT-Secret automatisch generiert und gespeichert (JwtTokenService).");
 
         return secret;
     }

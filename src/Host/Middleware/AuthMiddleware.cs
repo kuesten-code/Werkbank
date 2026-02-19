@@ -77,7 +77,8 @@ public class AuthMiddleware
         var isInternal = IsInternalModuleRequest(context);
         if (isInternal && string.IsNullOrEmpty(token))
         {
-            _logger.LogDebug("AuthMiddleware: Internal request without token bypassed auth. Path={Path}", path);
+            context.User = CreateInternalServicePrincipal();
+            _logger.LogDebug("AuthMiddleware: Internal request without token uses internal service principal. Path={Path}", path);
             await _next(context);
             return;
         }
@@ -104,9 +105,23 @@ public class AuthMiddleware
         var principal = ValidateToken(token);
         if (principal == null)
         {
+            if (isInternal)
+            {
+                context.User = CreateInternalServicePrincipal();
+                _logger.LogWarning("AuthMiddleware: Invalid token on internal request. Using internal service principal. Path={Path}, Host={Host}",
+                    path,
+                    context.Request.Host.Host);
+                await _next(context);
+                return;
+            }
+
             // Ungültiger Token: API-Requests bekommen 401
             if (path.StartsWith("/api/", StringComparison.OrdinalIgnoreCase))
             {
+                _logger.LogWarning("AuthMiddleware: 401 invalid token. Path={Path}, Host={Host}, HasAuthHeader={HasAuthHeader}",
+                    path,
+                    context.Request.Host.Host,
+                    context.Request.Headers.ContainsKey("Authorization"));
                 context.Response.StatusCode = 401;
                 return;
             }
@@ -265,5 +280,17 @@ public class AuthMiddleware
         }
 
         return null;
+    }
+
+    private static ClaimsPrincipal CreateInternalServicePrincipal()
+    {
+        var claims = new[]
+        {
+            new Claim(ClaimTypes.NameIdentifier, Guid.Empty.ToString()),
+            new Claim(ClaimTypes.Name, "InternalModule"),
+            new Claim(ClaimTypes.Role, UserRole.Admin.ToString())
+        };
+
+        return new ClaimsPrincipal(new ClaimsIdentity(claims, "InternalService"));
     }
 }

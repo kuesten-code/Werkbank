@@ -57,6 +57,21 @@
                     credentials: 'include'
                 });
                 return true;
+            },
+            mobileVerifyPin: async function (token, pin) {
+                const response = await fetch(`/api/mobile/${encodeURIComponent(token)}/pin/verify`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ pin })
+                });
+
+                const raw = await response.text();
+                return JSON.stringify({
+                    ok: response.ok,
+                    status: response.status,
+                    payload: raw
+                });
             }
         };
 

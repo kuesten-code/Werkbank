@@ -74,7 +74,34 @@ else
 
     private void OnPinVerified()
     {
-        NavigationManager.NavigateTo($"/m/{Token}/rapport");
+        var token = string.IsNullOrWhiteSpace(Token) ? ExtractTokenFromCurrentUri() : Token;
+
+        if (string.IsNullOrWhiteSpace(token))
+        {
+            NavigationManager.NavigateTo("/m/invalid", forceLoad: true);
+            return;
+        }
+
+        NavigationManager.NavigateTo($"/m/{token}/rapport", forceLoad: true);
+    }
+
+    private string ExtractTokenFromCurrentUri()
+    {
+        try
+        {
+            var uri = new Uri(NavigationManager.Uri);
+            var segments = uri.AbsolutePath.Trim('/').Split('/', StringSplitOptions.RemoveEmptyEntries);
+            if (segments.Length >= 2 && string.Equals(segments[0], "m", StringComparison.OrdinalIgnoreCase))
+            {
+                return segments[1];
+            }
+        }
+        catch
+        {
+            // Ignore and return empty
+        }
+
+        return string.Empty;
     }
 
 }

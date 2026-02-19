@@ -1,4 +1,5 @@
-@inject Kuestencode.Werkbank.Host.Services.IMobileTokenService MobileTokenService
+@using System.Text.Json
+@inject IJSRuntime JSRuntime
 @inject NavigationManager NavigationManager
 
 <div class="mobile-pin-enter">
@@ -82,14 +83,18 @@
 
         try
         {
-            var result = await MobileTokenService.VerifyPinAsync(Token, _pin);
+            var resultJson = await JSRuntime.InvokeAsync<string>("werkbankAuth.mobileVerifyPin", Token, _pin);
+            using var envelope = JsonDocument.Parse(resultJson);
+            var payloadRaw = envelope.RootElement.GetProperty("payload").GetString() ?? "{}";
+            using var payload = JsonDocument.Parse(payloadRaw);
 
-            if (result.Success)
+            if (envelope.RootElement.GetProperty("ok").GetBoolean() &&
+                payload.RootElement.TryGetProperty("success", out var successElement) &&
+                successElement.GetBoolean())
             {
-                // Mobile auth uses token-based validation, no JWT/cookie auth needed
                 await OnSuccess.InvokeAsync();
             }
-            else if (result.Locked)
+            else if (payload.RootElement.TryGetProperty("locked", out var lockedElement) && lockedElement.GetBoolean())
             {
                 // Seite neu laden, zeigt dann Locked-Zustand
                 NavigationManager.NavigateTo(NavigationManager.Uri, forceLoad: true);
@@ -97,7 +102,11 @@
             else
             {
                 _error = "Falsche PIN";
-                _remainingAttempts = result.RemainingAttempts;
+                if (payload.RootElement.TryGetProperty("remainingAttempts", out var attemptsElement) &&
+                    attemptsElement.ValueKind == JsonValueKind.Number)
+                {
+                    _remainingAttempts = attemptsElement.GetInt32();
+                }
                 _pin = "";
             }
         }
