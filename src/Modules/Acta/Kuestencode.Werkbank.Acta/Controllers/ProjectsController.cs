@@ -220,6 +220,7 @@ public class ProjectsController : ControllerBase
             result.Add(new ActaProjectDto
             {
                 Id = project.ExternalId!.Value,
+                InternalProjectId = project.Id,
                 Name = project.Name,
                 ProjectNumber = project.ProjectNumber,
                 CustomerId = project.CustomerId,
@@ -245,6 +246,7 @@ public class ProjectsController : ControllerBase
         return Ok(new ActaProjectDto
         {
             Id = project.ExternalId!.Value,
+            InternalProjectId = project.Id,
             Name = project.Name,
             ProjectNumber = project.ProjectNumber,
             CustomerId = project.CustomerId,

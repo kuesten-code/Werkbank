@@ -68,7 +68,7 @@ public class XRechnungService : IXRechnungService
         try
         {
             // Generiere normales PDF
-            var basePdf = _pdfGeneratorService.GenerateInvoicePdf(invoiceId);
+            var basePdf = await _pdfGeneratorService.GenerateInvoicePdfAsync(invoiceId);
 
             // Generiere XML
             var xmlString = await GenerateXRechnungXmlAsync(invoiceId);

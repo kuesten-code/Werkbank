@@ -49,6 +49,7 @@ public class DocumentFilterDto
     public DocumentCategory? Category { get; set; }
     public Guid? SupplierId { get; set; }
     public Guid? ProjectId { get; set; }
+    public bool? HasBeenAttached { get; set; }
     public DateOnly? From { get; set; }
     public DateOnly? To { get; set; }
     public string? Search { get; set; }

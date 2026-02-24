@@ -58,4 +58,9 @@ public interface IDocumentService
     /// Aktualisiert den OCR-Rohtext eines Belegs.
     /// </summary>
     Task UpdateOcrTextAsync(Guid id, string ocrText);
+
+    /// <summary>
+    /// Markiert mehrere Belege als bereits an Rechnung angehängt.
+    /// </summary>
+    Task MarkAsAttachedAsync(IEnumerable<Guid> documentIds);
 }

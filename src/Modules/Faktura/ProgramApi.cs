@@ -103,7 +103,26 @@ public class ProgramApi
             var rapportUrl = builder.Configuration.GetValue<string>("ServiceUrls:Rapport") ?? "http://localhost:8082";
             client.BaseAddress = new Uri(rapportUrl);
             client.Timeout = TimeSpan.FromSeconds(30);
-        });
+        })
+        .AddHttpMessageHandler<Kuestencode.Shared.UI.Handlers.AuthTokenDelegatingHandler>();
+
+        // Acta API Client (Projects)
+        builder.Services.AddHttpClient<IActaApiClient, ActaApiClient>(client =>
+        {
+            var actaUrl = builder.Configuration.GetValue<string>("ServiceUrls:Acta") ?? "http://localhost:8084";
+            client.BaseAddress = new Uri(actaUrl);
+            client.Timeout = TimeSpan.FromSeconds(30);
+        })
+        .AddHttpMessageHandler<Kuestencode.Shared.UI.Handlers.AuthTokenDelegatingHandler>();
+
+        // Recepta API Client (Receipts)
+        builder.Services.AddHttpClient<IReceptaApiClient, ReceptaApiClient>(client =>
+        {
+            var receptaUrl = builder.Configuration.GetValue<string>("ServiceUrls:Recepta") ?? "http://localhost:8085";
+            client.BaseAddress = new Uri(receptaUrl);
+            client.Timeout = TimeSpan.FromSeconds(30);
+        })
+        .AddHttpMessageHandler<Kuestencode.Shared.UI.Handlers.AuthTokenDelegatingHandler>();
 
         // Add API-based implementations of Host services (Company, Customer)
         builder.Services.AddScoped<ICompanyService, ApiCompanyService>();

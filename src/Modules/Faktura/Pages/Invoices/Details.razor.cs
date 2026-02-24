@@ -152,7 +152,7 @@ public partial class Details
         _downloading = true;
         try
         {
-            var pdfBytes = PdfGeneratorService.GenerateInvoicePdf(_invoice.Id);
+            var pdfBytes = await PdfGeneratorService.GenerateInvoicePdfAsync(_invoice.Id);
             var fileName = $"{_invoice.InvoiceNumber}.pdf";
 
             await JSRuntime.InvokeVoidAsync("downloadFile", fileName, Convert.ToBase64String(pdfBytes));
@@ -294,7 +294,7 @@ public partial class Details
         try
         {
             // Generate PDF
-            var pdfBytes = PdfGeneratorService.GenerateInvoicePdf(invoice.Id);
+            var pdfBytes = await PdfGeneratorService.GenerateInvoicePdfAsync(invoice.Id);
             var mergedPdfBytes = PdfMergeService.MergeForPrint(pdfBytes, invoice.Attachments);
             var base64 = Convert.ToBase64String(mergedPdfBytes);
 

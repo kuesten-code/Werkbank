@@ -70,7 +70,7 @@ else
             }
             else if (!_tasks.Any())
             {
-                <div style="text-align: center; padding: 2rem; color: #6c757d;">
+                <div style="text-align: center; padding: 2rem; color: var(--mud-palette-text-secondary);">
                     <MudIcon Icon="@Icons.Material.Filled.AssignmentTurnedIn" Style="font-size: 2.5rem; opacity: 0.5; margin-bottom: 0.5rem;" />
                     <MudText>Keine zugewiesenen Aufgaben</MudText>
                 </div>
@@ -297,8 +297,8 @@ else
     private static string GetTaskCardStyle(bool completed)
     {
         return completed
-            ? "background:#f8f9fa;border-radius:8px;padding:0.875rem;border:1px solid #e9ecef;"
-            : "background:#ffffff;border-radius:8px;padding:0.875rem;border:1px solid #dbeafe;";
+            ? "background:var(--mud-palette-background-gray);border-radius:8px;padding:0.875rem;border:1px solid var(--mud-palette-divider);"
+            : "background:var(--mud-palette-surface);border-radius:8px;padding:0.875rem;border:1px solid rgba(15,42,61,0.2);";
     }
 
     private void ShowMessage(string message, string type)

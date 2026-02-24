@@ -24,13 +24,13 @@
 else
 {
     <div class="mobile-rapport">
-        <div class="rapport-header" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem; padding: 0.5rem; background: white; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+        <div class="rapport-header" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem; padding: 0.5rem; background: var(--mud-palette-surface); border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
             <MudIconButton Icon="@Icons.Material.Filled.ChevronLeft"
                            OnClick="PreviousDay"
                            Disabled="@(_selectedDate <= _minDate)"
                            Style="width: 44px; height: 44px;" />
             <div style="text-align: center; cursor: pointer; padding: 0.5rem 1rem;" @onclick="ShowDatePicker">
-                <div style="font-size: 0.75rem; color: #6c757d; text-transform: uppercase;">
+                <div style="font-size: 0.75rem; color: var(--mud-palette-text-secondary); text-transform: uppercase;">
                     @_selectedDate.ToString("dddd", new System.Globalization.CultureInfo("de-DE"))
                 </div>
                 <div style="font-weight: 600; font-size: 1rem;">
@@ -139,11 +139,11 @@ else
         </MudPaper>
 
         <MudPaper Class="pa-4">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; padding-bottom: 0.75rem; border-bottom: 1px solid #e9ecef;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; padding-bottom: 0.75rem; border-bottom: 1px solid var(--mud-palette-divider);">
                 <MudText Typo="Typo.h6">Einträge</MudText>
                 @if (_dayEntries.Any())
                 {
-                    <MudText Typo="Typo.body1" Style="font-weight: 600; color: #0d6efd;">
+                    <MudText Typo="Typo.body1" Style="font-weight: 600; color: var(--mud-palette-primary);">
                         @_dayEntries.Sum(e => e.Hours).ToString("0.0") Std.
                     </MudText>
                 }
@@ -157,7 +157,7 @@ else
             }
             else if (!_dayEntries.Any())
             {
-                <div style="text-align: center; padding: 2rem; color: #6c757d;">
+                <div style="text-align: center; padding: 2rem; color: var(--mud-palette-text-secondary);">
                     <MudIcon Icon="@Icons.Material.Filled.AccessTime" Style="font-size: 2.5rem; opacity: 0.5; margin-bottom: 0.5rem;" />
                     <MudText>Keine Einträge für diesen Tag</MudText>
                 </div>
@@ -167,7 +167,7 @@ else
                 <MudStack Spacing="2">
                     @foreach (var entry in _dayEntries)
                     {
-                        <MudPaper Elevation="0" Style="@($"background: {(_editingEntryId == entry.Id ? "#e7f1ff" : "#f8f9fa")}; border-radius: 8px; padding: 0.875rem; {(_editingEntryId == entry.Id ? "border: 2px solid #0d6efd;" : "")}")">
+                        <MudPaper Elevation="0" Style="@($"background: {(_editingEntryId == entry.Id ? "rgba(15,42,61,0.08)" : "var(--mud-palette-background-gray)")}; border-radius: 8px; padding: 0.875rem; {(_editingEntryId == entry.Id ? "border: 2px solid var(--mud-palette-primary);" : "")}")">
                             <div style="display: flex; justify-content: space-between; align-items: flex-start;">
                                 <div style="flex: 1; padding-right: 1rem;">
                                     <MudText Typo="Typo.body1" Style="font-weight: 500;">@GetEntryHeadline(entry)</MudText>
@@ -180,13 +180,13 @@ else
                                         <MudText Typo="Typo.body2" Color="Color.Secondary">@entry.Description</MudText>
                                     }
                                 </div>
-                                <MudText Typo="Typo.body1" Style="font-weight: 700; color: #0d6efd; white-space: nowrap;">
+                                <MudText Typo="Typo.body1" Style="font-weight: 700; color: var(--mud-palette-primary); white-space: nowrap;">
                                     @entry.Hours.ToString("0.0") h
                                 </MudText>
                             </div>
                             @if (entry.CanEdit || entry.CanDelete)
                             {
-                                <div style="display: flex; gap: 0.5rem; margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid #e9ecef;">
+                                <div style="display: flex; gap: 0.5rem; margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid var(--mud-palette-divider);">
                                     @if (entry.CanEdit)
                                     {
                                         <MudButton Variant="Variant.Text"

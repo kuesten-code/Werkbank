@@ -37,6 +37,7 @@ public class DocumentsController : ControllerBase
         [FromQuery] string? category = null,
         [FromQuery] Guid? supplierId = null,
         [FromQuery] Guid? projectId = null,
+        [FromQuery] bool? hasBeenAttached = null,
         [FromQuery] DateOnly? from = null,
         [FromQuery] DateOnly? to = null,
         [FromQuery] string? search = null)
@@ -45,6 +46,7 @@ public class DocumentsController : ControllerBase
         {
             SupplierId = supplierId,
             ProjectId = projectId,
+            HasBeenAttached = hasBeenAttached,
             From = from,
             To = to,
             Search = search
@@ -316,9 +318,13 @@ public class DocumentsController : ControllerBase
     /// Lädt alle Belege eines Projekts (für Cross-Modul-Integration mit Acta).
     /// </summary>
     [HttpGet("project/{projectId:guid}")]
-    public async Task<ActionResult<List<ReceptaDocumentDto>>> GetByProject(Guid projectId)
+    public async Task<ActionResult<List<ReceptaDocumentDto>>> GetByProject(Guid projectId, [FromQuery] bool onlyUnattached = false)
     {
-        var filter = new DocumentFilterDto { ProjectId = projectId };
+        var filter = new DocumentFilterDto
+        {
+            ProjectId = projectId,
+            HasBeenAttached = onlyUnattached ? false : null
+        };
         var documents = await _documentService.GetAllAsync(filter);
 
         var result = documents.Select(d => new ReceptaDocumentDto
@@ -331,7 +337,8 @@ public class DocumentsController : ControllerBase
             AmountNet = d.AmountNet,
             AmountGross = d.AmountGross,
             Category = d.Category,
-            Status = d.Status
+            Status = d.Status,
+            HasBeenAttached = d.HasBeenAttached
         }).ToList();
 
         return Ok(result);
@@ -363,10 +370,23 @@ public class DocumentsController : ControllerBase
                 AmountNet = d.AmountNet,
                 AmountGross = d.AmountGross,
                 Category = d.Category,
-                Status = d.Status
+                Status = d.Status,
+                HasBeenAttached = d.HasBeenAttached
             }).ToList()
         };
 
         return Ok(response);
+    }
+
+    [HttpPost("mark-attached")]
+    public async Task<IActionResult> MarkAttached([FromBody] MarkDocumentsAttachedRequest request)
+    {
+        if (request.DocumentIds.Count == 0)
+        {
+            return Ok(new { updated = 0 });
+        }
+
+        await _documentService.MarkAsAttachedAsync(request.DocumentIds);
+        return Ok(new { updated = request.DocumentIds.Distinct().Count() });
     }
 }
