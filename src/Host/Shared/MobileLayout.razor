@@ -1,0 +1,17 @@
+@inherits LayoutComponentBase
+@using Kuestencode.Werkbank.Host.Shared
+
+<MudThemeProvider Theme="@KuestenCodeTheme.Theme" IsDarkMode="false" />
+<MudPopoverProvider />
+<MudDialogProvider />
+<MudSnackbarProvider />
+
+<div class="mobile-layout">
+    <header class="mobile-header">
+        <img src="/company/logos/logo_no_name.png" alt="Werkbank" class="mobile-logo" />
+    </header>
+
+    <main class="mobile-content">
+        @Body
+    </main>
+</div>

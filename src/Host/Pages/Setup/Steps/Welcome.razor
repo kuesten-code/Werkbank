@@ -1,0 +1,37 @@
+@namespace Kuestencode.Werkbank.Host.Pages.Setup.Steps
+@using Kuestencode.Werkbank.Host.Services
+
+<MudStack Spacing="4" AlignItems="AlignItems.Center" Class="py-4">
+    <MudImage Src="/company/logos/logo_no_name.png" Alt="Küstencode Werkbank Logo" Width="120" Class="mb-2" />
+
+    <MudText Typo="Typo.h3" Align="Align.Center">
+        Willkommen bei der Küstencode Werkbank
+    </MudText>
+
+    <MudText Typo="Typo.h6" Align="Align.Center" Color="Color.Secondary">
+        Die modulare Business-Software für Kleinunternehmer und Freiberufler
+    </MudText>
+
+    <MudText Typo="Typo.body1" Align="Align.Center" Class="mt-4 mb-4" Style="max-width: 500px;">
+        In den nächsten Schritten richten wir die Werkbank für dich ein.
+        Das dauert nur 2 Minuten.
+    </MudText>
+
+    <MudButton Variant="Variant.Filled"
+               Color="Color.Primary"
+               Size="Size.Large"
+               StartIcon="@Icons.Material.Filled.ArrowForward"
+               OnClick="HandleNext"
+               Class="mt-2">
+        Los geht's
+    </MudButton>
+</MudStack>
+
+@code {
+    [Parameter] public EventCallback OnNext { get; set; }
+
+    private async Task HandleNext()
+    {
+        await OnNext.InvokeAsync();
+    }
+}

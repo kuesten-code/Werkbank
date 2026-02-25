@@ -1,0 +1,113 @@
+@namespace Kuestencode.Werkbank.Host.Pages.Setup.Steps
+@using Kuestencode.Werkbank.Host.Services
+@using System.ComponentModel.DataAnnotations
+
+<MudStack Spacing="3">
+    <MudText Typo="Typo.h5">Administrator anlegen</MudText>
+    <MudText Typo="Typo.body1">Erstelle deinen Admin-Account. Damit meldest du dich später an.</MudText>
+
+    <MudTextField @bind-Value="Data.AdminName" Label="Name" Variant="Variant.Outlined"
+                  Required="true" RequiredError="Name ist erforderlich" />
+
+    <MudTextField @bind-Value="Data.AdminEmail" Label="E-Mail" Variant="Variant.Outlined"
+                  Required="true" RequiredError="E-Mail ist erforderlich"
+                  InputType="InputType.Email" />
+
+    <MudTextField @bind-Value="Data.AdminPassword" Label="Passwort" Variant="Variant.Outlined"
+                  Required="true" RequiredError="Passwort ist erforderlich"
+                  InputType="@_passwordInputType"
+                  Adornment="Adornment.End"
+                  AdornmentIcon="@_passwordIcon"
+                  OnAdornmentClick="TogglePasswordVisibility" />
+
+    <MudTextField @bind-Value="_passwordConfirm" Label="Passwort wiederholen" Variant="Variant.Outlined"
+                  Required="true"
+                  InputType="@_passwordInputType"
+                  Error="@(!string.IsNullOrEmpty(_passwordConfirm) && Data.AdminPassword != _passwordConfirm)"
+                  ErrorText="Passwörter stimmen nicht überein" />
+
+    @if (!string.IsNullOrEmpty(Data.AdminPassword))
+    {
+        <MudText Typo="Typo.caption" Color="@(Data.AdminPassword.Length >= 8 ? Color.Success : Color.Error)">
+            @if (Data.AdminPassword.Length >= 8)
+            {
+                <MudIcon Icon="@Icons.Material.Filled.Check" Size="Size.Small" /> @:Mindestlänge erfüllt (8 Zeichen)
+            }
+            else
+            {
+                <MudIcon Icon="@Icons.Material.Filled.Close" Size="Size.Small" /> @:Mindestens 8 Zeichen erforderlich
+            }
+        </MudText>
+    }
+
+    @if (!string.IsNullOrEmpty(_error))
+    {
+        <MudAlert Severity="Severity.Error">@_error</MudAlert>
+    }
+
+    <MudStack Row="true" Justify="Justify.SpaceBetween" Class="mt-4">
+        <MudButton Variant="Variant.Text" OnClick="@(() => OnBack.InvokeAsync())">
+            <MudIcon Icon="@Icons.Material.Filled.ArrowBack" Class="mr-2" />
+            Zurück
+        </MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                   OnClick="HandleNext"
+                   Disabled="@(!IsValid())">
+            Weiter
+            <MudIcon Icon="@Icons.Material.Filled.ArrowForward" Class="ml-2" />
+        </MudButton>
+    </MudStack>
+</MudStack>
+
+@code {
+    [Parameter] public SetupData Data { get; set; } = new();
+    [Parameter] public EventCallback OnNext { get; set; }
+    [Parameter] public EventCallback OnBack { get; set; }
+
+    private string _passwordConfirm = "";
+    private string? _error;
+    private InputType _passwordInputType = InputType.Password;
+    private string _passwordIcon = Icons.Material.Filled.VisibilityOff;
+
+    private void TogglePasswordVisibility()
+    {
+        if (_passwordInputType == InputType.Password)
+        {
+            _passwordInputType = InputType.Text;
+            _passwordIcon = Icons.Material.Filled.Visibility;
+        }
+        else
+        {
+            _passwordInputType = InputType.Password;
+            _passwordIcon = Icons.Material.Filled.VisibilityOff;
+        }
+    }
+
+    private bool IsValid()
+    {
+        return !string.IsNullOrWhiteSpace(Data.AdminName) &&
+               !string.IsNullOrWhiteSpace(Data.AdminEmail) &&
+               !string.IsNullOrWhiteSpace(Data.AdminPassword) &&
+               Data.AdminPassword.Length >= 8 &&
+               Data.AdminPassword == _passwordConfirm;
+    }
+
+    private async Task HandleNext()
+    {
+        _error = null;
+
+        if (Data.AdminPassword != _passwordConfirm)
+        {
+            _error = "Passwörter stimmen nicht überein";
+            return;
+        }
+
+        if (Data.AdminPassword.Length < 8)
+        {
+            _error = "Passwort muss mindestens 8 Zeichen haben";
+            return;
+        }
+
+        await OnNext.InvokeAsync();
+    }
+}

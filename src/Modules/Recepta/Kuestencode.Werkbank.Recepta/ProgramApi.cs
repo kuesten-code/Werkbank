@@ -1,7 +1,9 @@
 using System.Globalization;
 using Kuestencode.Core.Interfaces;
 using Kuestencode.Shared.ApiClients;
+using Kuestencode.Shared.Contracts.Host;
 using Kuestencode.Shared.Contracts.Navigation;
+using Kuestencode.Shared.UI.Extensions;
 using Kuestencode.Werkbank.Recepta.Services;
 using MudBlazor.Services;
 
@@ -25,9 +27,20 @@ public class ProgramApi
         builder.Configuration.AddJsonFile("appsettings.api.json", optional: true, reloadOnChange: true);
         builder.Configuration.AddEnvironmentVariables();
 
+        // Add HttpContextAccessor for authentication
+        builder.Services.AddHttpContextAccessor();
+
+        // Authentication is handled by PassThroughAuthStateProvider reading the JWT
+        // from werkbank_auth_cookie directly. No ASP.NET Cookie Authentication needed.
+        builder.Services.AddAuthorization();
+
         // Add Blazor Server + Razor Pages
         builder.Services.AddRazorPages();
         builder.Services.AddServerSideBlazor();
+
+        // Add PassThrough AuthenticationStateProvider for modules
+        builder.Services.AddScoped<Microsoft.AspNetCore.Components.Authorization.AuthenticationStateProvider,
+            Kuestencode.Shared.UI.Auth.PassThroughAuthStateProvider>();
 
         // Add MudBlazor
         builder.Services.AddMudServices();
@@ -59,13 +72,17 @@ public class ProgramApi
         // Add Module Registry (stub for API mode - modules are registered via HTTP)
         builder.Services.AddSingleton<IModuleRegistry, ApiModuleRegistry>();
 
-        // Add Host API Client (must be registered before API-based services)
+        // Add AuthTokenDelegatingHandler for forwarding Authorization headers
+        builder.Services.AddTransient<Kuestencode.Shared.UI.Handlers.AuthTokenDelegatingHandler>();
+
+        // Add Host API Client with AuthTokenDelegatingHandler (must be registered before API-based services)
         builder.Services.AddHttpClient<IHostApiClient, HostApiClient>(client =>
         {
             var hostUrl = builder.Configuration.GetValue<string>("ServiceUrls:Host") ?? "http://localhost:8080";
             client.BaseAddress = new Uri(hostUrl);
             client.Timeout = TimeSpan.FromSeconds(30);
-        });
+        })
+        .AddHttpMessageHandler<Kuestencode.Shared.UI.Handlers.AuthTokenDelegatingHandler>();
 
         // Add API-based implementations of Host services (Company, Customer)
         builder.Services.AddScoped<ICompanyService, ApiCompanyService>();
@@ -73,6 +90,9 @@ public class ProgramApi
 
         // Add Recepta Services (includes DbContext, Repositories, etc.)
         builder.Services.AddReceptaModule(builder.Configuration);
+
+        // Add Module Health Monitor - re-registers if no health check received within 60 seconds
+        builder.Services.AddModuleHealthMonitor("Recepta", GetModuleInfo, builder.Configuration);
 
         var app = builder.Build();
 
@@ -115,7 +135,14 @@ public class ProgramApi
 
         app.UseCors();
         app.UseStaticFiles();
+
+        // Add Health Check Tracker Middleware
+        app.UseModuleHealthMonitor();
+
         app.UseRouting();
+
+        // Add Authorization
+        app.UseAuthorization();
 
         // Map API Controllers
         app.MapControllers();
@@ -140,51 +167,59 @@ public class ProgramApi
         app.Run();
     }
 
+    private static ModuleInfoDto GetModuleInfo(IConfiguration config)
+    {
+        var selfUrl = config.GetValue<string>("ServiceUrls:Self") ?? "http://localhost:8085";
+        var moduleVersion = config["MODULE_VERSION"]
+            ?? config["IMAGE_TAG"]
+            ?? config["DOCKER_IMAGE_TAG"]
+            ?? "dev";
+
+        return new ModuleInfoDto
+        {
+            ModuleName = "Recepta",
+            DisplayName = "Recepta",
+            Version = moduleVersion,
+            LogoUrl = "/recepta/company/logos/Recepta_Logo.png",
+            HealthCheckUrl = $"{selfUrl}/recepta/health",
+            NavigationItems = new List<NavItemDto>
+            {
+                new NavItemDto
+                {
+                    Label = "Recepta",
+                    Href = "/recepta",
+                    Icon = "/recepta/company/logos/Recepta_Logo.png",
+                    Type = NavItemType.Link,
+                    AllowedRoles = new List<UserRole> { UserRole.Buero, UserRole.Admin }
+                },
+                new NavItemDto
+                {
+                    Label = "Belege",
+                    Href = "/recepta/belege",
+                    Icon = "",
+                    Type = NavItemType.Link,
+                    AllowedRoles = new List<UserRole> { UserRole.Buero, UserRole.Admin }
+                },
+                new NavItemDto
+                {
+                    Label = "Lieferanten",
+                    Href = "/recepta/lieferanten",
+                    Icon = "",
+                    Type = NavItemType.Link,
+                    AllowedRoles = new List<UserRole> { UserRole.Buero, UserRole.Admin }
+                }
+            }
+        };
+    }
+
     private static async Task RegisterWithHost(IConfiguration config, ILogger logger)
     {
         try
         {
             var hostUrl = config.GetValue<string>("ServiceUrls:Host") ?? "http://localhost:8080";
-            var selfUrl = config.GetValue<string>("ServiceUrls:Self") ?? "http://localhost:8085";
             using var client = new HttpClient { BaseAddress = new Uri(hostUrl) };
 
-            var moduleVersion = config["MODULE_VERSION"]
-                ?? config["IMAGE_TAG"]
-                ?? config["DOCKER_IMAGE_TAG"]
-                ?? "dev";
-
-            var moduleInfo = new ModuleInfoDto
-            {
-                ModuleName = "Recepta",
-                DisplayName = "Recepta",
-                Version = moduleVersion,
-                HealthCheckUrl = $"{selfUrl}/recepta/health",
-                LogoUrl = "/recepta/company/logos/Recepta_Logo.png",
-                NavigationItems = new List<NavItemDto>
-                {
-                    new NavItemDto
-                    {
-                        Label = "Recepta",
-                        Href = "/recepta",
-                        Icon = "/recepta/company/logos/Recepta_Logo.png",
-                        Type = NavItemType.Link
-                    },
-                    new NavItemDto
-                    {
-                        Label = "Belege",
-                        Href = "/recepta/belege",
-                        Icon = "",
-                        Type = NavItemType.Link
-                    },
-                    new NavItemDto
-                    {
-                        Label = "Lieferanten",
-                        Href = "/recepta/lieferanten",
-                        Icon = "",
-                        Type = NavItemType.Link
-                    }
-                }
-            };
+            var moduleInfo = GetModuleInfo(config);
 
             var response = await client.PostAsJsonAsync("/api/modules/register", moduleInfo);
             if (response.IsSuccessStatusCode)

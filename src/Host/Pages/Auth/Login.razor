@@ -1,0 +1,199 @@
+@page "/login"
+@using Kuestencode.Werkbank.Host.Auth
+@using System.Text.Json
+@layout EmptyLayout
+@inject WerkbankAuthStateProvider AuthStateProvider
+@inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
+@inject ISnackbar Snackbar
+
+<PageTitle>Anmelden - Küstencode Werkbank</PageTitle>
+
+<link rel="stylesheet" href="/css/auth.css?v=2" />
+
+<div class="auth-container">
+    <MudPaper Elevation="4" Class="auth-card pa-6">
+        <MudStack AlignItems="AlignItems.Center" Spacing="2" Class="mb-4">
+            <MudImage Src="/company/logos/logo_no_name.png" Alt="Küstencode Werkbank Logo" Width="100" Class="mb-1" />
+            <MudText Typo="Typo.h4" Color="Color.Primary">Küstencode Werkbank</MudText>
+            <MudText Typo="Typo.h6">Anmelden</MudText>
+        </MudStack>
+
+        @if (!string.IsNullOrEmpty(_errorMessage))
+        {
+            <MudAlert Severity="Severity.Error" Class="mb-4">@_errorMessage</MudAlert>
+        }
+
+        @if (_lockedForMinutes.HasValue)
+        {
+            <MudAlert Severity="Severity.Warning" Class="mb-4">
+                <strong>Account gesperrt</strong>
+                <br />
+                Noch @_lockedForMinutes Minuten bis zur nächsten Anmeldung.
+            </MudAlert>
+        }
+
+        <EditForm Model="@_model" OnValidSubmit="HandleLogin">
+            <DataAnnotationsValidator />
+
+            <MudTextField @ref="_emailField"
+                         Label="E-Mail"
+                         @bind-Value="_model.Email"
+                         For="@(() => _model.Email)"
+                         InputType="InputType.Email"
+                         Variant="Variant.Outlined"
+                         Required="true"
+                         Disabled="@(_loading || _lockedForMinutes.HasValue)"
+                         Class="mb-3"
+                         Immediate="true"
+                         @onkeydown="@((e) => HandleKeyDown(e, "email"))" />
+
+            <MudTextField Label="Passwort"
+                         @bind-Value="_model.Password"
+                         For="@(() => _model.Password)"
+                         InputType="@_passwordInputType"
+                         Variant="Variant.Outlined"
+                         Required="true"
+                         Disabled="@(_loading || _lockedForMinutes.HasValue)"
+                         Class="mb-3"
+                         Adornment="Adornment.End"
+                         AdornmentIcon="@_passwordIcon"
+                         OnAdornmentClick="TogglePasswordVisibility"
+                         @onkeydown="@((e) => HandleKeyDown(e, "password"))" />
+
+            <MudCheckBox @bind-Value="_model.RememberMe"
+                        Label="Angemeldet bleiben (30 Tage)"
+                        Color="Color.Primary"
+                        Disabled="@(_loading || _lockedForMinutes.HasValue)"
+                        Class="mb-4" />
+
+            <MudButton ButtonType="ButtonType.Submit"
+                      Variant="Variant.Filled"
+                      Color="Color.Primary"
+                      FullWidth="true"
+                      Size="Size.Large"
+                      Disabled="@(_loading || _lockedForMinutes.HasValue)"
+                      Class="mb-3">
+                @if (_loading)
+                {
+                    <MudProgressCircular Class="me-2" Size="Size.Small" Indeterminate="true" />
+                    <span>Anmeldung...</span>
+                }
+                else
+                {
+                    <span>Anmelden</span>
+                }
+            </MudButton>
+
+            <MudText Align="Align.Center">
+                <MudLink Href="/auth/forgot-password" Typo="Typo.body2" Color="Color.Secondary">
+                    Passwort vergessen?
+                </MudLink>
+            </MudText>
+        </EditForm>
+    </MudPaper>
+</div>
+
+@code {
+    private LoginModel _model = new();
+    private bool _loading;
+    private string? _errorMessage;
+    private int? _lockedForMinutes;
+    private bool _passwordVisible;
+    private InputType _passwordInputType = InputType.Password;
+    private string _passwordIcon = Icons.Material.Filled.VisibilityOff;
+    private MudTextField<string>? _emailField;
+    private string? _returnUrl;
+
+    [Parameter]
+    [SupplyParameterFromQuery]
+    public string? ReturnUrl { get; set; }
+
+    protected override void OnInitialized()
+    {
+        _returnUrl = ReturnUrl ?? "/";
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && _emailField != null)
+        {
+            await _emailField.FocusAsync();
+        }
+    }
+
+    private void HandleKeyDown(KeyboardEventArgs e, string field)
+    {
+        if (e.Key == "Enter")
+        {
+            // Enter submits via EditForm
+        }
+    }
+
+    private void TogglePasswordVisibility()
+    {
+        _passwordVisible = !_passwordVisible;
+        _passwordInputType = _passwordVisible ? InputType.Text : InputType.Password;
+        _passwordIcon = _passwordVisible ? Icons.Material.Filled.Visibility : Icons.Material.Filled.VisibilityOff;
+    }
+
+    private async Task HandleLogin()
+    {
+        _loading = true;
+        _errorMessage = null;
+        _lockedForMinutes = null;
+
+        try
+        {
+            var resultJson = await JSRuntime.InvokeAsync<string>("werkbankAuth.login", _model.Email, _model.Password);
+            using var envelope = JsonDocument.Parse(resultJson);
+            var payloadRaw = envelope.RootElement.GetProperty("payload").GetString() ?? "{}";
+            using var payload = JsonDocument.Parse(payloadRaw);
+
+            if (envelope.RootElement.GetProperty("ok").GetBoolean())
+            {
+                if (payload.RootElement.TryGetProperty("token", out var tokenElement))
+                {
+                    var token = tokenElement.GetString();
+                    if (!string.IsNullOrWhiteSpace(token))
+                    {
+                        await AuthStateProvider.LoginAsync(token);
+                    }
+                }
+
+                NavigationManager.NavigateTo(_returnUrl ?? "/", forceLoad: true);
+                return;
+            }
+
+            _errorMessage = payload.RootElement.TryGetProperty("error", out var errorElement)
+                ? errorElement.GetString() ?? "Anmeldung fehlgeschlagen."
+                : "Anmeldung fehlgeschlagen.";
+
+            if (payload.RootElement.TryGetProperty("lockedForMinutes", out var lockElement) &&
+                lockElement.ValueKind == JsonValueKind.Number)
+            {
+                _lockedForMinutes = lockElement.GetInt32();
+            }
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Fehler bei der Anmeldung: {ex.Message}";
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private class LoginModel
+    {
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "E-Mail ist erforderlich")]
+        [System.ComponentModel.DataAnnotations.EmailAddress(ErrorMessage = "Ungültige E-Mail-Adresse")]
+        public string Email { get; set; } = string.Empty;
+
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Passwort ist erforderlich")]
+        public string Password { get; set; } = string.Empty;
+
+        public bool RememberMe { get; set; }
+    }
+}

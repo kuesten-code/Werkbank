@@ -1,0 +1,103 @@
+@namespace Kuestencode.Werkbank.Host.Pages.Setup.Steps
+@using Kuestencode.Werkbank.Host.Services
+
+<MudStack Spacing="3">
+    <MudText Typo="Typo.h5">Zusammenfassung</MudText>
+    <MudText Typo="Typo.body1">Überprüfe deine Einstellungen vor dem Abschluss.</MudText>
+
+    <MudPaper Elevation="2" Class="pa-4">
+        <MudStack Spacing="2">
+            <MudText Typo="Typo.h6">Administrator</MudText>
+            <MudStack Spacing="1">
+                <MudText><strong>Name:</strong> @Data.AdminName</MudText>
+                <MudText><strong>E-Mail:</strong> @Data.AdminEmail</MudText>
+            </MudStack>
+        </MudStack>
+    </MudPaper>
+
+    <MudPaper Elevation="2" Class="pa-4">
+        <MudStack Spacing="2">
+            <MudText Typo="Typo.h6">Zugriff</MudText>
+            @if (Data.LocalOnly)
+            {
+                <MudText>Nur lokaler Zugriff (http://localhost)</MudText>
+            }
+            else
+            {
+                <MudText><strong>Basis-URL:</strong> @Data.BaseUrl</MudText>
+            }
+        </MudStack>
+    </MudPaper>
+
+    <MudPaper Elevation="2" Class="pa-4">
+        <MudStack Spacing="2">
+            <MudText Typo="Typo.h6">Authentifizierung</MudText>
+            @if (Data.AuthEnabled)
+            {
+                <MudText Color="Color.Success">
+                    <MudIcon Icon="@Icons.Material.Filled.Lock" Size="Size.Small" />
+                    Aktiviert - Login erforderlich
+                </MudText>
+            }
+            else
+            {
+                <MudText Color="Color.Warning">
+                    <MudIcon Icon="@Icons.Material.Filled.LockOpen" Size="Size.Small" />
+                    Deaktiviert - Kein Login erforderlich
+                </MudText>
+            }
+        </MudStack>
+    </MudPaper>
+
+    @if (!string.IsNullOrEmpty(_error))
+    {
+        <MudAlert Severity="Severity.Error">@_error</MudAlert>
+    }
+
+    @if (_isProcessing)
+    {
+        <MudProgressLinear Color="Color.Primary" Indeterminate="true" />
+        <MudText Align="Align.Center">Setup wird abgeschlossen...</MudText>
+    }
+
+    <MudStack Row="true" Justify="Justify.SpaceBetween" Class="mt-4">
+        <MudButton Variant="Variant.Text" OnClick="@(() => OnBack.InvokeAsync())" Disabled="@_isProcessing">
+            <MudIcon Icon="@Icons.Material.Filled.ArrowBack" Class="mr-2" />
+            Zurück
+        </MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Success"
+                   OnClick="HandleFinish"
+                   Disabled="@_isProcessing">
+            <MudIcon Icon="@Icons.Material.Filled.Check" Class="mr-2" />
+            Setup abschließen
+        </MudButton>
+    </MudStack>
+</MudStack>
+
+@code {
+    [Parameter] public SetupData Data { get; set; } = new();
+    [Parameter] public EventCallback OnFinish { get; set; }
+    [Parameter] public EventCallback OnBack { get; set; }
+
+    private string? _error;
+    private bool _isProcessing;
+
+    private async Task HandleFinish()
+    {
+        _error = null;
+        _isProcessing = true;
+
+        try
+        {
+            await OnFinish.InvokeAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = $"Fehler beim Abschließen des Setups: {ex.Message}";
+        }
+        finally
+        {
+            _isProcessing = false;
+        }
+    }
+}

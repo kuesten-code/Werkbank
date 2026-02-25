@@ -310,8 +310,60 @@ namespace Kuestencode.Werkbank.Host.Data.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
 
+                    b.Property<int>("FailedLoginAttempts")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0);
+
+                    b.Property<DateTime?>("InviteAcceptedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("InviteToken")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("InviteTokenExpires")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean");
+
+                    b.Property<bool>("IsLockedByAdmin")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
+
+                    b.Property<DateTime?>("LockoutUntil")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("MobilePinFailedAttempts")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("MobilePinSet")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("MobileToken")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<bool>("MobileTokenLocked")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("PasswordHash")
+                        .HasColumnType("text");
+
+                    b.Property<string>("PinHash")
+                        .HasColumnType("text");
+
+                    b.Property<string>("ResetToken")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("ResetTokenExpires")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Role")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(2);
 
                     b.Property<DateTime>("UpdatedAt")
                         .ValueGeneratedOnAdd()
@@ -324,6 +376,25 @@ namespace Kuestencode.Werkbank.Host.Data.Migrations
                         .IsUnique();
 
                     b.ToTable("TeamMembers", "host");
+                });
+
+            modelBuilder.Entity("Kuestencode.Werkbank.Host.Models.WerkbankSettings", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("AuthEnabled")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
+
+                    b.Property<string>("BaseUrl")
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("WerkbankSettings", "host");
                 });
 #pragma warning restore 612, 618
         }

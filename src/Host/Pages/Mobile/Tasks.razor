@@ -1,0 +1,315 @@
+@page "/m/{Token}/tasks"
+@layout MobileLayout
+@attribute [Microsoft.AspNetCore.Authorization.AllowAnonymous]
+@using Kuestencode.Werkbank.Host.Models.MobileRapport
+@inject NavigationManager NavigationManager
+@inject Kuestencode.Werkbank.Host.Services.IMobileTokenService MobileTokenService
+@inject Kuestencode.Werkbank.Host.Services.IMobileRapportService MobileRapportService
+
+<PageTitle>Aufgaben - Küstencode Werkbank</PageTitle>
+
+<link rel="stylesheet" href="/css/mobile.css" />
+
+@if (!_isAuthenticated)
+{
+    <div class="mobile-error">
+        <MudIcon Icon="@Icons.Material.Filled.Lock" Style="font-size: 4rem;" Color="Color.Warning" />
+        <h2>Nicht angemeldet</h2>
+        <p>Bitte melde dich zuerst an.</p>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" Href="@($"/m/{Token}")" Class="mt-3">
+            Zur Anmeldung
+        </MudButton>
+    </div>
+}
+else
+{
+    <div class="mobile-rapport">
+        <MudPaper Class="pa-3 mb-4">
+            <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                <MudText Typo="Typo.h6">Meine Aufgaben</MudText>
+                <MudIconButton Icon="@Icons.Material.Filled.Refresh"
+                               Color="Color.Primary"
+                               Disabled="_isLoading"
+                               OnClick="LoadTasks" />
+            </MudStack>
+
+            <MudStack Row="true" Spacing="1" Class="mt-2">
+                <MudButton Variant="Variant.Outlined" Color="Color.Default" Href="@($"/m/{Token}/rapport")">Zeiten</MudButton>
+                <MudButton Variant="Variant.Filled" Color="Color.Primary">Aufgaben</MudButton>
+            </MudStack>
+        </MudPaper>
+
+        @if (!string.IsNullOrEmpty(_message))
+        {
+            <MudAlert Severity="@(_messageType == "success" ? Severity.Success : Severity.Error)" Class="mb-4">
+                @_message
+            </MudAlert>
+        }
+
+        <MudPaper Class="pa-3 mb-4">
+            <MudSwitch @bind-Value="_includeCompleted"
+                       @bind-Value:after="OnIncludeCompletedChanged"
+                       Color="Color.Primary"
+                       Label="Erledigte anzeigen" />
+            @if (!_isLoading)
+            {
+                var openCount = _tasks.Count(t => !IsCompleted(t));
+                var completedCount = _tasks.Count(t => IsCompleted(t));
+                <MudText Typo="Typo.caption" Color="Color.Secondary">
+                    Offen: @openCount | Erledigt: @completedCount
+                </MudText>
+            }
+        </MudPaper>
+
+        <MudPaper Class="pa-4">
+            @if (_isLoading)
+            {
+                <div style="text-align: center; padding: 2rem;">
+                    <MudProgressCircular Indeterminate="true" />
+                </div>
+            }
+            else if (!_tasks.Any())
+            {
+                <div style="text-align: center; padding: 2rem; color: var(--mud-palette-text-secondary);">
+                    <MudIcon Icon="@Icons.Material.Filled.AssignmentTurnedIn" Style="font-size: 2.5rem; opacity: 0.5; margin-bottom: 0.5rem;" />
+                    <MudText>Keine zugewiesenen Aufgaben</MudText>
+                </div>
+            }
+            else
+            {
+                <MudStack Spacing="2">
+                    @foreach (var task in _tasks)
+                    {
+                        var completed = IsCompleted(task);
+                        <MudPaper Elevation="0" Style="@GetTaskCardStyle(completed)">
+                            <MudStack Spacing="1">
+                                <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                                    <MudText Typo="Typo.body1" Style="font-weight: 600;">@task.Title</MudText>
+                                    <MudChip T="string" Size="Size.Small" Color="@(completed ? Color.Success : Color.Warning)">
+                                        @(completed ? "Erledigt" : "Offen")
+                                    </MudChip>
+                                </MudStack>
+
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                    @FormatProjectLabel(task)
+                                </MudText>
+
+                                @if (!string.IsNullOrWhiteSpace(task.CustomerName))
+                                {
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                        Kunde: @task.CustomerName
+                                    </MudText>
+                                }
+
+                                @if (!string.IsNullOrWhiteSpace(FormatProjectAddress(task)))
+                                {
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                        Adresse: @FormatProjectAddress(task)
+                                    </MudText>
+                                }
+
+                                @if (task.TargetDate.HasValue)
+                                {
+                                    <MudText Typo="Typo.caption" Color="@(IsOverdue(task) ? Color.Error : Color.Secondary)">
+                                        Zieltermin: @task.TargetDate.Value.ToString("dd.MM.yyyy")
+                                    </MudText>
+                                }
+
+                                @if (!string.IsNullOrWhiteSpace(task.Notes))
+                                {
+                                    <MudText Typo="Typo.body2" Color="Color.Secondary">@task.Notes</MudText>
+                                }
+
+                                <MudStack Row="true" Spacing="1" Class="mt-1">
+                                    @if (!completed)
+                                    {
+                                        <MudButton Variant="Variant.Filled"
+                                                   Size="Size.Small"
+                                                   Color="Color.Success"
+                                                   Disabled="_isUpdatingTaskId == task.Id"
+                                                   OnClick="@(() => ToggleTaskStatusAsync(task, true))">
+                                            Erledigen
+                                        </MudButton>
+                                    }
+                                    else
+                                    {
+                                        <MudButton Variant="Variant.Outlined"
+                                                   Size="Size.Small"
+                                                   Color="Color.Primary"
+                                                   Disabled="_isUpdatingTaskId == task.Id"
+                                                   OnClick="@(() => ToggleTaskStatusAsync(task, false))">
+                                            Wieder öffnen
+                                        </MudButton>
+                                    }
+                                </MudStack>
+                            </MudStack>
+                        </MudPaper>
+                    }
+                </MudStack>
+            }
+        </MudPaper>
+    </div>
+}
+
+@code {
+    [Parameter] public string Token { get; set; } = string.Empty;
+
+    private bool _isAuthenticated;
+    private bool _isLoading = true;
+    private bool _includeCompleted = true;
+    private Guid _teamMemberId;
+    private Guid? _isUpdatingTaskId;
+    private List<MobileTaskDto> _tasks = new();
+    private string? _message;
+    private string _messageType = "success";
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var member = await MobileTokenService.ValidateTokenAsync(Token);
+            if (member != null)
+            {
+                _isAuthenticated = true;
+                _teamMemberId = member.Id;
+                await LoadTasks();
+            }
+        }
+        catch (Exception ex)
+        {
+            ShowMessage($"Fehler: {ex.Message}", "error");
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task LoadTasks()
+    {
+        if (_teamMemberId == Guid.Empty)
+        {
+            return;
+        }
+
+        _isLoading = true;
+        try
+        {
+            _tasks = await MobileRapportService.GetAssignedTasksAsync(_teamMemberId, _includeCompleted);
+        }
+        catch (Exception ex)
+        {
+            _tasks = new List<MobileTaskDto>();
+            ShowMessage($"Fehler beim Laden: {ex.Message}", "error");
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task ToggleTaskStatusAsync(MobileTaskDto task, bool completed)
+    {
+        _isUpdatingTaskId = task.Id;
+        try
+        {
+            var updated = await MobileRapportService.SetTaskCompletedAsync(_teamMemberId, task.Id, completed);
+            var idx = _tasks.FindIndex(t => t.Id == task.Id);
+            if (idx >= 0)
+            {
+                _tasks[idx] = updated;
+            }
+
+            if (!_includeCompleted && IsCompleted(updated))
+            {
+                _tasks.RemoveAll(t => t.Id == updated.Id);
+            }
+
+            ShowMessage(completed ? "Aufgabe als erledigt markiert" : "Aufgabe wieder geöffnet", "success");
+        }
+        catch (Exception ex)
+        {
+            ShowMessage($"Fehler: {ex.Message}", "error");
+        }
+        finally
+        {
+            _isUpdatingTaskId = null;
+        }
+    }
+
+    private async Task OnIncludeCompletedChanged()
+    {
+        await LoadTasks();
+    }
+
+    private static bool IsCompleted(MobileTaskDto task)
+    {
+        return string.Equals(task.Status, "Completed", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsOverdue(MobileTaskDto task)
+    {
+        return !IsCompleted(task) && task.TargetDate.HasValue && task.TargetDate.Value < DateOnly.FromDateTime(DateTime.Today);
+    }
+
+    private static string FormatProjectLabel(MobileTaskDto task)
+    {
+        if (string.IsNullOrWhiteSpace(task.ProjectNumber))
+        {
+            return task.ProjectName;
+        }
+
+        return $"{task.ProjectName} ({task.ProjectNumber})";
+    }
+
+    private static string FormatProjectAddress(MobileTaskDto task)
+    {
+        var projectAddress = BuildAddress(task.ProjectAddress, task.ProjectPostalCode, task.ProjectCity);
+        if (!string.IsNullOrWhiteSpace(projectAddress))
+        {
+            return projectAddress;
+        }
+
+        return BuildAddress(task.CustomerAddress, task.CustomerPostalCode, task.CustomerCity);
+    }
+
+    private static string BuildAddress(string? address, string? postalCode, string? city)
+    {
+        var parts = new List<string>();
+
+        if (!string.IsNullOrWhiteSpace(address))
+        {
+            parts.Add(address.Trim());
+        }
+
+        var cityLine = string.Join(" ", new[] { postalCode, city }
+            .Where(s => !string.IsNullOrWhiteSpace(s))
+            .Select(s => s!.Trim()));
+
+        if (!string.IsNullOrWhiteSpace(cityLine))
+        {
+            parts.Add(cityLine);
+        }
+
+        return string.Join(", ", parts);
+    }
+
+    private static string GetTaskCardStyle(bool completed)
+    {
+        return completed
+            ? "background:var(--mud-palette-background-gray);border-radius:8px;padding:0.875rem;border:1px solid var(--mud-palette-divider);"
+            : "background:var(--mud-palette-surface);border-radius:8px;padding:0.875rem;border:1px solid rgba(15,42,61,0.2);";
+    }
+
+    private void ShowMessage(string message, string type)
+    {
+        _message = message;
+        _messageType = type;
+
+        _ = Task.Delay(3000).ContinueWith(_ =>
+        {
+            _message = null;
+            InvokeAsync(StateHasChanged);
+        });
+    }
+}

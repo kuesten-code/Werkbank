@@ -1,6 +1,9 @@
+@using Kuestencode.Shared.Contracts.Host
 @using Kuestencode.Shared.Contracts.Navigation
+@using Kuestencode.Shared.UI.Services
 @inject IHostNavigationService NavigationService
 @inject NavigationManager NavigationManager
+@inject AuthenticationStateProvider AuthStateProvider
 @implements IDisposable
 
 <MudNavMenu>
@@ -13,12 +16,28 @@
 @code {
     private List<NavItemDto> _navItems = new();
     private string _currentUri = string.Empty;
+    private UserRole _currentRole = UserRole.Mitarbeiter;
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
         _currentUri = NavigationManager.Uri;
         NavigationManager.LocationChanged += HandleLocationChanged;
-        _navItems = NavigationService.GetNavigationItems();
+
+        await LoadRoleAsync();
+        _navItems = NavigationFilterService.FilterNavigationByRole(NavigationService.GetNavigationItems(), _currentRole);
+    }
+
+    private async Task LoadRoleAsync()
+    {
+        try
+        {
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            _currentRole = UserRoleResolver.ResolveRole(authState.User, UserRole.Mitarbeiter);
+        }
+        catch
+        {
+            _currentRole = UserRole.Mitarbeiter;
+        }
     }
 
     private void HandleLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)

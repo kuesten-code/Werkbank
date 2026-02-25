@@ -7,6 +7,7 @@ namespace Kuestencode.Shared.Contracts.Acta;
 public class ActaProjectDto
 {
     public int Id { get; set; }
+    public Guid? InternalProjectId { get; set; }
     public string Name { get; set; } = string.Empty;
     public string? ProjectNumber { get; set; }
     public int CustomerId { get; set; }

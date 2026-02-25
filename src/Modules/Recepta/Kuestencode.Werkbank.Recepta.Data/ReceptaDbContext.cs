@@ -82,6 +82,7 @@ public class ReceptaDbContext : DbContext
             entity.Property(e => e.AmountTax).HasPrecision(18, 2);
             entity.Property(e => e.AmountGross).HasPrecision(18, 2);
             entity.Property(e => e.TaxRate).HasPrecision(5, 2);
+            entity.Property(e => e.HasBeenAttached).HasDefaultValue(false);
 
             // Cascade delete für Dateianhänge
             entity.HasMany(e => e.Files)

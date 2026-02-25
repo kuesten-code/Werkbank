@@ -208,12 +208,12 @@ public class InvoiceController : ControllerBase
     }
 
     [HttpGet("{id}/pdf")]
-    public IActionResult GeneratePdf(int id)
+    public async Task<IActionResult> GeneratePdf(int id)
     {
         try
         {
-            var pdfBytes = _pdfGeneratorService.GenerateInvoicePdf(id);
-            var invoice = _invoiceService.GetByIdAsync(id).Result;
+            var pdfBytes = await _pdfGeneratorService.GenerateInvoicePdfAsync(id);
+            var invoice = await _invoiceService.GetByIdAsync(id);
             return File(pdfBytes, "application/pdf", $"Invoice-{invoice?.InvoiceNumber ?? id.ToString()}.pdf");
         }
         catch (Exception ex)

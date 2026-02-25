@@ -24,7 +24,7 @@
             </MudButton>
         </MudStack>
 
-        <MudTabs Elevation="0" Rounded="true" ApplyEffectsToContainer="true" Class="mb-4"
+        <MudTabs Elevation="0" Rounded="true" ApplyEffectsToContainer="true" Class="mb-4 filter-tabs"
                 @bind-ActivePanelIndex="_activeTabIndex" @bind-ActivePanelIndex:after="OnTabChanged">
             <MudTabPanel Text="Alle" Icon="@Icons.Material.Filled.List" />
             <MudTabPanel Text="Entwurf" Icon="@Icons.Material.Filled.Edit" BadgeData="@_entwurfCount" BadgeColor="Color.Default" />

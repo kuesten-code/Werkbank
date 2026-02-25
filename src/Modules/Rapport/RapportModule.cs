@@ -43,6 +43,11 @@ public static class RapportModule
         services.AddScoped<TimeEntryService>();
         services.AddScoped<DashboardService>();
 
+        // Multi-user services
+        services.AddScoped<IUserContextService, UserContextService>();
+        services.AddScoped<TimeEntryAuditService>();
+        services.AddScoped<TeamMemberCacheService>();
+
         // Background services
         services.AddHostedService<AutoStopTimerHostedService>();
 

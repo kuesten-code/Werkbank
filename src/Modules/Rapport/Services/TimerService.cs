@@ -1,4 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 using Kuestencode.Core.Interfaces;
 using Kuestencode.Rapport.Data.Repositories;
 using Kuestencode.Rapport.Models;
@@ -7,10 +7,10 @@ namespace Kuestencode.Rapport.Services;
 
 /// <summary>
 /// Service for starting and stopping time tracking.
+/// Per-user timers: each user can have one running timer.
 /// </summary>
 public class TimerService
 {
-    private static readonly SemaphoreSlim _lock = new(1, 1);
     private readonly TimeEntryRepository _timeEntryRepository;
     private readonly IProjectService _projectService;
     private readonly ICustomerService _customerService;
@@ -32,67 +32,66 @@ public class TimerService
     }
 
     /// <summary>
-    /// Starts a new timer.
+    /// Starts a new timer for the given user.
     /// </summary>
-    public async Task<TimeEntry> StartTimerAsync(int? projectId, int? customerId, string? description = null)
+    public async Task<TimeEntry> StartTimerAsync(
+        int? projectId,
+        int? customerId,
+        string? description = null,
+        Guid? teamMemberId = null,
+        string? teamMemberName = null)
     {
-        await _lock.WaitAsync();
-        try
+        var existing = await _timeEntryRepository.GetRunningEntryAsync(teamMemberId);
+        if (existing != null)
         {
-            var existing = await _timeEntryRepository.GetRunningEntryAsync();
-            if (existing != null)
-            {
-                throw new ValidationException("A timer is already running.");
-            }
-
-            int resolvedCustomerId;
-            string? resolvedCustomerName;
-            string? resolvedProjectName = null;
-
-            if (projectId.HasValue)
-            {
-                (resolvedCustomerId, resolvedCustomerName, resolvedProjectName) =
-                    await ResolveProjectDetailsAsync(projectId.Value);
-            }
-            else
-            {
-                if (!customerId.HasValue)
-                {
-                    throw new ValidationException("CustomerId is required when no project is selected.");
-                }
-
-                resolvedCustomerId = customerId.Value;
-                var customer = await _customerService.GetByIdAsync(resolvedCustomerId);
-                if (customer == null)
-                {
-                    throw new ValidationException("Customer not found.");
-                }
-
-                resolvedCustomerName = customer.Name;
-            }
-
-            var now = DateTime.UtcNow;
-
-            var entry = new TimeEntry
-            {
-                StartTime = now,
-                EndTime = null,
-                Description = description,
-                IsManual = false,
-                CustomerId = resolvedCustomerId,
-                CustomerName = resolvedCustomerName,
-                ProjectId = projectId,
-                ProjectName = resolvedProjectName,
-                Status = TimeEntryStatus.Running
-            };
-
-            await _timeEntryRepository.AddAsync(entry);
-            return entry;
+            throw new ValidationException("A timer is already running.");
         }
-        finally
+
+        int resolvedCustomerId;
+        string? resolvedCustomerName;
+        string? resolvedProjectName = null;
+
+        if (projectId.HasValue)
         {
-            _lock.Release();
+            (resolvedCustomerId, resolvedCustomerName, resolvedProjectName) =
+                await ResolveProjectDetailsAsync(projectId.Value);
         }
+        else
+        {
+            if (!customerId.HasValue)
+            {
+                throw new ValidationException("CustomerId is required when no project is selected.");
+            }
+
+            resolvedCustomerId = customerId.Value;
+            var customer = await _customerService.GetByIdAsync(resolvedCustomerId);
+            if (customer == null)
+            {
+                throw new ValidationException("Customer not found.");
+            }
+
+            resolvedCustomerName = customer.Name;
+        }
+
+        var now = DateTime.UtcNow;
+
+        var entry = new TimeEntry
+        {
+            StartTime = now,
+            EndTime = null,
+            Description = description,
+            IsManual = false,
+            CustomerId = resolvedCustomerId,
+            CustomerName = resolvedCustomerName,
+            ProjectId = projectId,
+            ProjectName = resolvedProjectName,
+            Status = TimeEntryStatus.Running,
+            TeamMemberId = teamMemberId,
+            TeamMemberName = teamMemberName
+        };
+
+        await _timeEntryRepository.AddAsync(entry);
+        return entry;
     }
 
     /// <summary>
@@ -100,82 +99,65 @@ public class TimerService
     /// </summary>
     public async Task<TimeEntry> StopTimerAsync(int timeEntryId, string? finalDescription = null)
     {
-        await _lock.WaitAsync();
-        try
+        var entry = await _timeEntryRepository.GetByIdAsync(timeEntryId);
+        if (entry == null)
         {
-            var entry = await _timeEntryRepository.GetByIdAsync(timeEntryId);
-            if (entry == null)
-            {
-                throw new KeyNotFoundException("Time entry not found.");
-            }
-
-            if (entry.EndTime != null)
-            {
-                throw new ValidationException("Timer is already stopped.");
-            }
-
-            var now = DateTime.UtcNow;
-            if (entry.StartTime > now)
-            {
-                throw new ValidationException("Start time cannot be in the future.");
-            }
-
-            entry.EndTime = now;
-            entry.Status = TimeEntryStatus.Stopped;
-
-
-            var settings = await _settingsService.GetSettingsAsync();
-            if (settings.RoundingMinutes > 0)
-            {
-                var rounded = _roundingService.RoundDuration(now - entry.StartTime, settings.RoundingMinutes);
-                entry.EndTime = entry.StartTime.Add(rounded);
-            }
-
-            if (!string.IsNullOrWhiteSpace(finalDescription))
-            {
-                entry.Description = finalDescription;
-            }
-
-            await _timeEntryRepository.UpdateAsync(entry);
-            return entry;
+            throw new KeyNotFoundException("Time entry not found.");
         }
-        finally
+
+        if (entry.EndTime != null)
         {
-            _lock.Release();
+            throw new ValidationException("Timer is already stopped.");
         }
+
+        var now = DateTime.UtcNow;
+        if (entry.StartTime > now)
+        {
+            throw new ValidationException("Start time cannot be in the future.");
+        }
+
+        entry.EndTime = now;
+        entry.Status = TimeEntryStatus.Stopped;
+
+        var settings = await _settingsService.GetSettingsAsync();
+        if (settings.RoundingMinutes > 0)
+        {
+            var rounded = _roundingService.RoundDuration(now - entry.StartTime, settings.RoundingMinutes);
+            entry.EndTime = entry.StartTime.Add(rounded);
+        }
+
+        if (!string.IsNullOrWhiteSpace(finalDescription))
+        {
+            entry.Description = finalDescription;
+        }
+
+        await _timeEntryRepository.UpdateAsync(entry);
+        return entry;
     }
 
     /// <summary>
-    /// Returns the currently running timer with customer data loaded.
+    /// Returns the currently running timer for a specific user.
     /// </summary>
-    public async Task<TimeEntry?> GetRunningTimerAsync()
+    public async Task<TimeEntry?> GetRunningTimerAsync(Guid? teamMemberId = null)
     {
-        await _lock.WaitAsync();
-        try
-        {
-            return await _timeEntryRepository.GetRunningEntryWithCustomerAsync();
-        }
-        finally
-        {
-            _lock.Release();
-        }
+        return await _timeEntryRepository.GetRunningEntryWithCustomerAsync(teamMemberId);
     }
 
     /// <summary>
-    /// Returns the current duration of the running timer.
+    /// Returns the current duration of the running timer for a specific user.
     /// </summary>
-    public async Task<TimeSpan> GetCurrentDurationAsync()
+    public async Task<TimeSpan> GetCurrentDurationAsync(Guid? teamMemberId = null)
     {
-        var entry = await _timeEntryRepository.GetRunningEntryAsync();
+        var entry = await _timeEntryRepository.GetRunningEntryAsync(teamMemberId);
         return entry == null ? TimeSpan.Zero : entry.Duration;
     }
 
     /// <summary>
-    /// Checks if a timer is currently running.
+    /// Checks if a timer is currently running for a specific user.
     /// </summary>
-    public async Task<bool> IsTimerRunningAsync()
+    public async Task<bool> IsTimerRunningAsync(Guid? teamMemberId = null)
     {
-        var entry = await _timeEntryRepository.GetRunningEntryAsync();
+        var entry = await _timeEntryRepository.GetRunningEntryAsync(teamMemberId);
         return entry != null;
     }
 
@@ -201,4 +183,3 @@ public class TimerService
         return (project.CustomerId, project.CustomerName, project.Name);
     }
 }
-

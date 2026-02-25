@@ -30,6 +30,16 @@ public class TasksController : ControllerBase
     }
 
     /// <summary>
+    /// Lädt alle Aufgaben, die einem Benutzer zugewiesen sind.
+    /// </summary>
+    [HttpGet("tasks/assigned/{userId:guid}")]
+    public async Task<ActionResult<List<AssignedProjectTaskDto>>> GetAssignedToUser(Guid userId)
+    {
+        var tasks = await _taskService.GetByAssignedUserIdAsync(userId);
+        return Ok(tasks.Select(MapToAssignedDto).ToList());
+    }
+
+    /// <summary>
     /// Erstellt eine neue Aufgabe für ein Projekt.
     /// </summary>
     [HttpPost("projects/{projectId:guid}/tasks")]
@@ -199,6 +209,28 @@ public class TasksController : ControllerBase
             TargetDate = task.TargetDate,
             CompletedAt = task.CompletedAt,
             AssignedUserId = task.AssignedUserId,
+            SortOrder = task.SortOrder
+        };
+    }
+
+    private static AssignedProjectTaskDto MapToAssignedDto(ProjectTask task)
+    {
+        return new AssignedProjectTaskDto
+        {
+            Id = task.Id,
+            ProjectId = task.ProjectId,
+            ProjectExternalId = task.Project?.ExternalId,
+            CustomerId = task.Project?.CustomerId ?? 0,
+            ProjectName = task.Project?.Name ?? "Unbekanntes Projekt",
+            ProjectNumber = task.Project?.ProjectNumber,
+            ProjectAddress = task.Project?.Address,
+            ProjectPostalCode = task.Project?.PostalCode,
+            ProjectCity = task.Project?.City,
+            Title = task.Title,
+            Notes = task.Notes,
+            Status = task.Status.ToString(),
+            TargetDate = task.TargetDate,
+            CompletedAt = task.CompletedAt,
             SortOrder = task.SortOrder
         };
     }

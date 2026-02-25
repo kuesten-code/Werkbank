@@ -67,11 +67,11 @@ public class EmailAttachmentBuilder : IEmailAttachmentBuilder
         _logger.LogInformation("EmailAttachmentBuilder: custom attachments done (InvoiceId={InvoiceId})", invoiceId);
     }
 
-    private Task AddNormalPdfAsync(BodyBuilder bodyBuilder, int invoiceId, string invoiceNumber)
+    private async Task AddNormalPdfAsync(BodyBuilder bodyBuilder, int invoiceId, string invoiceNumber)
     {
         var sw = Stopwatch.StartNew();
         _logger.LogInformation("EmailAttachmentBuilder: generating PDF (InvoiceId={InvoiceId})", invoiceId);
-        var pdfBytes = _pdfGenerator.GenerateInvoicePdf(invoiceId);
+        var pdfBytes = await _pdfGenerator.GenerateInvoicePdfAsync(invoiceId);
         bodyBuilder.Attachments.Add(
             $"Rechnung_{invoiceNumber}.pdf",
             pdfBytes,
@@ -81,7 +81,6 @@ public class EmailAttachmentBuilder : IEmailAttachmentBuilder
             invoiceId,
             pdfBytes.Length,
             sw.ElapsedMilliseconds);
-        return Task.CompletedTask;
     }
 
     private async Task AddZugferdPdfAsync(BodyBuilder bodyBuilder, int invoiceId, string invoiceNumber)

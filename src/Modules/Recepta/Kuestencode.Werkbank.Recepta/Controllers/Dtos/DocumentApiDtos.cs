@@ -19,6 +19,7 @@ public class DocumentDto
     public string Category { get; set; } = string.Empty;
     public string Status { get; set; } = string.Empty;
     public Guid? ProjectId { get; set; }
+    public bool HasBeenAttached { get; set; }
     public string? Notes { get; set; }
     public string? OcrRawText { get; set; }
     public DateTime CreatedAt { get; set; }
@@ -71,6 +72,11 @@ public class UpdateDocumentRequest
 public class ChangeDocumentStatusRequest
 {
     public string NewStatus { get; set; } = string.Empty;
+}
+
+public class MarkDocumentsAttachedRequest
+{
+    public List<Guid> DocumentIds { get; set; } = new();
 }
 
 /// <summary>

@@ -181,7 +181,7 @@ public partial class List
     {
         try
         {
-            var pdfBytes = PdfGeneratorService.GenerateInvoicePdf(invoice.Id);
+            var pdfBytes = await PdfGeneratorService.GenerateInvoicePdfAsync(invoice.Id);
             var fileName = $"{invoice.InvoiceNumber}.pdf";
 
             await JSRuntime.InvokeVoidAsync("downloadFile", fileName, Convert.ToBase64String(pdfBytes));

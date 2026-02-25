@@ -1,5 +1,9 @@
 @inherits LayoutComponentBase
 @inject IJSRuntime JSRuntime
+@inject AuthenticationStateProvider AuthStateProvider
+@inject NavigationManager NavigationManager
+@using Microsoft.AspNetCore.Components.Authorization
+@implements IDisposable
 
 <MudThemeProvider @ref="_themeProvider" Theme="@_theme" IsDarkMode="@_isDarkMode" />
 <MudPopoverProvider />
@@ -18,13 +22,17 @@
                           Color="Color.Inherit"
                           OnClick="@ToggleDarkMode" />
         </MudTooltip>
+        <MudTooltip Text="Abmelden">
+            <MudIconButton Icon="@Icons.Material.Filled.Logout"
+                          Color="Color.Inherit"
+                          OnClick="@HandleLogout" />
+        </MudTooltip>
     </MudAppBar>
     <MudDrawer @bind-Open="_drawerOpen" ClipMode="DrawerClipMode.Always" Elevation="2">
         <NavMenu />
     </MudDrawer>
     <MudMainContent>
         <MudContainer MaxWidth="MaxWidth.Large" Class="my-4 pt-4">
-            <CompanyDataWarning />
             @Body
         </MudContainer>
     </MudMainContent>
@@ -33,20 +41,58 @@
 @code {
     private bool _drawerOpen = true;
     private bool _isDarkMode = false;
+    private bool _authEnabled = false;
     private MudBlazor.MudTheme _theme = KuestenCodeTheme.Theme;
     private MudThemeProvider? _themeProvider;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Subscribe to authentication state changes
+        AuthStateProvider.AuthenticationStateChanged += OnAuthenticationStateChanged;
+        await CheckAuthStatus();
+    }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
         {
-            // Lade gespeicherte Theme-Präferenz aus localStorage
+            // Load stored theme preference from localStorage
             var isDarkModeStored = await JSRuntime.InvokeAsync<string>("localStorage.getItem", "darkMode");
             if (!string.IsNullOrEmpty(isDarkModeStored) && bool.TryParse(isDarkModeStored, out bool storedValue))
             {
                 _isDarkMode = storedValue;
                 StateHasChanged();
             }
+        }
+    }
+
+    private async void OnAuthenticationStateChanged(Task<AuthenticationState> task)
+    {
+        await CheckAuthStatus();
+    }
+
+    private async Task CheckAuthStatus()
+    {
+        try
+        {
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            var user = authState.User;
+
+            // Show logout button if user is authenticated (regardless of auth type, except NoAuth)
+            if (user.Identity?.IsAuthenticated == true)
+            {
+                _authEnabled = user.Identity.AuthenticationType != "NoAuth";
+            }
+            else
+            {
+                _authEnabled = false;
+            }
+
+            StateHasChanged();
+        }
+        catch
+        {
+            _authEnabled = false;
         }
     }
 
@@ -59,7 +105,18 @@
     {
         _isDarkMode = !_isDarkMode;
 
-        // Speichere Präferenz in localStorage
+        // Save preference in localStorage
         await JSRuntime.InvokeVoidAsync("localStorage.setItem", "darkMode", _isDarkMode.ToString());
+    }
+
+    async Task HandleLogout()
+    {
+        // Navigate to Host logout
+        NavigationManager.NavigateTo("/login", forceLoad: true);
+    }
+
+    public void Dispose()
+    {
+        AuthStateProvider.AuthenticationStateChanged -= OnAuthenticationStateChanged;
     }
 }

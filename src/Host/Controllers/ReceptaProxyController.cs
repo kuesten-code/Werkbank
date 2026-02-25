@@ -1,11 +1,14 @@
 using Kuestencode.Shared.ApiClients;
 using Kuestencode.Shared.Contracts.Recepta;
+using Kuestencode.Werkbank.Host.Auth;
+using Kuestencode.Werkbank.Host.Models;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Kuestencode.Werkbank.Host.Controllers;
 
 [ApiController]
 [Route("api/recepta")]
+[RequireRole(UserRole.Admin, UserRole.Buero)]
 public class ReceptaProxyController : ControllerBase
 {
     private readonly IReceptaApiClient _receptaApiClient;
@@ -26,9 +29,23 @@ public class ReceptaProxyController : ControllerBase
     }
 
     [HttpGet("documents/project/{projectId:guid}")]
-    public async Task<ActionResult<List<ReceptaDocumentDto>>> GetDocumentsByProject(Guid projectId)
+    public async Task<ActionResult<List<ReceptaDocumentDto>>> GetDocumentsByProject(
+        Guid projectId,
+        [FromQuery] bool onlyUnattached = false)
     {
-        var documents = await _receptaApiClient.GetDocumentsByProjectAsync(projectId);
+        var documents = await _receptaApiClient.GetDocumentsByProjectAsync(projectId, onlyUnattached);
         return Ok(documents);
+    }
+
+    [HttpPost("documents/mark-attached")]
+    public async Task<IActionResult> MarkDocumentsAttached([FromBody] MarkDocumentsAttachedRequestDto request)
+    {
+        var success = await _receptaApiClient.MarkDocumentsAsAttachedAsync(request.DocumentIds);
+        if (!success)
+        {
+            return BadRequest();
+        }
+
+        return Ok();
     }
 }

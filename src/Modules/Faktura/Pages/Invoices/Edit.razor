@@ -79,6 +79,22 @@
                         </MudAutocomplete>
                         <InlineCustomerCreate OnCreated="OnCustomerCreated" />
                     </MudItem>
+                    @if (_projectWorkflowAvailable)
+                    {
+                        <MudItem xs="12">
+                            <MudSelect T="int?"
+                                       Label="Projekt (optional)"
+                                       Value="_selectedProjectExternalId"
+                                       ValueChanged="OnProjectChanged"
+                                       Variant="Variant.Outlined"
+                                       Clearable="true">
+                                @foreach (var project in _projects)
+                                {
+                                    <MudSelectItem T="int?" Value="@project.Id">@project.Name (@project.CustomerName)</MudSelectItem>
+                                }
+                            </MudSelect>
+                        </MudItem>
+                    }
                 </MudGrid>
 
                 <!-- Positionen -->
@@ -204,10 +220,9 @@
                 <!-- Anhänge (optional) -->
                 <MudText Typo="Typo.h6" Class="mt-6 mb-2">Anhänge (optional)</MudText>
                 <MudPaper Elevation="0" Class="pa-3 mb-3">
-                    <MudCheckBox @bind-Value="_attachTimesheet" Label="Tätigkeitsnachweis anhängen" Color="Color.Primary" />
-                    @if (!_rapportAvailable)
+                    @if (_rapportAvailable)
                     {
-                        <MudText Typo="Typo.caption" Color="Color.Secondary">Rapport Modul ist nicht registriert. Tätigkeitsnachweis kann nicht angehängt werden.</MudText>
+                        <MudCheckBox @bind-Value="_attachTimesheet" Label="Tätigkeitsnachweis anhängen" Color="Color.Primary" />
                     }
                     @if (_attachTimesheet)
                     {
@@ -248,6 +263,27 @@
                                 }
                             </MudItem>
                         </MudGrid>
+                    }
+
+                    @if (_projectWorkflowAvailable && _selectedProjectExternalId.HasValue)
+                    {
+                        <MudDivider Class="my-3" />
+                        <MudText Typo="Typo.subtitle2">Projektbelege</MudText>
+                        @if (_loadingProjectReceipts)
+                        {
+                            <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mt-2" />
+                        }
+                        <MudButton Variant="Variant.Outlined"
+                                   Color="Color.Primary"
+                                   Disabled="@(_loadingProjectReceipts || _receiptAttachmentAdded)"
+                                   OnClick="AddReceiptAttachmentAsync"
+                                   Class="mt-2">
+                            Belegliste als CSV anhängen
+                        </MudButton>
+                        @if (!_loadingProjectReceipts)
+                        {
+                            <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mt-1 d-block">Gefundene Belege: @_projectReceipts.Count</MudText>
+                        }
                     }
                 </MudPaper>
 

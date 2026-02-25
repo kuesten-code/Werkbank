@@ -17,6 +17,7 @@ public class HostDbContext : DbContext
     public DbSet<Company> Companies => Set<Company>();
     public DbSet<Customer> Customers => Set<Customer>();
     public DbSet<TeamMember> TeamMembers => Set<TeamMember>();
+    public DbSet<WerkbankSettings> WerkbankSettings => Set<WerkbankSettings>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -72,11 +73,33 @@ public class HostDbContext : DbContext
             entity.HasIndex(e => e.Email)
                 .IsUnique();
 
+            entity.Property(e => e.Role)
+                .HasConversion<int>()
+                .HasDefaultValue(UserRole.Mitarbeiter)
+                .HasSentinel((UserRole)(-1));
+
+            entity.Property(e => e.FailedLoginAttempts)
+                .HasDefaultValue(0);
+
+            entity.Property(e => e.IsLockedByAdmin)
+                .HasDefaultValue(false);
+
+            entity.Ignore(e => e.HasCompletedSetup);
+
             entity.Property(e => e.CreatedAt)
                 .HasDefaultValueSql("CURRENT_TIMESTAMP");
 
             entity.Property(e => e.UpdatedAt)
                 .HasDefaultValueSql("CURRENT_TIMESTAMP");
+        });
+
+        // WerkbankSettings Konfiguration
+        modelBuilder.Entity<WerkbankSettings>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+
+            entity.Property(e => e.AuthEnabled)
+                .HasDefaultValue(false);
         });
     }
 

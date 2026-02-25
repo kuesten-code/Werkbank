@@ -41,7 +41,7 @@ public class PdfGeneratorService : IPdfGeneratorService
         QuestPDF.Settings.License = LicenseType.Community;
     }
 
-    public byte[] GenerateInvoicePdf(int invoiceId)
+    public async Task<byte[]> GenerateInvoicePdfAsync(int invoiceId)
     {
         _logger.LogInformation("PdfGenerator: start (InvoiceId={InvoiceId})", invoiceId);
 
@@ -57,7 +57,7 @@ public class PdfGeneratorService : IPdfGeneratorService
 
         // Lade Customer und Company via Host API
         _logger.LogInformation("PdfGenerator: loading customer (InvoiceId={InvoiceId}, CustomerId={CustomerId})", invoiceId, invoice.CustomerId);
-        var customerDto = _hostApiClient.GetCustomerAsync(invoice.CustomerId).Result;
+        var customerDto = await _hostApiClient.GetCustomerAsync(invoice.CustomerId);
         if (customerDto != null)
         {
             invoice.Customer = new Customer
@@ -77,7 +77,7 @@ public class PdfGeneratorService : IPdfGeneratorService
         }
 
         _logger.LogInformation("PdfGenerator: loading company (InvoiceId={InvoiceId})", invoiceId);
-        var companyDto = _hostApiClient.GetCompanyAsync().Result;
+        var companyDto = await _hostApiClient.GetCompanyAsync();
         if (companyDto == null)
         {
             throw new InvalidOperationException("Firmendaten nicht gefunden");
@@ -114,6 +114,11 @@ public class PdfGeneratorService : IPdfGeneratorService
 
         _logger.LogInformation("PdfGenerator: rendering pdf (InvoiceId={InvoiceId})", invoiceId);
         return GeneratePdfWithCompany(invoice, company);
+    }
+
+    public byte[] GenerateInvoicePdf(int invoiceId)
+    {
+        return GenerateInvoicePdfAsync(invoiceId).GetAwaiter().GetResult();
     }
 
     public byte[] GeneratePdfWithCompany(Invoice invoice, Company company)
@@ -153,7 +158,7 @@ public class PdfGeneratorService : IPdfGeneratorService
             throw new InvalidOperationException("Rechnung nicht gefunden");
         }
 
-        var pdfBytes = GenerateInvoicePdf(invoiceId);
+        var pdfBytes = await GenerateInvoicePdfAsync(invoiceId);
 
         var invoicesPath = Path.Combine(_environment.WebRootPath, "invoices");
         Directory.CreateDirectory(invoicesPath);

@@ -59,6 +59,11 @@ namespace Kuestencode.Werkbank.Recepta.Data.Migrations
                     b.Property<DateOnly?>("DueDate")
                         .HasColumnType("date");
 
+                    b.Property<bool>("HasBeenAttached")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
+
                     b.Property<DateOnly>("InvoiceDate")
                         .HasColumnType("date");
 

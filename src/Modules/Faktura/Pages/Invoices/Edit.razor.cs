@@ -16,8 +16,10 @@ using Kuestencode.Faktura.Services;
 using Kuestencode.Faktura.Shared;
 using Kuestencode.Faktura.Shared.Components;
 using Kuestencode.Shared.ApiClients;
+using Kuestencode.Shared.Contracts.Acta;
 using Kuestencode.Shared.Contracts.Navigation;
 using Kuestencode.Shared.Contracts.Rapport;
+using Kuestencode.Shared.Contracts.Recepta;
 
 namespace Kuestencode.Faktura.Pages.Invoices;
 
@@ -31,6 +33,12 @@ public partial class Edit
 
     [Inject]
     public IHostApiClient HostApiClient { get; set; } = null!;
+
+    [Inject]
+    public IActaApiClient ActaApiClient { get; set; } = null!;
+
+    [Inject]
+    public IReceptaApiClient ReceptaApiClient { get; set; } = null!;
 
     private bool _customerError;
     private string? _customerErrorText;
@@ -68,6 +76,16 @@ public partial class Edit
     private bool _timesheetGenerating;
     private bool _timesheetAttachmentAdded;
     private bool _rapportAvailable = true;
+    private bool _actaAvailable = true;
+    private bool _receptaAvailable = true;
+    private bool _projectWorkflowAvailable;
+    private List<ActaProjectDto> _projects = new();
+    private List<ReceptaDocumentDto> _projectReceipts = new();
+    private int? _selectedProjectExternalId;
+    private Guid? _selectedProjectInternalId;
+    private bool _loadingProjectReceipts;
+    private bool _receiptAttachmentAdded;
+    private readonly HashSet<Guid> _pendingReceiptAttachmentMarks = new();
 
     protected override async Task OnInitializedAsync()
     {
@@ -98,7 +116,7 @@ public partial class Edit
             _hasDiscount = _invoice.DiscountType != DiscountType.None;
 
             SyncTimesheetRange();
-            await CheckRapportAvailabilityAsync();
+            await CheckModuleAvailabilityAsync();
             if (!_rapportAvailable)
             {
                 _attachTimesheet = false;
@@ -117,16 +135,37 @@ public partial class Edit
     }
 
 
-    private async Task CheckRapportAvailabilityAsync()
+    private async Task CheckModuleAvailabilityAsync()
     {
         try
         {
             var navItems = await HostApiClient.GetNavigationAsync();
             _rapportAvailable = navItems.Any(IsRapportNavItem);
+            _actaAvailable = navItems.Any(IsActaNavItem);
+            _receptaAvailable = navItems.Any(IsReceptaNavItem);
+            _projectWorkflowAvailable = _rapportAvailable && _actaAvailable && _receptaAvailable;
+
+            if (_projectWorkflowAvailable)
+            {
+                _projects = await ActaApiClient.GetProjectsAsync();
+            }
+            else
+            {
+                _projects.Clear();
+                _projectReceipts.Clear();
+                _selectedProjectExternalId = null;
+                _selectedProjectInternalId = null;
+                _receiptAttachmentAdded = false;
+            }
         }
         catch
         {
             _rapportAvailable = false;
+            _actaAvailable = false;
+            _receptaAvailable = false;
+            _projectWorkflowAvailable = false;
+            _projects.Clear();
+            _projectReceipts.Clear();
         }
     }
 
@@ -148,6 +187,76 @@ public partial class Edit
         }
 
         return false;
+    }
+
+    private static bool IsActaNavItem(NavItemDto item)
+    {
+        if (!string.IsNullOrWhiteSpace(item.Href) && item.Href.StartsWith("/acta", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        if (string.Equals(item.Label, "Acta", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        if (item.Children is { Count: > 0 })
+        {
+            return item.Children.Any(IsActaNavItem);
+        }
+
+        return false;
+    }
+
+    private static bool IsReceptaNavItem(NavItemDto item)
+    {
+        if (!string.IsNullOrWhiteSpace(item.Href) && item.Href.StartsWith("/recepta", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        if (string.Equals(item.Label, "Recepta", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(item.Label, "Belege", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        if (item.Children is { Count: > 0 })
+        {
+            return item.Children.Any(IsReceptaNavItem);
+        }
+
+        return false;
+    }
+
+    private async Task OnProjectChanged(int? projectExternalId)
+    {
+        _selectedProjectExternalId = projectExternalId;
+        _selectedProjectInternalId = null;
+        _projectReceipts.Clear();
+        _receiptAttachmentAdded = false;
+
+        if (!projectExternalId.HasValue)
+        {
+            return;
+        }
+
+        var project = _projects.FirstOrDefault(p => p.Id == projectExternalId.Value);
+        if (project == null)
+        {
+            return;
+        }
+
+        _selectedProjectInternalId = project.InternalProjectId;
+        if (!_selectedProjectInternalId.HasValue || _selectedProjectInternalId.Value == Guid.Empty)
+        {
+            var fullProject = await ActaApiClient.GetProjectByExternalIdAsync(projectExternalId.Value);
+            _selectedProjectInternalId = fullProject?.InternalProjectId;
+        }
+        _selectedCustomer = _customers.FirstOrDefault(c => c.Id == project.CustomerId);
+
+        await LoadProjectReceiptsAsync();
     }
 
     private async Task<IEnumerable<Customer>> SearchCustomers(string value, CancellationToken token)
@@ -416,10 +525,16 @@ public partial class Edit
                 }
             }
 
+            if (_projectWorkflowAvailable && _selectedProjectExternalId.HasValue)
+            {
+                await EnsureReceiptAttachmentAsync();
+            }
+
             // Set invoice status based on asDraft parameter
             _invoice.Status = asDraft ? InvoiceStatus.Draft : InvoiceStatus.Sent;
 
             await InvoiceService.UpdateAsync(_invoice);
+            await MarkPendingReceiptAttachmentsAsync();
 
             var statusText = asDraft ? "als Entwurf gespeichert" : "versendet";
             Snackbar.Add($"Faktura {_invoice.InvoiceNumber} wurde {statusText}.", Severity.Success);
@@ -526,6 +641,7 @@ public partial class Edit
             CustomerId = _selectedCustomer.Id,
             From = _timesheetFromDate.Value.Date,
             To = _timesheetToDate.Value.Date.AddDays(1).AddTicks(-1),
+            ProjectId = _selectedProjectExternalId,
             HourlyRate = _timesheetHourlyRate,
             Title = _timesheetTitle,
             FileName = string.IsNullOrWhiteSpace(_timesheetFileName) ? null : _timesheetFileName.Trim()
@@ -570,6 +686,242 @@ public partial class Edit
         {
             _timesheetGenerating = false;
         }
+    }
+
+    private async Task AddReceiptAttachmentAsync()
+    {
+        var ok = await EnsureReceiptAttachmentAsync();
+        if (ok)
+        {
+            Snackbar.Add("Belegliste wurde als Anhang hinzugefügt.", Severity.Success);
+        }
+    }
+
+    private async Task<bool> EnsureReceiptAttachmentAsync()
+    {
+        if (_invoice == null)
+        {
+            return false;
+        }
+
+        if (_receiptAttachmentAdded)
+        {
+            return true;
+        }
+
+        if (!_projectWorkflowAvailable || !_selectedProjectExternalId.HasValue || !_selectedProjectInternalId.HasValue)
+        {
+            var project = await ActaApiClient.GetProjectByExternalIdAsync(_selectedProjectExternalId ?? 0);
+            _selectedProjectInternalId = project?.InternalProjectId;
+            if (!_selectedProjectInternalId.HasValue)
+            {
+                return false;
+            }
+        }
+
+        if (_projectReceipts.Count == 0)
+        {
+            await LoadProjectReceiptsAsync();
+        }
+
+        var csv = BuildReceiptsCsv(_projectReceipts);
+        var bytes = System.Text.Encoding.UTF8.GetBytes(csv);
+        var selectedExternalId = _selectedProjectExternalId ?? 0;
+        var selectedProject = _projects.FirstOrDefault(p => p.Id == selectedExternalId);
+        var safeProjectName = string.IsNullOrWhiteSpace(selectedProject?.Name) ? $"Projekt_{selectedExternalId}" : selectedProject!.Name.Trim();
+        var fileName = SanitizeFileName($"Belegliste_{safeProjectName}_{DateTime.UtcNow:yyyyMM}.csv");
+
+        if (!HasAttachmentWithFileName(fileName))
+        {
+            _invoice.Attachments.Add(new InvoiceAttachment
+            {
+                FileName = fileName,
+                ContentType = "text/csv",
+                FileSize = bytes.Length,
+                Data = bytes
+            });
+        }
+
+        foreach (var receipt in _projectReceipts)
+        {
+            List<ReceptaDocumentFileDto> files;
+            try
+            {
+                files = await ReceptaApiClient.GetFilesByDocumentAsync(receipt.Id);
+            }
+            catch
+            {
+                continue;
+            }
+
+            foreach (var file in files.Where(IsPdfFile))
+            {
+                var download = await ReceptaApiClient.DownloadFileAsync(file.Id);
+                if (download == null || download.Value.Data.Length == 0)
+                {
+                    continue;
+                }
+
+                var attachmentName = BuildReceiptPdfAttachmentFileName(receipt, download.Value.FileName);
+                if (!HasAttachmentWithFileName(attachmentName))
+                {
+                    _invoice.Attachments.Add(new InvoiceAttachment
+                    {
+                        FileName = attachmentName,
+                        ContentType = "application/pdf",
+                        FileSize = download.Value.Data.Length,
+                        Data = download.Value.Data
+                    });
+                }
+            }
+        }
+
+        foreach (var receiptId in _projectReceipts.Select(r => r.Id))
+        {
+            _pendingReceiptAttachmentMarks.Add(receiptId);
+        }
+
+        _receiptAttachmentAdded = true;
+        return true;
+    }
+
+    private async Task MarkPendingReceiptAttachmentsAsync()
+    {
+        if (_pendingReceiptAttachmentMarks.Count == 0)
+        {
+            return;
+        }
+
+        var ids = _pendingReceiptAttachmentMarks.ToArray();
+        _pendingReceiptAttachmentMarks.Clear();
+
+        var markSuccess = await ReceptaApiClient.MarkDocumentsAsAttachedAsync(ids);
+        if (!markSuccess)
+        {
+            Snackbar.Add("Belege konnten nicht als angehängt markiert werden. Bitte erneut versuchen.", Severity.Warning);
+        }
+    }
+
+    private static string BuildReceiptsCsv(IEnumerable<ReceptaDocumentDto> receipts)
+    {
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine("Interne Belegnummer;Lieferant;Rechnungsnummer;Rechnungsdatum;Betrag Netto;Betrag Brutto");
+
+        foreach (var receipt in receipts)
+        {
+            sb.Append(EscapeCsv(receipt.DocumentNumber)).Append(';')
+              .Append(EscapeCsv(receipt.SupplierName)).Append(';')
+              .Append(EscapeCsv(receipt.InvoiceNumber)).Append(';')
+              .Append(receipt.InvoiceDate.ToString("dd.MM.yyyy")).Append(';')
+              .Append(receipt.AmountNet.ToString("F2", CultureInfo.GetCultureInfo("de-DE"))).Append(';')
+              .Append(receipt.AmountGross.ToString("F2", CultureInfo.GetCultureInfo("de-DE"))).AppendLine();
+        }
+
+        return sb.ToString();
+    }
+
+    private static bool IsPdfFile(ReceptaDocumentFileDto file)
+    {
+        if (file.FileSize <= 0)
+        {
+            return false;
+        }
+
+        if (file.ContentType.Contains("pdf", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        return file.FileName.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string BuildReceiptPdfAttachmentFileName(ReceptaDocumentDto receipt, string sourceFileName)
+    {
+        var suffix = string.IsNullOrWhiteSpace(sourceFileName) ? "beleg.pdf" : sourceFileName.Trim();
+        return SanitizeFileName($"{receipt.DocumentNumber}_{suffix}");
+    }
+
+    private async Task LoadProjectReceiptsAsync()
+    {
+        _loadingProjectReceipts = true;
+        try
+        {
+            var receiptsById = new Dictionary<Guid, ReceptaDocumentDto>();
+            foreach (var lookupProjectId in GetProjectLookupIds())
+            {
+                List<ReceptaDocumentDto> receipts;
+                try
+                {
+                    receipts = await ReceptaApiClient.GetDocumentsByProjectAsync(lookupProjectId, onlyUnattached: true);
+                }
+                catch
+                {
+                    continue;
+                }
+
+                foreach (var receipt in receipts)
+                {
+                    receiptsById[receipt.Id] = receipt;
+                }
+            }
+
+            _projectReceipts = receiptsById.Values
+                .OrderBy(r => r.DocumentNumber, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+        }
+        finally
+        {
+            _loadingProjectReceipts = false;
+        }
+    }
+
+    private IEnumerable<Guid> GetProjectLookupIds()
+    {
+        if (_selectedProjectInternalId.HasValue && _selectedProjectInternalId.Value != Guid.Empty)
+        {
+            yield return _selectedProjectInternalId.Value;
+        }
+
+        if (_selectedProjectExternalId.HasValue)
+        {
+            yield return BuildLegacyProjectGuid(_selectedProjectExternalId.Value);
+        }
+    }
+
+    private static Guid BuildLegacyProjectGuid(int externalProjectId)
+    {
+        var bytes = new byte[16];
+        BitConverter.GetBytes(externalProjectId).CopyTo(bytes, 0);
+        bytes[4] = 0xAC;
+        bytes[5] = 0x7A;
+        return new Guid(bytes);
+    }
+
+    private static string EscapeCsv(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return string.Empty;
+        }
+
+        var cleaned = value.Replace("\r", " ").Replace("\n", " ").Trim();
+        if (cleaned.Contains(';') || cleaned.Contains('"'))
+        {
+            cleaned = '"' + cleaned.Replace("\"", "\"\"") + '"';
+        }
+
+        return cleaned;
+    }
+
+    private bool HasAttachmentWithFileName(string fileName)
+    {
+        if (_invoice == null)
+        {
+            return false;
+        }
+
+        return _invoice.Attachments.Any(a =>
+            string.Equals(a.FileName, fileName, StringComparison.OrdinalIgnoreCase));
     }
 
     private static string BuildTimesheetFileName(TimesheetExportRequestDto request, string customerName, TimesheetAttachmentFormat format)

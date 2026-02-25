@@ -10,6 +10,7 @@
 
   <ItemGroup>
     <!-- PDF Generation -->
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="9.0.0" />
     <PackageReference Include="QuestPDF" Version="2025.12.0" />
     <PackageReference Include="QRCoder" Version="1.7.0" />
     <PackageReference Include="SkiaSharp" Version="3.116.1" />

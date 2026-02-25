@@ -30,6 +30,11 @@ public class ProjectTaskService : IProjectTaskService
         return await _taskRepository.GetByProjectIdAsync(projectId);
     }
 
+    public async Task<List<ProjectTask>> GetByAssignedUserIdAsync(Guid assignedUserId)
+    {
+        return await _taskRepository.GetByAssignedUserIdAsync(assignedUserId);
+    }
+
     public async Task<ProjectTask?> GetByIdAsync(Guid id)
     {
         return await _taskRepository.GetByIdAsync(id);

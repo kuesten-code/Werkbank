@@ -28,7 +28,8 @@ public class DocumentRepository : IDocumentRepository
         DocumentStatus? status = null,
         DocumentCategory? category = null,
         Guid? supplierId = null,
-        Guid? projectId = null)
+        Guid? projectId = null,
+        bool? hasBeenAttached = null)
     {
         var query = _context.Documents
             .Include(d => d.Supplier)
@@ -55,6 +56,11 @@ public class DocumentRepository : IDocumentRepository
             query = query.Where(d => d.ProjectId == projectId.Value);
         }
 
+        if (hasBeenAttached.HasValue)
+        {
+            query = query.Where(d => d.HasBeenAttached == hasBeenAttached.Value);
+        }
+
         return await query
             .OrderByDescending(d => d.InvoiceDate)
             .ThenByDescending(d => d.CreatedAt)
@@ -70,6 +76,26 @@ public class DocumentRepository : IDocumentRepository
     public async Task UpdateAsync(Document document)
     {
         _context.Documents.Update(document);
+        await _context.SaveChangesAsync();
+    }
+
+    public async Task MarkAsAttachedAsync(IEnumerable<Guid> documentIds)
+    {
+        var ids = documentIds.Distinct().ToList();
+        if (ids.Count == 0)
+        {
+            return;
+        }
+
+        var documents = await _context.Documents
+            .Where(d => ids.Contains(d.Id))
+            .ToListAsync();
+
+        foreach (var document in documents)
+        {
+            document.HasBeenAttached = true;
+        }
+
         await _context.SaveChangesAsync();
     }
 

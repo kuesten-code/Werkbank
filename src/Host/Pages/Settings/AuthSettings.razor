@@ -1,0 +1,209 @@
+﻿@page "/settings/auth"
+@using Kuestencode.Shared.Contracts.Host
+@using Kuestencode.Werkbank.Host.Models
+@inject Kuestencode.Werkbank.Host.Services.IWerkbankSettingsService SettingsService
+@inject Kuestencode.Werkbank.Host.Services.ITeamMemberService TeamMemberService
+@inject Kuestencode.Core.Interfaces.ICompanyService CompanyService
+@inject ISnackbar Snackbar
+
+<PageTitle>Einstellungen | Authentifizierung - Küstencode Werkbank</PageTitle>
+
+<RoleGuard AllowedRoles="@(new List<UserRole> { UserRole.Admin })" RedirectTo="/rapport">
+<MudContainer MaxWidth="MaxWidth.Medium" Class="mt-4">
+    <MudPaper Elevation="2" Class="pa-4">
+        <MudText Typo="Typo.h4" GutterBottom="true">Einstellungen | Authentifizierung</MudText>
+        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">
+            Konfigurieren Sie die Benutzeranmeldung für die Werkbank.
+        </MudText>
+
+        @if (_loading)
+        {
+            <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+        }
+        else
+        {
+            @if (!string.IsNullOrEmpty(_errorMessage))
+            {
+                <MudAlert Severity="Severity.Error" Class="my-2">@_errorMessage</MudAlert>
+            }
+
+            @if (_settings.AuthEnabled)
+            {
+                <MudAlert Severity="Severity.Success" Class="mb-4">
+                    Authentifizierung ist aktiviert. Benutzer müssen sich anmelden.
+                </MudAlert>
+            }
+            else
+            {
+                <MudAlert Severity="Severity.Info" Class="mb-4">
+                    Authentifizierung ist deaktiviert. Alle Benutzer haben vollen Zugriff.
+                </MudAlert>
+            }
+
+            <MudText Typo="Typo.h6" Class="mt-4 mb-2">Basis-URL</MudText>
+            <MudGrid>
+                <MudItem xs="12">
+                    <MudTextField Label="Basis-URL der Werkbank"
+                                 @bind-Value="_settings.BaseUrl"
+                                 Placeholder="https://werkbank.example.com"
+                                 HelperText="Wird für Einladungs- und Passwort-Reset-Links benötigt. Muss mit http:// oder https:// beginnen."
+                                 Required="true" />
+                </MudItem>
+            </MudGrid>
+
+            <MudText Typo="Typo.h6" Class="mt-6 mb-2">Anmeldung</MudText>
+
+            @if (!_canEnableAuth && !_settings.AuthEnabled)
+            {
+                <MudAlert Severity="Severity.Warning" Class="mb-4">
+                    Authentifizierung kann erst aktiviert werden, wenn folgende Voraussetzungen erfüllt sind:
+                </MudAlert>
+
+                <MudList T="string" Dense="true" Class="mb-4">
+                    @if (!_hasBaseUrl)
+                    {
+                        <MudListItem Icon="@Icons.Material.Filled.Close" IconColor="Color.Error">
+                            Basis-URL muss gesetzt sein
+                        </MudListItem>
+                    }
+                    @if (!_hasSmtp)
+                    {
+                        <MudListItem Icon="@Icons.Material.Filled.Close" IconColor="Color.Error">
+                            SMTP muss konfiguriert sein (unter Email Versand)
+                        </MudListItem>
+                    }
+                    @if (!_hasAdmin)
+                    {
+                        <MudListItem Icon="@Icons.Material.Filled.Close" IconColor="Color.Error">
+                            Mindestens ein Admin-Benutzer muss das Setup abgeschlossen haben
+                        </MudListItem>
+                    }
+                </MudList>
+            }
+
+            <MudGrid>
+                <MudItem xs="12">
+                    <MudSwitch T="bool" @bind-Value="_settings.AuthEnabled"
+                              Color="Color.Primary"
+                              Label="@(_settings.AuthEnabled ? "Authentifizierung aktiviert" : "Authentifizierung deaktiviert")"
+                              Disabled="@(!_canEnableAuth && !_settings.AuthEnabled)" />
+                </MudItem>
+            </MudGrid>
+
+            @if (_settings.AuthEnabled)
+            {
+                <MudAlert Severity="Severity.Warning" Class="mt-4">
+                    <strong>Achtung:</strong> Wenn die Authentifizierung aktiviert ist, müssen sich alle Benutzer anmelden.
+                    Stellen Sie sicher, dass mindestens ein Admin-Benutzer Zugang hat, bevor Sie diese Einstellung ändern.
+                </MudAlert>
+            }
+
+            <MudStack Row="true" Justify="Justify.FlexEnd" Class="mt-6">
+                <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                          OnClick="HandleSubmit" Disabled="@_saving">
+                    @if (_saving)
+                    {
+                        <MudProgressCircular Class="ms-n1" Size="Size.Small" Indeterminate="true" />
+                        <MudText Class="ms-2">Speichern...</MudText>
+                    }
+                    else
+                    {
+                        <MudText>Speichern</MudText>
+                    }
+                </MudButton>
+            </MudStack>
+        }
+    </MudPaper>
+</MudContainer>
+</RoleGuard>
+
+@code {
+    private WerkbankSettings _settings = new();
+    private bool _loading = true;
+    private bool _saving;
+    private string? _errorMessage;
+
+    private bool _hasBaseUrl;
+    private bool _hasSmtp;
+    private bool _hasAdmin;
+    private bool _canEnableAuth => _hasBaseUrl && _hasSmtp && _hasAdmin;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadSettings();
+    }
+
+    private async Task LoadSettings()
+    {
+        _loading = true;
+        try
+        {
+            _settings = await SettingsService.GetSettingsAsync();
+            _hasBaseUrl = !string.IsNullOrWhiteSpace(_settings.BaseUrl) &&
+                         (_settings.BaseUrl.StartsWith("http://") || _settings.BaseUrl.StartsWith("https://"));
+            _hasSmtp = await CompanyService.IsEmailConfiguredAsync();
+
+            var members = await TeamMemberService.GetAllAsync(includeInactive: true);
+            _hasAdmin = members.Any(m => m.Role == UserRole.Admin && m.HasCompletedSetup);
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Fehler beim Laden: {ex.Message}";
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task HandleSubmit()
+    {
+        _saving = true;
+        _errorMessage = null;
+
+        try
+        {
+            if (_settings.AuthEnabled)
+            {
+                if (string.IsNullOrWhiteSpace(_settings.BaseUrl) ||
+                    (!_settings.BaseUrl.StartsWith("http://") && !_settings.BaseUrl.StartsWith("https://")))
+                {
+                    _errorMessage = "Basis-URL muss gesetzt sein und mit http:// oder https:// beginnen.";
+                    return;
+                }
+
+                _hasSmtp = await CompanyService.IsEmailConfiguredAsync();
+                if (!_hasSmtp)
+                {
+                    _errorMessage = "SMTP muss konfiguriert sein, bevor Auth aktiviert werden kann.";
+                    return;
+                }
+
+                var members = await TeamMemberService.GetAllAsync(includeInactive: true);
+                _hasAdmin = members.Any(m => m.Role == UserRole.Admin && m.HasCompletedSetup);
+                if (!_hasAdmin)
+                {
+                    _errorMessage = "Mindestens ein Admin-Benutzer muss das Setup abgeschlossen haben.";
+                    return;
+                }
+            }
+
+            // Update hasBaseUrl check with current value
+            _hasBaseUrl = !string.IsNullOrWhiteSpace(_settings.BaseUrl) &&
+                         (_settings.BaseUrl.StartsWith("http://") || _settings.BaseUrl.StartsWith("https://"));
+
+            await SettingsService.UpdateSettingsAsync(_settings);
+            Snackbar.Add("Authentifizierungs-Einstellungen gespeichert.", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Fehler beim Speichern: {ex.Message}";
+            Snackbar.Add($"Fehler: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+}
+

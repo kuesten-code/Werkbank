@@ -2,11 +2,14 @@ using Microsoft.AspNetCore.Mvc;
 using Kuestencode.Core.Interfaces;
 using Kuestencode.Core.Models;
 using Kuestencode.Shared.Contracts.Host;
+using Kuestencode.Werkbank.Host.Auth;
+using Kuestencode.Werkbank.Host.Models;
 
 namespace Kuestencode.Werkbank.Host.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[RequireRole(UserRole.Admin, UserRole.Buero, UserRole.Mitarbeiter)]
 public class CustomerController : ControllerBase
 {
     private readonly ICustomerService _customerService;
@@ -39,6 +42,7 @@ public class CustomerController : ControllerBase
     }
 
     [HttpPost]
+    [RequireRole(UserRole.Admin, UserRole.Buero)]
     public async Task<ActionResult<CustomerDto>> Create([FromBody] CreateCustomerRequest request)
     {
         var customer = new Customer
@@ -60,6 +64,7 @@ public class CustomerController : ControllerBase
     }
 
     [HttpPut("{id}")]
+    [RequireRole(UserRole.Admin, UserRole.Buero)]
     public async Task<IActionResult> Update(int id, [FromBody] UpdateCustomerRequest request)
     {
         var customer = await _customerService.GetByIdAsync(id);
@@ -81,6 +86,7 @@ public class CustomerController : ControllerBase
     }
 
     [HttpDelete("{id}")]
+    [RequireRole(UserRole.Admin, UserRole.Buero)]
     public async Task<IActionResult> Delete(int id)
     {
         await _customerService.DeleteAsync(id);

@@ -1,5 +1,6 @@
 using Kuestencode.Werkbank.Recepta.Domain.Dtos;
 using Kuestencode.Werkbank.Recepta.Services;
+using Kuestencode.Shared.Contracts.Recepta;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Kuestencode.Werkbank.Recepta.Controllers;
@@ -68,6 +69,22 @@ public class FilesController : ControllerBase
     /// <summary>
     /// Lädt einen Dateianhang herunter.
     /// </summary>
+    [HttpGet("documents/{documentId:guid}/files")]
+    public async Task<ActionResult<List<ReceptaDocumentFileDto>>> GetByDocument(Guid documentId)
+    {
+        var files = await _fileService.GetByDocumentIdAsync(documentId);
+        var result = files.Select(f => new ReceptaDocumentFileDto
+        {
+            Id = f.Id,
+            DocumentId = f.DocumentId,
+            FileName = f.FileName,
+            ContentType = f.ContentType,
+            FileSize = f.FileSize
+        }).ToList();
+
+        return Ok(result);
+    }
+
     [HttpGet("files/{fileId:guid}")]
     public async Task<IActionResult> Download(Guid fileId)
     {

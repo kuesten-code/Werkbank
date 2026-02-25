@@ -291,7 +291,7 @@
             if (completed != sendTask)
             {
                 Logger.LogWarning("SendEmailDialog: send timeout (InvoiceId={InvoiceId})", Invoice?.Id);
-                Snackbar.Add("E-Mail-Versand dauert zu lange. Bitte SMTP-Host/Port/SSL pruefen.", Severity.Warning);
+                Snackbar.Add("E-Mail-Versand dauert zu lange. Bitte SMTP-Host/Port/SSL prüfen.", Severity.Warning);
                 _sending = false;
                 StateHasChanged();
                 return;

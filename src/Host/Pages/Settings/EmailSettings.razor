@@ -1,17 +1,19 @@
-@page "/settings/email"
+﻿@page "/settings/email"
 @using System.ComponentModel.DataAnnotations
 @using Kuestencode.Core.Interfaces
+@using Kuestencode.Shared.Contracts.Host
 @inject ICompanyService CompanyService
 @inject IEmailEngine EmailEngine
 @inject ISnackbar Snackbar
 
-<PageTitle>Einstellungen | Email Versand - Kuestencode Werkbank</PageTitle>
+<PageTitle>Einstellungen | E-Mail-Versand - Küstencode Werkbank</PageTitle>
 
+<RoleGuard AllowedRoles="@(new List<UserRole> { UserRole.Admin })" RedirectTo="/rapport">
 <MudContainer MaxWidth="MaxWidth.Medium" Class="mt-4">
     <MudPaper Elevation="2" Class="pa-4">
-        <MudText Typo="Typo.h4" GutterBottom="true">Einstellungen | Email Versand</MudText>
+        <MudText Typo="Typo.h4" GutterBottom="true">Einstellungen | E-Mail-Versand</MudText>
         <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">
-            Konfigurieren Sie den SMTP Versand fuer ausgehende Emails.
+            Konfigurieren Sie den SMTP Versand für ausgehende E-Mails.
         </MudText>
 
         @if (_loading)
@@ -37,7 +39,7 @@
                 else
                 {
                     <MudAlert Severity="Severity.Warning" Class="mb-4">
-                        SMTP ist nicht vollstaendig konfiguriert.
+                        SMTP ist nicht vollständig konfiguriert.
                     </MudAlert>
                 }
 
@@ -137,7 +139,7 @@
             <!-- Hilfe-Sektion -->
             <MudExpansionPanels MultiExpansion="true" Class="mt-8">
                 <MudExpansionPanel Text="Wie finde ich meine SMTP-Daten?" @bind-Expanded="_helpExpanded">
-                    <MudText Typo="Typo.body2" Class="mb-3">Gaengige E-Mail-Anbieter und ihre SMTP-Einstellungen:</MudText>
+                    <MudText Typo="Typo.body2" Class="mb-3">Gängige E-Mail-Anbieter und ihre SMTP-Einstellungen:</MudText>
 
                     <MudSimpleTable Dense="true" Hover="true" Bordered="true">
                         <thead>
@@ -189,28 +191,30 @@
                     </MudSimpleTable>
 
                     <MudAlert Severity="Severity.Warning" Class="mt-4">
-                        <strong>Wichtig: App-Passwoerter verwenden!</strong><br />
-                        Aus Sicherheitsgruenden akzeptieren viele E-Mail-Anbieter keine normalen Passwoerter mehr fuer externe Anwendungen. Sie benoetigen stattdessen ein <strong>App-Passwort</strong>:
+                        <strong>Wichtig: App-Passwörter verwenden!</strong><br />
+                        Aus Sicherheitsgründen akzeptieren viele E-Mail-Anbieter keine normalen Passwörter mehr für externe Anwendungen. Sie benötigen stattdessen ein <strong>App-Passwort</strong>:
                         <br /><br />
                         <strong>Gmail / Google Workspace:</strong><br />
                         1. Gehen Sie zu <a href="https://myaccount.google.com/security" target="_blank">myaccount.google.com/security</a><br />
                         2. Aktivieren Sie die 2-Faktor-Authentifizierung (falls noch nicht aktiviert)<br />
-                        3. Suchen Sie nach "App-Passwoerter" oder gehen Sie zu <a href="https://myaccount.google.com/apppasswords" target="_blank">myaccount.google.com/apppasswords</a><br />
-                        4. Erstellen Sie ein neues App-Passwort fuer "Mail"<br />
+                        3. Suchen Sie nach "App-Passwörter" oder gehen Sie zu <a href="https://myaccount.google.com/apppasswords" target="_blank">myaccount.google.com/apppasswords</a><br />
+                        4. Erstellen Sie ein neues App-Passwort für "Mail"<br />
                         5. Verwenden Sie das generierte 16-stellige Passwort (ohne Leerzeichen) im Passwort-Feld oben<br />
                         <br />
                         <strong>Outlook / Microsoft 365 / Hotmail:</strong><br />
                         1. Gehen Sie zu <a href="https://account.microsoft.com/security" target="_blank">account.microsoft.com/security</a><br />
-                        2. Aktivieren Sie die zweistufige Ueberpruefung (falls noch nicht aktiviert)<br />
+                        2. Aktivieren Sie die zweistufige Überprüfung (falls noch nicht aktiviert)<br />
                         3. Klicken Sie auf "Erweiterte Sicherheitsoptionen"<br />
-                        4. Unter "App-Kennwoerter" klicken Sie auf "Neues App-Kennwort erstellen"<br />
+                        4. Unter "App-Kennwörter" klicken Sie auf "Neues App-Kennwort erstellen"<br />
                         5. Verwenden Sie das generierte Passwort im Passwort-Feld oben<br />
                         <br />
                         <strong>GMX / Web.de:</strong><br />
-                        Bei GMX und Web.de koennen Sie Ihr normales Passwort verwenden. Stellen Sie sicher, dass IMAP/POP3 in den E-Mail-Einstellungen aktiviert ist.
+                        Bei GMX und Web.de können Sie Ihr normales Passwort verwenden. Stellen Sie sicher, dass IMAP/POP3 in den E-Mail-Einstellungen aktiviert ist.
                     </MudAlert>
                 </MudExpansionPanel>
             </MudExpansionPanels>
         }
     </MudPaper>
 </MudContainer>
+</RoleGuard>
+

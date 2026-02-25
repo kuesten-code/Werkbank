@@ -1,0 +1,99 @@
+@page "/setup"
+@layout EmptyLayout
+@using Kuestencode.Werkbank.Host.Services
+@using Kuestencode.Werkbank.Host.Pages.Setup.Steps
+@inject ISetupService SetupService
+@inject NavigationManager NavigationManager
+
+<PageTitle>Setup - Küstencode Werkbank</PageTitle>
+
+<link rel="stylesheet" href="/css/setup.css" />
+
+<div class="setup-container">
+    <MudPaper Elevation="4" Class="setup-card pa-6">
+        @if (_setupAlreadyCompleted)
+        {
+            <MudStack Spacing="3" AlignItems="AlignItems.Center">
+                <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Color="Color.Success" Size="Size.Large" Style="font-size: 4rem;" />
+                <MudText Typo="Typo.h4">Setup bereits abgeschlossen</MudText>
+                <MudText Typo="Typo.body1">Die Werkbank ist bereits eingerichtet.</MudText>
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" Href="/">Zur Startseite</MudButton>
+            </MudStack>
+        }
+        else
+        {
+            <MudStack Spacing="4">
+                <!-- Logo -->
+                <div class="text-center">
+                    <MudText Typo="Typo.h4" Color="Color.Primary">Küstencode Werkbank</MudText>
+                </div>
+
+                <!-- Progress Indicator -->
+                <MudPaper Elevation="0" Class="pa-3 mb-4">
+                    <MudText Typo="Typo.body2" Align="Align.Center" Class="mb-2">
+                        Schritt @(_currentStep + 1) von @_stepTitles.Length: @_stepTitles[_currentStep]
+                    </MudText>
+                    <MudProgressLinear Color="Color.Primary" Size="Size.Large"
+                                       Value="@((_currentStep + 1) * 100.0 / _stepTitles.Length)" />
+                </MudPaper>
+
+                <!-- Step Content -->
+                @if (_currentStep == 0)
+                {
+                    <Welcome OnNext="NextStep" />
+                }
+                else if (_currentStep == 1)
+                {
+                    <AdminSetup Data="SetupData" OnNext="NextStep" OnBack="PrevStep" />
+                }
+                else if (_currentStep == 2)
+                {
+                    <UrlSetup Data="SetupData" OnNext="NextStep" OnBack="PrevStep" />
+                }
+                else if (_currentStep == 3)
+                {
+                    <AuthSetup Data="SetupData" OnNext="NextStep" OnBack="PrevStep" />
+                }
+                else if (_currentStep == 4)
+                {
+                    <Complete Data="SetupData" OnFinish="FinishSetup" OnBack="PrevStep" />
+                }
+            </MudStack>
+        }
+    </MudPaper>
+</div>
+
+@code {
+    private SetupData SetupData { get; set; } = new();
+    private bool _setupAlreadyCompleted;
+    private int _currentStep = 0;
+    private readonly string[] _stepTitles = { "Willkommen", "Administrator", "URL", "Authentifizierung", "Fertig" };
+
+    protected override async Task OnInitializedAsync()
+    {
+        _setupAlreadyCompleted = !await SetupService.IsSetupRequiredAsync();
+    }
+
+    private void NextStep()
+    {
+        if (_currentStep < _stepTitles.Length - 1)
+            _currentStep++;
+    }
+
+    private void PrevStep()
+    {
+        if (_currentStep > 0)
+            _currentStep--;
+    }
+
+
+    private async Task FinishSetup()
+    {
+        await SetupService.CompleteSetupAsync(SetupData);
+
+        if (SetupData.AuthEnabled)
+            NavigationManager.NavigateTo("/login", forceLoad: true);
+        else
+            NavigationManager.NavigateTo("/", forceLoad: true);
+    }
+}

@@ -54,7 +54,7 @@ public class SmtpClientWrapper : ISmtpClient
         }
         catch (OperationCanceledException)
         {
-            throw new TimeoutException("SMTP-Versand hat zu lange gedauert. Bitte SMTP-Host/Port/SSL pruefen.");
+            throw new TimeoutException("SMTP-Versand hat zu lange gedauert. Bitte SMTP-Host/Port/SSL prüfen.");
         }
     }
 

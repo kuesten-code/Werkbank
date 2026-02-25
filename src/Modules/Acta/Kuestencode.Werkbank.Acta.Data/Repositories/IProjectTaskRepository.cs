@@ -18,6 +18,11 @@ public interface IProjectTaskRepository
     Task<List<ProjectTask>> GetByProjectIdAsync(Guid projectId);
 
     /// <summary>
+    /// Lädt alle Aufgaben, die einem Benutzer zugewiesen sind.
+    /// </summary>
+    Task<List<ProjectTask>> GetByAssignedUserIdAsync(Guid assignedUserId);
+
+    /// <summary>
     /// Fügt eine neue Aufgabe hinzu.
     /// </summary>
     Task AddAsync(ProjectTask task);

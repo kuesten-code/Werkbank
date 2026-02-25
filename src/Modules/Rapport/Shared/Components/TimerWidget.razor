@@ -9,6 +9,7 @@
 @inject SettingsService SettingsService
 @inject IDialogService DialogService
 @inject ISnackbar Snackbar
+@inject IUserContextService UserContextService
 @implements IDisposable
 
 <MudPaper Elevation="2" Class="pa-6">
@@ -162,7 +163,10 @@
             var projectId = _selectedProjectId;
             var customerId = !_selectedProjectId.HasValue ? _selectedCustomer?.Id : (int?)null;
 
-            _runningEntry = await TimerService.StartTimerAsync(projectId, customerId, _description);
+            var teamMemberId = await UserContextService.GetCurrentUserIdAsync();
+            var teamMemberName = await UserContextService.GetCurrentUserNameAsync();
+
+            _runningEntry = await TimerService.StartTimerAsync(projectId, customerId, _description, teamMemberId, teamMemberName);
             UpdateRunningDisplay();
             _description = null;
         }
@@ -174,7 +178,8 @@
 
     private async Task RefreshRunningEntryAsync()
     {
-        _runningEntry = await TimerService.GetRunningTimerAsync();
+        var teamMemberId = await UserContextService.GetCurrentUserIdAsync();
+        _runningEntry = await TimerService.GetRunningTimerAsync(teamMemberId);
         UpdateRunningDisplay();
     }
 

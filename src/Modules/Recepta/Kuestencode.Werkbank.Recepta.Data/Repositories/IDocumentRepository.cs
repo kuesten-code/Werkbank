@@ -20,7 +20,8 @@ public interface IDocumentRepository
         DocumentStatus? status = null,
         DocumentCategory? category = null,
         Guid? supplierId = null,
-        Guid? projectId = null);
+        Guid? projectId = null,
+        bool? hasBeenAttached = null);
 
     /// <summary>
     /// Fügt einen neuen Beleg hinzu.
@@ -31,6 +32,11 @@ public interface IDocumentRepository
     /// Aktualisiert einen Beleg.
     /// </summary>
     Task UpdateAsync(Document document);
+
+    /// <summary>
+    /// Markiert mehrere Belege als bereits an Rechnung angehängt.
+    /// </summary>
+    Task MarkAsAttachedAsync(IEnumerable<Guid> documentIds);
 
     /// <summary>
     /// Löscht einen Beleg (nur bei Status Draft erlaubt).

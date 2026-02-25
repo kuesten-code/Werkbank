@@ -76,6 +76,10 @@ namespace Kuestencode.Rapport.Migrations
                         .HasMaxLength(10)
                         .HasColumnType("character varying(10)");
 
+                    b.Property<string>("Salutation")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -196,6 +200,13 @@ namespace Kuestencode.Rapport.Migrations
                     b.Property<int>("Status")
                         .HasColumnType("integer");
 
+                    b.Property<Guid?>("TeamMemberId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("TeamMemberName")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -207,9 +218,45 @@ namespace Kuestencode.Rapport.Migrations
 
                     b.HasIndex("StartTime");
 
+                    b.HasIndex("TeamMemberId");
+
                     b.HasIndex("CustomerId", "ProjectId");
 
                     b.ToTable("TimeEntries", "rapport");
+                });
+
+            modelBuilder.Entity("Kuestencode.Rapport.Models.TimeEntryAudit", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<DateTime>("ChangedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("ChangedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ChangedByUserName")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("Changes")
+                        .HasColumnType("text");
+
+                    b.Property<int>("TimeEntryId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TimeEntryId");
+
+                    b.ToTable("TimeEntryAudits", "rapport");
                 });
 
             modelBuilder.Entity("Kuestencode.Rapport.Models.TimeEntry", b =>

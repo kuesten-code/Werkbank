@@ -1,0 +1,54 @@
+@namespace Kuestencode.Werkbank.Host.Pages.Setup.Steps
+@using Kuestencode.Werkbank.Host.Services
+
+<MudStack Spacing="3">
+    <MudText Typo="Typo.h5">Authentifizierung</MudText>
+    <MudText Typo="Typo.body1">Möchtest du Authentifizierung aktivieren?</MudText>
+
+    <MudRadioGroup @bind-Value="Data.AuthEnabled">
+        <MudRadio Value="true" Color="Color.Primary">
+            <MudStack Spacing="1">
+                <MudText Typo="Typo.body1"><strong>Authentifizierung aktiviert</strong></MudText>
+                <MudText Typo="Typo.body2" Color="Color.Secondary">
+                    Benutzer müssen sich mit E-Mail und Passwort anmelden.
+                    Empfohlen für den Produktivbetrieb.
+                </MudText>
+            </MudStack>
+        </MudRadio>
+        <MudRadio Value="false" Color="Color.Primary" Class="mt-3">
+            <MudStack Spacing="1">
+                <MudText Typo="Typo.body1"><strong>Authentifizierung deaktiviert</strong></MudText>
+                <MudText Typo="Typo.body2" Color="Color.Secondary">
+                    Jeder kann die Werkbank ohne Anmeldung nutzen.
+                    Nur für lokale Einzelnutzung oder Testzwecke geeignet.
+                </MudText>
+            </MudStack>
+        </MudRadio>
+    </MudRadioGroup>
+
+    @if (!Data.AuthEnabled)
+    {
+        <MudAlert Severity="Severity.Warning">
+            <strong>Achtung:</strong> Ohne Authentifizierung ist die Werkbank nicht geschützt.
+            Du kannst die Authentifizierung später in den Einstellungen aktivieren.
+        </MudAlert>
+    }
+
+    <MudStack Row="true" Justify="Justify.SpaceBetween" Class="mt-4">
+        <MudButton Variant="Variant.Text" OnClick="@(() => OnBack.InvokeAsync())">
+            <MudIcon Icon="@Icons.Material.Filled.ArrowBack" Class="mr-2" />
+            Zurück
+        </MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                   OnClick="@(() => OnNext.InvokeAsync())">
+            Weiter
+            <MudIcon Icon="@Icons.Material.Filled.ArrowForward" Class="ml-2" />
+        </MudButton>
+    </MudStack>
+</MudStack>
+
+@code {
+    [Parameter] public SetupData Data { get; set; } = new();
+    [Parameter] public EventCallback OnNext { get; set; }
+    [Parameter] public EventCallback OnBack { get; set; }
+}

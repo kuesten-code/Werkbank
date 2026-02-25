@@ -1,0 +1,123 @@
+@using System.Text.Json
+@inject IJSRuntime JSRuntime
+@inject NavigationManager NavigationManager
+
+<div class="mobile-pin-enter">
+    <h2>Hallo @UserName!</h2>
+    <p>Gib deine PIN ein.</p>
+
+    <div class="pin-display">
+        @for (int i = 0; i < 4; i++)
+        {
+            <div class="pin-dot @(_pin.Length > i ? "filled" : "")"></div>
+        }
+    </div>
+
+    @if (!string.IsNullOrEmpty(_error))
+    {
+        <div class="pin-error">
+            @_error
+            @if (_remainingAttempts > 0)
+            {
+                <br/><small>Noch @_remainingAttempts Versuch@(_remainingAttempts == 1 ? "" : "e")</small>
+            }
+        </div>
+    }
+
+    <div class="pin-pad">
+        @foreach (var num in new[] { "1", "2", "3", "4", "5", "6", "7", "8", "9", "", "0", "←" })
+        {
+            @if (num == "")
+            {
+                <div class="pin-key empty"></div>
+            }
+            else if (num == "←")
+            {
+                <button class="pin-key delete" @onclick="DeleteDigit" disabled="@_isLoading">
+                    ←
+                </button>
+            }
+            else
+            {
+                <button class="pin-key" @onclick="() => AddDigit(num)" disabled="@_isLoading">@num</button>
+            }
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter] public string Token { get; set; } = string.Empty;
+    [Parameter] public string UserName { get; set; } = string.Empty;
+    [Parameter] public EventCallback OnSuccess { get; set; }
+
+    private string _pin = "";
+    private string? _error;
+    private int _remainingAttempts = 3;
+    private bool _isLoading = false;
+
+    private async Task AddDigit(string digit)
+    {
+        if (_pin.Length >= 4 || _isLoading) return;
+
+        _error = null;
+        _pin += digit;
+
+        if (_pin.Length == 4)
+        {
+            await VerifyPin();
+        }
+    }
+
+    private void DeleteDigit()
+    {
+        if (_pin.Length > 0 && !_isLoading)
+        {
+            _pin = _pin.Substring(0, _pin.Length - 1);
+            _error = null;
+        }
+    }
+
+    private async Task VerifyPin()
+    {
+        _isLoading = true;
+
+        try
+        {
+            var resultJson = await JSRuntime.InvokeAsync<string>("werkbankAuth.mobileVerifyPin", Token, _pin);
+            using var envelope = JsonDocument.Parse(resultJson);
+            var payloadRaw = envelope.RootElement.GetProperty("payload").GetString() ?? "{}";
+            using var payload = JsonDocument.Parse(payloadRaw);
+
+            if (envelope.RootElement.GetProperty("ok").GetBoolean() &&
+                payload.RootElement.TryGetProperty("success", out var successElement) &&
+                successElement.GetBoolean())
+            {
+                await OnSuccess.InvokeAsync();
+            }
+            else if (payload.RootElement.TryGetProperty("locked", out var lockedElement) && lockedElement.GetBoolean())
+            {
+                // Seite neu laden, zeigt dann Locked-Zustand
+                NavigationManager.NavigateTo(NavigationManager.Uri, forceLoad: true);
+            }
+            else
+            {
+                _error = "Falsche PIN";
+                if (payload.RootElement.TryGetProperty("remainingAttempts", out var attemptsElement) &&
+                    attemptsElement.ValueKind == JsonValueKind.Number)
+                {
+                    _remainingAttempts = attemptsElement.GetInt32();
+                }
+                _pin = "";
+            }
+        }
+        catch (Exception ex)
+        {
+            _error = $"Fehler: {ex.Message}";
+            _pin = "";
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+}

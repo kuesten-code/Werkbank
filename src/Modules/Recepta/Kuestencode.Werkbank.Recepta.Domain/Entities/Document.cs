@@ -80,6 +80,11 @@ public class Document
     public Guid? ProjectId { get; set; }
 
     /// <summary>
+    /// Gibt an, ob der Beleg bereits als Rechnungsanhang in Faktura verwendet wurde.
+    /// </summary>
+    public bool HasBeenAttached { get; set; }
+
+    /// <summary>
     /// OCR-Rohtext aus dem gescannten Dokument.
     /// </summary>
     public string? OcrRawText { get; set; }

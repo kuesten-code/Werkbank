@@ -150,6 +150,25 @@
     animation: slideUp 0.3s ease-out;
 }
 
+/* Keep tab badges fully visible on filter tabs */
+.filter-tabs,
+.filter-tabs.mud-tabs,
+.filter-tabs .mud-tabs-tabbar,
+.filter-tabs .mud-tabs-toolbar,
+.filter-tabs .mud-tabs-toolbar-wrapper,
+.filter-tabs .mud-tabs-slider,
+.filter-tabs .mud-tab,
+.filter-tabs .mud-badge-root,
+.filter-tabs .mud-badge-wrapper,
+.filter-tabs .mud-badge {
+    overflow: visible !important;
+}
+
+/* Reserve vertical space for top-right tab badges so circles are not clipped */
+.filter-tabs .mud-tabs-toolbar {
+    padding-top: 6px;
+}
+
 @keyframes slideUp {
     from {
         opacity: 0;

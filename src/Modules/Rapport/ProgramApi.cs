@@ -4,7 +4,9 @@ using Kuestencode.Core.Interfaces;
 using Kuestencode.Rapport;
 using Kuestencode.Rapport.Services;
 using Kuestencode.Shared.ApiClients;
+using Kuestencode.Shared.Contracts.Host;
 using Kuestencode.Shared.Contracts.Navigation;
+using Kuestencode.Shared.UI.Extensions;
 using Microsoft.AspNetCore.DataProtection;
 using MudBlazor.Services;
 using QuestPDF.Infrastructure;
@@ -32,9 +34,20 @@ public class ProgramApi
         builder.Configuration.AddJsonFile("appsettings.api.json", optional: true, reloadOnChange: true);
         builder.Configuration.AddEnvironmentVariables();
 
+        // Add HttpContextAccessor for authentication
+        builder.Services.AddHttpContextAccessor();
+
+        // Authentication is handled by PassThroughAuthStateProvider reading the JWT
+        // from werkbank_auth_cookie directly. No ASP.NET Cookie Authentication needed.
+        builder.Services.AddAuthorization();
+
         // Add Blazor Server + Razor Pages
         builder.Services.AddRazorPages();
         builder.Services.AddServerSideBlazor();
+
+        // Add PassThrough AuthenticationStateProvider for modules
+        builder.Services.AddScoped<Microsoft.AspNetCore.Components.Authorization.AuthenticationStateProvider,
+            Kuestencode.Shared.UI.Auth.PassThroughAuthStateProvider>();
 
         // Add MudBlazor
         builder.Services.AddMudServices();
@@ -73,13 +86,17 @@ public class ProgramApi
         // Add Module Registry (stub for API mode - modules are registered via HTTP)
         builder.Services.AddSingleton<IModuleRegistry, ApiModuleRegistry>();
 
-        // Add Host API Client
+        // Add AuthTokenDelegatingHandler for forwarding Authorization headers
+        builder.Services.AddTransient<Kuestencode.Shared.UI.Handlers.AuthTokenDelegatingHandler>();
+
+        // Add Host API Client with AuthTokenDelegatingHandler
         builder.Services.AddHttpClient<IHostApiClient, HostApiClient>(client =>
         {
             var hostUrl = builder.Configuration.GetValue<string>("ServiceUrls:Host") ?? "http://localhost:8080";
             client.BaseAddress = new Uri(hostUrl);
             client.Timeout = TimeSpan.FromSeconds(30);
-        });
+        })
+        .AddHttpMessageHandler<Kuestencode.Shared.UI.Handlers.AuthTokenDelegatingHandler>();
 
         // Add API-based implementations of Host services (Customer, Company)
         builder.Services.AddScoped<ICustomerService, ApiCustomerService>();
@@ -96,6 +113,9 @@ public class ProgramApi
 
         // Add Rapport Services (includes DbContext, Repositories, etc.)
         builder.Services.AddRapportModule(builder.Configuration);
+
+        // Add Module Health Monitor - re-registers if no health check received within 60 seconds
+        builder.Services.AddModuleHealthMonitor("Rapport", GetModuleInfo, builder.Configuration);
 
         var app = builder.Build();
 
@@ -138,7 +158,14 @@ public class ProgramApi
 
         app.UseCors();
         app.UseStaticFiles();
+
+        // Add Health Check Tracker Middleware
+        app.UseModuleHealthMonitor();
+
         app.UseRouting();
+
+        // Add Authorization
+        app.UseAuthorization();
 
         app.MapRazorPages();
 
@@ -165,85 +192,97 @@ public class ProgramApi
         app.Run();
     }
 
+    private static ModuleInfoDto GetModuleInfo(IConfiguration config)
+    {
+        var selfUrl = config.GetValue<string>("ServiceUrls:Self") ?? "http://localhost:8082";
+        var moduleVersion = config["MODULE_VERSION"]
+            ?? config["IMAGE_TAG"]
+            ?? config["DOCKER_IMAGE_TAG"]
+            ?? "dev";
+
+        return new ModuleInfoDto
+        {
+            ModuleName = "Rapport",
+            DisplayName = "Rapport",
+            Version = moduleVersion,
+            LogoUrl = "/rapport/company/logos/Rapport_Logo.png",
+            HealthCheckUrl = $"{selfUrl}/rapport/health",
+            NavigationItems = new List<NavItemDto>
+            {
+                new NavItemDto
+                {
+                    Label = "Rapport",
+                    Href = "/rapport",
+                    Icon = "/rapport/company/logos/Rapport_Logo.png",
+                    Type = NavItemType.Link,
+                    AllowedRoles = new List<UserRole> { UserRole.Mitarbeiter, UserRole.Buero, UserRole.Admin }
+                },
+                new NavItemDto
+                {
+                    Label = "Zeiteinträge",
+                    Icon = "",
+                    Type = NavItemType.Group,
+                    AllowedRoles = new List<UserRole> { UserRole.Mitarbeiter, UserRole.Buero, UserRole.Admin },
+                    Children = new List<NavItemDto>
+                    {
+                        new NavItemDto
+                        {
+                            Label = "Übersicht",
+                            Href = "/rapport/time-entries",
+                            Icon = "",
+                            Type = NavItemType.Link,
+                            AllowedRoles = new List<UserRole> { UserRole.Mitarbeiter, UserRole.Buero, UserRole.Admin }
+                        },
+                        new NavItemDto
+                        {
+                            Label = "Manueller Eintrag",
+                            Href = "/rapport/time-entries/create",
+                            Icon = "",
+                            Type = NavItemType.Link,
+                            AllowedRoles = new List<UserRole> { UserRole.Mitarbeiter, UserRole.Buero, UserRole.Admin }
+                        }
+                    }
+                },
+                new NavItemDto
+                {
+                    Label = "Tätigkeitsnachweise",
+                    Href = "/rapport/reports",
+                    Icon = "",
+                    Type = NavItemType.Link,
+                    AllowedRoles = new List<UserRole> { UserRole.Buero, UserRole.Admin }
+                },
+                // Settings: Zeiterfassung unter "Abrechnung" - nur Admin
+                new NavItemDto
+                {
+                    Label = "Rapport Zeiterfassung",
+                    Href = "/rapport/settings",
+                    Icon = "",
+                    Type = NavItemType.Settings,
+                    Category = NavSettingsCategory.Abrechnung,
+                    AllowedRoles = new List<UserRole> { UserRole.Admin }
+                },
+                // Settings: PDF-Anpassung unter "Dokumente" - nur Admin
+                new NavItemDto
+                {
+                    Label = "Rapport PDF",
+                    Href = "/rapport/settings/pdf-anpassung",
+                    Icon = "",
+                    Type = NavItemType.Settings,
+                    Category = NavSettingsCategory.Dokumente,
+                    AllowedRoles = new List<UserRole> { UserRole.Admin }
+                }
+            }
+        };
+    }
+
     private static async Task RegisterWithHost(IConfiguration config, ILogger logger)
     {
         try
         {
             var hostUrl = config.GetValue<string>("ServiceUrls:Host") ?? "http://localhost:8080";
-            var selfUrl = config.GetValue<string>("ServiceUrls:Self") ?? "http://localhost:8082";
             using var client = new HttpClient { BaseAddress = new Uri(hostUrl) };
 
-            var moduleVersion = config["MODULE_VERSION"]
-                ?? config["IMAGE_TAG"]
-                ?? config["DOCKER_IMAGE_TAG"]
-                ?? "dev";
-
-            var moduleInfo = new ModuleInfoDto
-            {
-                ModuleName = "Rapport",
-                DisplayName = "Rapport",
-                Version = moduleVersion,
-                LogoUrl = "/rapport/company/logos/Rapport_Logo.png",
-                HealthCheckUrl = $"{selfUrl}/rapport/health",
-                NavigationItems = new List<NavItemDto>
-                {
-                    new NavItemDto
-                    {
-                        Label = "Rapport",
-                        Href = "/rapport",
-                        Icon = "/rapport/company/logos/Rapport_Logo.png",
-                        Type = NavItemType.Link
-                    },
-                    new NavItemDto
-                    {
-                        Label = "Zeiteinträge",
-                        Icon = "",
-                        Type = NavItemType.Group,
-                        Children = new List<NavItemDto>
-                        {
-                            new NavItemDto
-                            {
-                                Label = "Übersicht",
-                                Href = "/rapport/time-entries",
-                                Icon = "",
-                                Type = NavItemType.Link
-                            },
-                            new NavItemDto
-                            {
-                                Label = "Manueller Eintrag",
-                                Href = "/rapport/time-entries/create",
-                                Icon = "",
-                                Type = NavItemType.Link
-                            }
-                        }
-                    },
-                    new NavItemDto
-                    {
-                        Label = "Tätigkeitsnachweise",
-                        Href = "/rapport/reports",
-                        Icon = "",
-                        Type = NavItemType.Link
-                    },
-                    // Settings: Zeiterfassung unter "Abrechnung"
-                    new NavItemDto
-                    {
-                        Label = "Rapport Zeiterfassung",
-                        Href = "/rapport/settings",
-                        Icon = "",
-                        Type = NavItemType.Settings,
-                        Category = NavSettingsCategory.Abrechnung
-                    },
-                    // Settings: PDF-Anpassung unter "Dokumente"
-                    new NavItemDto
-                    {
-                        Label = "Rapport PDF",
-                        Href = "/rapport/settings/pdf-anpassung",
-                        Icon = "",
-                        Type = NavItemType.Settings,
-                        Category = NavSettingsCategory.Dokumente
-                    }
-                }
-            };
+            var moduleInfo = GetModuleInfo(config);
 
             var response = await client.PostAsJsonAsync("/api/modules/register", moduleInfo);
             if (response.IsSuccessStatusCode)

@@ -1,0 +1,33 @@
+/* Setup Wizard Styling */
+
+.setup-container {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    padding: 20px;
+}
+
+.setup-card {
+    max-width: 800px;
+    width: 100%;
+    margin: 0 auto;
+}
+
+/* EmptyLayout styling */
+.layout-empty {
+    min-height: 100vh;
+}
+
+/* Responsive adjustments */
+@media (max-width: 600px) {
+    .setup-card {
+        max-width: 100%;
+        padding: 16px !important;
+    }
+    
+    .setup-container {
+        padding: 10px;
+    }
+}

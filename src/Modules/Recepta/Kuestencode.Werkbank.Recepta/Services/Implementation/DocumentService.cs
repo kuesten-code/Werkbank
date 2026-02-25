@@ -39,7 +39,7 @@ public class DocumentService : IDocumentService
     public async Task<IEnumerable<DocumentDto>> GetAllAsync(DocumentFilterDto filter)
     {
         var documents = await _documentRepository.GetAllAsync(
-            filter.Status, filter.Category, filter.SupplierId, filter.ProjectId);
+            filter.Status, filter.Category, filter.SupplierId, filter.ProjectId, filter.HasBeenAttached);
 
         IEnumerable<Document> result = documents;
 
@@ -398,6 +398,11 @@ public class DocumentService : IDocumentService
         await _documentRepository.UpdateAsync(document);
     }
 
+    public async Task MarkAsAttachedAsync(IEnumerable<Guid> documentIds)
+    {
+        await _documentRepository.MarkAsAttachedAsync(documentIds);
+    }
+
     private static DocumentDto MapToDto(Document document)
     {
         return new DocumentDto
@@ -416,6 +421,7 @@ public class DocumentService : IDocumentService
             Category = document.Category.ToString(),
             Status = document.Status.ToString(),
             ProjectId = document.ProjectId,
+            HasBeenAttached = document.HasBeenAttached,
             Notes = document.Notes,
             OcrRawText = document.OcrRawText,
             CreatedAt = document.CreatedAt,

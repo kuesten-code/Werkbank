@@ -1,18 +1,21 @@
-@page "/team-members"
+﻿@page "/team-members"
+@using Kuestencode.Shared.Contracts.Host
 @using Kuestencode.Werkbank.Host.Models
 @inject Kuestencode.Werkbank.Host.Services.ITeamMemberService TeamMemberService
+@inject Kuestencode.Werkbank.Host.Services.IInviteService InviteService
 @inject NavigationManager NavigationManager
 @inject IDialogService DialogService
 @inject ISnackbar Snackbar
 
-<PageTitle>Mitarbeiter - Kuestencode Werkbank</PageTitle>
+<PageTitle>Mitarbeiter - Küstencode Werkbank</PageTitle>
 
+<RoleGuard AllowedRoles="@(new List<UserRole> { UserRole.Admin })" RedirectTo="/rapport">
 <MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4">
     <MudText Typo="Typo.h4" GutterBottom="true">Mitarbeiter</MudText>
 
     <MudPaper Class="pa-4 mt-4">
         <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-4">
-            <MudTextField @bind-Value="_searchString" Placeholder="Suche nach Name oder Email"
+            <MudTextField @bind-Value="_searchString" Placeholder="Suche nach Name oder E-Mail"
                          Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search"
                          IconSize="Size.Medium" Class="mt-0" Immediate="true" />
             <MudButton Variant="Variant.Filled" Color="Color.Primary"
@@ -26,25 +29,53 @@
                  RowsPerPage="10">
             <HeaderContent>
                 <MudTh>Name</MudTh>
-                <MudTh>Email</MudTh>
-                <MudTh>Aktiv</MudTh>
+                <MudTh>E-Mail</MudTh>
+                <MudTh>Rolle</MudTh>
+                <MudTh>Status</MudTh>
                 <MudTh Style="text-align: right">Aktionen</MudTh>
             </HeaderContent>
             <RowTemplate>
                 <MudTd DataLabel="Name">@context.DisplayName</MudTd>
-                <MudTd DataLabel="Email">@context.Email</MudTd>
-                <MudTd DataLabel="Aktiv">
-                    <MudChip T="string" Size="Size.Small" Color="@(context.IsActive ? Color.Success : Color.Default)">
-                        @(context.IsActive ? "Ja" : "Nein")
+                <MudTd DataLabel="E-Mail">@context.Email</MudTd>
+                <MudTd DataLabel="Rolle">
+                    <MudChip T="string" Size="Size.Small" Color="@GetRoleColor(context.Role)">
+                        @GetRoleLabel(context.Role)
+                    </MudChip>
+                </MudTd>
+                <MudTd DataLabel="Status">
+                    <MudChip T="string" Size="Size.Small" Color="@GetStatusColor(context)">
+                        @GetStatusLabel(context)
                     </MudChip>
                 </MudTd>
                 <MudTd DataLabel="Aktionen" Style="text-align: right">
-                    <MudIconButton Icon="@Icons.Material.Filled.Edit"
-                                  Color="Color.Primary" Size="Size.Small"
-                                  OnClick="@(() => EditMember(context.Id))" />
-                    <MudIconButton Icon="@Icons.Material.Filled.Delete"
-                                  Color="Color.Error" Size="Size.Small"
-                                  OnClick="@(() => DeleteMember(context))" />
+                    <MudMenu Icon="@Icons.Material.Filled.MoreVert" Size="Size.Small" Dense="true">
+                        <MudMenuItem OnClick="@(() => EditMember(context.Id))"
+                                    Icon="@Icons.Material.Filled.Edit">
+                            Bearbeiten
+                        </MudMenuItem>
+                        @if (!context.HasCompletedSetup && !string.IsNullOrEmpty(context.Email))
+                        {
+                            <MudMenuItem OnClick="@(() => ResendInvite(context))"
+                                        Icon="@Icons.Material.Filled.Send">
+                                Einladung erneut senden
+                            </MudMenuItem>
+                        }
+                        @if (context.IsLockedByAdmin)
+                        {
+                            <MudMenuItem OnClick="@(() => UnlockMember(context))"
+                                        Icon="@Icons.Material.Filled.LockOpen">
+                                Entsperren
+                            </MudMenuItem>
+                        }
+                        <MudMenuItem OnClick="@(() => ToggleActive(context))"
+                                    Icon="@(context.IsActive ? Icons.Material.Filled.Block : Icons.Material.Filled.CheckCircle)">
+                            @(context.IsActive ? "Deaktivieren" : "Aktivieren")
+                        </MudMenuItem>
+                        <MudMenuItem OnClick="@(() => DeleteMember(context))"
+                                    Icon="@Icons.Material.Filled.Delete" IconColor="Color.Error">
+                            Löschen
+                        </MudMenuItem>
+                    </MudMenu>
                 </MudTd>
             </RowTemplate>
             <PagerContent>
@@ -53,6 +84,7 @@
         </MudTable>
     </MudPaper>
 </MudContainer>
+</RoleGuard>
 
 @code {
     private List<TeamMember> _members = new();
@@ -87,6 +119,42 @@
         }
     }
 
+    private static Color GetRoleColor(UserRole role) => role switch
+    {
+        UserRole.Admin => Color.Error,
+        UserRole.Buero => Color.Info,
+        _ => Color.Default
+    };
+
+    private static string GetRoleLabel(UserRole role) => role switch
+    {
+        UserRole.Admin => "Admin",
+        UserRole.Buero => "Büro",
+        UserRole.Mitarbeiter => "Mitarbeiter",
+        _ => role.ToString()
+    };
+
+    private static Color GetStatusColor(TeamMember member)
+    {
+        if (member.IsLockedByAdmin) return Color.Error;
+        if (!member.IsActive) return Color.Default;
+        if (member.InviteToken != null && member.InviteTokenExpires > DateTime.UtcNow) return Color.Warning;
+        if (member.InviteToken != null && member.InviteTokenExpires <= DateTime.UtcNow) return Color.Warning;
+        if (!member.HasCompletedSetup && member.InviteToken == null) return Color.Default;
+        if (member.HasCompletedSetup && member.IsActive) return Color.Success;
+        return Color.Default;
+    }
+
+    private static string GetStatusLabel(TeamMember member)
+    {
+        if (member.IsLockedByAdmin) return "Gesperrt";
+        if (!member.IsActive) return "Deaktiviert";
+        if (member.InviteToken != null && member.InviteTokenExpires > DateTime.UtcNow) return "Eingeladen";
+        if (member.InviteToken != null && member.InviteTokenExpires <= DateTime.UtcNow) return "Ausstehend";
+        if (member.HasCompletedSetup) return "Aktiv";
+        return "Neu";
+    }
+
     private void CreateMember()
     {
         NavigationManager.NavigateTo("/team-members/create");
@@ -97,16 +165,62 @@
         NavigationManager.NavigateTo($"/team-members/edit/{id}");
     }
 
+    private async Task ResendInvite(TeamMember member)
+    {
+        try
+        {
+            await InviteService.ResendInviteAsync(member.Id);
+            Snackbar.Add($"Einladung an '{member.DisplayName}' erneut gesendet.", Severity.Success);
+            await LoadMembers();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Fehler: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task UnlockMember(TeamMember member)
+    {
+        try
+        {
+            member.IsLockedByAdmin = false;
+            member.FailedLoginAttempts = 0;
+            member.LockoutUntil = null;
+            await TeamMemberService.UpdateAsync(member);
+            Snackbar.Add($"'{member.DisplayName}' wurde entsperrt.", Severity.Success);
+            await LoadMembers();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Fehler: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task ToggleActive(TeamMember member)
+    {
+        try
+        {
+            member.IsActive = !member.IsActive;
+            await TeamMemberService.UpdateAsync(member);
+            Snackbar.Add($"'{member.DisplayName}' wurde {(member.IsActive ? "aktiviert" : "deaktiviert")}.", Severity.Success);
+            await LoadMembers();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Fehler: {ex.Message}", Severity.Error);
+        }
+    }
+
     private async Task DeleteMember(TeamMember member)
     {
         var parameters = new DialogParameters
         {
-            { "ContentText", $"Moechten Sie den Mitarbeiter '{member.DisplayName}' wirklich loeschen?" },
-            { "ButtonText", "Loeschen" },
+            { "ContentText", $"Möchten Sie den Mitarbeiter '{member.DisplayName}' wirklich löschen?" },
+            { "ButtonText", "Löschen" },
             { "Color", Color.Error }
         };
 
-        var dialog = await DialogService.ShowAsync<ConfirmDialog>("Mitarbeiter loeschen", parameters);
+        var dialog = await DialogService.ShowAsync<ConfirmDialog>("Mitarbeiter löschen", parameters);
         var result = await dialog.Result;
 
         if (result != null && !result.Canceled)
@@ -114,13 +228,14 @@
             try
             {
                 await TeamMemberService.DeleteAsync(member.Id);
-                Snackbar.Add($"Mitarbeiter '{member.DisplayName}' wurde geloescht.", Severity.Success);
+                Snackbar.Add($"Mitarbeiter '{member.DisplayName}' wurde gelöscht.", Severity.Success);
                 await LoadMembers();
             }
             catch (Exception ex)
             {
-                Snackbar.Add($"Fehler beim Loeschen: {ex.Message}", Severity.Error);
+                Snackbar.Add($"Fehler beim Löschen: {ex.Message}", Severity.Error);
             }
         }
     }
 }
+

@@ -115,6 +115,10 @@ public class TeamMemberService : ITeamMemberService
             existing.DisplayName = member.DisplayName;
             existing.Email = string.IsNullOrWhiteSpace(member.Email) ? null : member.Email;
             existing.IsActive = member.IsActive;
+            existing.Role = member.Role;
+            existing.IsLockedByAdmin = member.IsLockedByAdmin;
+            existing.FailedLoginAttempts = member.FailedLoginAttempts;
+            existing.LockoutUntil = member.LockoutUntil;
 
             await _context.SaveChangesAsync().ConfigureAwait(false);
         }
