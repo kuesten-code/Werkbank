@@ -27,6 +27,7 @@ jobs:
           DOCKERFILES[rapport]="src/Modules/Rapport/Dockerfile"
           DOCKERFILES[offerte]="src/Modules/Offerte/Kuestencode.Werkbank.Offerte/Dockerfile"
           DOCKERFILES[acta]="src/Modules/Acta/Kuestencode.Werkbank.Acta/Dockerfile"
+          DOCKERFILES[recepta]="src/Modules/Recepta/Kuestencode.Werkbank.Recepta/Dockerfile"
 
           declare -A IMAGE_NAMES
           IMAGE_NAMES[host]="host"
@@ -34,6 +35,7 @@ jobs:
           IMAGE_NAMES[rapport]="rapport"
           IMAGE_NAMES[offerte]="offerte"
           IMAGE_NAMES[acta]="acta"
+          IMAGE_NAMES[recepta]="recepta"
 
           # Read VERSION file and build matrix
           MATRIX_JSON='{"include":['

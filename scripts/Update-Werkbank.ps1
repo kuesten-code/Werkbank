@@ -44,10 +44,8 @@ $Colors = @{
 }
 
 # Known modules
-$KnownModules = @("host", "faktura", "rapport", "offerte", "acta")
+$KnownModules = @("host", "faktura", "rapport", "offerte", "acta", "recepta")
 
-# Potential new modules
-$PotentialModules = @("lager", "buchhaltung", "projekt", "kunde", "dokument")
 
 function Write-Header {
     Write-Host ""
