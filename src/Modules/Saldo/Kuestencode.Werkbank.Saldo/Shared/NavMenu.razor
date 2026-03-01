@@ -1,0 +1,76 @@
+@using Kuestencode.Shared.ApiClients
+@using Kuestencode.Shared.Contracts.Host
+@using Kuestencode.Shared.Contracts.Navigation
+@using Kuestencode.Shared.UI.Services
+@using Microsoft.AspNetCore.Components.Authorization
+@inject IHostApiClient HostApiClient
+@inject NavigationManager NavigationManager
+@inject AuthenticationStateProvider AuthStateProvider
+@implements IDisposable
+
+<MudNavMenu>
+    @if (_loading)
+    {
+        <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+    }
+    else if (_navItems.Count == 0)
+    {
+        <MudText Typo="Typo.caption" Color="Color.Secondary">Navigation nicht verfügbar</MudText>
+    }
+    else
+    {
+        @foreach (var navItem in _navItems)
+        {
+            <NavItemRenderer Item="navItem" CurrentUri="@_currentUri" />
+        }
+    }
+</MudNavMenu>
+
+@code {
+    private List<NavItemDto> _navItems = new();
+    private bool _loading = true;
+    private string _currentUri = string.Empty;
+    private UserRole _currentRole = UserRole.Mitarbeiter;
+    private bool _shouldApplyClientRoleFilter;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _currentUri = NavigationManager.Uri;
+        NavigationManager.LocationChanged += HandleLocationChanged;
+
+        await LoadRoleAsync();
+
+        var allNavItems = await HostApiClient.GetNavigationAsync();
+        _navItems = _shouldApplyClientRoleFilter
+            ? NavigationFilterService.FilterNavigationByRole(allNavItems, _currentRole)
+            : allNavItems;
+        _loading = false;
+    }
+
+    private async Task LoadRoleAsync()
+    {
+        try
+        {
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            _shouldApplyClientRoleFilter = authState.User.Identity?.IsAuthenticated == true ||
+                authState.User.Identity?.AuthenticationType == "NoAuth";
+            _currentRole = UserRoleResolver.ResolveRole(authState.User, UserRole.Mitarbeiter);
+        }
+        catch
+        {
+            _currentRole = UserRole.Mitarbeiter;
+            _shouldApplyClientRoleFilter = false;
+        }
+    }
+
+    private void HandleLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
+    {
+        _currentUri = e.Location;
+        StateHasChanged();
+    }
+
+    public void Dispose()
+    {
+        NavigationManager.LocationChanged -= HandleLocationChanged;
+    }
+}

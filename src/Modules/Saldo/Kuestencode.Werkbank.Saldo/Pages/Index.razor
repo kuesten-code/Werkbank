@@ -1,0 +1,135 @@
+@page "/"
+@page "/saldo"
+@inject IEuerService EuerService
+@inject NavigationManager NavigationManager
+
+<PageTitle>Saldo - EÜR Übersicht</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4">
+    <MudText Typo="Typo.h4" GutterBottom="true">EÜR Übersicht @_currentYear</MudText>
+
+    @if (_loading)
+    {
+        <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+    }
+    else if (_summary != null)
+    {
+        <MudGrid>
+            <MudItem xs="12" sm="6" md="4">
+                <MudPaper Class="pa-4" Elevation="2">
+                    <MudStack AlignItems="AlignItems.Center">
+                        <MudIcon Icon="@Icons.Material.Filled.TrendingUp" Size="Size.Large" Color="Color.Success" />
+                        <MudText Typo="Typo.h5">@_summary.EinnahmenNetto.ToString("C")</MudText>
+                        <MudText Typo="Typo.body2">Einnahmen (Netto)</MudText>
+                    </MudStack>
+                </MudPaper>
+            </MudItem>
+
+            <MudItem xs="12" sm="6" md="4">
+                <MudPaper Class="pa-4" Elevation="2">
+                    <MudStack AlignItems="AlignItems.Center">
+                        <MudIcon Icon="@Icons.Material.Filled.TrendingDown" Size="Size.Large" Color="Color.Error" />
+                        <MudText Typo="Typo.h5">@_summary.AusgabenNetto.ToString("C")</MudText>
+                        <MudText Typo="Typo.body2">Ausgaben (Netto)</MudText>
+                    </MudStack>
+                </MudPaper>
+            </MudItem>
+
+            <MudItem xs="12" sm="6" md="4">
+                <MudPaper Class="pa-4" Elevation="2" Style="@(_summary.Ueberschuss >= 0 ? "border-left: 4px solid #4caf50" : "border-left: 4px solid #f44336")">
+                    <MudStack AlignItems="AlignItems.Center">
+                        <MudIcon Icon="@Icons.Material.Filled.AccountBalance" Size="Size.Large"
+                                Color="@(_summary.Ueberschuss >= 0 ? Color.Success : Color.Error)" />
+                        <MudText Typo="Typo.h5" Color="@(_summary.Ueberschuss >= 0 ? Color.Success : Color.Error)">
+                            @_summary.Ueberschuss.ToString("C")
+                        </MudText>
+                        <MudText Typo="Typo.body2">Überschuss (Netto)</MudText>
+                    </MudStack>
+                </MudPaper>
+            </MudItem>
+        </MudGrid>
+
+        <MudGrid Class="mt-4">
+            <MudItem xs="12" sm="6" md="3">
+                <MudPaper Class="pa-3" Elevation="1">
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">Einnahmen MwSt</MudText>
+                    <MudText Typo="Typo.body1">@_summary.EinnahmenMwst.ToString("C")</MudText>
+                </MudPaper>
+            </MudItem>
+            <MudItem xs="12" sm="6" md="3">
+                <MudPaper Class="pa-3" Elevation="1">
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">Einnahmen Brutto</MudText>
+                    <MudText Typo="Typo.body1">@_summary.EinnahmenBrutto.ToString("C")</MudText>
+                </MudPaper>
+            </MudItem>
+            <MudItem xs="12" sm="6" md="3">
+                <MudPaper Class="pa-3" Elevation="1">
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">Ausgaben MwSt</MudText>
+                    <MudText Typo="Typo.body1">@_summary.AusgabenMwst.ToString("C")</MudText>
+                </MudPaper>
+            </MudItem>
+            <MudItem xs="12" sm="6" md="3">
+                <MudPaper Class="pa-3" Elevation="1">
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">Ausgaben Brutto</MudText>
+                    <MudText Typo="Typo.body1">@_summary.AusgabenBrutto.ToString("C")</MudText>
+                </MudPaper>
+            </MudItem>
+        </MudGrid>
+
+        <MudStack Row="true" Class="mt-6" Spacing="2">
+            <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                      StartIcon="@Icons.Material.Filled.Analytics"
+                      OnClick="@(() => NavigationManager.NavigateTo("/saldo/euer"))">
+                Detaillierte EÜR
+            </MudButton>
+            <MudButton Variant="Variant.Outlined" Color="Color.Primary"
+                      StartIcon="@Icons.Material.Filled.AccountTree"
+                      OnClick="@(() => NavigationManager.NavigateTo("/saldo/konten"))">
+                Konten & Mappings
+            </MudButton>
+            <MudButton Variant="Variant.Outlined" Color="Color.Default"
+                      StartIcon="@Icons.Material.Filled.Settings"
+                      OnClick="@(() => NavigationManager.NavigateTo("/saldo/einstellungen"))">
+                Einstellungen
+            </MudButton>
+        </MudStack>
+    }
+    else
+    {
+        <MudAlert Severity="Severity.Info" Class="mt-4">
+            Keine Daten für das aktuelle Jahr verfügbar.
+        </MudAlert>
+    }
+</MudContainer>
+
+@code {
+    private bool _loading = true;
+    private EuerSummaryDto? _summary;
+    private int _currentYear = DateTime.Today.Year;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadSummaryAsync();
+    }
+
+    private async Task LoadSummaryAsync()
+    {
+        try
+        {
+            var filter = new EuerFilterDto
+            {
+                Von = new DateOnly(_currentYear, 1, 1),
+                Bis = new DateOnly(_currentYear, 12, 31)
+            };
+            _summary = await EuerService.GetEuerSummaryAsync(filter);
+        }
+        catch (Exception)
+        {
+            _summary = null;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+}

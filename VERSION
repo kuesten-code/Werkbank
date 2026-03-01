@@ -1,6 +1,7 @@
-host=2.0.0
-faktura=3.0.0
-rapport=2.0.0
-offerte=2.0.0
-acta=2.0.0
-recepta=2.0.0
+host2.0.0
+faktura3.0.0
+rapport2.0.0
+offerte2.0.0
+acta2.0.0
+recepta=2.1.0
+saldo=1.0.0

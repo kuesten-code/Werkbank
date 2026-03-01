@@ -1,0 +1,163 @@
+@page "/saldo/konten"
+@inject IKontoService KontoService
+@inject ISnackbar Snackbar
+
+<PageTitle>Saldo - Konten & Mappings</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4">
+    <MudText Typo="Typo.h4" GutterBottom="true">Konten & Kategorie-Mappings</MudText>
+
+    <MudTabs Elevation="1" Rounded="true" ApplyEffectsToContainer="true" Class="mt-4">
+        <MudTabPanel Text="Kategorie-Mappings">
+            @if (_loadingMappings)
+            {
+                <MudProgressCircular Color="Color.Primary" Indeterminate="true" Class="mt-4" />
+            }
+            else
+            {
+                <MudText Typo="Typo.body2" Class="mb-3 mt-3">
+                    Ordnen Sie jeder Recepta-Kategorie das passende Buchungskonto zu.
+                </MudText>
+                <MudTable Items="_mappings" Dense="true" Hover="true" Elevation="0">
+                    <HeaderContent>
+                        <MudTh>Kategorie</MudTh>
+                        <MudTh>Konto</MudTh>
+                        <MudTh>Kontobezeichnung</MudTh>
+                        <MudTh>Typ</MudTh>
+                        <MudTh>Aktionen</MudTh>
+                    </HeaderContent>
+                    <RowTemplate>
+                        <MudTd>@context.ReceiptaKategorie</MudTd>
+                        <MudTd>
+                            @if (_editingId == context.Id)
+                            {
+                                <MudSelect @bind-Value="_editKontoNummer" Dense="true" Variant="Variant.Outlined">
+                                    @foreach (var konto in _konten)
+                                    {
+                                        <MudSelectItem Value="@konto.KontoNummer">@konto.KontoNummer - @konto.KontoBezeichnung</MudSelectItem>
+                                    }
+                                </MudSelect>
+                            }
+                            else
+                            {
+                                @context.KontoNummer
+                            }
+                        </MudTd>
+                        <MudTd>@context.KontoBezeichnung</MudTd>
+                        <MudTd>
+                            <MudChip Size="Size.Small" Color="@(context.IsCustom ? Color.Warning : Color.Default)">
+                                @(context.IsCustom ? "Benutzerdefiniert" : "Standard")
+                            </MudChip>
+                        </MudTd>
+                        <MudTd>
+                            @if (_editingId == context.Id)
+                            {
+                                <MudIconButton Icon="@Icons.Material.Filled.Save" Color="Color.Success"
+                                             Size="Size.Small" OnClick="@(() => SaveMappingAsync(context.Id))" />
+                                <MudIconButton Icon="@Icons.Material.Filled.Cancel" Color="Color.Default"
+                                             Size="Size.Small" OnClick="CancelEdit" />
+                            }
+                            else
+                            {
+                                <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary"
+                                             Size="Size.Small" OnClick="@(() => StartEdit(context))" />
+                            }
+                        </MudTd>
+                    </RowTemplate>
+                </MudTable>
+            }
+        </MudTabPanel>
+
+        <MudTabPanel Text="Kontenstamm">
+            @if (_loadingKonten)
+            {
+                <MudProgressCircular Color="Color.Primary" Indeterminate="true" Class="mt-4" />
+            }
+            else
+            {
+                <MudTable Items="_konten" Dense="true" Hover="true" Elevation="0" Class="mt-3">
+                    <HeaderContent>
+                        <MudTh>Nummer</MudTh>
+                        <MudTh>Bezeichnung</MudTh>
+                        <MudTh>Typ</MudTh>
+                        <MudTh>USt-Satz</MudTh>
+                        <MudTh>Aktiv</MudTh>
+                    </HeaderContent>
+                    <RowTemplate>
+                        <MudTd>@context.KontoNummer</MudTd>
+                        <MudTd>@context.KontoBezeichnung</MudTd>
+                        <MudTd>@context.KontoTyp</MudTd>
+                        <MudTd>@(context.UstSatz.HasValue ? $"{context.UstSatz}%" : "-")</MudTd>
+                        <MudTd>
+                            <MudIcon Icon="@(context.IsActive ? Icons.Material.Filled.CheckCircle : Icons.Material.Filled.Cancel)"
+                                    Color="@(context.IsActive ? Color.Success : Color.Error)" Size="Size.Small" />
+                        </MudTd>
+                    </RowTemplate>
+                </MudTable>
+            }
+        </MudTabPanel>
+    </MudTabs>
+</MudContainer>
+
+@code {
+    private List<KontoDto> _konten = new();
+    private List<KategorieKontoMappingDto> _mappings = new();
+    private bool _loadingKonten = true;
+    private bool _loadingMappings = true;
+    private Guid? _editingId;
+    private string _editKontoNummer = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Task.WhenAll(LoadKontenAsync(), LoadMappingsAsync());
+    }
+
+    private async Task LoadKontenAsync()
+    {
+        _konten = await KontoService.GetKontenAsync();
+        _loadingKonten = false;
+    }
+
+    private async Task LoadMappingsAsync()
+    {
+        _mappings = await KontoService.GetMappingsAsync();
+        _loadingMappings = false;
+    }
+
+    private void StartEdit(KategorieKontoMappingDto mapping)
+    {
+        _editingId = mapping.Id;
+        _editKontoNummer = mapping.KontoNummer;
+    }
+
+    private void CancelEdit()
+    {
+        _editingId = null;
+        _editKontoNummer = string.Empty;
+    }
+
+    private async Task SaveMappingAsync(Guid id)
+    {
+        try
+        {
+            var result = await KontoService.UpdateMappingAsync(id, new UpdateKategorieKontoMappingDto
+            {
+                KontoNummer = _editKontoNummer
+            });
+            if (result != null)
+            {
+                var idx = _mappings.FindIndex(m => m.Id == id);
+                if (idx >= 0) _mappings[idx] = result;
+                Snackbar.Add("Mapping gespeichert.", Severity.Success);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Fehler: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            CancelEdit();
+        }
+    }
+}

@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>Kuestencode.Werkbank.Saldo</RootNamespace>
+    <AssemblyName>Kuestencode.Werkbank.Saldo</AssemblyName>
+    <IsPackable>false</IsPackable>
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- UI Framework -->
+    <PackageReference Include="MudBlazor" Version="8.0.0" />
+
+    <!-- Swagger (API-Dokumentation) -->
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="7.2.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Modul-interne Referenzen -->
+    <ProjectReference Include="..\Kuestencode.Werkbank.Saldo.Domain\Kuestencode.Werkbank.Saldo.Domain.csproj" />
+    <ProjectReference Include="..\Kuestencode.Werkbank.Saldo.Data\Kuestencode.Werkbank.Saldo.Data.csproj" />
+
+    <!-- Werkbank Core und Shared Libraries -->
+    <ProjectReference Include="..\..\..\Core\Kuestencode.Core.csproj" />
+    <ProjectReference Include="..\..\..\Shared.UI\Kuestencode.Shared.UI.csproj" />
+    <ProjectReference Include="..\..\..\Kuestencode.Shared.Contracts\Kuestencode.Shared.Contracts.csproj" />
+    <ProjectReference Include="..\..\..\Kuestencode.Shared.ApiClients\Kuestencode.Shared.ApiClients.csproj" />
+  </ItemGroup>
+
+</Project>

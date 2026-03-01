@@ -1,0 +1,104 @@
+@page "/saldo/einstellungen"
+@inject ISaldoSettingsService SettingsService
+@inject ISnackbar Snackbar
+
+<PageTitle>Saldo - Einstellungen</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Medium" Class="mt-4">
+    <MudText Typo="Typo.h4" GutterBottom="true">Saldo Einstellungen</MudText>
+
+    @if (_loading)
+    {
+        <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+    }
+    else
+    {
+        <MudPaper Class="pa-6" Elevation="2">
+            <MudForm @ref="_form">
+                <MudGrid>
+                    <MudItem xs="12">
+                        <MudSelect @bind-Value="_dto.Kontenrahmen" Label="Kontenrahmen" Required="true"
+                                  Variant="Variant.Outlined">
+                            <MudSelectItem Value="@("SKR03")">SKR03 (Einnahmen-Überschuss-Rechnung)</MudSelectItem>
+                            <MudSelectItem Value="@("SKR04")">SKR04 (Bilanzierung)</MudSelectItem>
+                        </MudSelect>
+                    </MudItem>
+
+                    <MudItem xs="12" sm="6">
+                        <MudTextField @bind-Value="_dto.BeraterNummer" Label="DATEV Beraternummer"
+                                     Variant="Variant.Outlined" />
+                    </MudItem>
+
+                    <MudItem xs="12" sm="6">
+                        <MudTextField @bind-Value="_dto.MandantenNummer" Label="DATEV Mandantennummer"
+                                     Variant="Variant.Outlined" />
+                    </MudItem>
+
+                    <MudItem xs="12" sm="6">
+                        <MudSelect @bind-Value="_dto.WirtschaftsjahrBeginn" Label="Wirtschaftsjahr beginnt im Monat"
+                                  Variant="Variant.Outlined">
+                            @for (int m = 1; m <= 12; m++)
+                            {
+                                var month = m;
+                                <MudSelectItem Value="@month">@new DateTime(2000, month, 1).ToString("MMMM")</MudSelectItem>
+                            }
+                        </MudSelect>
+                    </MudItem>
+                </MudGrid>
+
+                <MudStack Row="true" Class="mt-6" Justify="Justify.FlexEnd">
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                              StartIcon="@Icons.Material.Filled.Save"
+                              OnClick="SaveAsync" Disabled="@_saving">
+                        @if (_saving)
+                        {
+                            <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                        }
+                        Speichern
+                    </MudButton>
+                </MudStack>
+            </MudForm>
+        </MudPaper>
+    }
+</MudContainer>
+
+@code {
+    private bool _loading = true;
+    private bool _saving = false;
+    private UpdateSaldoSettingsDto _dto = new();
+    private MudForm? _form;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var settings = await SettingsService.GetSettingsAsync();
+        if (settings != null)
+        {
+            _dto = new UpdateSaldoSettingsDto
+            {
+                Kontenrahmen = settings.Kontenrahmen,
+                BeraterNummer = settings.BeraterNummer,
+                MandantenNummer = settings.MandantenNummer,
+                WirtschaftsjahrBeginn = settings.WirtschaftsjahrBeginn
+            };
+        }
+        _loading = false;
+    }
+
+    private async Task SaveAsync()
+    {
+        _saving = true;
+        try
+        {
+            await SettingsService.UpdateSettingsAsync(_dto);
+            Snackbar.Add("Einstellungen gespeichert.", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Fehler: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+}

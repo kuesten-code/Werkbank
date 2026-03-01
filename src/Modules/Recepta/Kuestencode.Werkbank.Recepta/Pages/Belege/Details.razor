@@ -489,11 +489,21 @@
 
     private static string GetCategoryText(string category) => category switch
     {
-        "Material" => "Material",
-        "Subcontractor" => "Fremdleistung",
-        "Office" => "Büro",
-        "Travel" => "Reise",
-        "Other" => "Sonstig",
+        "Material" => "Material / Waren",
+        "Subcontractor" => "Subunternehmer",
+        "Wages" => "Löhne & Gehälter",
+        "SocialSecurity" => "Sozialversicherung",
+        "Rent" => "Miete",
+        "Utilities" => "Nebenkosten",
+        "Vehicle" => "Kfz-Kosten",
+        "Travel" => "Reisekosten",
+        "Marketing" => "Marketing & Werbung",
+        "Office" => "Büromaterial",
+        "Software" => "Software & Lizenzen",
+        "Phone" => "Telefon & Internet",
+        "Insurance" => "Versicherungen",
+        "Fees" => "Beiträge & Gebühren",
+        "Other" => "Sonstige Kosten",
         _ => category
     };
 
@@ -501,9 +511,12 @@
     {
         "Material" => Color.Primary,
         "Subcontractor" => Color.Secondary,
-        "Office" => Color.Info,
-        "Travel" => Color.Warning,
-        "Other" => Color.Default,
+        "Wages" or "SocialSecurity" => Color.Tertiary,
+        "Rent" or "Utilities" => Color.Dark,
+        "Vehicle" or "Travel" => Color.Warning,
+        "Marketing" => Color.Success,
+        "Office" or "Software" or "Phone" => Color.Info,
+        "Insurance" or "Fees" => Color.Error,
         _ => Color.Default
     };
 

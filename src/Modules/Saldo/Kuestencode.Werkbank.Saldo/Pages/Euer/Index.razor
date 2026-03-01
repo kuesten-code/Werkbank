@@ -1,0 +1,145 @@
+@page "/saldo/euer"
+@inject IEuerService EuerService
+
+<PageTitle>Saldo - EÜR Detail</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4">
+    <MudText Typo="Typo.h4" GutterBottom="true">Einnahmen-Überschuss-Rechnung</MudText>
+
+    <MudPaper Class="pa-4 mb-4" Elevation="1">
+        <MudGrid>
+            <MudItem xs="12" sm="5">
+                <MudDatePicker Label="Von" @bind-Date="_vonDate" DateFormat="dd.MM.yyyy" />
+            </MudItem>
+            <MudItem xs="12" sm="5">
+                <MudDatePicker Label="Bis" @bind-Date="_bisDate" DateFormat="dd.MM.yyyy" />
+            </MudItem>
+            <MudItem xs="12" sm="2" Class="d-flex align-end">
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="LoadEuerAsync"
+                          FullWidth="true" StartIcon="@Icons.Material.Filled.Refresh">
+                    Berechnen
+                </MudButton>
+            </MudItem>
+        </MudGrid>
+    </MudPaper>
+
+    @if (_loading)
+    {
+        <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+    }
+    else if (_summary != null)
+    {
+        <!-- Zusammenfassung -->
+        <MudGrid Class="mb-4">
+            <MudItem xs="12" md="4">
+                <MudPaper Class="pa-3" Elevation="2">
+                    <MudText Typo="Typo.subtitle1" Color="Color.Success">Einnahmen gesamt (Netto)</MudText>
+                    <MudText Typo="Typo.h6">@_summary.EinnahmenNetto.ToString("C")</MudText>
+                </MudPaper>
+            </MudItem>
+            <MudItem xs="12" md="4">
+                <MudPaper Class="pa-3" Elevation="2">
+                    <MudText Typo="Typo.subtitle1" Color="Color.Error">Ausgaben gesamt (Netto)</MudText>
+                    <MudText Typo="Typo.h6">@_summary.AusgabenNetto.ToString("C")</MudText>
+                </MudPaper>
+            </MudItem>
+            <MudItem xs="12" md="4">
+                <MudPaper Class="pa-3" Elevation="2">
+                    <MudText Typo="Typo.subtitle1" Color="@(_summary.Ueberschuss >= 0 ? Color.Success : Color.Error)">
+                        Überschuss
+                    </MudText>
+                    <MudText Typo="Typo.h6" Color="@(_summary.Ueberschuss >= 0 ? Color.Success : Color.Error)">
+                        @_summary.Ueberschuss.ToString("C")
+                    </MudText>
+                </MudPaper>
+            </MudItem>
+        </MudGrid>
+
+        <!-- Einnahmen -->
+        <MudText Typo="Typo.h5" Class="mb-2">Einnahmen</MudText>
+        <MudTable Items="_summary.Einnahmen" Dense="true" Hover="true" Elevation="1" Class="mb-6">
+            <HeaderContent>
+                <MudTh>Konto</MudTh>
+                <MudTh>Bezeichnung</MudTh>
+                <MudTh>Gruppe</MudTh>
+                <MudTh Style="text-align:right">Netto</MudTh>
+                <MudTh Style="text-align:right">MwSt</MudTh>
+                <MudTh Style="text-align:right">Brutto</MudTh>
+                <MudTh Style="text-align:right">Belege</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd>@context.KontoNummer</MudTd>
+                <MudTd>@context.KontoBezeichnung</MudTd>
+                <MudTd>@context.Gruppe</MudTd>
+                <MudTd Style="text-align:right">@context.BetragNetto.ToString("C")</MudTd>
+                <MudTd Style="text-align:right">@context.MwstBetrag.ToString("C")</MudTd>
+                <MudTd Style="text-align:right">@context.BetragBrutto.ToString("C")</MudTd>
+                <MudTd Style="text-align:right">@context.AnzahlBelege</MudTd>
+            </RowTemplate>
+            <FooterContent>
+                <MudTd colspan="3"><strong>Summe</strong></MudTd>
+                <MudTd Style="text-align:right"><strong>@_summary.EinnahmenNetto.ToString("C")</strong></MudTd>
+                <MudTd Style="text-align:right"><strong>@_summary.EinnahmenMwst.ToString("C")</strong></MudTd>
+                <MudTd Style="text-align:right"><strong>@_summary.EinnahmenBrutto.ToString("C")</strong></MudTd>
+                <MudTd></MudTd>
+            </FooterContent>
+        </MudTable>
+
+        <!-- Ausgaben -->
+        <MudText Typo="Typo.h5" Class="mb-2">Ausgaben</MudText>
+        <MudTable Items="_summary.Ausgaben" Dense="true" Hover="true" Elevation="1">
+            <HeaderContent>
+                <MudTh>Konto</MudTh>
+                <MudTh>Bezeichnung</MudTh>
+                <MudTh>Gruppe</MudTh>
+                <MudTh Style="text-align:right">Netto</MudTh>
+                <MudTh Style="text-align:right">MwSt</MudTh>
+                <MudTh Style="text-align:right">Brutto</MudTh>
+                <MudTh Style="text-align:right">Belege</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd>@context.KontoNummer</MudTd>
+                <MudTd>@context.KontoBezeichnung</MudTd>
+                <MudTd>@context.Gruppe</MudTd>
+                <MudTd Style="text-align:right">@context.BetragNetto.ToString("C")</MudTd>
+                <MudTd Style="text-align:right">@context.MwstBetrag.ToString("C")</MudTd>
+                <MudTd Style="text-align:right">@context.BetragBrutto.ToString("C")</MudTd>
+                <MudTd Style="text-align:right">@context.AnzahlBelege</MudTd>
+            </RowTemplate>
+            <FooterContent>
+                <MudTd colspan="3"><strong>Summe</strong></MudTd>
+                <MudTd Style="text-align:right"><strong>@_summary.AusgabenNetto.ToString("C")</strong></MudTd>
+                <MudTd Style="text-align:right"><strong>@_summary.AusgabenMwst.ToString("C")</strong></MudTd>
+                <MudTd Style="text-align:right"><strong>@_summary.AusgabenBrutto.ToString("C")</strong></MudTd>
+                <MudTd></MudTd>
+            </FooterContent>
+        </MudTable>
+    }
+</MudContainer>
+
+@code {
+    private bool _loading = false;
+    private EuerSummaryDto? _summary;
+    private DateTime? _vonDate = new DateTime(DateTime.Today.Year, 1, 1);
+    private DateTime? _bisDate = new DateTime(DateTime.Today.Year, 12, 31);
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadEuerAsync();
+    }
+
+    private async Task LoadEuerAsync()
+    {
+        _loading = true;
+        try
+        {
+            var von = _vonDate.HasValue ? DateOnly.FromDateTime(_vonDate.Value) : new DateOnly(DateTime.Today.Year, 1, 1);
+            var bis = _bisDate.HasValue ? DateOnly.FromDateTime(_bisDate.Value) : new DateOnly(DateTime.Today.Year, 12, 31);
+            _summary = await EuerService.GetEuerSummaryAsync(new EuerFilterDto { Von = von, Bis = bis });
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+}
