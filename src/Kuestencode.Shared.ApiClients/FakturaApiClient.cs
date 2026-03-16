@@ -79,6 +79,10 @@ public class FakturaApiClient : IFakturaApiClient
             queryParams.Add($"fromDate={filter.FromDate.Value:yyyy-MM-dd}");
         if (filter.ToDate.HasValue)
             queryParams.Add($"toDate={filter.ToDate.Value:yyyy-MM-dd}");
+        if (filter.PaidFrom.HasValue)
+            queryParams.Add($"paidFrom={filter.PaidFrom.Value:yyyy-MM-ddTHH:mm:ss}");
+        if (filter.PaidTo.HasValue)
+            queryParams.Add($"paidTo={filter.PaidTo.Value:yyyy-MM-ddTHH:mm:ss}");
         if (!string.IsNullOrEmpty(filter.SearchTerm))
             queryParams.Add($"searchTerm={Uri.EscapeDataString(filter.SearchTerm)}");
 

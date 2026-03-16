@@ -25,7 +25,10 @@ public class EuerSummaryDto
 
     public List<EuerPositionDto> Einnahmen { get; set; } = new();
     public List<EuerPositionDto> Ausgaben { get; set; } = new();
+
+    public bool IstKleinunternehmer { get; set; }
 }
+
 
 /// <summary>
 /// Eine aggregierte Position in der EÜR (pro Konto).
@@ -106,6 +109,40 @@ public class UpdateSaldoSettingsDto
     public string? BeraterNummer { get; set; }
     public string? MandantenNummer { get; set; }
     public int WirtschaftsjahrBeginn { get; set; } = 1;
+}
+
+/// <summary>
+/// DTO für ein benutzerdefiniertes Konto-Mapping-Override.
+/// </summary>
+public class KontoMappingOverrideDto
+{
+    public Guid Id { get; set; }
+    public string Kontenrahmen { get; set; } = string.Empty;
+    public string Kategorie { get; set; } = string.Empty;
+    public string KontoNummer { get; set; } = string.Empty;
+    public string KontoBezeichnung { get; set; } = string.Empty;
+    public DateTime CreatedAt { get; set; }
+    public DateTime UpdatedAt { get; set; }
+}
+
+/// <summary>
+/// Request zum Setzen oder Aktualisieren eines Mapping-Overrides.
+/// </summary>
+public class SetKontoMappingOverrideDto
+{
+    public string KontoNummer { get; set; } = string.Empty;
+}
+
+/// <summary>
+/// Aufgelöstes Mapping für eine Kategorie (Override hat Vorrang vor Standard).
+/// </summary>
+public class ResolvedKontoMappingDto
+{
+    public string Kategorie { get; set; } = string.Empty;
+    public string KontoNummer { get; set; } = string.Empty;
+    public string KontoBezeichnung { get; set; } = string.Empty;
+    /// <summary>True wenn ein benutzerdefinierter Override aktiv ist.</summary>
+    public bool IsOverride { get; set; }
 }
 
 /// <summary>

@@ -1,0 +1,141 @@
+@page "/export/historie"
+
+<PageTitle>Saldo - Export-Historie</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="mt-4">
+
+    <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-4">
+        <MudText Typo="Typo.h4">Export-Historie</MudText>
+        <MudButton Variant="Variant.Outlined" Color="Color.Default"
+                   StartIcon="@Icons.Material.Filled.Refresh"
+                   OnClick="LoadAsync" Disabled="@_loading">
+            Aktualisieren
+        </MudButton>
+    </MudStack>
+
+    @* Neuer Export *@
+    <MudPaper Class="pa-4 mb-6" Elevation="1">
+        <MudText Typo="Typo.subtitle1" Class="mb-3">Neuer Export</MudText>
+        <MudGrid>
+            <MudItem xs="12" sm="5">
+                <MudDatePicker Label="Von" @bind-Date="_vonDate" DateFormat="dd.MM.yyyy"
+                               Variant="Variant.Outlined" />
+            </MudItem>
+            <MudItem xs="12" sm="5">
+                <MudDatePicker Label="Bis" @bind-Date="_bisDate" DateFormat="dd.MM.yyyy"
+                               Variant="Variant.Outlined" />
+            </MudItem>
+        </MudGrid>
+        <MudStack Row="true" Class="mt-3" Spacing="2" Wrap="Wrap.Wrap">
+            <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                       StartIcon="@Icons.Material.Filled.FileDownload"
+                       OnClick="@(() => ExportDatevAsync(GetVon(), GetBis()))"
+                       Disabled="@(_exportingId != null)">
+                @if (_exportingId == "neu-datev")
+                {
+                    <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                }
+                DATEV Buchungsstapel
+            </MudButton>
+            <MudButton Variant="Variant.Outlined" Color="Color.Primary"
+                       StartIcon="@Icons.Material.Filled.FolderZip"
+                       OnClick="@(() => ExportBelegeAsync(GetVon(), GetBis()))"
+                       Disabled="@(_exportingId != null)">
+                @if (_exportingId == "neu-belege")
+                {
+                    <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                }
+                Belege (ZIP)
+            </MudButton>
+        </MudStack>
+    </MudPaper>
+
+    @* Historientabelle *@
+    <MudText Typo="Typo.h5" Class="mb-2">Bisherige Exporte</MudText>
+
+    <MudTable Items="@_historie" Dense="true" Hover="true" Elevation="1"
+              Loading="@_loading" LoadingProgressColor="Color.Primary">
+        <HeaderContent>
+            <MudTh>Exportiert am</MudTh>
+            <MudTh>Typ</MudTh>
+            <MudTh>Zeitraum</MudTh>
+            <MudTh Style="text-align:right">Buchungen</MudTh>
+            <MudTh Style="text-align:right">Größe</MudTh>
+            <MudTh>Datei</MudTh>
+            <MudTh Style="text-align:center; width:80px;">Neu exportieren</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd>
+                <MudText Typo="Typo.body2">
+                    @context.ExportedAt.ToLocalTime().ToString("dd.MM.yyyy")
+                </MudText>
+                <MudText Typo="Typo.caption" Color="Color.Secondary">
+                    @context.ExportedAt.ToLocalTime().ToString("HH:mm") Uhr
+                </MudText>
+            </MudTd>
+            <MudTd>
+                <MudChip T="string" Size="Size.Small"
+                         Color="@(context.ExportTyp.Contains("Buchungsstapel") ? Color.Primary : Color.Secondary)"
+                         Variant="Variant.Outlined">
+                    @(context.ExportTyp.Contains("Buchungsstapel") ? "DATEV CSV" : "Belege ZIP")
+                </MudChip>
+            </MudTd>
+            <MudTd>
+                <MudText Typo="Typo.body2">
+                    @context.ZeitraumVon.ToString("dd.MM.yyyy") – @context.ZeitraumBis.ToString("dd.MM.yyyy")
+                </MudText>
+                <MudText Typo="Typo.caption" Color="Color.Secondary">
+                    @GetZeitraumLabel(context.ZeitraumVon, context.ZeitraumBis)
+                </MudText>
+            </MudTd>
+            <MudTd Style="text-align:right">@context.AnzahlBuchungen</MudTd>
+            <MudTd Style="text-align:right">
+                <MudText Typo="Typo.caption" Color="Color.Secondary">
+                    @FormatDateigroesse(context.DateiGroesse)
+                </MudText>
+            </MudTd>
+            <MudTd>
+                <MudText Typo="Typo.caption" Color="Color.Secondary"
+                         Style="max-width:180px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"
+                         title="@context.DateiName">
+                    @context.DateiName
+                </MudText>
+            </MudTd>
+            <MudTd Style="text-align:center; white-space:nowrap;">
+                @if (context.ExportTyp.Contains("Buchungsstapel"))
+                {
+                    <MudTooltip Text="@GetDatevTooltip(context.ZeitraumVon, context.ZeitraumBis)">
+                        <MudIconButton Icon="@Icons.Material.Filled.FileDownload"
+                                       Color="Color.Primary" Size="Size.Small"
+                                       Disabled="@(_exportingId != null)"
+                                       OnClick="@(() => ExportDatevAsync(context.ZeitraumVon, context.ZeitraumBis, context.Id.ToString()))" />
+                    </MudTooltip>
+                }
+                else
+                {
+                    <MudTooltip Text="@GetBelegeTooltip(context.ZeitraumVon, context.ZeitraumBis)">
+                        <MudIconButton Icon="@Icons.Material.Filled.FolderZip"
+                                       Color="Color.Secondary" Size="Size.Small"
+                                       Disabled="@(_exportingId != null)"
+                                       OnClick="@(() => ExportBelegeAsync(context.ZeitraumVon, context.ZeitraumBis, context.Id.ToString()))" />
+                    </MudTooltip>
+                }
+                @if (_exportingId == context.Id.ToString())
+                {
+                    <MudProgressCircular Size="Size.Small" Indeterminate="true" />
+                }
+            </MudTd>
+        </RowTemplate>
+        <NoRecordsContent>
+            @if (!_loading)
+            {
+                <MudText>Noch keine Exporte vorhanden.</MudText>
+            }
+        </NoRecordsContent>
+        <PagerContent>
+            <MudTablePager PageSizeOptions="new[] { 10, 25, 50 }" />
+        </PagerContent>
+    </MudTable>
+
+</MudContainer>
+

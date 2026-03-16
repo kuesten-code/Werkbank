@@ -5,6 +5,7 @@ using Kuestencode.Shared.Contracts.Host;
 using Kuestencode.Shared.Contracts.Navigation;
 using Kuestencode.Shared.UI.Extensions;
 using Kuestencode.Werkbank.Acta.Services;
+using Microsoft.AspNetCore.DataProtection;
 using MudBlazor.Services;
 
 namespace Kuestencode.Werkbank.Acta;
@@ -68,6 +69,13 @@ public class ProgramApi
                       .AllowAnyHeader();
             });
         });
+
+        // Add Data Protection for password encryption
+        var keysDirectory = Path.Combine(builder.Environment.ContentRootPath, "data", "keys");
+        Directory.CreateDirectory(keysDirectory);
+        builder.Services.AddDataProtection()
+            .PersistKeysToFileSystem(new DirectoryInfo(keysDirectory))
+            .SetApplicationName("Kuestencode.Werkbank.Acta");
 
         // Add Module Registry (stub for API mode - modules are registered via HTTP)
         builder.Services.AddSingleton<IModuleRegistry, ApiModuleRegistry>();
@@ -142,6 +150,8 @@ public class ProgramApi
 
         // Add Authorization
         app.UseAuthorization();
+
+        app.MapRazorPages();
 
         // Map API Controllers
         app.MapControllers();

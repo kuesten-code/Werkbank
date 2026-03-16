@@ -1,11 +1,20 @@
-@page "/saldo/einstellungen"
+@page "/einstellungen"
 @inject ISaldoSettingsService SettingsService
 @inject ISnackbar Snackbar
+@inject NavigationManager NavigationManager
 
 <PageTitle>Saldo - Einstellungen</PageTitle>
 
 <MudContainer MaxWidth="MaxWidth.Medium" Class="mt-4">
-    <MudText Typo="Typo.h4" GutterBottom="true">Saldo Einstellungen</MudText>
+
+    <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-4">
+        <MudText Typo="Typo.h4">Einstellungen</MudText>
+        <MudButton Variant="Variant.Text" Color="Color.Primary"
+                   StartIcon="@Icons.Material.Filled.AccountTree"
+                   OnClick="@(() => NavigationManager.NavigateTo("/einstellungen/mapping"))">
+            Kategorie-Mapping →
+        </MudButton>
+    </MudStack>
 
     @if (_loading)
     {
@@ -13,58 +22,90 @@
     }
     else
     {
-        <MudPaper Class="pa-6" Elevation="2">
-            <MudForm @ref="_form">
-                <MudGrid>
-                    <MudItem xs="12">
-                        <MudSelect @bind-Value="_dto.Kontenrahmen" Label="Kontenrahmen" Required="true"
-                                  Variant="Variant.Outlined">
-                            <MudSelectItem Value="@("SKR03")">SKR03 (Einnahmen-Überschuss-Rechnung)</MudSelectItem>
-                            <MudSelectItem Value="@("SKR04")">SKR04 (Bilanzierung)</MudSelectItem>
-                        </MudSelect>
-                    </MudItem>
+        <MudForm @ref="_form">
+            <MudExpansionPanels MultiExpansion="true">
 
-                    <MudItem xs="12" sm="6">
-                        <MudTextField @bind-Value="_dto.BeraterNummer" Label="DATEV Beraternummer"
-                                     Variant="Variant.Outlined" />
-                    </MudItem>
-
-                    <MudItem xs="12" sm="6">
-                        <MudTextField @bind-Value="_dto.MandantenNummer" Label="DATEV Mandantennummer"
-                                     Variant="Variant.Outlined" />
-                    </MudItem>
-
-                    <MudItem xs="12" sm="6">
-                        <MudSelect @bind-Value="_dto.WirtschaftsjahrBeginn" Label="Wirtschaftsjahr beginnt im Monat"
-                                  Variant="Variant.Outlined">
-                            @for (int m = 1; m <= 12; m++)
+                <MudExpansionPanel Text="Buchhaltung" Expanded="true">
+                    <MudGrid Class="mt-2">
+                        <MudItem xs="12">
+                            <MudSelect @bind-Value="_dto.Kontenrahmen" Label="Kontenrahmen" Required="true"
+                                       Variant="Variant.Outlined" @bind-Value:after="OnKontenrahmenChanged">
+                                <MudSelectItem Value="@("SKR03")">SKR03 – Einnahmen-Überschuss-Rechnung (EÜR)</MudSelectItem>
+                                <MudSelectItem Value="@("SKR04")">SKR04 – Bilanzierung</MudSelectItem>
+                            </MudSelect>
+                            @if (_kontenrahmenGeaendert)
                             {
-                                var month = m;
-                                <MudSelectItem Value="@month">@new DateTime(2000, month, 1).ToString("MMMM")</MudSelectItem>
+                                <MudAlert Severity="Severity.Warning" Dense="true" Class="mt-2">
+                                    <MudText Typo="Typo.body2">
+                                        <strong>Hinweis:</strong> Bei einem Wechsel des Kontenrahmens werden alle
+                                        benutzerdefinierten Kategorie-Zuordnungen zurückgesetzt.
+                                        Die Standard-Mappings des neuen Kontenrahmens werden verwendet.
+                                    </MudText>
+                                </MudAlert>
                             }
-                        </MudSelect>
-                    </MudItem>
-                </MudGrid>
+                        </MudItem>
+                    </MudGrid>
+                </MudExpansionPanel>
 
-                <MudStack Row="true" Class="mt-6" Justify="Justify.FlexEnd">
-                    <MudButton Variant="Variant.Filled" Color="Color.Primary"
-                              StartIcon="@Icons.Material.Filled.Save"
-                              OnClick="SaveAsync" Disabled="@_saving">
-                        @if (_saving)
-                        {
-                            <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
-                        }
-                        Speichern
-                    </MudButton>
-                </MudStack>
-            </MudForm>
-        </MudPaper>
+                <MudExpansionPanel Text="DATEV-Export">
+                    <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-3">
+                        Diese Werte werden im DATEV EXTF-Header ausgegeben.
+                    </MudText>
+                    <MudGrid Class="mt-2">
+                        <MudItem xs="12" sm="6">
+                            <MudTextField @bind-Value="_dto.BeraterNummer"
+                                          Label="Beraternummer" Variant="Variant.Outlined"
+                                          HelperText="5-stellige DATEV-Beraternummer" />
+                        </MudItem>
+                        <MudItem xs="12" sm="6">
+                            <MudTextField @bind-Value="_dto.MandantenNummer"
+                                          Label="Mandantennummer" Variant="Variant.Outlined"
+                                          HelperText="5-stellige DATEV-Mandantennummer" />
+                        </MudItem>
+                        <MudItem xs="12" sm="6">
+                            <MudSelect @bind-Value="_dto.WirtschaftsjahrBeginn"
+                                       Label="Wirtschaftsjahr beginnt im Monat" Variant="Variant.Outlined"
+                                       HelperText="In der Regel Januar (Monat 1)">
+                                @for (int m = 1; m <= 12; m++)
+                                {
+                                    var month = m;
+                                    <MudSelectItem Value="@month">
+                                        @(new DateTime(2000, month, 1).ToString("MMMM")) (Monat @month)
+                                    </MudSelectItem>
+                                }
+                            </MudSelect>
+                        </MudItem>
+                    </MudGrid>
+                </MudExpansionPanel>
+
+            </MudExpansionPanels>
+
+            <MudDivider Class="my-4" />
+
+            <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                <MudText Typo="Typo.caption" Color="Color.Secondary">
+                    Änderungen gelten ab dem nächsten Export.
+                </MudText>
+                <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                           StartIcon="@Icons.Material.Filled.Save"
+                           OnClick="SaveAsync" Disabled="@_saving">
+                    @if (_saving)
+                    {
+                        <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                    }
+                    Speichern
+                </MudButton>
+            </MudStack>
+        </MudForm>
     }
+
 </MudContainer>
 
 @code {
     private bool _loading = true;
     private bool _saving = false;
+    private bool _kontenrahmenGeaendert = false;
+    private string _originalKontenrahmen = "SKR03";
     private UpdateSaldoSettingsDto _dto = new();
     private MudForm? _form;
 
@@ -73,15 +114,21 @@
         var settings = await SettingsService.GetSettingsAsync();
         if (settings != null)
         {
+            _originalKontenrahmen = settings.Kontenrahmen;
             _dto = new UpdateSaldoSettingsDto
             {
-                Kontenrahmen = settings.Kontenrahmen,
-                BeraterNummer = settings.BeraterNummer,
-                MandantenNummer = settings.MandantenNummer,
+                Kontenrahmen          = settings.Kontenrahmen,
+                BeraterNummer         = settings.BeraterNummer,
+                MandantenNummer       = settings.MandantenNummer,
                 WirtschaftsjahrBeginn = settings.WirtschaftsjahrBeginn
             };
         }
         _loading = false;
+    }
+
+    private void OnKontenrahmenChanged()
+    {
+        _kontenrahmenGeaendert = _dto.Kontenrahmen != _originalKontenrahmen;
     }
 
     private async Task SaveAsync()
@@ -90,11 +137,13 @@
         try
         {
             await SettingsService.UpdateSettingsAsync(_dto);
+            _originalKontenrahmen = _dto.Kontenrahmen;
+            _kontenrahmenGeaendert = false;
             Snackbar.Add("Einstellungen gespeichert.", Severity.Success);
         }
         catch (Exception ex)
         {
-            Snackbar.Add($"Fehler: {ex.Message}", Severity.Error);
+            Snackbar.Add("Fehler: " + ex.Message, Severity.Error);
         }
         finally
         {

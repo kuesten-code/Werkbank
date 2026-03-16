@@ -23,14 +23,27 @@ public static class SaldoModule
         services.AddScoped<ISaldoSettingsRepository, SaldoSettingsRepository>();
         services.AddScoped<IKontoRepository, KontoRepository>();
         services.AddScoped<IKategorieKontoMappingRepository, KategorieKontoMappingRepository>();
+        services.AddScoped<IKontoMappingOverrideRepository, KontoMappingOverrideRepository>();
         services.AddScoped<IExportLogRepository, ExportLogRepository>();
 
         // Register Application Services
         services.AddScoped<ISaldoSettingsService, SaldoSettingsService>();
         services.AddScoped<IKontoService, KontoService>();
+        services.AddScoped<IKontoMappingService, KontoMappingService>();
         services.AddScoped<IEuerService, EuerService>();
 
-        // Note: IReceptaDataService is registered via AddHttpClient in ProgramApi.cs
+        // Aggregations-Services (Zufluss-/Abflussprinzip)
+        services.AddScoped<IEinnahmenService, EinnahmenService>();
+        services.AddScoped<IAusgabenService, AusgabenService>();
+        services.AddScoped<ISaldoAggregationService, SaldoAggregationService>();
+
+        // DATEV-Export
+        services.AddScoped<IDatevExportService, DatevExportService>();
+
+        // PDF-Reports
+        services.AddScoped<IPdfReportService, PdfReportService>();
+
+        // Note: IReceptaDataService + IReceptaApiClient are registered via AddHttpClient in ProgramApi.cs
 
         return services;
     }

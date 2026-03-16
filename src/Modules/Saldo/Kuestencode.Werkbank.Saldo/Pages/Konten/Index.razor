@@ -1,4 +1,4 @@
-@page "/saldo/konten"
+@page "/konten"
 @inject IKontoService KontoService
 @inject ISnackbar Snackbar
 
@@ -45,7 +45,7 @@
                         </MudTd>
                         <MudTd>@context.KontoBezeichnung</MudTd>
                         <MudTd>
-                            <MudChip Size="Size.Small" Color="@(context.IsCustom ? Color.Warning : Color.Default)">
+                            <MudChip T="string" Size="Size.Small" Color="@(context.IsCustom ? Color.Warning : Color.Default)">
                                 @(context.IsCustom ? "Benutzerdefiniert" : "Standard")
                             </MudChip>
                         </MudTd>

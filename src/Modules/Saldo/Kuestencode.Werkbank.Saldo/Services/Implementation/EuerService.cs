@@ -1,3 +1,4 @@
+using Kuestencode.Core.Interfaces;
 using Kuestencode.Shared.ApiClients;
 using Kuestencode.Shared.Contracts.Faktura;
 using Kuestencode.Werkbank.Saldo.Data.Repositories;
@@ -9,6 +10,7 @@ namespace Kuestencode.Werkbank.Saldo.Services;
 
 /// <summary>
 /// Berechnet die EÜR (Einnahmen-Überschuss-Rechnung) aus Faktura- und Recepta-Daten.
+/// Wendet das Zufluss-/Abflussprinzip an: maßgeblich ist das Zahlungsdatum (PaidDate).
 /// </summary>
 public class EuerService : IEuerService
 {
@@ -17,6 +19,7 @@ public class EuerService : IEuerService
     private readonly IKategorieKontoMappingRepository _mappingRepo;
     private readonly IKontoRepository _kontoRepo;
     private readonly ISaldoSettingsRepository _settingsRepo;
+    private readonly ICompanyService _companyService;
     private readonly ILogger<EuerService> _logger;
 
     public EuerService(
@@ -25,6 +28,7 @@ public class EuerService : IEuerService
         IKategorieKontoMappingRepository mappingRepo,
         IKontoRepository kontoRepo,
         ISaldoSettingsRepository settingsRepo,
+        ICompanyService companyService,
         ILogger<EuerService> logger)
     {
         _receptaData = receptaData;
@@ -32,6 +36,7 @@ public class EuerService : IEuerService
         _mappingRepo = mappingRepo;
         _kontoRepo = kontoRepo;
         _settingsRepo = settingsRepo;
+        _companyService = companyService;
         _logger = logger;
     }
 
@@ -39,16 +44,18 @@ public class EuerService : IEuerService
     {
         var settings = await _settingsRepo.GetAsync();
         var kontenrahmen = settings?.Kontenrahmen ?? "SKR03";
+        bool istKleinunternehmer = false;
+        try { var company = await _companyService.GetCompanyAsync(); istKleinunternehmer = company?.IsKleinunternehmer ?? false; } catch { }
 
-        // Lade Konten und Mappings
         var konten = await _kontoRepo.GetByKontenrahmenAsync(kontenrahmen);
         var mappings = await _mappingRepo.GetAllAsync(kontenrahmen);
 
-        // Faktura-Einnahmen
+        // Zufluss-/Abflussprinzip: Filter nach PaidDate
         var fakturaFilter = new InvoiceFilterDto
         {
-            FromDate = filter.Von.ToDateTime(TimeOnly.MinValue),
-            ToDate = filter.Bis.ToDateTime(TimeOnly.MaxValue)
+            Status = "Paid",
+            PaidFrom = filter.Von.ToDateTime(TimeOnly.MinValue),
+            PaidTo = filter.Bis.ToDateTime(TimeOnly.MaxValue)
         };
 
         List<InvoiceDto> invoices = new();
@@ -61,16 +68,13 @@ public class EuerService : IEuerService
             _logger.LogError(ex, "Fehler beim Laden der Faktura-Daten für EÜR");
         }
 
-        // Recepta-Ausgaben
+        // ReceptaDataService filtert ebenfalls nach PaidDate (paidFrom/paidTo)
         var receptaDocs = await _receptaData.GetDocumentsAsync(filter.Von, filter.Bis);
 
-        // Einnahmen aggregieren (nach USt-Satz → Konto)
-        var einnahmenPositionen = AggregateEinnahmen(invoices, konten, filter);
+        var einnahmenPositionen = AggregateEinnahmen(invoices, konten);
+        var ausgabenPositionen = AggregateAusgaben(receptaDocs, mappings, konten);
 
-        // Ausgaben aggregieren (nach Kategorie → Konto)
-        var ausgabenPositionen = AggregateAusgaben(receptaDocs, mappings, konten, filter);
-
-        var summary = new EuerSummaryDto
+        return new EuerSummaryDto
         {
             Von = filter.Von,
             Bis = filter.Bis,
@@ -81,32 +85,22 @@ public class EuerService : IEuerService
             EinnahmenBrutto = einnahmenPositionen.Sum(p => p.BetragBrutto),
             AusgabenNetto = ausgabenPositionen.Sum(p => p.BetragNetto),
             AusgabenMwst = ausgabenPositionen.Sum(p => p.MwstBetrag),
-            AusgabenBrutto = ausgabenPositionen.Sum(p => p.BetragBrutto)
+            AusgabenBrutto = ausgabenPositionen.Sum(p => p.BetragBrutto),
+            IstKleinunternehmer = istKleinunternehmer
         };
-
-        return summary;
     }
 
-    private List<EuerPositionDto> AggregateEinnahmen(
-        List<InvoiceDto> invoices,
-        List<Konto> konten,
-        EuerFilterDto filter)
+    private List<EuerPositionDto> AggregateEinnahmen(List<InvoiceDto> invoices, List<Konto> konten)
     {
-        // Filtere nur bezahlte/versendete Rechnungen
-        var relevantInvoices = invoices
-            .Where(i => i.Status is "Sent" or "Paid")
-            .Where(i => DateOnly.FromDateTime(i.InvoiceDate) >= filter.Von &&
-                        DateOnly.FromDateTime(i.InvoiceDate) <= filter.Bis)
-            .ToList();
-
-        // Gruppiere nach effektivem USt-Satz (aus Items)
-        var groups = relevantInvoices
+        // Alle übergebenen Rechnungen sind bereits nach PaidDate gefiltert (Status=Paid)
+        var groups = invoices
             .SelectMany(inv => inv.Items.Select(item => new
             {
-                VatRate = item.VatRate,
+                item.VatRate,
                 NetBetrag = item.TotalNet,
                 VatBetrag = item.TotalVat,
-                GrossBetrag = item.TotalGross
+                GrossBetrag = item.TotalGross,
+                InvoiceId = inv.Id
             }))
             .GroupBy(x => x.VatRate)
             .ToList();
@@ -123,7 +117,7 @@ public class EuerService : IEuerService
                 BetragNetto = group.Sum(x => x.NetBetrag),
                 MwstBetrag = group.Sum(x => x.VatBetrag),
                 BetragBrutto = group.Sum(x => x.GrossBetrag),
-                AnzahlBelege = relevantInvoices.Count(inv => inv.Items.Any(i => i.VatRate == group.Key))
+                AnzahlBelege = group.Select(x => x.InvoiceId).Distinct().Count()
             });
         }
 
@@ -139,17 +133,12 @@ public class EuerService : IEuerService
     private List<EuerPositionDto> AggregateAusgaben(
         List<Kuestencode.Shared.Contracts.Recepta.ReceptaDocumentDto> docs,
         List<KategorieKontoMapping> mappings,
-        List<Konto> konten,
-        EuerFilterDto filter)
+        List<Konto> konten)
     {
-        // Filtere verbuchte/bezahlte Belege im Zeitraum
-        var relevantDocs = docs
-            .Where(d => d.Status is "Booked" or "Paid")
-            .ToList();
-
+        // Alle übergebenen Docs sind bereits nach PaidDate gefiltert
         var positionen = new List<EuerPositionDto>();
 
-        var groups = relevantDocs.GroupBy(d => d.Category).ToList();
+        var groups = docs.GroupBy(d => d.Category).ToList();
         foreach (var group in groups)
         {
             var mapping = mappings.FirstOrDefault(m => m.ReceiptaKategorie == group.Key);
@@ -158,6 +147,7 @@ public class EuerService : IEuerService
                 : null;
 
             var amountNet = group.Sum(d => d.AmountNet);
+            var amountTax = group.Sum(d => d.AmountTax);
             var amountGross = group.Sum(d => d.AmountGross);
 
             positionen.Add(new EuerPositionDto
@@ -166,7 +156,7 @@ public class EuerService : IEuerService
                 KontoBezeichnung = konto?.KontoBezeichnung ?? group.Key,
                 Gruppe = konto != null ? GetGruppe(konto) : "Sonstiges",
                 BetragNetto = amountNet,
-                MwstBetrag = amountGross - amountNet,
+                MwstBetrag = amountTax,
                 BetragBrutto = amountGross,
                 AnzahlBelege = group.Count()
             });

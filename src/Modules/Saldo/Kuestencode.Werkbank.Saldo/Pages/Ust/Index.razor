@@ -1,0 +1,279 @@
+@page "/ust"
+@inject ISaldoAggregationService SaldoService
+@inject ICompanyService CompanyService
+@inject ISnackbar Snackbar
+
+<PageTitle>Saldo - USt-Übersicht</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="mt-4">
+
+    <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-4">
+        <MudText Typo="Typo.h4">USt-Übersicht</MudText>
+        <MudText Typo="Typo.caption" Color="Color.Secondary">Für USt-Voranmeldung · Zahlungsdatum maßgeblich</MudText>
+    </MudStack>
+
+    @if (_istKleinunternehmer)
+    {
+        <MudAlert Severity="Severity.Info" Class="mb-4">
+            <MudText Typo="Typo.body1"><strong>Kleinunternehmer nach §19 UStG</strong></MudText>
+            <MudText Typo="Typo.body2" Class="mt-1">
+                Als Kleinunternehmer weisen Sie keine Umsatzsteuer aus und sind nicht zur
+                USt-Voranmeldung verpflichtet. Eine USt-Übersicht ist daher nicht relevant.
+            </MudText>
+        </MudAlert>
+    }
+    else
+    {
+
+    <MudPaper Class="pa-3 mb-4" Elevation="1">
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3">
+            <MudSelect @bind-Value="_jahr" T="int" Label="Jahr" Variant="Variant.Outlined"
+                       Dense="true" Style="max-width: 120px;" @bind-Value:after="LoadAsync">
+                @foreach (var j in _verfuegbareJahre)
+                {
+                    <MudSelectItem T="int" Value="@j">@j</MudSelectItem>
+                }
+            </MudSelect>
+        </MudStack>
+    </MudPaper>
+
+    @if (_loading)
+    {
+        <MudProgressLinear Color="Color.Primary" Indeterminate="true" Class="mb-4" />
+    }
+
+    @if (_uebersicht != null)
+    {
+        var jahresUst19  = _uebersicht.Monate.Sum(m => m.Umsatzsteuer19);
+        var jahresUst7   = _uebersicht.Monate.Sum(m => m.Umsatzsteuer7);
+        var jahresVst    = _uebersicht.Monate.Sum(m => m.VorsteuerGesamt);
+        var jahresZl     = _uebersicht.Monate.Sum(m => m.Zahllast);
+        var zlColor      = jahresZl >= 0 ? "#f44336" : "#4caf50";
+
+        @* Jahres-Karten *@
+        <MudGrid Class="mb-5">
+            <MudItem xs="6" sm="3">
+                <MudPaper Class="pa-4" Elevation="2" Style="border-left:4px solid #ff9800;">
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">USt 19%</MudText>
+                    <MudText Typo="Typo.h6">@jahresUst19.ToString("C")</MudText>
+                </MudPaper>
+            </MudItem>
+            <MudItem xs="6" sm="3">
+                <MudPaper Class="pa-4" Elevation="2" Style="border-left:4px solid #ffc107;">
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">USt 7%</MudText>
+                    <MudText Typo="Typo.h6">@jahresUst7.ToString("C")</MudText>
+                </MudPaper>
+            </MudItem>
+            <MudItem xs="6" sm="3">
+                <MudPaper Class="pa-4" Elevation="2" Style="border-left:4px solid #2196f3;">
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">Vorsteuer</MudText>
+                    <MudText Typo="Typo.h6">@jahresVst.ToString("C")</MudText>
+                </MudPaper>
+            </MudItem>
+            <MudItem xs="6" sm="3">
+                <MudPaper Class="pa-4" Elevation="2" Style="@("border-left:4px solid " + zlColor + ";")">
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">Zahllast gesamt</MudText>
+                    <MudText Typo="Typo.h6" Style="@("color:" + zlColor + ";")">@jahresZl.ToString("C")</MudText>
+                </MudPaper>
+            </MudItem>
+        </MudGrid>
+
+        @* Kombinierte Monats-/Quartals-Tabelle *@
+        <MudText Typo="Typo.h5" Class="mb-2">Monatsübersicht @_jahr</MudText>
+        <MudPaper Elevation="1">
+            <MudSimpleTable Dense="true" Hover="false" Style="overflow-x:auto;">
+                <thead>
+                    <tr>
+                        <th style="text-align:left; padding: 8px 16px;">Monat</th>
+                        <th style="text-align:right; padding: 8px 16px;">USt 19%</th>
+                        <th style="text-align:right; padding: 8px 16px;">USt 7%</th>
+                        <th style="text-align:right; padding: 8px 16px;">Vorsteuer</th>
+                        <th style="text-align:right; padding: 8px 16px;">Zahllast</th>
+                        <th style="text-align:center; padding: 8px 16px;">Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var row in BuildRows())
+                    {
+                        @if (row.IsQuartalSumme)
+                        {
+                            <tr style="background-color: rgba(0,0,0,0.06); font-weight:600;">
+                                <td style="padding: 6px 16px;">@row.Label</td>
+                                <td style="text-align:right; padding: 6px 16px;">@row.Ust19.ToString("N2") €</td>
+                                <td style="text-align:right; padding: 6px 16px;">@row.Ust7.ToString("N2") €</td>
+                                <td style="text-align:right; padding: 6px 16px;">@row.Vorsteuer.ToString("N2") €</td>
+                                <td style="text-align:right; padding: 6px 16px; color:@(row.Zahllast >= 0 ? "#f44336" : "#4caf50");">
+                                    @row.Zahllast.ToString("N2") €
+                                </td>
+                                <td style="text-align:center; padding: 6px 16px;">
+                                    @if (row.Zahllast > 0)
+                                    {
+                                        <MudChip T="string" Size="Size.Small" Color="Color.Warning" Variant="Variant.Filled">Zahllast</MudChip>
+                                    }
+                                    else if (row.Zahllast < 0)
+                                    {
+                                        <MudChip T="string" Size="Size.Small" Color="Color.Success" Variant="Variant.Filled">Erstattung</MudChip>
+                                    }
+                                    else
+                                    {
+                                        <MudChip T="string" Size="Size.Small" Color="Color.Default" Variant="Variant.Outlined">Ausgeglichen</MudChip>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                        else
+                        {
+                            <tr>
+                                <td style="padding: 6px 16px;">@row.Label</td>
+                                <td style="text-align:right; padding: 6px 16px;">
+                                    @(row.Ust19 == 0 ? "–" : row.Ust19.ToString("N2") + " €")
+                                </td>
+                                <td style="text-align:right; padding: 6px 16px;">
+                                    @(row.Ust7 == 0 ? "–" : row.Ust7.ToString("N2") + " €")
+                                </td>
+                                <td style="text-align:right; padding: 6px 16px;">
+                                    @(row.Vorsteuer == 0 ? "–" : row.Vorsteuer.ToString("N2") + " €")
+                                </td>
+                                <td style="text-align:right; padding: 6px 16px; color:@(row.Zahllast > 0 ? "#f44336" : row.Zahllast < 0 ? "#4caf50" : "inherit");">
+                                    @(row.IsLeer ? "–" : row.Zahllast.ToString("N2") + " €")
+                                </td>
+                                <td style="text-align:center; padding: 6px 16px;">
+                                    @if (row.IsLeer)
+                                    {
+                                        <MudChip T="string" Size="Size.Small" Color="Color.Default" Variant="Variant.Outlined">Keine Buchungen</MudChip>
+                                    }
+                                    else if (row.Zahllast > 0)
+                                    {
+                                        <MudChip T="string" Size="Size.Small" Color="Color.Warning" Variant="Variant.Text">Zahllast</MudChip>
+                                    }
+                                    else if (row.Zahllast < 0)
+                                    {
+                                        <MudChip T="string" Size="Size.Small" Color="Color.Success" Variant="Variant.Text">Erstattung</MudChip>
+                                    }
+                                    else
+                                    {
+                                        <MudChip T="string" Size="Size.Small" Color="Color.Default" Variant="Variant.Text">Ausgeglichen</MudChip>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    }
+
+                    @* Jahreszeile *@
+                    <tr style="background-color: rgba(0,0,0,0.10); font-weight:700; border-top: 2px solid rgba(0,0,0,0.2);">
+                        <td style="padding: 8px 16px;">Gesamt @_jahr</td>
+                        <td style="text-align:right; padding: 8px 16px;">@jahresUst19.ToString("N2") €</td>
+                        <td style="text-align:right; padding: 8px 16px;">@jahresUst7.ToString("N2") €</td>
+                        <td style="text-align:right; padding: 8px 16px;">@jahresVst.ToString("N2") €</td>
+                        <td style="text-align:right; padding: 8px 16px; font-size:1rem; color:@zlColor;">
+                            @jahresZl.ToString("N2") €
+                        </td>
+                        <td></td>
+                    </tr>
+                </tbody>
+            </MudSimpleTable>
+        </MudPaper>
+    }
+    else if (!_loading)
+    {
+        <MudAlert Severity="Severity.Info">
+            Keine USt-Daten für @_jahr vorhanden.
+        </MudAlert>
+    }
+
+    } @* end else !_istKleinunternehmer *@
+
+</MudContainer>
+
+@code {
+    private record UstRow(
+        string Label,
+        decimal Ust19,
+        decimal Ust7,
+        decimal Vorsteuer,
+        decimal Zahllast,
+        bool IsQuartalSumme,
+        bool IsLeer
+    );
+
+    private bool _loading = false;
+    private bool _istKleinunternehmer = false;
+    private UstUebersichtDto? _uebersicht;
+    private int _jahr = DateTime.Today.Year;
+    private readonly List<int> _verfuegbareJahre =
+        Enumerable.Range(DateTime.Today.Year - 4, 6).Reverse().ToList();
+
+    protected override async Task OnInitializedAsync()
+    {
+        try { var company = await CompanyService.GetCompanyAsync(); _istKleinunternehmer = company?.IsKleinunternehmer ?? false; } catch { }
+        if (!_istKleinunternehmer)
+            await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        StateHasChanged();
+        try
+        {
+            var von = new DateOnly(_jahr, 1, 1);
+            var bis = new DateOnly(_jahr, 12, 31);
+            _uebersicht = await SaldoService.GetUstUebersichtAsync(von, bis);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Fehler beim Laden: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private List<UstRow> BuildRows()
+    {
+        if (_uebersicht == null) return new();
+
+        var rows = new List<UstRow>();
+        // Alle 12 Monate sicherstellen (auch leere)
+        var monateDaten = Enumerable.Range(1, 12)
+            .Select(m => _uebersicht.Monate.FirstOrDefault(x => x.Monat == m)
+                         ?? new UstMonatDto { Jahr = _jahr, Monat = m })
+            .ToList();
+
+        for (var q = 1; q <= 4; q++)
+        {
+            var start = (q - 1) * 3 + 1;
+            for (var m = start; m < start + 3; m++)
+            {
+                var md = monateDaten[m - 1];
+                var monatName = new DateTime(_jahr, m, 1).ToString("MMMM");
+                var leer = md.Umsatzsteuer19 == 0 && md.Umsatzsteuer7 == 0 && md.VorsteuerGesamt == 0;
+                rows.Add(new UstRow(
+                    monatName,
+                    md.Umsatzsteuer19,
+                    md.Umsatzsteuer7,
+                    md.VorsteuerGesamt,
+                    md.Zahllast,
+                    IsQuartalSumme: false,
+                    IsLeer: leer
+                ));
+            }
+
+            // Quartalssumme
+            var qMonate = monateDaten.Skip(start - 1).Take(3).ToList();
+            var qUst19 = qMonate.Sum(x => x.Umsatzsteuer19);
+            var qUst7  = qMonate.Sum(x => x.Umsatzsteuer7);
+            var qVst   = qMonate.Sum(x => x.VorsteuerGesamt);
+            rows.Add(new UstRow(
+                $"Q{q} {_jahr} – Summe",
+                qUst19, qUst7, qVst,
+                qUst19 + qUst7 - qVst,
+                IsQuartalSumme: true,
+                IsLeer: false
+            ));
+        }
+
+        return rows;
+    }
+}

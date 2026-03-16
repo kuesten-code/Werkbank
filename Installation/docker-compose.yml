@@ -31,6 +31,9 @@ services:
       - ServiceUrls__Faktura=http://faktura:8081
       - ServiceUrls__Rapport=http://rapport:8082
       - ServiceUrls__Offerte=http://offerte:8083
+      - ServiceUrls__Acta=http://acta:8084
+      - ServiceUrls__Recepta=http://recepta:8085
+      - ServiceUrls__Saldo=http://saldo:8086
       - APPLY_MIGRATIONS=true
     depends_on:
       postgres:
@@ -40,6 +43,12 @@ services:
       rapport:
         condition: service_started
       offerte:
+        condition: service_started
+      acta:
+        condition: service_started
+      recepta:
+        condition: service_started
+      saldo:
         condition: service_started
     restart: unless-stopped
     networks:
@@ -96,6 +105,66 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    networks:
+      - kuestencode_network
+
+  acta:
+    image: kuestencode/acta:latest
+    container_name: kuestencode_acta
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:8084
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=kuestencode_werkbank;Username=postgres;Password=change_me
+      - ServiceUrls__Host=http://host:8080
+      - ServiceUrls__Self=http://acta:8084
+      - MODULE_VERSION=1.0.0
+      - APPLY_MIGRATIONS=true
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - kuestencode_network
+
+  recepta:
+    image: kuestencode/recepta:latest
+    container_name: kuestencode_recepta
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:8085
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=kuestencode_werkbank;Username=postgres;Password=change_me
+      - ServiceUrls__Host=http://host:8080
+      - ServiceUrls__Self=http://recepta:8085
+      - MODULE_VERSION=1.0.0
+      - APPLY_MIGRATIONS=true
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - kuestencode_network
+
+  saldo:
+    image: kuestencode/saldo:latest
+    container_name: kuestencode_saldo
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:8086
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=kuestencode_werkbank;Username=postgres;Password=change_me
+      - ServiceUrls__Host=http://host:8080
+      - ServiceUrls__Self=http://saldo:8086
+      - ServiceUrls__Faktura=http://faktura:8081
+      - ServiceUrls__Recepta=http://recepta:8085
+      - MODULE_VERSION=1.0.0
+      - APPLY_MIGRATIONS=true
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      faktura:
+        condition: service_started
+      recepta:
+        condition: service_started
     networks:
       - kuestencode_network
 

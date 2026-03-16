@@ -185,6 +185,8 @@ public class ProgramApi
         // Add Authorization
         app.UseAuthorization();
 
+        app.MapRazorPages();
+
         // Map API Controllers
         app.MapControllers();
 

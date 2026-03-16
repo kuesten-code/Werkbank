@@ -52,6 +52,14 @@ namespace Kuestencode.Werkbank.Saldo.Data.Migrations
                     table.PrimaryKey("PK_Konten", x => x.Id);
                 });
 
+            // Unique index must exist before KategorieKontoMappings FK is created
+            migrationBuilder.CreateIndex(
+                name: "IX_Konten_Kontenrahmen_KontoNummer",
+                schema: "saldo",
+                table: "Konten",
+                columns: new[] { "Kontenrahmen", "KontoNummer" },
+                unique: true);
+
             migrationBuilder.CreateTable(
                 name: "SaldoSettings",
                 schema: "saldo",
@@ -106,13 +114,6 @@ namespace Kuestencode.Werkbank.Saldo.Data.Migrations
                 schema: "saldo",
                 table: "KategorieKontoMappings",
                 columns: new[] { "Kontenrahmen", "ReceiptaKategorie" },
-                unique: true);
-
-            migrationBuilder.CreateIndex(
-                name: "IX_Konten_Kontenrahmen_KontoNummer",
-                schema: "saldo",
-                table: "Konten",
-                columns: new[] { "Kontenrahmen", "KontoNummer" },
                 unique: true);
         }
 

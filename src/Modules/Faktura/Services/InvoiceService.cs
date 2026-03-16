@@ -7,12 +7,13 @@ public interface IInvoiceService
 {
     Task<List<Invoice>> GetAllAsync();
     Task<List<Invoice>> GetByStatusAsync(InvoiceStatus status);
+    Task<List<Invoice>> GetPaidByDateRangeAsync(DateTime paidFrom, DateTime paidTo);
     Task<Invoice?> GetByIdAsync(int id, bool includeCustomer = true, bool includeItems = true);
     Task<Invoice> CreateAsync(Invoice invoice);
     Task UpdateAsync(Invoice invoice);
     Task DeleteAsync(int id);
     Task<string> GenerateInvoiceNumberAsync();
-    Task MarkAsPaidAsync(int id);
+    Task MarkAsPaidAsync(int id, DateTime paidDate);
     Task MarkAsPrintedAsync(int id);
     Task<decimal> CalculateTotalNetAsync(List<InvoiceItem> items);
     Task<decimal> CalculateTotalGrossAsync(List<InvoiceItem> items, bool isKleinunternehmer);
@@ -53,6 +54,20 @@ public class InvoiceService : IInvoiceService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Fehler beim Abrufen der Rechnungen mit Status {Status}", status);
+            throw;
+        }
+    }
+
+    public async Task<List<Invoice>> GetPaidByDateRangeAsync(DateTime paidFrom, DateTime paidTo)
+    {
+        try
+        {
+            var invoices = await _invoiceRepository.GetPaidByDateRangeAsync(paidFrom, paidTo);
+            return invoices.ToList();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Fehler beim Abrufen bezahlter Rechnungen für {From} - {To}", paidFrom, paidTo);
             throw;
         }
     }
@@ -161,7 +176,7 @@ public class InvoiceService : IInvoiceService
         }
     }
 
-    public async Task MarkAsPaidAsync(int id)
+    public async Task MarkAsPaidAsync(int id, DateTime paidDate)
     {
         try
         {
@@ -172,7 +187,7 @@ public class InvoiceService : IInvoiceService
             }
 
             invoice.Status = InvoiceStatus.Paid;
-            invoice.PaidDate = DateTime.UtcNow;
+            invoice.PaidDate = paidDate.Kind == DateTimeKind.Utc ? paidDate : paidDate.ToUniversalTime();
 
             await _invoiceRepository.UpdateAsync(invoice);
         }

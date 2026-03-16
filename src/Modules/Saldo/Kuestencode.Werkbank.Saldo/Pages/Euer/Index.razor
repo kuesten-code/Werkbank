@@ -1,22 +1,44 @@
-@page "/saldo/euer"
+@page "/euer"
 @inject IEuerService EuerService
+@inject IPdfReportService PdfReportService
+@inject IJSRuntime JS
+@inject ISnackbar Snackbar
 
-<PageTitle>Saldo - EÜR Detail</PageTitle>
+<PageTitle>Saldo - EÜR</PageTitle>
 
 <MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4">
-    <MudText Typo="Typo.h4" GutterBottom="true">Einnahmen-Überschuss-Rechnung</MudText>
+
+    <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-4">
+        <MudText Typo="Typo.h4">Einnahmen-Überschuss-Rechnung</MudText>
+        @if (_summary != null && !_loading)
+        {
+            <MudButton Variant="Variant.Outlined" Color="Color.Primary"
+                       StartIcon="@Icons.Material.Filled.PictureAsPdf"
+                       OnClick="DownloadPdfAsync" Disabled="@_pdfLoading">
+                @if (_pdfLoading)
+                {
+                    <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                }
+                Als PDF exportieren
+            </MudButton>
+        }
+    </MudStack>
 
     <MudPaper Class="pa-4 mb-4" Elevation="1">
         <MudGrid>
             <MudItem xs="12" sm="5">
-                <MudDatePicker Label="Von" @bind-Date="_vonDate" DateFormat="dd.MM.yyyy" />
+                <MudDatePicker Label="Von" @bind-Date="_vonDate" DateFormat="dd.MM.yyyy"
+                               Variant="Variant.Outlined" />
             </MudItem>
             <MudItem xs="12" sm="5">
-                <MudDatePicker Label="Bis" @bind-Date="_bisDate" DateFormat="dd.MM.yyyy" />
+                <MudDatePicker Label="Bis" @bind-Date="_bisDate" DateFormat="dd.MM.yyyy"
+                               Variant="Variant.Outlined" />
             </MudItem>
-            <MudItem xs="12" sm="2" Class="d-flex align-end">
+            <MudItem xs="12" sm="2" Style="display:flex; align-items:center;">
                 <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="LoadEuerAsync"
-                          FullWidth="true" StartIcon="@Icons.Material.Filled.Refresh">
+                           FullWidth="true" StartIcon="@Icons.Material.Filled.Refresh"
+                           Style="height:56px;"
+                           Disabled="@_loading">
                     Berechnen
                 </MudButton>
             </MudItem>
@@ -25,38 +47,105 @@
 
     @if (_loading)
     {
-        <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+        <MudProgressLinear Color="Color.Primary" Indeterminate="true" Class="mb-4" />
     }
     else if (_summary != null)
     {
-        <!-- Zusammenfassung -->
+        @* Zusammenfassung: drei Kacheln *@
         <MudGrid Class="mb-4">
             <MudItem xs="12" md="4">
-                <MudPaper Class="pa-3" Elevation="2">
-                    <MudText Typo="Typo.subtitle1" Color="Color.Success">Einnahmen gesamt (Netto)</MudText>
-                    <MudText Typo="Typo.h6">@_summary.EinnahmenNetto.ToString("C")</MudText>
+                <MudPaper Class="pa-4" Elevation="2"
+                          Style="border-left: 4px solid #2E7D32;">
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">Betriebseinnahmen (Netto)</MudText>
+                    <MudText Typo="Typo.h5" Color="Color.Success" Class="mt-1">
+                        @_summary.EinnahmenNetto.ToString("N2", _culture) €
+                    </MudText>
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">
+                        Brutto: @_summary.EinnahmenBrutto.ToString("N2", _culture) €
+                        · USt: @_summary.EinnahmenMwst.ToString("N2", _culture) €
+                    </MudText>
                 </MudPaper>
             </MudItem>
             <MudItem xs="12" md="4">
-                <MudPaper Class="pa-3" Elevation="2">
-                    <MudText Typo="Typo.subtitle1" Color="Color.Error">Ausgaben gesamt (Netto)</MudText>
-                    <MudText Typo="Typo.h6">@_summary.AusgabenNetto.ToString("C")</MudText>
+                <MudPaper Class="pa-4" Elevation="2"
+                          Style="border-left: 4px solid #C62828;">
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">Betriebsausgaben (Netto)</MudText>
+                    <MudText Typo="Typo.h5" Color="Color.Error" Class="mt-1">
+                        @_summary.AusgabenNetto.ToString("N2", _culture) €
+                    </MudText>
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">
+                        Brutto: @_summary.AusgabenBrutto.ToString("N2", _culture) €
+                        · VSt: @_summary.AusgabenMwst.ToString("N2", _culture) €
+                    </MudText>
                 </MudPaper>
             </MudItem>
             <MudItem xs="12" md="4">
-                <MudPaper Class="pa-3" Elevation="2">
-                    <MudText Typo="Typo.subtitle1" Color="@(_summary.Ueberschuss >= 0 ? Color.Success : Color.Error)">
-                        Überschuss
+                <MudPaper Class="pa-4" Elevation="2"
+                          Style="@GetUeberschussBorderStyle(_summary.Ueberschuss)">
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">
+                        @(_summary.Ueberschuss >= 0 ? "Gewinn (Überschuss)" : "Verlust")
                     </MudText>
-                    <MudText Typo="Typo.h6" Color="@(_summary.Ueberschuss >= 0 ? Color.Success : Color.Error)">
-                        @_summary.Ueberschuss.ToString("C")
+                    <MudText Typo="Typo.h5" Class="mt-1"
+                             Style="@GetUeberschussColorStyle(_summary.Ueberschuss)">
+                        @_summary.Ueberschuss.ToString("N2", _culture) €
                     </MudText>
+                    @if (!_summary.IstKleinunternehmer)
+                    {
+                        var zahllast = _summary.EinnahmenMwst - _summary.AusgabenMwst;
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">
+                            USt-Zahllast: @zahllast.ToString("N2", _culture) €
+                        </MudText>
+                    }
+                    else
+                    {
+                        <MudText Typo="Typo.caption" Color="Color.Transparent">–</MudText>
+                    }
                 </MudPaper>
             </MudItem>
         </MudGrid>
 
-        <!-- Einnahmen -->
-        <MudText Typo="Typo.h5" Class="mb-2">Einnahmen</MudText>
+        @* USt-Block *@
+        @if (!_summary.IstKleinunternehmer)
+        {
+            var zahllast = _summary.EinnahmenMwst - _summary.AusgabenMwst;
+            <MudPaper Class="pa-4 mb-4" Elevation="1">
+                <MudText Typo="Typo.subtitle1" Class="mb-3">Umsatzsteuer-Übersicht</MudText>
+                <MudGrid>
+                    <MudItem xs="6" sm="3">
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">Umsatzsteuer</MudText>
+                        <MudText Typo="Typo.body1">@_summary.EinnahmenMwst.ToString("N2", _culture) €</MudText>
+                    </MudItem>
+                    <MudItem xs="6" sm="3">
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">Vorsteuer</MudText>
+                        <MudText Typo="Typo.body1">@_summary.AusgabenMwst.ToString("N2", _culture) €</MudText>
+                    </MudItem>
+                    <MudItem xs="6" sm="3">
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">
+                            @(zahllast >= 0 ? "USt-Zahllast" : "USt-Erstattung")
+                        </MudText>
+                        <MudText Typo="Typo.body1"
+                                 Color="@(zahllast >= 0 ? Color.Default : Color.Success)">
+                            @zahllast.ToString("N2", _culture) €
+                        </MudText>
+                    </MudItem>
+                    <MudItem xs="6" sm="3">
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">Zeitraum</MudText>
+                        <MudText Typo="Typo.body2">
+                            @(_summary.Von.ToString("dd.MM.yyyy")) – @(_summary.Bis.ToString("dd.MM.yyyy"))
+                        </MudText>
+                    </MudItem>
+                </MudGrid>
+            </MudPaper>
+        }
+        else
+        {
+            <MudAlert Severity="Severity.Info" Dense="true" Class="mb-4">
+                Kleinunternehmer nach §19 UStG – keine Umsatzsteuerausweisung.
+            </MudAlert>
+        }
+
+        @* Einnahmen-Tabelle *@
+        <MudText Typo="Typo.h6" Class="mb-2">Einnahmen nach Erlöskonto</MudText>
         <MudTable Items="_summary.Einnahmen" Dense="true" Hover="true" Elevation="1" Class="mb-6">
             <HeaderContent>
                 <MudTh>Konto</MudTh>
@@ -68,25 +157,51 @@
                 <MudTh Style="text-align:right">Belege</MudTh>
             </HeaderContent>
             <RowTemplate>
-                <MudTd>@context.KontoNummer</MudTd>
-                <MudTd>@context.KontoBezeichnung</MudTd>
-                <MudTd>@context.Gruppe</MudTd>
-                <MudTd Style="text-align:right">@context.BetragNetto.ToString("C")</MudTd>
-                <MudTd Style="text-align:right">@context.MwstBetrag.ToString("C")</MudTd>
-                <MudTd Style="text-align:right">@context.BetragBrutto.ToString("C")</MudTd>
-                <MudTd Style="text-align:right">@context.AnzahlBelege</MudTd>
+                <MudTd DataLabel="Konto">
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">@context.KontoNummer</MudText>
+                </MudTd>
+                <MudTd DataLabel="Bezeichnung">@context.KontoBezeichnung</MudTd>
+                <MudTd DataLabel="Gruppe">
+                    <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Success">
+                        @context.Gruppe
+                    </MudChip>
+                </MudTd>
+                <MudTd DataLabel="Netto" Style="text-align:right">
+                    <MudText Typo="Typo.body2" Color="Color.Success">
+                        @context.BetragNetto.ToString("N2", _culture) €
+                    </MudText>
+                </MudTd>
+                <MudTd DataLabel="MwSt" Style="text-align:right">
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">
+                        @context.MwstBetrag.ToString("N2", _culture) €
+                    </MudText>
+                </MudTd>
+                <MudTd DataLabel="Brutto" Style="text-align:right">
+                    @context.BetragBrutto.ToString("N2", _culture) €
+                </MudTd>
+                <MudTd DataLabel="Belege" Style="text-align:right">
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">@context.AnzahlBelege</MudText>
+                </MudTd>
             </RowTemplate>
             <FooterContent>
-                <MudTd colspan="3"><strong>Summe</strong></MudTd>
-                <MudTd Style="text-align:right"><strong>@_summary.EinnahmenNetto.ToString("C")</strong></MudTd>
-                <MudTd Style="text-align:right"><strong>@_summary.EinnahmenMwst.ToString("C")</strong></MudTd>
-                <MudTd Style="text-align:right"><strong>@_summary.EinnahmenBrutto.ToString("C")</strong></MudTd>
-                <MudTd></MudTd>
+                <MudTd colspan="3" Style="font-weight:600; border-top:1px solid rgba(0,0,0,0.12);">
+                    Summe (@_summary.Einnahmen.Count Positionen)
+                </MudTd>
+                <MudTd Style="text-align:right; font-weight:600; color:#2E7D32; border-top:1px solid rgba(0,0,0,0.12);">
+                    @_summary.EinnahmenNetto.ToString("N2", _culture) €
+                </MudTd>
+                <MudTd Style="text-align:right; font-weight:600; border-top:1px solid rgba(0,0,0,0.12);">
+                    @_summary.EinnahmenMwst.ToString("N2", _culture) €
+                </MudTd>
+                <MudTd Style="text-align:right; font-weight:600; border-top:1px solid rgba(0,0,0,0.12);">
+                    @_summary.EinnahmenBrutto.ToString("N2", _culture) €
+                </MudTd>
+                <MudTd Style="border-top:1px solid rgba(0,0,0,0.12);"></MudTd>
             </FooterContent>
         </MudTable>
 
-        <!-- Ausgaben -->
-        <MudText Typo="Typo.h5" Class="mb-2">Ausgaben</MudText>
+        @* Ausgaben-Tabelle *@
+        <MudText Typo="Typo.h6" Class="mb-2">Ausgaben nach Kategorie / Konto</MudText>
         <MudTable Items="_summary.Ausgaben" Dense="true" Hover="true" Elevation="1">
             <HeaderContent>
                 <MudTh>Konto</MudTh>
@@ -98,27 +213,61 @@
                 <MudTh Style="text-align:right">Belege</MudTh>
             </HeaderContent>
             <RowTemplate>
-                <MudTd>@context.KontoNummer</MudTd>
-                <MudTd>@context.KontoBezeichnung</MudTd>
-                <MudTd>@context.Gruppe</MudTd>
-                <MudTd Style="text-align:right">@context.BetragNetto.ToString("C")</MudTd>
-                <MudTd Style="text-align:right">@context.MwstBetrag.ToString("C")</MudTd>
-                <MudTd Style="text-align:right">@context.BetragBrutto.ToString("C")</MudTd>
-                <MudTd Style="text-align:right">@context.AnzahlBelege</MudTd>
+                <MudTd DataLabel="Konto">
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">@context.KontoNummer</MudText>
+                </MudTd>
+                <MudTd DataLabel="Bezeichnung">@context.KontoBezeichnung</MudTd>
+                <MudTd DataLabel="Gruppe">
+                    <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Default">
+                        @context.Gruppe
+                    </MudChip>
+                </MudTd>
+                <MudTd DataLabel="Netto" Style="text-align:right">
+                    <MudText Typo="Typo.body2" Color="Color.Error">
+                        @context.BetragNetto.ToString("N2", _culture) €
+                    </MudText>
+                </MudTd>
+                <MudTd DataLabel="MwSt" Style="text-align:right">
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">
+                        @context.MwstBetrag.ToString("N2", _culture) €
+                    </MudText>
+                </MudTd>
+                <MudTd DataLabel="Brutto" Style="text-align:right">
+                    @context.BetragBrutto.ToString("N2", _culture) €
+                </MudTd>
+                <MudTd DataLabel="Belege" Style="text-align:right">
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">@context.AnzahlBelege</MudText>
+                </MudTd>
             </RowTemplate>
             <FooterContent>
-                <MudTd colspan="3"><strong>Summe</strong></MudTd>
-                <MudTd Style="text-align:right"><strong>@_summary.AusgabenNetto.ToString("C")</strong></MudTd>
-                <MudTd Style="text-align:right"><strong>@_summary.AusgabenMwst.ToString("C")</strong></MudTd>
-                <MudTd Style="text-align:right"><strong>@_summary.AusgabenBrutto.ToString("C")</strong></MudTd>
-                <MudTd></MudTd>
+                <MudTd colspan="3" Style="font-weight:600; border-top:1px solid rgba(0,0,0,0.12);">
+                    Summe (@_summary.Ausgaben.Count Positionen)
+                </MudTd>
+                <MudTd Style="text-align:right; font-weight:600; color:#C62828; border-top:1px solid rgba(0,0,0,0.12);">
+                    @_summary.AusgabenNetto.ToString("N2", _culture) €
+                </MudTd>
+                <MudTd Style="text-align:right; font-weight:600; border-top:1px solid rgba(0,0,0,0.12);">
+                    @_summary.AusgabenMwst.ToString("N2", _culture) €
+                </MudTd>
+                <MudTd Style="text-align:right; font-weight:600; border-top:1px solid rgba(0,0,0,0.12);">
+                    @_summary.AusgabenBrutto.ToString("N2", _culture) €
+                </MudTd>
+                <MudTd Style="border-top:1px solid rgba(0,0,0,0.12);"></MudTd>
             </FooterContent>
         </MudTable>
     }
+    else if (!_loading)
+    {
+        <MudText Color="Color.Secondary">Keine Daten für den gewählten Zeitraum.</MudText>
+    }
+
 </MudContainer>
 
 @code {
+    private readonly System.Globalization.CultureInfo _culture = new("de-DE");
+
     private bool _loading = false;
+    private bool _pdfLoading = false;
     private EuerSummaryDto? _summary;
     private DateTime? _vonDate = new DateTime(DateTime.Today.Year, 1, 1);
     private DateTime? _bisDate = new DateTime(DateTime.Today.Year, 12, 31);
@@ -131,15 +280,58 @@
     private async Task LoadEuerAsync()
     {
         _loading = true;
+        StateHasChanged();
         try
         {
-            var von = _vonDate.HasValue ? DateOnly.FromDateTime(_vonDate.Value) : new DateOnly(DateTime.Today.Year, 1, 1);
-            var bis = _bisDate.HasValue ? DateOnly.FromDateTime(_bisDate.Value) : new DateOnly(DateTime.Today.Year, 12, 31);
+            var von = _vonDate.HasValue
+                ? DateOnly.FromDateTime(_vonDate.Value)
+                : new DateOnly(DateTime.Today.Year, 1, 1);
+            var bis = _bisDate.HasValue
+                ? DateOnly.FromDateTime(_bisDate.Value)
+                : new DateOnly(DateTime.Today.Year, 12, 31);
+
             _summary = await EuerService.GetEuerSummaryAsync(new EuerFilterDto { Von = von, Bis = bis });
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Fehler beim Laden: {ex.Message}", Severity.Error);
         }
         finally
         {
             _loading = false;
         }
     }
+
+    private async Task DownloadPdfAsync()
+    {
+        _pdfLoading = true;
+        try
+        {
+            var von = _vonDate.HasValue
+                ? DateOnly.FromDateTime(_vonDate.Value)
+                : new DateOnly(DateTime.Today.Year, 1, 1);
+            var bis = _bisDate.HasValue
+                ? DateOnly.FromDateTime(_bisDate.Value)
+                : new DateOnly(DateTime.Today.Year, 12, 31);
+
+            var pdfBytes = await PdfReportService.GenerateEuerReportAsync(von, bis);
+            var fileName = $"EUER_{von:yyyy-MM-dd}_{bis:yyyy-MM-dd}.pdf";
+            var base64 = Convert.ToBase64String(pdfBytes);
+            await JS.InvokeVoidAsync("downloadFileFromBase64", fileName, "application/pdf", base64);
+            Snackbar.Add("EÜR-PDF wurde heruntergeladen.", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Fehler beim Generieren des PDFs: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _pdfLoading = false;
+        }
+    }
+
+    private static string GetUeberschussBorderStyle(decimal v)
+        => "border-left: 4px solid " + (v >= 0 ? "#2E7D32" : "#C62828") + ";";
+    private static string GetUeberschussColorStyle(decimal v)
+        => "color: " + (v >= 0 ? "#2E7D32" : "#C62828") + ";";
 }

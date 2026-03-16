@@ -5,16 +5,17 @@ using System.Threading.Tasks;
 using Kuestencode.Shared.Contracts.Host;
 using Kuestencode.Shared.Contracts.Navigation;
 using Kuestencode.Shared.UI.Services;
+using Kuestencode.Werkbank.Host.Services;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Authorization;
 
 namespace Kuestencode.Werkbank.Host.Pages;
 
-public partial class Index
+public partial class Index : IDisposable
 {
     private IReadOnlyList<ModuleInfoDto> _modules = Array.Empty<ModuleInfoDto>();
 
-    [Inject] private IModuleRegistry ModuleRegistry { get; set; } = default!;
+    [Inject] private ModuleRegistry ModuleRegistry { get; set; } = default!;
     [Inject] private NavigationManager NavigationManager { get; set; } = default!;
     [Inject] private AuthenticationStateProvider AuthStateProvider { get; set; } = default!;
 
@@ -32,9 +33,29 @@ public partial class Index
             return;
         }
 
+        ModuleRegistry.OnChanged += HandleModulesChanged;
+        RefreshModules();
+    }
+
+    private void RefreshModules()
+    {
         _modules = ModuleRegistry.GetAllModules()
             .OrderBy(m => m.DisplayName)
             .ToList();
+    }
+
+    private void HandleModulesChanged()
+    {
+        InvokeAsync(() =>
+        {
+            RefreshModules();
+            StateHasChanged();
+        });
+    }
+
+    public void Dispose()
+    {
+        ModuleRegistry.OnChanged -= HandleModulesChanged;
     }
 
     private static string GetModuleHref(ModuleInfoDto module)

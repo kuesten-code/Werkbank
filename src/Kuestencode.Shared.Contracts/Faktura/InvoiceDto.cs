@@ -99,5 +99,7 @@ public record InvoiceFilterDto
     public int? CustomerId { get; init; }
     public DateTime? FromDate { get; init; }
     public DateTime? ToDate { get; init; }
+    public DateTime? PaidFrom { get; init; }
+    public DateTime? PaidTo { get; init; }
     public string? SearchTerm { get; init; }
 }

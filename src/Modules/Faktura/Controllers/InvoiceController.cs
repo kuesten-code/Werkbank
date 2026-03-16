@@ -31,15 +31,29 @@ public class InvoiceController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<List<InvoiceDto>>> GetAll([FromQuery] string? status = null, [FromQuery] int? customerId = null)
+    public async Task<ActionResult<List<InvoiceDto>>> GetAll(
+        [FromQuery] string? status = null,
+        [FromQuery] int? customerId = null,
+        [FromQuery] DateTime? paidFrom = null,
+        [FromQuery] DateTime? paidTo = null)
     {
         try
         {
             List<Invoice> invoices;
 
-            if (!string.IsNullOrEmpty(status) && Enum.TryParse<InvoiceStatus>(status, out var invoiceStatus))
+            // Zufluss-/Abflussprinzip: direkt via DB nach PaidDate filtern (performant)
+            if (paidFrom.HasValue && paidTo.HasValue)
+            {
+                invoices = await _invoiceService.GetPaidByDateRangeAsync(paidFrom.Value, paidTo.Value);
+            }
+            else if (!string.IsNullOrEmpty(status) && Enum.TryParse<InvoiceStatus>(status, out var invoiceStatus))
             {
                 invoices = await _invoiceService.GetByStatusAsync(invoiceStatus);
+
+                if (paidFrom.HasValue)
+                    invoices = invoices.Where(i => i.PaidDate.HasValue && i.PaidDate.Value >= paidFrom.Value).ToList();
+                if (paidTo.HasValue)
+                    invoices = invoices.Where(i => i.PaidDate.HasValue && i.PaidDate.Value <= paidTo.Value).ToList();
             }
             else
             {

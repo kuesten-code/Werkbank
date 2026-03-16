@@ -5,6 +5,7 @@ namespace Kuestencode.Werkbank.Saldo.Services;
 
 /// <summary>
 /// Ruft Belege direkt vom Recepta-Dienst ab (service-to-service HTTP).
+/// Filtert nach PaidDate (Zufluss-/Abflussprinzip für EÜR).
 /// </summary>
 public class ReceptaDataService : IReceptaDataService
 {
@@ -21,7 +22,8 @@ public class ReceptaDataService : IReceptaDataService
     {
         try
         {
-            var url = $"/api/recepta/documents?from={von:yyyy-MM-dd}&to={bis:yyyy-MM-dd}";
+            // Zufluss-/Abflussprinzip: Filter nach PaidDate, nicht InvoiceDate
+            var url = $"/api/recepta/documents?status=Paid&paidFrom={von:yyyy-MM-dd}&paidTo={bis:yyyy-MM-dd}";
             var response = await _httpClient.GetAsync(url);
             if (!response.IsSuccessStatusCode)
             {

@@ -103,13 +103,30 @@ public partial class Details
         }
     }
 
-    private async Task MarkAsPaid()
+    private bool _markAsPaidOpen = false;
+    private DateTime? _paidDateInput = DateTime.Today;
+
+    private void OpenMarkAsPaidDialog()
+    {
+        _paidDateInput = DateTime.Today;
+        _markAsPaidOpen = true;
+    }
+
+    private void CloseMarkAsPaidDialog()
+    {
+        _markAsPaidOpen = false;
+    }
+
+    private async Task ConfirmMarkAsPaid()
     {
         if (_invoice == null) return;
 
+        var paidDate = (_paidDateInput ?? DateTime.Today).Date;
+        _markAsPaidOpen = false;
+
         try
         {
-            await InvoiceService.MarkAsPaidAsync(_invoice.Id);
+            await InvoiceService.MarkAsPaidAsync(_invoice.Id, paidDate);
             Snackbar.Add($"Faktura {_invoice.InvoiceNumber} wurde als beglichen markiert.", Severity.Success);
             await LoadInvoice();
         }

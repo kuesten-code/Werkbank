@@ -35,9 +35,9 @@ public interface IDocumentService
     Task<DocumentDto> UpdateAsync(Guid id, UpdateDocumentDto dto);
 
     /// <summary>
-    /// Ändert den Status eines Belegs.
+    /// Ändert den Status eines Belegs. Bei Übergang zu "Paid" kann ein Zahlungsdatum übergeben werden.
     /// </summary>
-    Task ChangeStatusAsync(Guid id, DocumentStatus newStatus);
+    Task ChangeStatusAsync(Guid id, DocumentStatus newStatus, DateOnly? paidDate = null);
 
     /// <summary>
     /// Triggert den Lerneffekt: Lernt Patterns aus den aktuellen Beleg-Daten.

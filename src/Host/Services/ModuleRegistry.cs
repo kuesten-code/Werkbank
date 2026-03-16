@@ -7,6 +7,12 @@ public class ModuleRegistry : Kuestencode.Shared.Contracts.Navigation.IModuleReg
     private readonly List<ModuleInfoDto> _modules = [];
     private readonly object _lock = new();
 
+    /// <summary>
+    /// Fired whenever a module is registered or unregistered.
+    /// NavMenu subscribes to this to refresh the navigation without a page reload.
+    /// </summary>
+    public event Action? OnChanged;
+
     public void RegisterModule(ModuleInfoDto moduleInfo)
     {
         lock (_lock)
@@ -20,6 +26,8 @@ public class ModuleRegistry : Kuestencode.Shared.Contracts.Navigation.IModuleReg
 
             _modules.Add(moduleInfo);
         }
+
+        OnChanged?.Invoke();
     }
 
     public void UnregisterModule(string moduleName)
@@ -32,6 +40,8 @@ public class ModuleRegistry : Kuestencode.Shared.Contracts.Navigation.IModuleReg
                 _modules.Remove(existing);
             }
         }
+
+        OnChanged?.Invoke();
     }
 
     public List<ModuleInfoDto> GetAllModules()

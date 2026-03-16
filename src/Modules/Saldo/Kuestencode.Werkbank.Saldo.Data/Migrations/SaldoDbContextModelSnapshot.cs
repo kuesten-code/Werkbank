@@ -153,6 +153,47 @@ namespace Kuestencode.Werkbank.Saldo.Data.Migrations
                     b.ToTable("Konten", "saldo");
                 });
 
+            modelBuilder.Entity("Kuestencode.Werkbank.Saldo.Domain.Entities.KontoMappingOverride", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Kategorie")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
+
+                    b.Property<string>("KontoNummer")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)");
+
+                    b.Property<string>("Kontenrahmen")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Kontenrahmen", "Kategorie")
+                        .IsUnique();
+
+                    b.HasIndex("Kontenrahmen", "KontoNummer");
+
+                    b.ToTable("KontoMappingOverrides", "saldo");
+                });
+
             modelBuilder.Entity("Kuestencode.Werkbank.Saldo.Domain.Entities.SaldoSettings", b =>
                 {
                     b.Property<Guid>("Id")
@@ -201,6 +242,7 @@ namespace Kuestencode.Werkbank.Saldo.Data.Migrations
 
                     b.Navigation("Konto");
                 });
+
 
             modelBuilder.Entity("Kuestencode.Werkbank.Saldo.Domain.Entities.Konto", b =>
                 {

@@ -25,6 +25,7 @@ public class SaldoDbContext : DbContext
     public DbSet<SaldoSettings> SaldoSettings { get; set; } = null!;
     public DbSet<Konto> Konten { get; set; } = null!;
     public DbSet<KategorieKontoMapping> KategorieKontoMappings { get; set; } = null!;
+    public DbSet<KontoMappingOverride> KontoMappingOverrides { get; set; } = null!;
     public DbSet<ExportLog> ExportLogs { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -74,6 +75,18 @@ public class SaldoDbContext : DbContext
                 .HasForeignKey(e => new { e.Kontenrahmen, e.KontoNummer })
                 .HasPrincipalKey(k => new { k.Kontenrahmen, k.KontoNummer })
                 .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        // KontoMappingOverride
+        modelBuilder.Entity<KontoMappingOverride>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => new { e.Kontenrahmen, e.Kategorie }).IsUnique();
+            entity.Property(e => e.Kontenrahmen).HasMaxLength(10).IsRequired();
+            entity.Property(e => e.Kategorie).HasMaxLength(30).IsRequired();
+            entity.Property(e => e.KontoNummer).HasMaxLength(10).IsRequired();
+            entity.Property(e => e.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
+            entity.Property(e => e.UpdatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
         });
 
         // ExportLog

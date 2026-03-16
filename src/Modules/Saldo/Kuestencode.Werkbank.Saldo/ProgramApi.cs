@@ -5,7 +5,9 @@ using Kuestencode.Shared.Contracts.Host;
 using Kuestencode.Shared.Contracts.Navigation;
 using Kuestencode.Shared.UI.Extensions;
 using Kuestencode.Werkbank.Saldo.Services;
+using Microsoft.AspNetCore.DataProtection;
 using MudBlazor.Services;
+using QuestPDF.Infrastructure;
 
 namespace Kuestencode.Werkbank.Saldo;
 
@@ -16,6 +18,8 @@ public class ProgramApi
 {
     public static async Task Main(string[] args)
     {
+        QuestPDF.Settings.License = LicenseType.Community;
+
         var culture = new CultureInfo("de-DE");
         CultureInfo.DefaultThreadCurrentCulture = culture;
         CultureInfo.DefaultThreadCurrentUICulture = culture;
@@ -53,6 +57,13 @@ public class ProgramApi
                 policy.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader());
         });
 
+        // Add Data Protection for password encryption
+        var keysDirectory = Path.Combine(builder.Environment.ContentRootPath, "data", "keys");
+        Directory.CreateDirectory(keysDirectory);
+        builder.Services.AddDataProtection()
+            .PersistKeysToFileSystem(new DirectoryInfo(keysDirectory))
+            .SetApplicationName("Kuestencode.Werkbank.Saldo");
+
         builder.Services.AddSingleton<IModuleRegistry, ApiModuleRegistry>();
         builder.Services.AddTransient<Kuestencode.Shared.UI.Handlers.AuthTokenDelegatingHandler>();
 
@@ -68,17 +79,25 @@ public class ProgramApi
         // Faktura API Client
         builder.Services.AddHttpClient<IFakturaApiClient, FakturaApiClient>(client =>
         {
-            var fakturaUrl = builder.Configuration.GetValue<string>("ServiceUrls:Faktura") ?? "http://localhost:8082";
+            var fakturaUrl = builder.Configuration.GetValue<string>("ServiceUrls:Faktura") ?? "http://localhost:8081";
             client.BaseAddress = new Uri(fakturaUrl);
             client.Timeout = TimeSpan.FromSeconds(30);
         });
 
-        // Recepta Data Service (HttpClient für service-to-service)
+        // Recepta Data Service (HttpClient für service-to-service, EÜR-Abfragen)
         builder.Services.AddHttpClient<IReceptaDataService, ReceptaDataService>(client =>
         {
             var receptaUrl = builder.Configuration.GetValue<string>("ServiceUrls:Recepta") ?? "http://localhost:8085";
             client.BaseAddress = new Uri(receptaUrl);
             client.Timeout = TimeSpan.FromSeconds(30);
+        });
+
+        // Recepta API Client (für Datei-Downloads im Belege-Export)
+        builder.Services.AddHttpClient<IReceptaApiClient, ReceptaApiClient>(client =>
+        {
+            var receptaUrl = builder.Configuration.GetValue<string>("ServiceUrls:Recepta") ?? "http://localhost:8085";
+            client.BaseAddress = new Uri(receptaUrl);
+            client.Timeout = TimeSpan.FromSeconds(60);
         });
 
         builder.Services.AddScoped<ICompanyService, ApiCompanyService>();
@@ -127,6 +146,7 @@ public class ProgramApi
         app.UseModuleHealthMonitor();
         app.UseRouting();
         app.UseAuthorization();
+        app.MapRazorPages();
         app.MapControllers();
         app.MapGet("/health", () => Results.Ok(new { status = "healthy", module = "Saldo" }));
         app.MapBlazorHub("/_blazor");
@@ -169,6 +189,14 @@ public class ProgramApi
                 },
                 new NavItemDto
                 {
+                    Label = "Buchungen",
+                    Href = "/saldo/buchungen",
+                    Icon = "",
+                    Type = NavItemType.Link,
+                    AllowedRoles = new List<UserRole> { UserRole.Buero, UserRole.Admin }
+                },
+                new NavItemDto
+                {
                     Label = "EÜR",
                     Href = "/saldo/euer",
                     Icon = "",
@@ -177,18 +205,45 @@ public class ProgramApi
                 },
                 new NavItemDto
                 {
-                    Label = "Konten",
-                    Href = "/saldo/konten",
+                    Label = "USt-Übersicht",
+                    Href = "/saldo/ust",
                     Icon = "",
                     Type = NavItemType.Link,
+                    AllowedRoles = new List<UserRole> { UserRole.Buero, UserRole.Admin }
+                },
+                new NavItemDto
+                {
+                    Label = "Export-Historie",
+                    Href = "/saldo/export/historie",
+                    Icon = "",
+                    Type = NavItemType.Link,
+                    AllowedRoles = new List<UserRole> { UserRole.Buero, UserRole.Admin }
+                },
+                new NavItemDto
+                {
+                    Label = "Saldo Konten",
+                    Href = "/saldo/konten",
+                    Icon = "",
+                    Type = NavItemType.Settings,
+                    Category = NavSettingsCategory.Buchhaltung,
                     AllowedRoles = new List<UserRole> { UserRole.Admin }
                 },
                 new NavItemDto
                 {
-                    Label = "Einstellungen",
+                    Label = "Saldo Einstellungen",
                     Href = "/saldo/einstellungen",
                     Icon = "",
-                    Type = NavItemType.Link,
+                    Type = NavItemType.Settings,
+                    Category = NavSettingsCategory.Buchhaltung,
+                    AllowedRoles = new List<UserRole> { UserRole.Admin }
+                },
+                new NavItemDto
+                {
+                    Label = "Kategorie-Mapping",
+                    Href = "/saldo/einstellungen/mapping",
+                    Icon = "",
+                    Type = NavItemType.Settings,
+                    Category = NavSettingsCategory.Buchhaltung,
                     AllowedRoles = new List<UserRole> { UserRole.Admin }
                 }
             }

@@ -12,6 +12,7 @@ public class DocumentDto
     public string InvoiceNumber { get; set; } = string.Empty;
     public DateOnly InvoiceDate { get; set; }
     public DateOnly? DueDate { get; set; }
+    public DateOnly? PaidDate { get; set; }
     public decimal AmountNet { get; set; }
     public decimal TaxRate { get; set; }
     public decimal AmountTax { get; set; }
@@ -72,6 +73,10 @@ public class UpdateDocumentRequest
 public class ChangeDocumentStatusRequest
 {
     public string NewStatus { get; set; } = string.Empty;
+    /// <summary>
+    /// Zahlungsdatum – pflichtmäßig wenn NewStatus == "Paid".
+    /// </summary>
+    public DateOnly? PaidDate { get; set; }
 }
 
 public class MarkDocumentsAttachedRequest
