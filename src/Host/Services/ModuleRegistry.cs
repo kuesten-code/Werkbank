@@ -5,6 +5,7 @@ namespace Kuestencode.Werkbank.Host.Services;
 public class ModuleRegistry : Kuestencode.Shared.Contracts.Navigation.IModuleRegistry
 {
     private readonly List<ModuleInfoDto> _modules = [];
+    private readonly HashSet<string> _offlineModules = [];
     private readonly object _lock = new();
 
     /// <summary>
@@ -17,14 +18,12 @@ public class ModuleRegistry : Kuestencode.Shared.Contracts.Navigation.IModuleReg
     {
         lock (_lock)
         {
-            // Remove existing module with same name
             var existing = _modules.FirstOrDefault(m => m.ModuleName == moduleInfo.ModuleName);
             if (existing != null)
-            {
                 _modules.Remove(existing);
-            }
 
             _modules.Add(moduleInfo);
+            _offlineModules.Remove(moduleInfo.ModuleName);
         }
 
         OnChanged?.Invoke();
@@ -34,21 +33,36 @@ public class ModuleRegistry : Kuestencode.Shared.Contracts.Navigation.IModuleReg
     {
         lock (_lock)
         {
-            var existing = _modules.FirstOrDefault(m => m.ModuleName == moduleName);
-            if (existing != null)
-            {
-                _modules.Remove(existing);
-            }
+            // Keep the module info but mark it offline so the UI can show it as unreachable
+            if (_modules.Any(m => m.ModuleName == moduleName))
+                _offlineModules.Add(moduleName);
         }
 
         OnChanged?.Invoke();
     }
 
+    /// <summary>
+    /// Returns only online modules (used by NavMenu / navigation).
+    /// </summary>
     public List<ModuleInfoDto> GetAllModules()
     {
         lock (_lock)
         {
-            return _modules.ToList();
+            return _modules.Where(m => !_offlineModules.Contains(m.ModuleName)).ToList();
+        }
+    }
+
+    /// <summary>
+    /// Returns all modules that have ever registered, with their online state.
+    /// Used by the Systemstatus panel.
+    /// </summary>
+    public List<(ModuleInfoDto Module, bool IsOnline)> GetAllModulesWithStatus()
+    {
+        lock (_lock)
+        {
+            return _modules
+                .Select(m => (m, !_offlineModules.Contains(m.ModuleName)))
+                .ToList();
         }
     }
 

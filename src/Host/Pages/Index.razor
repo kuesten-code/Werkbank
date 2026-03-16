@@ -36,7 +36,67 @@
     </MudItem>
 </MudGrid>
 
-<MudText Typo="Typo.h5" Class="mt-6 mb-3">Module</MudText>
+<MudText Typo="Typo.h5" Class="mt-6 mb-3">Systemstatus</MudText>
+
+<MudPaper Class="pa-4 mb-4" Elevation="1">
+    @if (_loadingStatus)
+    {
+        <MudProgressLinear Color="Color.Primary" Indeterminate="true" Class="my-2" />
+    }
+    else
+    {
+        <MudGrid Spacing="4">
+            @* Config checks *@
+            <MudItem xs="12" md="6">
+                <MudText Typo="Typo.subtitle2" Color="Color.Secondary" Class="mb-2">Konfiguration</MudText>
+                <MudStack Spacing="2">
+                    @foreach (var item in _configItems)
+                    {
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2"
+                                  Style="@(item.NavigateTo != null ? "cursor:pointer;" : "")"
+                                  @onclick="@(() => { if (item.NavigateTo != null) NavigationManager.NavigateTo(item.NavigateTo); })">
+                            <MudIcon Icon="@Icons.Material.Filled.Circle"
+                                     Color="@(item.IsHealthy ? Color.Success : Color.Warning)"
+                                     Size="Size.Small" />
+                            <MudStack Spacing="0">
+                                <MudText Typo="Typo.body2">@item.Name</MudText>
+                                @if (!item.IsHealthy && item.DetailMessage != null)
+                                {
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary">@item.DetailMessage</MudText>
+                                }
+                            </MudStack>
+                        </MudStack>
+                    }
+                </MudStack>
+            </MudItem>
+
+            @* Module online status *@
+            @if (_moduleStatus.Count > 0)
+            {
+                <MudItem xs="12" md="6">
+                    <MudText Typo="Typo.subtitle2" Color="Color.Secondary" Class="mb-2">Module</MudText>
+                    <MudStack Spacing="2">
+                        @foreach (var (name, online) in _moduleStatus)
+                        {
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                                <MudIcon Icon="@Icons.Material.Filled.Circle"
+                                         Color="@(online ? Color.Success : Color.Error)"
+                                         Size="Size.Small" />
+                                <MudText Typo="Typo.body2">@name</MudText>
+                                @if (!online)
+                                {
+                                    <MudText Typo="Typo.caption" Color="Color.Error">Nicht erreichbar</MudText>
+                                }
+                            </MudStack>
+                        }
+                    </MudStack>
+                </MudItem>
+            }
+        </MudGrid>
+    }
+</MudPaper>
+
+<MudText Typo="Typo.h5" Class="mt-2 mb-3">Module</MudText>
 
 @if (!_modules.Any())
 {

@@ -109,7 +109,8 @@
 
     protected override async Task OnInitializedAsync()
     {
-        await Task.WhenAll(LoadKontenAsync(), LoadMappingsAsync());
+        await LoadKontenAsync();
+        await LoadMappingsAsync();
     }
 
     private async Task LoadKontenAsync()

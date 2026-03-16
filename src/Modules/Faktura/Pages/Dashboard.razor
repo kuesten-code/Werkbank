@@ -12,91 +12,6 @@
 <MudContainer MaxWidth="MaxWidth.Large" Class="mt-4" @key="@_refreshKey">
     <MudText Typo="Typo.h4" GutterBottom="true">Übersicht</MudText>
 
-    <!-- Systemstatus Block -->
-    <MudPaper Class="pa-4 mt-4" Elevation="1">
-        <MudText Typo="Typo.h6" GutterBottom="true">Systemstatus</MudText>
-
-        @if (_loadingHealth)
-        {
-            <MudProgressLinear Color="Color.Primary" Indeterminate="true" Class="my-2" />
-        }
-        else if (_healthError)
-        {
-            <MudAlert Severity="Severity.Info" Dense="true">
-                Systemstatus konnte nicht geladen werden.
-            </MudAlert>
-        }
-        else
-        {
-            <MudStack Spacing="3">
-                @foreach (var health in _healthItems)
-                {
-                    @if (health.Name == "E-Mail-Versand" || health.Name == "Firmenstammdaten")
-                    {
-                        var targetUrl = health.Name == "E-Mail-Versand" ? "/settings/email" : "/settings/company";
-                        <MudPaper Elevation="0" Style="cursor: pointer; padding: 0; transition: background-color 0.2s;"
-                                 @onclick="@(() => NavigationManager.NavigateTo(targetUrl))">
-                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="hover-highlight">
-                                <MudIcon Icon="@Icons.Material.Filled.Circle"
-                                        Color="@(health.IsHealthy ? Color.Success : Color.Warning)"
-                                        Size="Size.Small" />
-                                <MudStack Spacing="0" Style="flex: 1;">
-                                    <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
-                                        <MudText Typo="Typo.body1" Class="health-link">@health.Name</MudText>
-                                        
-                                    </MudStack>
-                                    @if (health.CheckedAt.HasValue)
-                                    {
-                                        <MudText Typo="Typo.caption" Color="Color.Secondary">
-                                            Letzte Prüfung: @health.CheckedAt.Value.ToString("HH:mm")
-                                        </MudText>
-                                    }
-                                    @if (!health.IsHealthy && !string.IsNullOrEmpty(health.DetailMessage))
-                                    {
-                                        <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mt-1">
-                                            @health.DetailMessage
-                                        </MudText>
-                                    }
-                                </MudStack>
-                            </MudStack>
-                        </MudPaper>
-                    }
-                    else
-                    {
-                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-                            <MudIcon Icon="@Icons.Material.Filled.Circle"
-                                    Color="@(health.IsHealthy ? Color.Success : Color.Error)"
-                                    Size="Size.Small" />
-                            <MudStack Spacing="0" Style="flex: 1;">
-                                <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
-                                    <MudText Typo="Typo.body1">@health.Name</MudText>
-                                    @if (!health.IsHealthy)
-                                    {
-                                        <MudText Typo="Typo.body2" Color="Color.Error">
-                                            @health.StatusText
-                                        </MudText>
-                                    }
-                                </MudStack>
-                                @if (health.CheckedAt.HasValue)
-                                {
-                                    <MudText Typo="Typo.caption" Color="Color.Secondary">
-                                        Letzte Prüfung: @health.CheckedAt.Value.ToString("HH:mm")
-                                    </MudText>
-                                }
-                                @if (!health.IsHealthy && !string.IsNullOrEmpty(health.DetailMessage))
-                                {
-                                    <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mt-1">
-                                        @health.DetailMessage
-                                    </MudText>
-                                }
-                            </MudStack>
-                        </MudStack>
-                    }
-                }
-            </MudStack>
-        }
-    </MudPaper>
-
     <!-- Übersicht Block -->
     <MudPaper Class="pa-4 mt-4" Elevation="1">
         <MudText Typo="Typo.h6" GutterBottom="true">Übersicht</MudText>
@@ -215,14 +130,6 @@
 </MudContainer>
 
 <style>
-    .hover-highlight:hover {
-        background-color: rgba(0, 0, 0, 0.02);
-    }
-
-    .health-link:hover {
-        text-decoration: underline;
-    }
-
     .metric-card:hover {
         background-color: rgba(0, 0, 0, 0.02);
     }

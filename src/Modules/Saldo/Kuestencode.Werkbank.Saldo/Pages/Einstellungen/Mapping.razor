@@ -172,17 +172,11 @@
             var settings = await SettingsService.GetSettingsAsync();
             _kontenrahmen = settings?.Kontenrahmen ?? "SKR03";
 
-            var resolvedTask  = MappingService.GetResolvedMappingsAsync(_kontenrahmen);
-            var overridesTask = MappingService.GetOverridesAsync();
-            var kontenTask    = KontoService.GetKontenAsync(_kontenrahmen);
-
-            await Task.WhenAll(resolvedTask, overridesTask, kontenTask);
-
-            _resolved  = await resolvedTask;
-            _overrides = await overridesTask;
+            _resolved  = await MappingService.GetResolvedMappingsAsync(_kontenrahmen);
+            _overrides = await MappingService.GetOverridesAsync();
 
             // Nur Aufwands-Konten im Dropdown anbieten (Typ "Aufwand" oder Kontonummernbereich)
-            var alleKonten = await kontenTask;
+            var alleKonten = await KontoService.GetKontenAsync(_kontenrahmen);
             _ausgabenKonten = alleKonten
                 .Where(k => k.IsActive && (k.KontoTyp == "Aufwand" ||
                     (int.TryParse(k.KontoNummer, out var nr) &&

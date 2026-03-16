@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Text;
 using Kuestencode.Core.Interfaces;
 using Kuestencode.Shared.ApiClients;
 using Kuestencode.Shared.Contracts.Host;
@@ -18,6 +19,8 @@ public class ProgramApi
 {
     public static async Task Main(string[] args)
     {
+        Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+
         QuestPDF.Settings.License = LicenseType.Community;
 
         var culture = new CultureInfo("de-DE");
