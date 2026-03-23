@@ -5,30 +5,33 @@ namespace Kuestencode.Werkbank.Saldo.Data.Repositories;
 
 public class SaldoSettingsRepository : ISaldoSettingsRepository
 {
-    private readonly SaldoDbContext _context;
+    private readonly IDbContextFactory<SaldoDbContext> _factory;
 
-    public SaldoSettingsRepository(SaldoDbContext context)
+    public SaldoSettingsRepository(IDbContextFactory<SaldoDbContext> factory)
     {
-        _context = context;
+        _factory = factory;
     }
 
     public async Task<SaldoSettings?> GetAsync()
     {
-        return await _context.SaldoSettings.FirstOrDefaultAsync();
+        await using var ctx = await _factory.CreateDbContextAsync();
+        return await ctx.SaldoSettings.FirstOrDefaultAsync();
     }
 
     public async Task<SaldoSettings> CreateAsync(SaldoSettings settings)
     {
+        await using var ctx = await _factory.CreateDbContextAsync();
         settings.Id = Guid.NewGuid();
-        await _context.SaldoSettings.AddAsync(settings);
-        await _context.SaveChangesAsync();
+        await ctx.SaldoSettings.AddAsync(settings);
+        await ctx.SaveChangesAsync();
         return settings;
     }
 
     public async Task<SaldoSettings> UpdateAsync(SaldoSettings settings)
     {
-        _context.SaldoSettings.Update(settings);
-        await _context.SaveChangesAsync();
+        await using var ctx = await _factory.CreateDbContextAsync();
+        ctx.SaldoSettings.Update(settings);
+        await ctx.SaveChangesAsync();
         return settings;
     }
 }

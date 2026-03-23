@@ -5,16 +5,17 @@ namespace Kuestencode.Werkbank.Saldo.Data.Repositories;
 
 public class KategorieKontoMappingRepository : IKategorieKontoMappingRepository
 {
-    private readonly SaldoDbContext _context;
+    private readonly IDbContextFactory<SaldoDbContext> _factory;
 
-    public KategorieKontoMappingRepository(SaldoDbContext context)
+    public KategorieKontoMappingRepository(IDbContextFactory<SaldoDbContext> factory)
     {
-        _context = context;
+        _factory = factory;
     }
 
     public async Task<List<KategorieKontoMapping>> GetAllAsync(string? kontenrahmen = null)
     {
-        var query = _context.KategorieKontoMappings
+        await using var ctx = await _factory.CreateDbContextAsync();
+        var query = ctx.KategorieKontoMappings
             .Include(m => m.Konto)
             .AsQueryable();
         if (!string.IsNullOrEmpty(kontenrahmen))
@@ -24,34 +25,39 @@ public class KategorieKontoMappingRepository : IKategorieKontoMappingRepository
 
     public async Task<KategorieKontoMapping?> GetByKategorieAsync(string kontenrahmen, string kategorieNamen)
     {
-        return await _context.KategorieKontoMappings
+        await using var ctx = await _factory.CreateDbContextAsync();
+        return await ctx.KategorieKontoMappings
             .Include(m => m.Konto)
             .FirstOrDefaultAsync(m => m.Kontenrahmen == kontenrahmen && m.ReceiptaKategorie == kategorieNamen);
     }
 
     public async Task<KategorieKontoMapping?> GetByIdAsync(Guid id)
     {
-        return await _context.KategorieKontoMappings
+        await using var ctx = await _factory.CreateDbContextAsync();
+        return await ctx.KategorieKontoMappings
             .Include(m => m.Konto)
             .FirstOrDefaultAsync(m => m.Id == id);
     }
 
     public async Task AddRangeAsync(IEnumerable<KategorieKontoMapping> mappings)
     {
-        await _context.KategorieKontoMappings.AddRangeAsync(mappings);
-        await _context.SaveChangesAsync();
+        await using var ctx = await _factory.CreateDbContextAsync();
+        await ctx.KategorieKontoMappings.AddRangeAsync(mappings);
+        await ctx.SaveChangesAsync();
     }
 
     public async Task<KategorieKontoMapping> UpdateAsync(KategorieKontoMapping mapping)
     {
-        _context.KategorieKontoMappings.Update(mapping);
-        await _context.SaveChangesAsync();
+        await using var ctx = await _factory.CreateDbContextAsync();
+        ctx.KategorieKontoMappings.Update(mapping);
+        await ctx.SaveChangesAsync();
         return mapping;
     }
 
     public async Task<bool> ExistsAsync(string kontenrahmen, string kategorieNamen)
     {
-        return await _context.KategorieKontoMappings
+        await using var ctx = await _factory.CreateDbContextAsync();
+        return await ctx.KategorieKontoMappings
             .AnyAsync(m => m.Kontenrahmen == kontenrahmen && m.ReceiptaKategorie == kategorieNamen);
     }
 }

@@ -245,4 +245,73 @@ public class KontoMappingServiceTests
 
         _overrideRepo.Verify(r => r.DeleteAsync("SKR03", kategorie), Times.Once);
     }
+
+    // ─── GetAlleKontenAsync ───────────────────────────────────────────────────
+
+    [Fact]
+    public async Task GetAlleKonten_GibtAlleKontenAlsDtoZurueck()
+    {
+        const string kontenrahmen = "SKR03";
+        _kontoRepo.Setup(r => r.GetByKontenrahmenAsync(kontenrahmen))
+            .ReturnsAsync(new List<Konto>
+            {
+                new() { Id = Guid.NewGuid(), Kontenrahmen = kontenrahmen, KontoNummer = "8400", KontoBezeichnung = "Erlöse 19%", KontoTyp = KontoTyp.Einnahme, UstSatz = 19, IsActive = true },
+                new() { Id = Guid.NewGuid(), Kontenrahmen = kontenrahmen, KontoNummer = "1200", KontoBezeichnung = "Bank",       KontoTyp = KontoTyp.Bank,     IsActive = true }
+            });
+
+        var service = CreateService();
+        var result = await service.GetAlleKontenAsync(kontenrahmen);
+
+        result.Should().HaveCount(2);
+        result[0].KontoNummer.Should().Be("8400");
+        result[0].KontoTyp.Should().Be("Einnahme");
+        result[0].UstSatz.Should().Be(19);
+        result[1].KontoNummer.Should().Be("1200");
+        result[1].KontoTyp.Should().Be("Bank");
+    }
+
+    [Fact]
+    public async Task GetAlleKonten_GibtLeereListeWennKeineKontenVorhanden()
+    {
+        _kontoRepo.Setup(r => r.GetByKontenrahmenAsync("SKR03")).ReturnsAsync(new List<Konto>());
+
+        var service = CreateService();
+        var result = await service.GetAlleKontenAsync("SKR03");
+
+        result.Should().BeEmpty();
+    }
+
+    // ─── GetOverridesAsync ────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task GetOverrides_GibtAlleOverridesAlsDtoZurueck()
+    {
+        SetupKontenrahmen("SKR03");
+        _overrideRepo.Setup(r => r.GetAllAsync("SKR03"))
+            .ReturnsAsync(new List<KontoMappingOverride>
+            {
+                new() { Id = Guid.NewGuid(), Kontenrahmen = "SKR03", Kategorie = "Büromaterial", KontoNummer = "4950" },
+                new() { Id = Guid.NewGuid(), Kontenrahmen = "SKR03", Kategorie = "Reise",        KontoNummer = "4660" }
+            });
+
+        var service = CreateService();
+        var result = await service.GetOverridesAsync();
+
+        result.Should().HaveCount(2);
+        result[0].Kategorie.Should().Be("Büromaterial");
+        result[0].KontoNummer.Should().Be("4950");
+        result[1].Kategorie.Should().Be("Reise");
+    }
+
+    [Fact]
+    public async Task GetOverrides_GibtLeereListeWennKeineOverridesVorhanden()
+    {
+        SetupKontenrahmen("SKR03");
+        _overrideRepo.Setup(r => r.GetAllAsync("SKR03")).ReturnsAsync(new List<KontoMappingOverride>());
+
+        var service = CreateService();
+        var result = await service.GetOverridesAsync();
+
+        result.Should().BeEmpty();
+    }
 }

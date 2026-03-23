@@ -5,25 +5,27 @@ namespace Kuestencode.Werkbank.Saldo.Data.Repositories;
 
 public class ExportLogRepository : IExportLogRepository
 {
-    private readonly SaldoDbContext _context;
+    private readonly IDbContextFactory<SaldoDbContext> _factory;
 
-    public ExportLogRepository(SaldoDbContext context)
+    public ExportLogRepository(IDbContextFactory<SaldoDbContext> factory)
     {
-        _context = context;
+        _factory = factory;
     }
 
     public async Task<List<ExportLog>> GetAllAsync()
     {
-        return await _context.ExportLogs
+        await using var ctx = await _factory.CreateDbContextAsync();
+        return await ctx.ExportLogs
             .OrderByDescending(e => e.ExportedAt)
             .ToListAsync();
     }
 
     public async Task<ExportLog> AddAsync(ExportLog log)
     {
+        await using var ctx = await _factory.CreateDbContextAsync();
         log.Id = Guid.NewGuid();
-        await _context.ExportLogs.AddAsync(log);
-        await _context.SaveChangesAsync();
+        await ctx.ExportLogs.AddAsync(log);
+        await ctx.SaveChangesAsync();
         return log;
     }
 }

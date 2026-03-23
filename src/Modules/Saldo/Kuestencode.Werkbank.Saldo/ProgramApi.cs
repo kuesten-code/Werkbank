@@ -41,6 +41,7 @@ public class ProgramApi
             Kuestencode.Shared.UI.Auth.PassThroughAuthStateProvider>();
 
         builder.Services.AddMudServices();
+        builder.Services.AddSingleton<MudBlazor.MudLocalizer, Kuestencode.Shared.UI.GermanMudLocalizer>();
 
         builder.Services.AddControllers();
         builder.Services.AddEndpointsApiExplorer();

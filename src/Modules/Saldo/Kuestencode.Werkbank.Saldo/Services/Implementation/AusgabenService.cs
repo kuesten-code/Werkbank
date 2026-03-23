@@ -38,6 +38,8 @@ public class AusgabenService : IAusgabenService
         var mappings = await _mappingRepo.GetAllAsync(kontenrahmen);
         var konten = await _kontoRepo.GetByKontenrahmenAsync(kontenrahmen);
 
+        var fallbackKonto = kontenrahmen == "SKR04" ? "4900" : "4980";
+
         var buchungen = new List<BuchungDto>();
         foreach (var doc in docs)
         {
@@ -60,7 +62,7 @@ public class AusgabenService : IAusgabenService
                 Brutto = doc.AmountGross,
                 UstSatz = doc.TaxRate,
                 Kategorie = doc.Category,
-                KontoNummer = konto?.KontoNummer ?? mapping?.KontoNummer ?? "4980",
+                KontoNummer = konto?.KontoNummer ?? mapping?.KontoNummer ?? fallbackKonto,
                 KontoBezeichnung = konto?.KontoBezeichnung ?? doc.Category,
                 Typ = BuchungsTyp.Ausgabe
             });

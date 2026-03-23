@@ -5,17 +5,17 @@ namespace Kuestencode.Werkbank.Saldo.Data.Repositories;
 
 public class KontoMappingOverrideRepository : IKontoMappingOverrideRepository
 {
-    private readonly SaldoDbContext _context;
+    private readonly IDbContextFactory<SaldoDbContext> _factory;
 
-    public KontoMappingOverrideRepository(SaldoDbContext context)
+    public KontoMappingOverrideRepository(IDbContextFactory<SaldoDbContext> factory)
     {
-        _context = context;
+        _factory = factory;
     }
 
     public async Task<List<KontoMappingOverride>> GetAllAsync(string kontenrahmen)
     {
-        return await _context.KontoMappingOverrides
-
+        await using var ctx = await _factory.CreateDbContextAsync();
+        return await ctx.KontoMappingOverrides
             .Where(o => o.Kontenrahmen == kontenrahmen)
             .OrderBy(o => o.Kategorie)
             .ToListAsync();
@@ -23,25 +23,23 @@ public class KontoMappingOverrideRepository : IKontoMappingOverrideRepository
 
     public async Task<KontoMappingOverride?> GetByKategorieAsync(string kontenrahmen, string kategorie)
     {
-        return await _context.KontoMappingOverrides
-
+        await using var ctx = await _factory.CreateDbContextAsync();
+        return await ctx.KontoMappingOverrides
             .FirstOrDefaultAsync(o => o.Kontenrahmen == kontenrahmen && o.Kategorie == kategorie);
     }
 
     public async Task<KontoMappingOverride> UpsertAsync(string kontenrahmen, string kategorie, string kontoNummer)
     {
-        var existing = await _context.KontoMappingOverrides
+        await using var ctx = await _factory.CreateDbContextAsync();
+        var existing = await ctx.KontoMappingOverrides
             .FirstOrDefaultAsync(o => o.Kontenrahmen == kontenrahmen && o.Kategorie == kategorie);
 
         if (existing != null)
         {
             existing.KontoNummer = kontoNummer;
-            _context.KontoMappingOverrides.Update(existing);
-            await _context.SaveChangesAsync();
-
-            return await _context.KontoMappingOverrides
-    
-                .FirstAsync(o => o.Id == existing.Id);
+            ctx.KontoMappingOverrides.Update(existing);
+            await ctx.SaveChangesAsync();
+            return existing;
         }
 
         var newOverride = new KontoMappingOverride
@@ -52,23 +50,21 @@ public class KontoMappingOverrideRepository : IKontoMappingOverrideRepository
             KontoNummer = kontoNummer
         };
 
-        _context.KontoMappingOverrides.Add(newOverride);
-        await _context.SaveChangesAsync();
-
-        return await _context.KontoMappingOverrides
-
-            .FirstAsync(o => o.Id == newOverride.Id);
+        ctx.KontoMappingOverrides.Add(newOverride);
+        await ctx.SaveChangesAsync();
+        return newOverride;
     }
 
     public async Task DeleteAsync(string kontenrahmen, string kategorie)
     {
-        var existing = await _context.KontoMappingOverrides
+        await using var ctx = await _factory.CreateDbContextAsync();
+        var existing = await ctx.KontoMappingOverrides
             .FirstOrDefaultAsync(o => o.Kontenrahmen == kontenrahmen && o.Kategorie == kategorie);
 
         if (existing != null)
         {
-            _context.KontoMappingOverrides.Remove(existing);
-            await _context.SaveChangesAsync();
+            ctx.KontoMappingOverrides.Remove(existing);
+            await ctx.SaveChangesAsync();
         }
     }
 }

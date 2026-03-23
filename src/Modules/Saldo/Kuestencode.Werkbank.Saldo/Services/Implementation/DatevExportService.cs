@@ -19,6 +19,11 @@ namespace Kuestencode.Werkbank.Saldo.Services;
 /// </summary>
 public class DatevExportService : IDatevExportService
 {
+    static DatevExportService()
+    {
+        Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+    }
+
     // DATEV EXTF-Versionsnummern
     private const int DatevFormatKennzeichen = 700;
     private const int DatevVersionsnummer = 21;

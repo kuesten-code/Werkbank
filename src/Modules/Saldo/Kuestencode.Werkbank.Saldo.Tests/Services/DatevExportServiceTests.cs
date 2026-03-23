@@ -1,5 +1,6 @@
 using FluentAssertions;
 using Kuestencode.Shared.ApiClients;
+using Kuestencode.Shared.Contracts.Faktura;
 using Kuestencode.Werkbank.Saldo.Data.Repositories;
 using Kuestencode.Werkbank.Saldo.Domain.Dtos;
 using Kuestencode.Werkbank.Saldo.Domain.Entities;
@@ -40,7 +41,7 @@ public class DatevExportServiceTests
                 MandantenNummer = "67890"
             });
         _kontoMappingService.Setup(s => s.GetBankKontoAsync()).ReturnsAsync("1200");
-        _exportLogRepo.Setup(r => r.AddAsync(It.IsAny<ExportLog>())).Returns(Task.CompletedTask);
+        _exportLogRepo.Setup(r => r.AddAsync(It.IsAny<ExportLog>())).ReturnsAsync(new ExportLog());
     }
 
     // ─── Encoding ────────────────────────────────────────────────────────────
@@ -313,5 +314,119 @@ public class DatevExportServiceTests
         var text = Encoding.GetEncoding(1252).GetString(result);
         text.Should().Contain("1234,56");  // Komma, kein Punkt
         text.Should().NotContain("1234.56");
+    }
+
+    // ─── Export-Historie ─────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task GetLetztenExport_GibtNullZurueckWennKeineExports()
+    {
+        _exportLogRepo.Setup(r => r.GetAllAsync()).ReturnsAsync(new List<ExportLog>());
+
+        var service = CreateService();
+        var result = await service.GetLetztenExportAsync();
+
+        result.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task GetLetztenExport_GibtErstenEintragZurueck()
+    {
+        var exportedAt = new DateTime(2026, 3, 15, 10, 0, 0);
+        _exportLogRepo.Setup(r => r.GetAllAsync())
+            .ReturnsAsync(new List<ExportLog>
+            {
+                new()
+                {
+                    Id = Guid.NewGuid(),
+                    ExportTyp = ExportTyp.DatevBuchungsstapel,
+                    ZeitraumVon = Von,
+                    ZeitraumBis = Bis,
+                    AnzahlBuchungen = 5,
+                    DateiName = "DATEV_Buchungsstapel_20260101_20261231.csv",
+                    DateiGroesse = 1024,
+                    ExportedAt = exportedAt
+                }
+            });
+
+        var service = CreateService();
+        var result = await service.GetLetztenExportAsync();
+
+        result.Should().NotBeNull();
+        result!.ExportTyp.Should().Be("DatevBuchungsstapel");
+        result.ZeitraumVon.Should().Be(Von);
+        result.ZeitraumBis.Should().Be(Bis);
+        result.AnzahlBuchungen.Should().Be(5);
+        result.DateiName.Should().Be("DATEV_Buchungsstapel_20260101_20261231.csv");
+        result.ExportedAt.Should().Be(exportedAt);
+    }
+
+    [Fact]
+    public async Task GetExportHistorie_GibtAlleExportsAlsDtoZurueck()
+    {
+        _exportLogRepo.Setup(r => r.GetAllAsync())
+            .ReturnsAsync(new List<ExportLog>
+            {
+                new() { ExportTyp = ExportTyp.DatevBuchungsstapel, DateiName = "a.csv", ZeitraumVon = Von, ZeitraumBis = Bis },
+                new() { ExportTyp = ExportTyp.DatevBelege,         DateiName = "b.zip", ZeitraumVon = Von, ZeitraumBis = Bis }
+            });
+
+        var service = CreateService();
+        var result = await service.GetExportHistorieAsync();
+
+        result.Should().HaveCount(2);
+        result[0].ExportTyp.Should().Be("DatevBuchungsstapel");
+        result[1].ExportTyp.Should().Be("DatevBelege");
+    }
+
+    [Fact]
+    public async Task GetExportHistorie_GibtLeereListeZurueckWennKeineExports()
+    {
+        _exportLogRepo.Setup(r => r.GetAllAsync()).ReturnsAsync(new List<ExportLog>());
+
+        var service = CreateService();
+        var result = await service.GetExportHistorieAsync();
+
+        result.Should().BeEmpty();
+    }
+
+    // ─── ExportBelegeAsync ────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task ExportBelege_GibtGueltigesZipZurueck()
+    {
+        SetupBasicMocks();
+        _receptaDataService.Setup(s => s.GetDocumentsAsync(Von, Bis))
+            .ReturnsAsync(new List<Kuestencode.Shared.Contracts.Recepta.ReceptaDocumentDto>());
+        _fakturaClient.Setup(c => c.GetAllInvoicesAsync(It.IsAny<InvoiceFilterDto>()))
+            .ReturnsAsync(new List<BuchungDto>().Select(_ => new Kuestencode.Shared.Contracts.Faktura.InvoiceDto()).ToList());
+
+        var service = CreateService();
+        var result = await service.ExportBelegeAsync(Von, Bis);
+
+        result.Should().NotBeNull();
+        result.Length.Should().BeGreaterThan(0);
+        // ZIP beginnt mit PK-Header (50 4B)
+        result[0].Should().Be(0x50);
+        result[1].Should().Be(0x4B);
+    }
+
+    [Fact]
+    public async Task ExportBelege_LoggtExport()
+    {
+        SetupBasicMocks();
+        _receptaDataService.Setup(s => s.GetDocumentsAsync(Von, Bis))
+            .ReturnsAsync(new List<Kuestencode.Shared.Contracts.Recepta.ReceptaDocumentDto>());
+        _fakturaClient.Setup(c => c.GetAllInvoicesAsync(It.IsAny<InvoiceFilterDto>()))
+            .ReturnsAsync(new List<Kuestencode.Shared.Contracts.Faktura.InvoiceDto>());
+
+        var service = CreateService();
+        await service.ExportBelegeAsync(Von, Bis);
+
+        _exportLogRepo.Verify(r => r.AddAsync(It.Is<ExportLog>(log =>
+            log.ExportTyp == ExportTyp.DatevBelege &&
+            log.ZeitraumVon == Von &&
+            log.ZeitraumBis == Bis
+        )), Times.Once);
     }
 }

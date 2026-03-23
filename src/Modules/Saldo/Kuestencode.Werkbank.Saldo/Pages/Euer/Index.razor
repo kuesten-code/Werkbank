@@ -162,7 +162,8 @@
                 </MudTd>
                 <MudTd DataLabel="Bezeichnung">@context.KontoBezeichnung</MudTd>
                 <MudTd DataLabel="Gruppe">
-                    <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Success">
+                    <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Success"
+                             Style="max-width:130px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; display:inline-flex;">
                         @context.Gruppe
                     </MudChip>
                 </MudTd>
@@ -218,7 +219,8 @@
                 </MudTd>
                 <MudTd DataLabel="Bezeichnung">@context.KontoBezeichnung</MudTd>
                 <MudTd DataLabel="Gruppe">
-                    <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Default">
+                    <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Default"
+                             Style="max-width:130px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; display:inline-flex;">
                         @context.Gruppe
                     </MudChip>
                 </MudTd>
@@ -322,7 +324,7 @@
                 : new DateOnly(DateTime.Today.Year, 12, 31);
 
             var pdfBytes = await PdfReportService.GenerateEuerReportAsync(von, bis);
-            var fileName = $"EUER_{von:yyyy-MM-dd}_{bis:yyyy-MM-dd}.pdf";
+            var fileName = await PdfReportService.GetEuerReportFileNameAsync(von, bis);
             var base64 = Convert.ToBase64String(pdfBytes);
             await JS.InvokeVoidAsync("downloadFileFromBase64", fileName, "application/pdf", base64);
             Snackbar.Add("EÜR-PDF wurde heruntergeladen.", Severity.Success);

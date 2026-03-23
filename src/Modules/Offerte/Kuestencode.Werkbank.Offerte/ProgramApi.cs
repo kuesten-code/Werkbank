@@ -49,6 +49,7 @@ public class ProgramApi
 
         // Add MudBlazor
         builder.Services.AddMudServices();
+        builder.Services.AddSingleton<MudBlazor.MudLocalizer, Kuestencode.Shared.UI.GermanMudLocalizer>();
 
         // Add Controllers for API
         builder.Services.AddControllers();

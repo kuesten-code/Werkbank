@@ -27,6 +27,7 @@ builder.Services.AddControllers();
 
 // Add MudBlazor services
 builder.Services.AddMudServices();
+builder.Services.AddSingleton<MudBlazor.MudLocalizer, Kuestencode.Shared.UI.GermanMudLocalizer>();
 
 // Add Data Protection for password encryption
 var keysDirectory = Path.Combine(builder.Environment.ContentRootPath, "data", "keys");

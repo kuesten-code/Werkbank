@@ -1,4 +1,5 @@
 using FluentAssertions;
+using Kuestencode.Core.Interfaces;
 using Kuestencode.Shared.ApiClients;
 using Kuestencode.Shared.Contracts.Faktura;
 using Kuestencode.Shared.Contracts.Recepta;
@@ -20,13 +21,15 @@ public class EuerServiceTests
     private readonly Mock<IKategorieKontoMappingRepository> _mappingRepo = new();
     private readonly Mock<IKontoRepository> _kontoRepo = new();
     private readonly Mock<ISaldoSettingsRepository> _settingsRepo = new();
+    private readonly Mock<ICompanyService> _companyService = new();
 
     private static readonly DateOnly Von = new(2026, 1, 1);
     private static readonly DateOnly Bis = new(2026, 12, 31);
 
     private EuerService CreateService() =>
         new(_receptaData.Object, _fakturaClient.Object, _mappingRepo.Object,
-            _kontoRepo.Object, _settingsRepo.Object, NullLogger<EuerService>.Instance);
+            _kontoRepo.Object, _settingsRepo.Object, _companyService.Object,
+            NullLogger<EuerService>.Instance);
 
     private void SetupKontenrahmen(string kontenrahmen = "SKR03")
     {
