@@ -44,10 +44,11 @@ public class PdfReportService : IPdfReportService
         var primaryLight = MixWithWhite(primaryColor, 0.10);  // 10% opacity approximation
         var primaryMuted = MixWithWhite(primaryColor, 0.50);  // 50% opacity approximation
 
-        var firmaName    = company?.DisplayName ?? string.Empty;
-        var firmaAdresse = company != null ? $"{company.Address}, {company.PostalCode} {company.City}" : string.Empty;
-        var steuernummer = company?.TaxNumber ?? string.Empty;
-        var ustId        = company?.VatId ?? string.Empty;
+        var firmaName       = company?.DisplayName ?? string.Empty;
+        var firmaAdresse    = company != null ? $"{company.Address}, {company.PostalCode} {company.City}" : string.Empty;
+        var steuernummer    = company?.TaxNumber ?? string.Empty;
+        var ustId           = company?.VatId ?? string.Empty;
+        var geschaeftsfuehrer = company?.OwnerFullName ?? string.Empty;
         var logoBytes    = company?.LogoData;
         var zeitraum     = $"{von:dd.MM.yyyy} – {bis:dd.MM.yyyy}";
         var erstelltAm   = DateTime.Now;
@@ -102,6 +103,8 @@ public class PdfReportService : IPdfReportService
                         {
                             if (!string.IsNullOrEmpty(firmaName))
                                 InfoRow(info, "Firma", firmaName);
+                            if (!string.IsNullOrEmpty(geschaeftsfuehrer) && geschaeftsfuehrer != firmaName)
+                                InfoRow(info, "Inhaber / GF", geschaeftsfuehrer);
                             if (!string.IsNullOrEmpty(firmaAdresse))
                                 InfoRow(info, "Adresse", firmaAdresse);
                             if (!string.IsNullOrEmpty(steuernummer))
@@ -241,103 +244,11 @@ public class PdfReportService : IPdfReportService
                         col.Item().Text("Ausgaben nach Kategorie / Konto")
                             .FontSize(11).Bold().FontColor(primaryColor);
                         col.Item().PaddingTop(8)
-                            .Element(c => PositionenTabelle(c, summary.Ausgaben, ColorRed, primaryColor, primaryLight));
+                            .Element(c => PositionenTabelle(c, summary.Ausgaben, ColorRed, primaryColor, primaryLight, showAnteil: true));
                     });
                 });
             }
 
-            // ─── Letzte Seite: Ausgaben-Zusammenfassung nach Kategorie ──────────
-            if (summary.Ausgaben.Any())
-            {
-                container.Page(page =>
-                {
-                    ConfigurePage(page);
-                    page.Header().Element(c => PageHeader(c, "Ausgaben nach Kategorie", zeitraum, logoBytes, firmaName, primaryColor, primaryMuted));
-                    page.Footer().Element(PageFooter);
-
-                    page.Content().PaddingHorizontal(40).PaddingTop(20).Column(col =>
-                    {
-                        col.Item().Text("Zusammenfassung Betriebsausgaben")
-                            .FontSize(11).Bold().FontColor(primaryColor);
-                        col.Item().PaddingTop(8).Table(table =>
-                        {
-                            table.ColumnsDefinition(cols =>
-                            {
-                                cols.ConstantColumn(60);
-                                cols.RelativeColumn();
-                                cols.ConstantColumn(90);
-                                cols.ConstantColumn(50);
-                                cols.ConstantColumn(35);
-                            });
-
-                            table.Header(h =>
-                            {
-                                TableHeaderCell(h.Cell(), "Konto", primaryColor);
-                                TableHeaderCell(h.Cell(), "Bezeichnung", primaryColor);
-                                TableHeaderCell(h.Cell(), "Netto", primaryColor, true);
-                                TableHeaderCell(h.Cell(), "Anteil", primaryColor, true);
-                                TableHeaderCell(h.Cell(), "Bel.", primaryColor, true);
-                            });
-
-                            var totalAusgaben = summary.Ausgaben.Sum(p => p.BetragNetto);
-                            var alternating = false;
-                            foreach (var pos in summary.Ausgaben.OrderByDescending(p => p.BetragNetto))
-                            {
-                                var bg = alternating ? "#FFFFFF" : ColorGrayLight;
-                                alternating = !alternating;
-                                var anteil = totalAusgaben != 0
-                                    ? (pos.BetragNetto / totalAusgaben * 100).ToString("N1", _culture) + " %"
-                                    : "–";
-
-                                table.Cell().Background(bg).PaddingVertical(5).PaddingHorizontal(6)
-                                    .Text(pos.KontoNummer).FontSize(9).FontColor(ColorTextMuted);
-                                table.Cell().Background(bg).PaddingVertical(5).PaddingHorizontal(6)
-                                    .Text(pos.KontoBezeichnung).FontSize(9);
-                                table.Cell().Background(bg).PaddingVertical(5).PaddingHorizontal(6)
-                                    .AlignRight().Text(FormatEuro(pos.BetragNetto)).FontSize(9).FontColor(ColorRed);
-                                table.Cell().Background(bg).PaddingVertical(5).PaddingHorizontal(6)
-                                    .AlignRight().Text(anteil).FontSize(9).FontColor(ColorTextMuted);
-                                table.Cell().Background(bg).PaddingVertical(5).PaddingHorizontal(6)
-                                    .AlignRight().Text(pos.AnzahlBelege.ToString()).FontSize(9).FontColor(ColorTextMuted);
-                            }
-
-                            // Summenzeile
-                            table.Cell().ColumnSpan(2)
-                                .BorderTop(1).BorderColor(primaryColor)
-                                .PaddingVertical(6).PaddingHorizontal(6)
-                                .Text("Gesamt Betriebsausgaben").Bold().FontSize(10);
-                            table.Cell()
-                                .BorderTop(1).BorderColor(primaryColor)
-                                .PaddingVertical(6).PaddingHorizontal(6)
-                                .AlignRight().Text(FormatEuro(totalAusgaben)).Bold().FontSize(10).FontColor(ColorRed);
-                            table.Cell()
-                                .BorderTop(1).BorderColor(primaryColor)
-                                .PaddingVertical(6).PaddingHorizontal(6)
-                                .AlignRight().Text("100,0 %").Bold().FontSize(10).FontColor(ColorTextMuted);
-                            table.Cell()
-                                .BorderTop(1).BorderColor(primaryColor)
-                                .PaddingVertical(6);
-                        });
-
-                        // Ergebnis-Box
-                        col.Item().PaddingTop(30)
-                            .Background(summary.Ueberschuss >= 0 ? "#E8F5E9" : "#FFEBEE")
-                            .Border(1).BorderColor(summary.Ueberschuss >= 0 ? ColorGreen : ColorRed)
-                            .Padding(16).Row(row =>
-                            {
-                                row.RelativeItem().Text(
-                                    summary.Ueberschuss >= 0
-                                        ? "Gewinn (Einnahmen – Ausgaben Netto)"
-                                        : "Verlust (Ausgaben – Einnahmen Netto)")
-                                    .Bold().FontSize(12);
-                                row.ConstantItem(160).AlignRight()
-                                    .Text(FormatEuro(summary.Ueberschuss))
-                                    .Bold().FontSize(14)
-                                    .FontColor(summary.Ueberschuss >= 0 ? ColorGreen : ColorRed);
-                            });
-                    });
-                });
-            }
         });
 
         return document.GeneratePdf();
@@ -480,8 +391,10 @@ public class PdfReportService : IPdfReportService
     }
 
     private static void PositionenTabelle(IContainer container, List<EuerPositionDto> positionen,
-        string sumColor, string primaryColor, string primaryLight)
+        string sumColor, string primaryColor, string primaryLight, bool showAnteil = false)
     {
+        var totalNetto  = positionen.Sum(p => p.BetragNetto);
+
         container.Table(table =>
         {
             table.ColumnsDefinition(cols =>
@@ -491,6 +404,7 @@ public class PdfReportService : IPdfReportService
                 cols.ConstantColumn(90);
                 cols.ConstantColumn(80);
                 cols.ConstantColumn(90);
+                if (showAnteil) cols.ConstantColumn(48);
                 cols.ConstantColumn(30);
             });
 
@@ -501,6 +415,7 @@ public class PdfReportService : IPdfReportService
                 TableHeaderCell(h.Cell(), "Netto", primaryColor, true);
                 TableHeaderCell(h.Cell(), "MwSt", primaryColor, true);
                 TableHeaderCell(h.Cell(), "Brutto", primaryColor, true);
+                if (showAnteil) TableHeaderCell(h.Cell(), "Anteil", primaryColor, true);
                 TableHeaderCell(h.Cell(), "Bel.", primaryColor, true);
             });
 
@@ -525,11 +440,18 @@ public class PdfReportService : IPdfReportService
                     .AlignRight().Text(FormatEuro(pos.MwstBetrag)).FontSize(9).FontColor(ColorTextMuted);
                 table.Cell().Background(bg).PaddingVertical(5).PaddingHorizontal(6)
                     .AlignRight().Text(FormatEuro(pos.BetragBrutto)).FontSize(9);
+                if (showAnteil)
+                {
+                    var anteil = totalNetto != 0
+                        ? (pos.BetragNetto / totalNetto * 100).ToString("N1", _culture) + " %"
+                        : "–";
+                    table.Cell().Background(bg).PaddingVertical(5).PaddingHorizontal(6)
+                        .AlignRight().Text(anteil).FontSize(9).FontColor(ColorTextMuted);
+                }
                 table.Cell().Background(bg).PaddingVertical(5).PaddingHorizontal(6)
                     .AlignRight().Text(pos.AnzahlBelege.ToString()).FontSize(9).FontColor(ColorTextMuted);
             }
 
-            var totalNetto  = positionen.Sum(p => p.BetragNetto);
             var totalMwst   = positionen.Sum(p => p.MwstBetrag);
             var totalBrutto = positionen.Sum(p => p.BetragBrutto);
             var totalBelege = positionen.Sum(p => p.AnzahlBelege);
@@ -547,6 +469,11 @@ public class PdfReportService : IPdfReportService
             table.Cell().BorderTop(1).BorderColor(primaryColor)
                 .PaddingVertical(6).PaddingHorizontal(6)
                 .AlignRight().Text(FormatEuro(totalBrutto)).Bold().FontSize(10).FontColor(sumColor);
+            if (showAnteil)
+            {
+                table.Cell().BorderTop(1).BorderColor(primaryColor)
+                    .PaddingVertical(6).PaddingHorizontal(6);
+            }
             table.Cell().BorderTop(1).BorderColor(primaryColor)
                 .PaddingVertical(6).PaddingHorizontal(6)
                 .AlignRight().Text(totalBelege.ToString()).Bold().FontSize(10).FontColor(ColorTextMuted);

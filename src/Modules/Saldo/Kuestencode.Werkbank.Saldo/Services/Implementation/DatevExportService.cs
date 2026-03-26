@@ -1,5 +1,6 @@
 using System.IO.Compression;
 using System.Text;
+using Kuestencode.Core.Interfaces;
 using Kuestencode.Shared.ApiClients;
 using Kuestencode.Shared.Contracts.Faktura;
 using Kuestencode.Werkbank.Saldo.Data.Repositories;
@@ -37,6 +38,7 @@ public class DatevExportService : IDatevExportService
     private readonly IReceptaApiClient _receptaClient;
     private readonly IReceptaDataService _receptaDataService;
     private readonly IExportLogRepository _exportLogRepo;
+    private readonly ICompanyService _companyService;
     private readonly ILogger<DatevExportService> _logger;
 
     public DatevExportService(
@@ -47,6 +49,7 @@ public class DatevExportService : IDatevExportService
         IReceptaApiClient receptaClient,
         IReceptaDataService receptaDataService,
         IExportLogRepository exportLogRepo,
+        ICompanyService companyService,
         ILogger<DatevExportService> logger)
     {
         _saldoService = saldoService;
@@ -56,6 +59,7 @@ public class DatevExportService : IDatevExportService
         _receptaClient = receptaClient;
         _receptaDataService = receptaDataService;
         _exportLogRepo = exportLogRepo;
+        _companyService = companyService;
         _logger = logger;
     }
 
@@ -67,10 +71,14 @@ public class DatevExportService : IDatevExportService
         var buchungen = await _saldoService.GetAlleBuchungenAsync(von, bis);
         var bankKonto = await _kontoMappingService.GetBankKontoAsync();
 
+        string exportiertVon;
+        try { exportiertVon = (await _companyService.GetCompanyAsync())?.DisplayName ?? string.Empty; }
+        catch { exportiertVon = string.Empty; }
+
         var sb = new StringBuilder();
 
         // Zeile 1: DATEV-Header
-        sb.AppendLine(GenerateDatevHeader(settings, von, bis, buchungen.Count));
+        sb.AppendLine(GenerateDatevHeader(settings, von, bis, buchungen.Count, exportiertVon));
 
         // Zeile 2: Spaltenüberschriften
         sb.AppendLine("\"Umsatz\";\"Soll/Haben-Kennzeichen\";\"WKZ Umsatz\";\"Konto\";\"Gegenkonto\";\"BU-Schlüssel\";\"Belegdatum\";\"Belegfeld 1\";\"Buchungstext\"");
@@ -92,7 +100,7 @@ public class DatevExportService : IDatevExportService
         return Encoding.GetEncoding(1252).GetBytes(csv);
     }
 
-    private static string GenerateDatevHeader(SaldoSettings? settings, DateOnly von, DateOnly bis, int anzahlBuchungen)
+    private static string GenerateDatevHeader(SaldoSettings? settings, DateOnly von, DateOnly bis, int anzahlBuchungen, string exportiertVon)
     {
         // DATEV EXTF-Header (Zeile 1, 31 Felder)
         // Spezifikation: DATEV-Schnittstelle EXTF Buchungsstapel
@@ -112,7 +120,7 @@ public class DatevExportService : IDatevExportService
                $";{DatevFormatversion}" +
                $";\"{erstelltAm}\"" +
                ";;" +                                   // Importiert, Herkunft (leer)
-               "\"Kuestencode Werkbank\"" +             // Exported von
+               $"\"{exportiertVon}\"" +                 // Exportiert von (Firmenname)
                ";;" +                                   // Leer
                $";\"{beraterNr}\"" +
                $";\"{mandantenNr}\"" +

@@ -161,6 +161,22 @@ public class ProgramApi
             }
         }
 
+        // Demo-Seed (nur wenn DEMO_SEED=true)
+        var demoSeed = builder.Configuration.GetValue("DEMO_SEED", false);
+        if (demoSeed)
+        {
+            try
+            {
+                migrationLogger.LogInformation("Seeding Faktura demo data...");
+                await Kuestencode.Faktura.Data.DemoSeedData.SeedAsync(app.Services);
+                migrationLogger.LogInformation("Faktura demo data seeded successfully.");
+            }
+            catch (Exception ex)
+            {
+                migrationLogger.LogError(ex, "An error occurred while seeding Faktura demo data.");
+            }
+        }
+
         // Configure pipeline
         if (app.Environment.IsDevelopment())
         {

@@ -62,6 +62,7 @@ services:
       - ServiceUrls__Host=http://host:8080
       - ServiceUrls__Self=http://faktura:8081
       - APPLY_MIGRATIONS=true
+      - DEMO_SEED=true
     volumes:
       - ./data/keys:/app/data/keys
     depends_on:
@@ -162,6 +163,7 @@ services:
       - ServiceUrls__Host=http://host:8080
       - ServiceUrls__Self=http://recepta:8085
       - APPLY_MIGRATIONS=true
+      - DEMO_SEED=true
     volumes:
       - ./data/recepta:/app/data
       - ./data/keys:/app/data/keys

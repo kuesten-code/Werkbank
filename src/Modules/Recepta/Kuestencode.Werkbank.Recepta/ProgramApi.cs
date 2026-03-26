@@ -129,6 +129,22 @@ public class ProgramApi
             }
         }
 
+        // Demo-Seed (nur wenn DEMO_SEED=true)
+        var demoSeed = builder.Configuration.GetValue("DEMO_SEED", false);
+        if (demoSeed)
+        {
+            try
+            {
+                migrationLogger.LogInformation("Seeding Recepta demo data...");
+                await Kuestencode.Werkbank.Recepta.Data.DemoSeedData.SeedAsync(app.Services);
+                migrationLogger.LogInformation("Recepta demo data seeded successfully.");
+            }
+            catch (Exception ex)
+            {
+                migrationLogger.LogError(ex, "An error occurred while seeding Recepta demo data.");
+            }
+        }
+
         // Configure pipeline
         if (app.Environment.IsDevelopment())
         {
