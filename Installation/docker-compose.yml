@@ -7,7 +7,7 @@ services:
     environment:
       POSTGRES_DB: kuestencode_werkbank
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: change_me
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     volumes:
       - ./data/postgres:/var/lib/postgresql/data
     restart: unless-stopped
@@ -23,33 +23,22 @@ services:
     image: kuestencode/host:latest
     container_name: kuestencode_host
     ports:
-      - "8080:8080"
+      - "${HOST_PORT:-8080}:8080"
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:8080
-      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=kuestencode_werkbank;Username=postgres;Password=change_me
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=kuestencode_werkbank;Username=postgres;Password=${POSTGRES_PASSWORD}
       - ServiceUrls__Faktura=http://faktura:8081
       - ServiceUrls__Rapport=http://rapport:8082
       - ServiceUrls__Offerte=http://offerte:8083
       - ServiceUrls__Acta=http://acta:8084
       - ServiceUrls__Recepta=http://recepta:8085
       - ServiceUrls__Saldo=http://saldo:8086
+      - Jwt__Secret=${JWT_SECRET}      
       - APPLY_MIGRATIONS=true
     depends_on:
       postgres:
         condition: service_healthy
-      faktura:
-        condition: service_started
-      rapport:
-        condition: service_started
-      offerte:
-        condition: service_started
-      acta:
-        condition: service_started
-      recepta:
-        condition: service_started
-      saldo:
-        condition: service_started
     restart: unless-stopped
     networks:
       - kuestencode_network
@@ -60,10 +49,9 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:8081
-      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=kuestencode_werkbank;Username=postgres;Password=change_me
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=kuestencode_werkbank;Username=postgres;Password=${POSTGRES_PASSWORD}
       - ServiceUrls__Host=http://host:8080
       - ServiceUrls__Self=http://faktura:8081
-      - MODULE_VERSION=2.1.0
       - APPLY_MIGRATIONS=true
     restart: unless-stopped
     depends_on:
@@ -78,10 +66,9 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:8082
-      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=kuestencode_werkbank;Username=postgres;Password=change_me
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=kuestencode_werkbank;Username=postgres;Password=${POSTGRES_PASSWORD}
       - ServiceUrls__Host=http://host:8080
       - ServiceUrls__Self=http://rapport:8082
-      - MODULE_VERSION=1.0.0
       - APPLY_MIGRATIONS=true
     restart: unless-stopped
     depends_on:
@@ -96,10 +83,9 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:8083
-      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=kuestencode_werkbank;Username=postgres;Password=change_me
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=kuestencode_werkbank;Username=postgres;Password=${POSTGRES_PASSWORD}
       - ServiceUrls__Host=http://host:8080
       - ServiceUrls__Self=http://offerte:8083
-      - MODULE_VERSION=1.0.0
       - APPLY_MIGRATIONS=true
     restart: unless-stopped
     depends_on:
@@ -114,10 +100,9 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:8084
-      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=kuestencode_werkbank;Username=postgres;Password=change_me
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=kuestencode_werkbank;Username=postgres;Password=${POSTGRES_PASSWORD}
       - ServiceUrls__Host=http://host:8080
       - ServiceUrls__Self=http://acta:8084
-      - MODULE_VERSION=1.0.0
       - APPLY_MIGRATIONS=true
     restart: unless-stopped
     depends_on:
@@ -132,10 +117,9 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:8085
-      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=kuestencode_werkbank;Username=postgres;Password=change_me
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=kuestencode_werkbank;Username=postgres;Password=${POSTGRES_PASSWORD}
       - ServiceUrls__Host=http://host:8080
       - ServiceUrls__Self=http://recepta:8085
-      - MODULE_VERSION=1.0.0
       - APPLY_MIGRATIONS=true
     restart: unless-stopped
     depends_on:
@@ -150,12 +134,11 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:8086
-      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=kuestencode_werkbank;Username=postgres;Password=change_me
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=kuestencode_werkbank;Username=postgres;Password=${POSTGRES_PASSWORD}
       - ServiceUrls__Host=http://host:8080
       - ServiceUrls__Self=http://saldo:8086
       - ServiceUrls__Faktura=http://faktura:8081
       - ServiceUrls__Recepta=http://recepta:8085
-      - MODULE_VERSION=1.0.0
       - APPLY_MIGRATIONS=true
     restart: unless-stopped
     depends_on:
