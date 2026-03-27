@@ -27,6 +27,7 @@ builder.Services.AddControllers();
 
 // Add MudBlazor services
 builder.Services.AddMudServices();
+builder.Services.AddSingleton<MudBlazor.MudLocalizer, Kuestencode.Shared.UI.GermanMudLocalizer>();
 
 // Add Data Protection for password encryption
 var keysDirectory = Path.Combine(builder.Environment.ContentRootPath, "data", "keys");
@@ -36,7 +37,8 @@ builder.Services.AddDataProtection()
     .SetApplicationName("Kuestencode.Werkbank");
 
 // Add Module Registry
-builder.Services.AddSingleton<IModuleRegistry, ModuleRegistry>();
+builder.Services.AddSingleton<ModuleRegistry>();
+builder.Services.AddSingleton<IModuleRegistry>(sp => sp.GetRequiredService<ModuleRegistry>());
 builder.Services.AddSingleton<IHostNavigationService, HostNavigationService>();
 
 // Add HttpClient factory for health checks
@@ -83,12 +85,14 @@ builder.Services.AddHttpClient<IReceptaApiClient, ReceptaApiClient>(client =>
     client.BaseAddress = new Uri(receptaUrl);
 });
 
-// Add YARP Reverse Proxy for Faktura, Rapport, and Offerte modules
+
+// Add YARP Reverse Proxy for all modules
 var fakturaServiceUrl = builder.Configuration.GetValue<string>("ServiceUrls:Faktura") ?? "http://localhost:8081";
 var rapportServiceUrl = builder.Configuration.GetValue<string>("ServiceUrls:Rapport") ?? "http://localhost:8082";
 var offerteServiceUrl = builder.Configuration.GetValue<string>("ServiceUrls:Offerte") ?? "http://localhost:8083";
-var actaServiceUrl = builder.Configuration.GetValue<string>("ServiceUrls:Acta") ?? "http://localhost:8084";
+var actaServiceUrl    = builder.Configuration.GetValue<string>("ServiceUrls:Acta")    ?? "http://localhost:8084";
 var receptaServiceUrl = builder.Configuration.GetValue<string>("ServiceUrls:Recepta") ?? "http://localhost:8085";
+var saldoServiceUrl   = builder.Configuration.GetValue<string>("ServiceUrls:Saldo")   ?? "http://localhost:8086";
 builder.Services.AddReverseProxy()
     .LoadFromMemory(
         routes: new[]
@@ -182,6 +186,24 @@ builder.Services.AddReverseProxy()
                 {
                     Path = "/_recepta/{**catch-all}"
                 }
+            },
+            new Yarp.ReverseProxy.Configuration.RouteConfig
+            {
+                RouteId = "saldo-route",
+                ClusterId = "saldo-cluster",
+                Match = new Yarp.ReverseProxy.Configuration.RouteMatch
+                {
+                    Path = "/saldo/{**catch-all}"
+                }
+            },
+            new Yarp.ReverseProxy.Configuration.RouteConfig
+            {
+                RouteId = "saldo-blazor-route",
+                ClusterId = "saldo-cluster",
+                Match = new Yarp.ReverseProxy.Configuration.RouteMatch
+                {
+                    Path = "/_saldo/{**catch-all}"
+                }
             }
         },
         clusters: new[]
@@ -224,6 +246,14 @@ builder.Services.AddReverseProxy()
                 Destinations = new Dictionary<string, Yarp.ReverseProxy.Configuration.DestinationConfig>
                 {
                     { "recepta", new Yarp.ReverseProxy.Configuration.DestinationConfig { Address = receptaServiceUrl } }
+                }
+            },
+            new Yarp.ReverseProxy.Configuration.ClusterConfig
+            {
+                ClusterId = "saldo-cluster",
+                Destinations = new Dictionary<string, Yarp.ReverseProxy.Configuration.DestinationConfig>
+                {
+                    { "saldo", new Yarp.ReverseProxy.Configuration.DestinationConfig { Address = saldoServiceUrl } }
                 }
             }
         });

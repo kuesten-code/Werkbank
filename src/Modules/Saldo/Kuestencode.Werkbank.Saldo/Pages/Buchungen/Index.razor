@@ -1,0 +1,236 @@
+@page "/buchungen"
+
+<PageTitle>Saldo - Buchungen</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4">
+
+    <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-4">
+        <MudText Typo="Typo.h4">Buchungen</MudText>
+        <MudText Typo="Typo.caption" Color="Color.Secondary">
+            Zahlungsdatum maßgeblich (Zufluss-/Abflussprinzip)
+        </MudText>
+    </MudStack>
+
+    @* Filter *@
+    <MudPaper Class="pa-4 mb-4" Elevation="1">
+        <MudGrid>
+            <MudItem xs="12" sm="4">
+                <MudDatePicker Label="Von" @bind-Date="_vonDate" DateFormat="dd.MM.yyyy"
+                               Variant="Variant.Outlined" />
+            </MudItem>
+            <MudItem xs="12" sm="4">
+                <MudDatePicker Label="Bis" @bind-Date="_bisDate" DateFormat="dd.MM.yyyy"
+                               Variant="Variant.Outlined" />
+            </MudItem>
+            <MudItem xs="12" sm="4" Style="display:flex; align-items:center;">
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true"
+                           StartIcon="@Icons.Material.Filled.Refresh"
+                           Style="height:56px;"
+                           OnClick="LoadAsync" Disabled="@_loading">
+                    Laden
+                </MudButton>
+            </MudItem>
+        </MudGrid>
+
+        <MudStack Row="true" Class="mt-3" Spacing="2" Wrap="Wrap.Wrap">
+            <MudTextField Value="_suchtext" ValueChanged="OnSuchtextChanged"
+                          Label="Suche (Belegnummer, Beschreibung)"
+                          Variant="Variant.Outlined" Dense="true"
+                          Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search"
+                          Clearable="true" Style="min-width: 260px;" T="string" />
+
+            <MudSelect Value="_typFilter" ValueChanged="OnTypFilterChanged"
+                       T="string" Label="Typ" Variant="Variant.Outlined"
+                       Dense="true" Style="max-width: 160px;" Clearable="true">
+                <MudSelectItem T="string" Value="@("Einnahme")">Einnahmen</MudSelectItem>
+                <MudSelectItem T="string" Value="@("Ausgabe")">Ausgaben</MudSelectItem>
+            </MudSelect>
+
+            @if (_kategorien.Count > 0)
+            {
+                <MudSelect Value="_kategorieFilter" ValueChanged="OnKategorieFilterChanged"
+                           T="string" Label="Kategorie"
+                           Variant="Variant.Outlined" Dense="true" Style="max-width: 200px;"
+                           Clearable="true">
+                    @foreach (var kat in _kategorien)
+                    {
+                        <MudSelectItem T="string" Value="@kat">@kat</MudSelectItem>
+                    }
+                </MudSelect>
+            }
+
+            <MudSpacer />
+
+            <MudButton Variant="Variant.Outlined" Color="Color.Default"
+                       StartIcon="@Icons.Material.Filled.Download"
+                       OnClick="ExportCsvAsync" Disabled="@(_gefiltert.Count == 0)">
+                Als CSV exportieren
+            </MudButton>
+        </MudStack>
+    </MudPaper>
+
+    @if (_loading)
+    {
+        <MudProgressLinear Color="Color.Primary" Indeterminate="true" Class="mb-2" />
+    }
+
+    @* Tabelle *@
+    <MudTable @ref="_table" Items="@_gefiltert" Dense="true" Hover="true" Elevation="1"
+              Loading="@_loading" LoadingProgressColor="Color.Primary"
+              SortLabel="Sortieren" AllowUnsorted="false"
+              OnRowClick="OnRowClick" RowClass="cursor-pointer"
+              T="BuchungDto">
+        <HeaderContent>
+            <MudTh>
+                <MudTableSortLabel InitialDirection="SortDirection.Descending"
+                                   SortBy="new Func<BuchungDto, object>(b => b.ZahlungsDatum)">
+                    Datum
+                </MudTableSortLabel>
+            </MudTh>
+            <MudTh>
+                <MudTableSortLabel SortBy="new Func<BuchungDto, object>(b => b.QuelleId)">
+                    Beleg
+                </MudTableSortLabel>
+            </MudTh>
+            <MudTh>
+                <MudTableSortLabel SortBy="new Func<BuchungDto, object>(b => b.Beschreibung)">
+                    Beschreibung
+                </MudTableSortLabel>
+            </MudTh>
+            <MudTh>Kategorie</MudTh>
+            <MudTh>Konto</MudTh>
+            <MudTh Style="text-align:right; color: #4caf50;">
+                <MudTableSortLabel SortBy="new Func<BuchungDto, object>(b => b.Typ == BuchungsTyp.Einnahme ? b.Brutto : 0m)">
+                    Einnahme
+                </MudTableSortLabel>
+            </MudTh>
+            <MudTh Style="text-align:right; color: #f44336;">
+                <MudTableSortLabel SortBy="new Func<BuchungDto, object>(b => b.Typ == BuchungsTyp.Ausgabe ? b.Brutto : 0m)">
+                    Ausgabe
+                </MudTableSortLabel>
+            </MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd DataLabel="Datum">
+                <MudText Typo="Typo.body2">@context.ZahlungsDatum.ToString("dd.MM.yyyy")</MudText>
+                @if (context.BelegDatum != context.ZahlungsDatum)
+                {
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">
+                        RE: @context.BelegDatum.ToString("dd.MM.yy")
+                    </MudText>
+                }
+            </MudTd>
+            <MudTd DataLabel="Beleg">
+                <MudStack Spacing="0">
+                    <MudText Typo="Typo.body2">@context.QuelleId</MudText>
+                    <MudChip T="string" Size="Size.Small" Variant="Variant.Text"
+                             Color="@(context.Quelle == "Faktura" ? Color.Primary : Color.Secondary)"
+                             Class="pa-0" Style="height: 18px; font-size: 0.7rem;">
+                        @context.Quelle
+                    </MudChip>
+                </MudStack>
+            </MudTd>
+            <MudTd DataLabel="Beschreibung">
+                <MudText Typo="Typo.body2"
+                         Style="max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"
+                         title="@context.Beschreibung">
+                    @context.Beschreibung
+                </MudText>
+            </MudTd>
+            <MudTd DataLabel="Kategorie">
+                @if (!string.IsNullOrEmpty(context.Kategorie))
+                {
+                    <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Default">
+                        @context.Kategorie
+                    </MudChip>
+                }
+                else
+                {
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">&#8211;</MudText>
+                }
+            </MudTd>
+            <MudTd DataLabel="Konto">
+                <MudText Typo="Typo.body2">@context.KontoNummer</MudText>
+                <MudText Typo="Typo.caption" Color="Color.Secondary"
+                         Style="max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"
+                         title="@context.KontoBezeichnung">
+                    @context.KontoBezeichnung
+                </MudText>
+            </MudTd>
+            <MudTd DataLabel="Einnahme" Style="text-align:right;">
+                @if (context.Typ == BuchungsTyp.Einnahme)
+                {
+                    <MudText Typo="Typo.body2" Color="Color.Success">
+                        @context.Brutto.ToString("N2") &#8364;
+                    </MudText>
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">
+                        @context.Netto.ToString("N2") Netto
+                    </MudText>
+                }
+                else
+                {
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">&#8211;</MudText>
+                }
+            </MudTd>
+            <MudTd DataLabel="Ausgabe" Style="text-align:right;">
+                @if (context.Typ == BuchungsTyp.Ausgabe)
+                {
+                    <MudText Typo="Typo.body2" Color="Color.Error">
+                        @context.Brutto.ToString("N2") &#8364;
+                    </MudText>
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">
+                        @context.Netto.ToString("N2") Netto
+                    </MudText>
+                }
+                else
+                {
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">&#8211;</MudText>
+                }
+            </MudTd>
+        </RowTemplate>
+        <FooterContent>
+            @if (_gefiltert.Count > 0)
+            {
+                var sumEinnahmen = _gefiltert.Where(b => b.Typ == BuchungsTyp.Einnahme).Sum(b => b.Brutto);
+                var sumAusgaben  = _gefiltert.Where(b => b.Typ == BuchungsTyp.Ausgabe).Sum(b => b.Brutto);
+                var saldo        = _gefiltert.Where(b => b.Typ == BuchungsTyp.Einnahme).Sum(b => b.Netto)
+                                  - _gefiltert.Where(b => b.Typ == BuchungsTyp.Ausgabe).Sum(b => b.Netto);
+                <MudTr>
+                    <MudTd colspan="5" Style="text-align:right; font-weight:600; border-top: 1px solid rgba(0,0,0,0.12);">
+                        Summe (@_gefiltert.Count Buchungen):
+                    </MudTd>
+                    <MudTd Style="text-align:right; font-weight:600; color:#4caf50; border-top: 1px solid rgba(0,0,0,0.12);">
+                        @sumEinnahmen.ToString("N2") &#8364;
+                    </MudTd>
+                    <MudTd Style="text-align:right; font-weight:600; color:#f44336; border-top: 1px solid rgba(0,0,0,0.12);">
+                        @sumAusgaben.ToString("N2") &#8364;
+                    </MudTd>
+                </MudTr>
+                <MudTr>
+                    <MudTd colspan="5" Style="text-align:right; font-weight:600;">
+                        Saldo (Netto):
+                    </MudTd>
+                    <MudTd colspan="2" Style="@GetSaldoStyle(saldo)">
+                        @saldo.ToString("N2") &#8364;
+                    </MudTd>
+                </MudTr>
+            }
+        </FooterContent>
+        <NoRecordsContent>
+            @if (!_loading)
+            {
+                <MudText>Keine Buchungen für den gewählten Zeitraum und Filter.</MudText>
+            }
+        </NoRecordsContent>
+        <PagerContent>
+            <MudTablePager PageSizeOptions="new[] { 25, 50, 100, 250 }" />
+        </PagerContent>
+    </MudTable>
+
+</MudContainer>
+
+<style>
+    .cursor-pointer { cursor: pointer; }
+    .cursor-pointer:hover td { background-color: rgba(0,0,0,0.03); }
+</style>
+

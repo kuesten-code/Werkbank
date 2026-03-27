@@ -30,9 +30,17 @@
         <MudPaper Class="pa-4">
             <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-4">
                 <MudText Typo="Typo.h4">Rechnung @_invoice.InvoiceNumber</MudText>
-                <MudChip T="string" Size="Size.Large" Color="@GetStatusColor(_invoice.Status)">
-                    @GetStatusText(_invoice.Status)
-                </MudChip>
+                <MudStack AlignItems="AlignItems.End" Spacing="0">
+                    <MudChip T="string" Size="Size.Large" Color="@GetStatusColor(_invoice.Status)">
+                        @GetStatusText(_invoice.Status)
+                    </MudChip>
+                    @if (_invoice.PaidDate.HasValue)
+                    {
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">
+                            Bezahlt am @_invoice.PaidDate.Value.ToString("dd.MM.yyyy")
+                        </MudText>
+                    }
+                </MudStack>
             </MudStack>
 
             <MudGrid>
@@ -295,7 +303,7 @@
                             {
                                 <MudButton Variant="Variant.Filled" Color="Color.Success"
                                           StartIcon="@Icons.Material.Filled.CheckCircle"
-                                          OnClick="MarkAsPaid">
+                                          OnClick="OpenMarkAsPaidDialog">
                                     Als beglichen markieren
                                 </MudButton>
                             }
@@ -358,5 +366,28 @@
                 </MudItem>
             </MudGrid>
         </MudPaper>
+
+        @if (_markAsPaidOpen)
+        {
+            <MudOverlay Visible="true" DarkBackground="true" ZIndex="1200" />
+            <MudPaper Style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 1300; min-width: 340px;"
+                      Elevation="8" Class="pa-6">
+                <MudText Typo="Typo.h6" GutterBottom="true">Als beglichen markieren</MudText>
+                <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">
+                    Wann wurde die Rechnung beglichen?
+                </MudText>
+                <MudDatePicker Label="Zahlungsdatum" @bind-Date="_paidDateInput"
+                               DateFormat="dd.MM.yyyy" Variant="Variant.Outlined"
+                               MaxDate="DateTime.Today" />
+                <MudStack Row="true" Justify="Justify.FlexEnd" Class="mt-4" Spacing="2">
+                    <MudButton Variant="Variant.Text" OnClick="CloseMarkAsPaidDialog">Abbrechen</MudButton>
+                    <MudButton Variant="Variant.Filled" Color="Color.Success"
+                               StartIcon="@Icons.Material.Filled.CheckCircle"
+                               OnClick="ConfirmMarkAsPaid">
+                        Speichern
+                    </MudButton>
+                </MudStack>
+            </MudPaper>
+        }
     }
 </MudContainer>

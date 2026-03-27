@@ -29,9 +29,17 @@
             <MudStack>
                 <MudText Typo="Typo.h4">Beleg @_document.DocumentNumber</MudText>
                 <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-                    <MudChip T="string" Color="@GetStatusColor(_document.Status)" Size="Size.Small">
-                        @GetStatusText(_document.Status)
-                    </MudChip>
+                    <MudStack Spacing="0">
+                        <MudChip T="string" Color="@GetStatusColor(_document.Status)" Size="Size.Small">
+                            @GetStatusText(_document.Status)
+                        </MudChip>
+                        @if (_document.PaidDate.HasValue)
+                        {
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                Bezahlt am @_document.PaidDate.Value.ToString("dd.MM.yyyy")
+                            </MudText>
+                        }
+                    </MudStack>
                     <MudText Typo="Typo.subtitle1" Color="Color.Secondary">@_document.SupplierName</MudText>
                     @if (_document.IsOverdue)
                     {
@@ -65,7 +73,7 @@
                     </MudButton>
                     <MudButton Variant="Variant.Filled" Color="Color.Success"
                               StartIcon="@Icons.Material.Filled.Paid"
-                              OnClick="MarkAsPaid" Disabled="@_statusChanging">
+                              OnClick="OpenMarkAsPaidDialog" Disabled="@_statusChanging">
                         Als bezahlt markieren
                     </MudButton>
                 }
@@ -184,6 +192,13 @@
                                     </MudChip>
                                 </td>
                             </tr>
+                            @if (_document.PaidDate.HasValue)
+                            {
+                                <tr>
+                                    <td><strong>Bezahlt am</strong></td>
+                                    <td>@_document.PaidDate.Value.ToString("dd.MM.yyyy")</td>
+                                </tr>
+                            }
                         </tbody>
                     </MudSimpleTable>
 
@@ -282,6 +297,29 @@
             </MudItem>
         </MudGrid>
 
+        @if (_markAsPaidOpen)
+        {
+            <MudOverlay Visible="true" DarkBackground="true" ZIndex="1200" />
+            <MudPaper Style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 1300; min-width: 340px;"
+                      Elevation="8" Class="pa-6">
+                <MudText Typo="Typo.h6" GutterBottom="true">Als bezahlt markieren</MudText>
+                <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">
+                    Wann wurde der Beleg bezahlt?
+                </MudText>
+                <MudDatePicker Label="Zahlungsdatum" @bind-Date="_paidDateInput"
+                               DateFormat="dd.MM.yyyy" Variant="Variant.Outlined"
+                               MaxDate="DateTime.Today" />
+                <MudStack Row="true" Justify="Justify.FlexEnd" Class="mt-4" Spacing="2">
+                    <MudButton Variant="Variant.Text" OnClick="CloseMarkAsPaidDialog">Abbrechen</MudButton>
+                    <MudButton Variant="Variant.Filled" Color="Color.Success"
+                               StartIcon="@Icons.Material.Filled.Paid"
+                               OnClick="ConfirmMarkAsPaid">
+                        Speichern
+                    </MudButton>
+                </MudStack>
+            </MudPaper>
+        }
+
         @* Footer Actions *@
         <MudStack Row="true" Justify="Justify.SpaceBetween" Class="mt-4">
             <MudButton Variant="Variant.Filled" Color="Color.Default"
@@ -309,6 +347,8 @@
     private readonly CultureInfo _culture = new("de-DE");
     private bool _loading = true;
     private bool _statusChanging;
+    private bool _markAsPaidOpen = false;
+    private DateTime? _paidDateInput = DateTime.Today;
 
     private DocumentDto? _document;
     private List<DocumentFileDto> _files = new();
@@ -428,12 +468,25 @@
         }
     }
 
-    private async Task MarkAsPaid()
+    private void OpenMarkAsPaidDialog()
     {
+        _paidDateInput = DateTime.Today;
+        _markAsPaidOpen = true;
+    }
+
+    private void CloseMarkAsPaidDialog()
+    {
+        _markAsPaidOpen = false;
+    }
+
+    private async Task ConfirmMarkAsPaid()
+    {
+        var paidDate = DateOnly.FromDateTime((_paidDateInput ?? DateTime.Today).Date);
+        _markAsPaidOpen = false;
         _statusChanging = true;
         try
         {
-            await DocumentService.ChangeStatusAsync(Id, DocumentStatus.Paid);
+            await DocumentService.ChangeStatusAsync(Id, DocumentStatus.Paid, paidDate);
             Snackbar.Add("Beleg als bezahlt markiert.", Severity.Success);
             _document = await DocumentService.GetByIdAsync(Id);
         }
@@ -489,11 +542,21 @@
 
     private static string GetCategoryText(string category) => category switch
     {
-        "Material" => "Material",
-        "Subcontractor" => "Fremdleistung",
-        "Office" => "Büro",
-        "Travel" => "Reise",
-        "Other" => "Sonstig",
+        "Material" => "Material / Waren",
+        "Subcontractor" => "Subunternehmer",
+        "Wages" => "Löhne & Gehälter",
+        "SocialSecurity" => "Sozialversicherung",
+        "Rent" => "Miete",
+        "Utilities" => "Nebenkosten",
+        "Vehicle" => "Kfz-Kosten",
+        "Travel" => "Reisekosten",
+        "Marketing" => "Marketing & Werbung",
+        "Office" => "Büromaterial",
+        "Software" => "Software & Lizenzen",
+        "Phone" => "Telefon & Internet",
+        "Insurance" => "Versicherungen",
+        "Fees" => "Beiträge & Gebühren",
+        "Other" => "Sonstige Kosten",
         _ => category
     };
 
@@ -501,9 +564,12 @@
     {
         "Material" => Color.Primary,
         "Subcontractor" => Color.Secondary,
-        "Office" => Color.Info,
-        "Travel" => Color.Warning,
-        "Other" => Color.Default,
+        "Wages" or "SocialSecurity" => Color.Tertiary,
+        "Rent" or "Utilities" => Color.Dark,
+        "Vehicle" or "Travel" => Color.Warning,
+        "Marketing" => Color.Success,
+        "Office" or "Software" or "Phone" => Color.Info,
+        "Insurance" or "Fees" => Color.Error,
         _ => Color.Default
     };
 

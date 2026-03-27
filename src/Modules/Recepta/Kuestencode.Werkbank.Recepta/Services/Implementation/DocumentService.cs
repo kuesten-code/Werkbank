@@ -53,6 +53,16 @@ public class DocumentService : IDocumentService
             result = result.Where(d => d.InvoiceDate <= filter.To.Value);
         }
 
+        if (filter.PaidFrom.HasValue)
+        {
+            result = result.Where(d => d.PaidDate.HasValue && d.PaidDate.Value >= filter.PaidFrom.Value);
+        }
+
+        if (filter.PaidTo.HasValue)
+        {
+            result = result.Where(d => d.PaidDate.HasValue && d.PaidDate.Value <= filter.PaidTo.Value);
+        }
+
         if (!string.IsNullOrWhiteSpace(filter.Search))
         {
             var term = filter.Search.ToLower();
@@ -303,7 +313,7 @@ public class DocumentService : IDocumentService
         return MapToDto(document);
     }
 
-    public async Task ChangeStatusAsync(Guid id, DocumentStatus newStatus)
+    public async Task ChangeStatusAsync(Guid id, DocumentStatus newStatus, DateOnly? paidDate = null)
     {
         var document = await _documentRepository.GetByIdAsync(id);
         if (document == null)
@@ -326,6 +336,10 @@ public class DocumentService : IDocumentService
         }
 
         document.Status = newStatus;
+        if (newStatus == DocumentStatus.Paid)
+        {
+            document.PaidDate = paidDate ?? DateOnly.FromDateTime(DateTime.UtcNow);
+        }
         await _documentRepository.UpdateAsync(document);
     }
 
@@ -414,6 +428,7 @@ public class DocumentService : IDocumentService
             InvoiceNumber = document.InvoiceNumber,
             InvoiceDate = document.InvoiceDate,
             DueDate = document.DueDate,
+            PaidDate = document.PaidDate,
             AmountNet = document.AmountNet,
             TaxRate = document.TaxRate,
             AmountTax = document.AmountTax,

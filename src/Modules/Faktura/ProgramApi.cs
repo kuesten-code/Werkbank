@@ -50,6 +50,7 @@ public class ProgramApi
 
         // Add MudBlazor
         builder.Services.AddMudServices();
+        builder.Services.AddSingleton<MudBlazor.MudLocalizer, Kuestencode.Shared.UI.GermanMudLocalizer>();
 
         // Add Controllers for API
         builder.Services.AddControllers();
@@ -160,6 +161,22 @@ public class ProgramApi
             }
         }
 
+        // Demo-Seed (nur wenn DEMO_SEED=true)
+        var demoSeed = builder.Configuration.GetValue("DEMO_SEED", false);
+        if (demoSeed)
+        {
+            try
+            {
+                migrationLogger.LogInformation("Seeding Faktura demo data...");
+                await Kuestencode.Faktura.Data.DemoSeedData.SeedAsync(app.Services);
+                migrationLogger.LogInformation("Faktura demo data seeded successfully.");
+            }
+            catch (Exception ex)
+            {
+                migrationLogger.LogError(ex, "An error occurred while seeding Faktura demo data.");
+            }
+        }
+
         // Configure pipeline
         if (app.Environment.IsDevelopment())
         {
@@ -184,6 +201,8 @@ public class ProgramApi
 
         // Add Authorization
         app.UseAuthorization();
+
+        app.MapRazorPages();
 
         // Map API Controllers
         app.MapControllers();

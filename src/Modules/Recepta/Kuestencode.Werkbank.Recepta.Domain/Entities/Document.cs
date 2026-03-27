@@ -41,6 +41,11 @@ public class Document
     public DateOnly? DueDate { get; set; }
 
     /// <summary>
+    /// Datum der Zahlung (relevant für EÜR: Zufluss-/Abflussprinzip).
+    /// </summary>
+    public DateOnly? PaidDate { get; set; }
+
+    /// <summary>
     /// Nettobetrag.
     /// </summary>
     [Column(TypeName = "decimal(18,2)")]

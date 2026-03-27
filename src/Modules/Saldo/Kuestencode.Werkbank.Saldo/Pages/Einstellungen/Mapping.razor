@@ -1,0 +1,271 @@
+@page "/einstellungen/mapping"
+@inject IKontoService KontoService
+@inject IKontoMappingService MappingService
+@inject ISaldoSettingsService SettingsService
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+@inject NavigationManager NavigationManager
+
+<PageTitle>Saldo - Kategorie-Mapping</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="mt-4">
+
+    <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-4">
+        <MudStack Spacing="0">
+            <MudBreadcrumbs Items="_breadcrumbs" />
+            <MudText Typo="Typo.h4">Kategorie-Mapping</MudText>
+        </MudStack>
+        <MudButton Variant="Variant.Outlined" Color="Color.Warning"
+                   StartIcon="@Icons.Material.Filled.RestartAlt"
+                   OnClick="ResetAlleAsync" Disabled="@(_resetting || _overrides.Count == 0)">
+            @if (_resetting)
+            {
+                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+            }
+            Alle auf Standard zurücksetzen
+        </MudButton>
+    </MudStack>
+
+    <MudAlert Severity="Severity.Info" Dense="true" Class="mb-4">
+        <MudText Typo="Typo.body2">
+            Ordnen Sie jeder Ausgaben-Kategorie das passende Buchungskonto zu.
+            <strong>Override</strong> (gelb) überschreibt das Standard-Mapping.
+            Aktiver Kontenrahmen: <strong>@_kontenrahmen</strong>
+        </MudText>
+    </MudAlert>
+
+    @if (_loading)
+    {
+        <MudProgressLinear Color="Color.Primary" Indeterminate="true" Class="mb-4" />
+    }
+
+    <MudPaper Elevation="1">
+        <MudSimpleTable Dense="true" Hover="true" Style="overflow-x:auto;">
+            <thead>
+                <tr>
+                    <th style="padding: 10px 16px; text-align:left;">Kategorie</th>
+                    <th style="padding: 10px 16px; text-align:left;">Aktuelles Konto</th>
+                    <th style="padding: 10px 16px; text-align:left;">Konto ändern</th>
+                    <th style="padding: 10px 16px; text-align:center; width:120px;">Aktionen</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var row in _resolved)
+                {
+                    var isEditing = _editingKategorie == row.Kategorie;
+                    <tr style="@(row.IsOverride ? "background-color: rgba(255,152,0,0.07);" : "")">
+                        <td style="padding: 8px 16px;">
+                            <MudText Typo="Typo.body2"><strong>@row.Kategorie</strong></MudText>
+                        </td>
+                        <td style="padding: 8px 16px;">
+                            <MudStack Spacing="0">
+                                <MudText Typo="Typo.body2">
+                                    @row.KontoNummer
+                                    @if (!string.IsNullOrEmpty(row.KontoBezeichnung))
+                                    {
+                                        <span style="color: rgba(0,0,0,0.54);"> – @row.KontoBezeichnung</span>
+                                    }
+                                </MudText>
+                                @if (row.IsOverride)
+                                {
+                                    <MudChip T="string" Size="Size.Small" Color="Color.Warning"
+                                             Variant="Variant.Outlined" Style="height:18px; font-size:0.7rem;">
+                                        Override
+                                    </MudChip>
+                                }
+                                else
+                                {
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary">Standard</MudText>
+                                }
+                            </MudStack>
+                        </td>
+                        <td style="padding: 4px 16px; min-width: 280px;">
+                            @if (isEditing)
+                            {
+                                <MudSelect @bind-Value="_editKontoNummer" T="string"
+                                           Variant="Variant.Outlined" Dense="true"
+                                           Style="max-width: 320px;">
+                                    @foreach (var konto in _ausgabenKonten)
+                                    {
+                                        <MudSelectItem T="string" Value="@konto.KontoNummer">
+                                            @konto.KontoNummer – @konto.KontoBezeichnung
+                                        </MudSelectItem>
+                                    }
+                                </MudSelect>
+                            }
+                            else
+                            {
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">–</MudText>
+                            }
+                        </td>
+                        <td style="padding: 4px 16px; text-align:center;">
+                            @if (isEditing)
+                            {
+                                <MudIconButton Icon="@Icons.Material.Filled.Check"
+                                               Color="Color.Success" Size="Size.Small"
+                                               Title="Speichern"
+                                               OnClick="@(() => SaveOverrideAsync(row.Kategorie))" />
+                                <MudIconButton Icon="@Icons.Material.Filled.Close"
+                                               Color="Color.Default" Size="Size.Small"
+                                               Title="Abbrechen"
+                                               OnClick="CancelEdit" />
+                            }
+                            else
+                            {
+                                <MudIconButton Icon="@Icons.Material.Filled.Edit"
+                                               Color="Color.Primary" Size="Size.Small"
+                                               Title="Konto ändern"
+                                               OnClick="@(() => StartEdit(row))" />
+                                @if (row.IsOverride)
+                                {
+                                    <MudIconButton Icon="@Icons.Material.Filled.RestartAlt"
+                                                   Color="Color.Warning" Size="Size.Small"
+                                                   Title="Override zurücksetzen"
+                                                   OnClick="@(() => ResetOverrideAsync(row.Kategorie))" />
+                                }
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </MudSimpleTable>
+    </MudPaper>
+
+    @if (_resolved.Count > 0)
+    {
+        <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mt-2">
+            @_overrides.Count von @_resolved.Count Kategorien haben einen benutzerdefinierten Override.
+        </MudText>
+    }
+
+</MudContainer>
+
+@code {
+    private bool _loading = true;
+    private bool _resetting = false;
+
+    private string _kontenrahmen = "SKR03";
+    private List<ResolvedKontoMappingDto> _resolved = new();
+    private List<KontoMappingOverrideDto> _overrides = new();
+    private List<KontoDto> _ausgabenKonten = new();
+
+    private string? _editingKategorie;
+    private string _editKontoNummer = string.Empty;
+
+    private readonly List<BreadcrumbItem> _breadcrumbs = new()
+    {
+        new("Einstellungen", "/saldo/einstellungen"),
+        new("Kategorie-Mapping", null, disabled: true)
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        StateHasChanged();
+        try
+        {
+            var settings = await SettingsService.GetSettingsAsync();
+            _kontenrahmen = settings?.Kontenrahmen ?? "SKR03";
+
+            _resolved  = await MappingService.GetResolvedMappingsAsync(_kontenrahmen);
+            _overrides = await MappingService.GetOverridesAsync();
+
+            // Nur Aufwands-Konten im Dropdown anbieten (Typ "Aufwand" oder Kontonummernbereich)
+            var alleKonten = await KontoService.GetKontenAsync(_kontenrahmen);
+            _ausgabenKonten = alleKonten
+                .Where(k => k.IsActive && (k.KontoTyp == "Aufwand" ||
+                    (int.TryParse(k.KontoNummer, out var nr) &&
+                     (_kontenrahmen == "SKR03" ? nr is >= 4000 and <= 4999 : nr is >= 4000 and <= 6999))))
+                .OrderBy(k => k.KontoNummer)
+                .ToList();
+
+            // Falls keine Aufwandskonten gefunden, alle aktiven anzeigen
+            if (_ausgabenKonten.Count == 0)
+                _ausgabenKonten = alleKonten.Where(k => k.IsActive).OrderBy(k => k.KontoNummer).ToList();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Fehler beim Laden: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private void StartEdit(ResolvedKontoMappingDto row)
+    {
+        _editingKategorie = row.Kategorie;
+        _editKontoNummer  = row.KontoNummer;
+    }
+
+    private void CancelEdit()
+    {
+        _editingKategorie = null;
+        _editKontoNummer  = string.Empty;
+    }
+
+    private async Task SaveOverrideAsync(string kategorie)
+    {
+        if (string.IsNullOrEmpty(_editKontoNummer)) return;
+        try
+        {
+            await MappingService.UpdateMappingAsync(kategorie, _editKontoNummer);
+            Snackbar.Add($"Mapping für \"{kategorie}\" gespeichert.", Severity.Success);
+            CancelEdit();
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Fehler: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task ResetOverrideAsync(string kategorie)
+    {
+        try
+        {
+            await MappingService.ResetMappingAsync(kategorie);
+            Snackbar.Add($"Override für \"{kategorie}\" zurückgesetzt.", Severity.Success);
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Fehler: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task ResetAlleAsync()
+    {
+        var result = await DialogService.ShowMessageBox(
+            "Alle Overrides zurücksetzen",
+            $"Alle {_overrides.Count} benutzerdefinierten Zuordnungen werden auf den Standard des Kontenrahmens {_kontenrahmen} zurückgesetzt. Fortfahren?",
+            yesText: "Zurücksetzen",
+            cancelText: "Abbrechen");
+
+        if (result != true) return;
+
+        _resetting = true;
+        try
+        {
+            foreach (var o in _overrides)
+                await MappingService.ResetMappingAsync(o.Kategorie);
+
+            Snackbar.Add($"{_overrides.Count} Overrides zurückgesetzt.", Severity.Success);
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Fehler: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _resetting = false;
+        }
+    }
+}

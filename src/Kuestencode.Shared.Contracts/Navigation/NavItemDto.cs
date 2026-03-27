@@ -49,5 +49,7 @@ public enum NavSettingsCategory
     /// <summary>Sending/Email settings</summary>
     Versand = 3,
     /// <summary>Billing/Invoice settings</summary>
-    Abrechnung = 4
+    Abrechnung = 4,
+    /// <summary>Accounting/Bookkeeping settings (EÜR, Konten, etc.)</summary>
+    Buchhaltung = 5
 }

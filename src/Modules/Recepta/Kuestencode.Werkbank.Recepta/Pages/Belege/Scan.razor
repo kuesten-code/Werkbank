@@ -278,11 +278,40 @@
                         <MudText Typo="Typo.overline" Color="Color.Secondary" Class="mt-6 mb-2">@(_actaAvailable ? "Zuordnung" : "Kategorie")</MudText>
                         <MudSelect T="DocumentCategory" @bind-Value="_model.Category"
                                   Label="Kategorie" Variant="Variant.Outlined">
-                            <MudSelectItem T="DocumentCategory" Value="DocumentCategory.Material">Material</MudSelectItem>
-                            <MudSelectItem T="DocumentCategory" Value="DocumentCategory.Subcontractor">Fremdleistung</MudSelectItem>
-                            <MudSelectItem T="DocumentCategory" Value="DocumentCategory.Office">Büro</MudSelectItem>
-                            <MudSelectItem T="DocumentCategory" Value="DocumentCategory.Travel">Reise</MudSelectItem>
-                            <MudSelectItem T="DocumentCategory" Value="DocumentCategory.Other">Sonstig</MudSelectItem>
+                            <MudSelectItem T="DocumentCategory" Value="(DocumentCategory)(-1)" Disabled="true"><MudText Typo="Typo.overline" Color="Color.Secondary">Wareneinsatz</MudText></MudSelectItem>
+                            <MudSelectItem T="DocumentCategory" Value="DocumentCategory.Material">Material / Waren</MudSelectItem>
+
+                            <MudSelectItem T="DocumentCategory" Value="(DocumentCategory)(-2)" Disabled="true"><MudText Typo="Typo.overline" Color="Color.Secondary">Fremdleistungen</MudText></MudSelectItem>
+                            <MudSelectItem T="DocumentCategory" Value="DocumentCategory.Subcontractor">Subunternehmer / Fremdleistungen</MudSelectItem>
+
+                            <MudSelectItem T="DocumentCategory" Value="(DocumentCategory)(-3)" Disabled="true"><MudText Typo="Typo.overline" Color="Color.Secondary">Personal</MudText></MudSelectItem>
+                            <MudSelectItem T="DocumentCategory" Value="DocumentCategory.Wages">Löhne & Gehälter</MudSelectItem>
+                            <MudSelectItem T="DocumentCategory" Value="DocumentCategory.SocialSecurity">Sozialversicherung</MudSelectItem>
+
+                            <MudSelectItem T="DocumentCategory" Value="(DocumentCategory)(-4)" Disabled="true"><MudText Typo="Typo.overline" Color="Color.Secondary">Raum & Betrieb</MudText></MudSelectItem>
+                            <MudSelectItem T="DocumentCategory" Value="DocumentCategory.Rent">Miete</MudSelectItem>
+                            <MudSelectItem T="DocumentCategory" Value="DocumentCategory.Utilities">Nebenkosten (Strom, Wasser, Heizung)</MudSelectItem>
+
+                            <MudSelectItem T="DocumentCategory" Value="(DocumentCategory)(-5)" Disabled="true"><MudText Typo="Typo.overline" Color="Color.Secondary">Fahrzeuge</MudText></MudSelectItem>
+                            <MudSelectItem T="DocumentCategory" Value="DocumentCategory.Vehicle">Kfz-Kosten</MudSelectItem>
+
+                            <MudSelectItem T="DocumentCategory" Value="(DocumentCategory)(-6)" Disabled="true"><MudText Typo="Typo.overline" Color="Color.Secondary">Reisen</MudText></MudSelectItem>
+                            <MudSelectItem T="DocumentCategory" Value="DocumentCategory.Travel">Reisekosten</MudSelectItem>
+
+                            <MudSelectItem T="DocumentCategory" Value="(DocumentCategory)(-7)" Disabled="true"><MudText Typo="Typo.overline" Color="Color.Secondary">Marketing</MudText></MudSelectItem>
+                            <MudSelectItem T="DocumentCategory" Value="DocumentCategory.Marketing">Marketing & Werbung</MudSelectItem>
+
+                            <MudSelectItem T="DocumentCategory" Value="(DocumentCategory)(-8)" Disabled="true"><MudText Typo="Typo.overline" Color="Color.Secondary">Büro & IT</MudText></MudSelectItem>
+                            <MudSelectItem T="DocumentCategory" Value="DocumentCategory.Office">Büromaterial</MudSelectItem>
+                            <MudSelectItem T="DocumentCategory" Value="DocumentCategory.Software">Software & Lizenzen</MudSelectItem>
+                            <MudSelectItem T="DocumentCategory" Value="DocumentCategory.Phone">Telefon & Internet</MudSelectItem>
+
+                            <MudSelectItem T="DocumentCategory" Value="(DocumentCategory)(-9)" Disabled="true"><MudText Typo="Typo.overline" Color="Color.Secondary">Versicherungen & Beiträge</MudText></MudSelectItem>
+                            <MudSelectItem T="DocumentCategory" Value="DocumentCategory.Insurance">Versicherungen</MudSelectItem>
+                            <MudSelectItem T="DocumentCategory" Value="DocumentCategory.Fees">Beiträge & Gebühren</MudSelectItem>
+
+                            <MudSelectItem T="DocumentCategory" Value="(DocumentCategory)(-10)" Disabled="true"><MudText Typo="Typo.overline" Color="Color.Secondary">Sonstiges</MudText></MudSelectItem>
+                            <MudSelectItem T="DocumentCategory" Value="DocumentCategory.Other">Sonstige Kosten</MudSelectItem>
                         </MudSelect>
                         @if (_actaAvailable)
                         {

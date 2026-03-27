@@ -21,15 +21,12 @@ namespace Kuestencode.Faktura.Pages;
 
 public partial class Dashboard
 {
-    private List<ServiceHealthItem> _healthItems = new();
     private DashboardSummary _summary = new();
     private List<ActivityItem> _activities = new();
 
-    private bool _loadingHealth = true;
     private bool _loadingSummary = true;
     private bool _loadingActivities = true;
 
-    private bool _healthError = false;
     private bool _summaryError = false;
     private bool _activitiesError = false;
 
@@ -68,36 +65,13 @@ public partial class Dashboard
 
     private async Task LoadDashboardDataAsync()
     {
-        // Reset loading states
-        _loadingHealth = true;
         _loadingSummary = true;
         _loadingActivities = true;
-        _healthError = false;
         _summaryError = false;
         _activitiesError = false;
 
-        // Load data sequentially to avoid DbContext threading issues
-        await LoadHealthAsync();
         await LoadSummaryAsync();
         await LoadActivitiesAsync();
-    }
-
-
-    private async Task LoadHealthAsync()
-    {
-        try
-        {
-            var health = await DashboardService.GetHealthAsync();
-            _healthItems = health.ToList();
-        }
-        catch
-        {
-            _healthError = true;
-        }
-        finally
-        {
-            _loadingHealth = false;
-        }
     }
 
     private async Task LoadSummaryAsync()

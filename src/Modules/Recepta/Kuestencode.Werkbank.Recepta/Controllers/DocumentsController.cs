@@ -40,6 +40,8 @@ public class DocumentsController : ControllerBase
         [FromQuery] bool? hasBeenAttached = null,
         [FromQuery] DateOnly? from = null,
         [FromQuery] DateOnly? to = null,
+        [FromQuery] DateOnly? paidFrom = null,
+        [FromQuery] DateOnly? paidTo = null,
         [FromQuery] string? search = null)
     {
         var filter = new DocumentFilterDto
@@ -49,6 +51,8 @@ public class DocumentsController : ControllerBase
             HasBeenAttached = hasBeenAttached,
             From = from,
             To = to,
+            PaidFrom = paidFrom,
+            PaidTo = paidTo,
             Search = search
         };
 
@@ -193,7 +197,7 @@ public class DocumentsController : ControllerBase
                 return BadRequest(new { error = $"Ungültiger Status: {request.NewStatus}" });
             }
 
-            await _documentService.ChangeStatusAsync(id, newStatus);
+            await _documentService.ChangeStatusAsync(id, newStatus, request.PaidDate);
             return Ok(new { message = $"Status geändert auf '{newStatus}'." });
         }
         catch (InvalidOperationException ex)
@@ -334,8 +338,11 @@ public class DocumentsController : ControllerBase
             SupplierName = d.SupplierName,
             InvoiceNumber = d.InvoiceNumber,
             InvoiceDate = d.InvoiceDate,
+            PaidDate = d.PaidDate,
             AmountNet = d.AmountNet,
+            AmountTax = d.AmountTax,
             AmountGross = d.AmountGross,
+            TaxRate = d.TaxRate,
             Category = d.Category,
             Status = d.Status,
             HasBeenAttached = d.HasBeenAttached
@@ -367,8 +374,11 @@ public class DocumentsController : ControllerBase
                 SupplierName = d.SupplierName,
                 InvoiceNumber = d.InvoiceNumber,
                 InvoiceDate = d.InvoiceDate,
+                PaidDate = d.PaidDate,
                 AmountNet = d.AmountNet,
+                AmountTax = d.AmountTax,
                 AmountGross = d.AmountGross,
+                TaxRate = d.TaxRate,
                 Category = d.Category,
                 Status = d.Status,
                 HasBeenAttached = d.HasBeenAttached

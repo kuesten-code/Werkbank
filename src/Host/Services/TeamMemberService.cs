@@ -112,6 +112,18 @@ public class TeamMemberService : ITeamMemberService
                 }
             }
 
+            // Letzten Admin nicht deaktivieren oder degradieren
+            bool wirdDeaktiviert = existing.IsActive && !member.IsActive;
+            bool wirdDegradiert = existing.Role == UserRole.Admin && member.Role != UserRole.Admin;
+            if (wirdDeaktiviert || wirdDegradiert)
+            {
+                var adminAnzahl = await _context.TeamMembers
+                    .CountAsync(m => m.Id != member.Id && m.Role == UserRole.Admin && m.IsActive)
+                    .ConfigureAwait(false);
+                if (adminAnzahl == 0)
+                    throw new InvalidOperationException("Es muss mindestens ein aktiver Admin-Account verbleiben.");
+            }
+
             existing.DisplayName = member.DisplayName;
             existing.Email = string.IsNullOrWhiteSpace(member.Email) ? null : member.Email;
             existing.IsActive = member.IsActive;
@@ -137,6 +149,16 @@ public class TeamMemberService : ITeamMemberService
             if (existing == null)
             {
                 throw new InvalidOperationException($"Mitarbeiter mit ID {id} wurde nicht gefunden.");
+            }
+
+            // Letzten Admin nicht löschen
+            if (existing.Role == UserRole.Admin && existing.IsActive)
+            {
+                var adminAnzahl = await _context.TeamMembers
+                    .CountAsync(m => m.Id != id && m.Role == UserRole.Admin && m.IsActive)
+                    .ConfigureAwait(false);
+                if (adminAnzahl == 0)
+                    throw new InvalidOperationException("Es muss mindestens ein aktiver Admin-Account verbleiben.");
             }
 
             _context.TeamMembers.Remove(existing);

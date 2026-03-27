@@ -1,7 +1,9 @@
 @using Kuestencode.Shared.Contracts.Host
 @using Kuestencode.Shared.Contracts.Navigation
 @using Kuestencode.Shared.UI.Services
+@using Kuestencode.Werkbank.Host.Services
 @inject IHostNavigationService NavigationService
+@inject ModuleRegistry ModuleRegistry
 @inject NavigationManager NavigationManager
 @inject AuthenticationStateProvider AuthStateProvider
 @implements IDisposable
@@ -22,9 +24,10 @@
     {
         _currentUri = NavigationManager.Uri;
         NavigationManager.LocationChanged += HandleLocationChanged;
+        ModuleRegistry.OnChanged += HandleModulesChanged;
 
         await LoadRoleAsync();
-        _navItems = NavigationFilterService.FilterNavigationByRole(NavigationService.GetNavigationItems(), _currentRole);
+        RefreshNavItems();
     }
 
     private async Task LoadRoleAsync()
@@ -40,14 +43,30 @@
         }
     }
 
+    private void RefreshNavItems()
+    {
+        _navItems = NavigationFilterService.FilterNavigationByRole(NavigationService.GetNavigationItems(), _currentRole);
+    }
+
     private void HandleLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
     {
         _currentUri = e.Location;
         StateHasChanged();
     }
 
+    private void HandleModulesChanged()
+    {
+        // InvokeAsync because this is called from a background thread (module registration)
+        InvokeAsync(() =>
+        {
+            RefreshNavItems();
+            StateHasChanged();
+        });
+    }
+
     public void Dispose()
     {
         NavigationManager.LocationChanged -= HandleLocationChanged;
+        ModuleRegistry.OnChanged -= HandleModulesChanged;
     }
 }

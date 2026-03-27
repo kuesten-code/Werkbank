@@ -67,6 +67,20 @@ Eingangsrechnungsverwaltung mit intelligenter Dokumenterkennung.
 - Kategorisierung (Material, Fremdleistung, Büro, Reise, Sonstig)
 - Cross-Modul-Integration mit Acta (Belege auf Projekte buchen, Kostenauswertung)
 
+### Saldo
+
+Finanzbuchhaltung mit Einnahmen-Überschuss-Rechnung (EÜR) und DATEV-Export.
+
+**Features:**
+- EÜR nach § 4 Abs. 3 EStG (Zufluss-/Abflussprinzip nach Zahlungsdatum)
+- Dashboard mit Einnahmen, Ausgaben und Gewinn für beliebige Zeiträume
+- Buchungsübersicht mit USt-Aufschlüsselung
+- Kategorie-Mapping: Recepta-Kategorien auf DATEV-Konten (SKR03/SKR04), individuell überschreibbar
+- DATEV-Export: Buchungsstapel im EXTF-Format (Windows-1252, BU-Schlüssel)
+- Belege-ZIP-Export: PDFs aus Faktura und Recepta gesammelt
+- PDF-Report: EÜR-Bericht mit Deckblatt, Zusammenfassung und Detailtabellen
+- Integration mit Faktura (Einnahmen) und Recepta (Ausgaben)
+
 ## Technologie-Stack
 
 | Bereich | Technologie |
@@ -102,6 +116,7 @@ Die Anwendung ist dann erreichbar unter:
 - **Rapport:** http://localhost:8080/rapport
 - **Acta:** http://localhost:8080/acta
 - **Recepta:** http://localhost:8080/recepta
+- **Saldo:** http://localhost:8080/saldo
 
 ### Produktions-Deployment
 
@@ -134,7 +149,8 @@ src/
 │   ├── Offerte/             # Angebotsmodul
 │   ├── Rapport/             # Zeiterfassungsmodul
 │   ├── Acta/                # Projektverwaltungsmodul
-│   └── Recepta/             # Eingangsrechnungsmodul
+│   ├── Recepta/             # Eingangsrechnungsmodul
+│   └── Saldo/               # EÜR und DATEV-Export
 ├── Kuestencode.Shared.Contracts/    # DTOs für Modul-Kommunikation
 └── Kuestencode.Shared.ApiClients/   # HTTP-Clients für API-Aufrufe
 ```

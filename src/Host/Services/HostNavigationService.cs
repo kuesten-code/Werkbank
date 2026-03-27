@@ -117,7 +117,8 @@ public class HostNavigationService : IHostNavigationService
             { NavSettingsCategory.Vorlagen, new List<NavItemDto>() },
             { NavSettingsCategory.Dokumente, new List<NavItemDto>() },
             { NavSettingsCategory.Versand, new List<NavItemDto>() },
-            { NavSettingsCategory.Abrechnung, new List<NavItemDto>() }
+            { NavSettingsCategory.Abrechnung, new List<NavItemDto>() },
+            { NavSettingsCategory.Buchhaltung, new List<NavItemDto>() }
         };
 
         // Add Host settings to "Allgemein" - nur Admin
@@ -182,7 +183,8 @@ public class HostNavigationService : IHostNavigationService
             { NavSettingsCategory.Vorlagen, "Vorlagen" },
             { NavSettingsCategory.Dokumente, "Dokumente" },
             { NavSettingsCategory.Versand, "Versand" },
-            { NavSettingsCategory.Abrechnung, "Abrechnung" }
+            { NavSettingsCategory.Abrechnung, "Abrechnung" },
+            { NavSettingsCategory.Buchhaltung, "Buchhaltung" }
         };
 
         foreach (var (category, items) in settingsByCategory)
@@ -228,8 +230,11 @@ public class HostNavigationService : IHostNavigationService
         return moduleName switch
         {
             "Faktura" => 1,
-            "Offerte" => 5,
-            "Rapport" => 10,
+            "Offerte" => 2,
+            "Rapport" => 3,
+            "Acta"    => 4,
+            "Recepta" => 5,
+            "Saldo"   => 6,
             _ => null
         };
     }

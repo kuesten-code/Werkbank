@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>Kuestencode.Werkbank.Saldo.Domain</RootNamespace>
+    <AssemblyName>Kuestencode.Werkbank.Saldo.Domain</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.ComponentModel.Annotations" Version="5.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\Core\Kuestencode.Core.csproj" />
+    <ProjectReference Include="..\..\..\Modules\Recepta\Kuestencode.Werkbank.Recepta.Domain\Kuestencode.Werkbank.Recepta.Domain.csproj" />
+  </ItemGroup>
+
+</Project>

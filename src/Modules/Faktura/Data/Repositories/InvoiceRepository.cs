@@ -112,6 +112,25 @@ public class InvoiceRepository : Repository<Invoice>, IInvoiceRepository
         return invoices;
     }
 
+    public async Task<IEnumerable<Invoice>> GetPaidByDateRangeAsync(DateTime paidFrom, DateTime paidTo)
+    {
+        var from = DateTime.SpecifyKind(paidFrom, DateTimeKind.Utc);
+        var to = DateTime.SpecifyKind(paidTo, DateTimeKind.Utc);
+        var invoices = await _dbSet
+            .Include(i => i.Items)
+            .Include(i => i.DownPayments)
+            .Include(i => i.Attachments)
+            .Where(i => i.Status == InvoiceStatus.Paid &&
+                       i.PaidDate.HasValue &&
+                       i.PaidDate.Value >= from &&
+                       i.PaidDate.Value <= to)
+            .OrderBy(i => i.PaidDate)
+            .ToListAsync();
+
+        await LoadCustomersAsync(invoices);
+        return invoices;
+    }
+
     public async Task<IEnumerable<Invoice>> GetOverdueInvoicesAsync()
     {
         var today = DateTime.Today;

@@ -137,11 +137,31 @@ public partial class List
         NavigationManager.NavigateTo($"/faktura/invoices/edit/{id}");
     }
 
-    private async Task MarkAsPaid(Invoice invoice)
+    private Invoice? _markAsPaidInvoice = null;
+    private DateTime? _paidDateInput = DateTime.Today;
+
+    private void OpenMarkAsPaidDialog(Invoice invoice)
     {
+        _paidDateInput = DateTime.Today;
+        _markAsPaidInvoice = invoice;
+    }
+
+    private void CloseMarkAsPaidDialog()
+    {
+        _markAsPaidInvoice = null;
+    }
+
+    private async Task ConfirmMarkAsPaid()
+    {
+        if (_markAsPaidInvoice == null) return;
+
+        var invoice = _markAsPaidInvoice;
+        var paidDate = (_paidDateInput ?? DateTime.Today).Date;
+        _markAsPaidInvoice = null;
+
         try
         {
-            await InvoiceService.MarkAsPaidAsync(invoice.Id);
+            await InvoiceService.MarkAsPaidAsync(invoice.Id, paidDate);
             Snackbar.Add($"Rechnung {invoice.InvoiceNumber} wurde als bezahlt markiert.", Severity.Success);
             await LoadInvoices();
         }

@@ -79,6 +79,9 @@ namespace Kuestencode.Werkbank.Recepta.Data.Migrations
                     b.Property<string>("OcrRawText")
                         .HasColumnType("text");
 
+                    b.Property<DateOnly?>("PaidDate")
+                        .HasColumnType("date");
+
                     b.Property<Guid?>("ProjectId")
                         .HasColumnType("uuid");
 

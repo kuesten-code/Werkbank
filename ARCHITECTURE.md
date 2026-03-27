@@ -28,16 +28,16 @@
 │  │  • E-Mail-Konfiguration                                                │  │
 │  └────────────────────────────────────────────────────────────────────────┘  │
 │                                  │                                            │
-│    ┌───────────┬───────────┬───────────┬───────────┬───────────┐              │
-│    ▼           ▼           ▼           ▼           ▼           │              │
-│  ┌───────────┐┌───────────┐┌───────────┐┌───────────┐┌───────────┐          │
-│  │  Faktura  ││  Offerte  ││  Rapport  ││   Acta    ││  Recepta  │          │
-│  │           ││           ││           ││           ││           │          │
-│  │• Rechnung.││• Angebote ││• Zeiterfas││• Projekte ││• Eingangs-│          │
-│  │• PDF/XR.  ││• PDF-Exp. ││• PDF/CSV  ││• Aufgaben ││  rechnung.│          │
-│  │• E-Mail   ││• E-Mail   ││• Timer    ││• State M. ││• XRechn.  │          │
-│  │• GiroCode ││• → Faktura││• → Faktura││• ↔ Rapport││• OCR      │          │
-│  └───────────┘└───────────┘└───────────┘└───────────┘└───────────┘          │
+│    ┌───────────┬───────────┬───────────┬───────────┬───────────┬───────────┐  │
+│    ▼           ▼           ▼           ▼           ▼           ▼           │  │
+│  ┌───────────┐┌───────────┐┌───────────┐┌───────────┐┌───────────┐┌───────┐│  │
+│  │  Faktura  ││  Offerte  ││  Rapport  ││   Acta    ││  Recepta  ││ Saldo ││  │
+│  │           ││           ││           ││           ││           ││       ││  │
+│  │• Rechnung.││• Angebote ││• Zeiterfas││• Projekte ││• Eingangs-││• EÜR  ││  │
+│  │• PDF/XR.  ││• PDF-Exp. ││• PDF/CSV  ││• Aufgaben ││  rechnung.││• DATEV││  │
+│  │• E-Mail   ││• E-Mail   ││• Timer    ││• State M. ││• XRechn.  ││• PDF  ││  │
+│  │• GiroCode ││• → Faktura││• → Faktura││• ↔ Rapport││• OCR      ││• SKR  ││  │
+│  └───────────┘└───────────┘└───────────┘└───────────┘└───────────┘└───────┘│  │
 │                                                                               │
 └──────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -53,9 +53,9 @@ Kuestencode.Shared.UI              Kuestencode.Shared.Contracts
        │                                      │
        └──────────────┬───────────────────────┘
                       │
-       ┌──────────────┼──────────────┬──────────────┬──────────────┐
-       ▼              ▼              ▼              ▼              ▼
-   Faktura        Offerte        Rapport         Acta         Recepta
+       ┌──────────────┼──────────────┬──────────────┬──────────────┬──────────────┐
+       ▼              ▼              ▼              ▼              ▼              ▼
+   Faktura        Offerte        Rapport         Acta         Recepta         Saldo
 ```
 
 ## Schichten-Architektur
@@ -221,6 +221,7 @@ Jede Schicht hat eine klare Verantwortung:
 | Rapport | Zeiterfassung, Tätigkeitsnachweise |
 | Acta | Projektverwaltung, Aufgabenmanagement |
 | Recepta | Eingangsrechnungen, XRechnung/ZUGFeRD, OCR |
+| Saldo | EÜR, DATEV-Export, Kontenrahmen SKR03/SKR04 |
 
 ## Erweiterbarkeit
 
@@ -372,8 +373,20 @@ spec:
 - 3-Schichten-Architektur: Domain, Data, Application
 - DB-Schema: `recepta`
 
+### Kuestencode.Werkbank.Saldo
+
+- EÜR nach § 4 Abs. 3 EStG (Zufluss-/Abflussprinzip, Filterung nach `PaidDate`)
+- Aggregation aus Faktura (Einnahmen) und Recepta (Ausgaben) via HTTP-API
+- Kontenrahmen SKR03/SKR04 konfigurierbar; Kategorie-Mapping Recepta → DATEV-Konto
+- DATEV EXTF-Export: Buchungsstapel (Windows-1252, BU-Schlüssel, Semikolon-Trennzeichen)
+- Belege-ZIP-Export: Rechnungs-PDFs + Recepta-Anhänge in einem Archiv
+- PDF-Report: EÜR-Bericht mit QuestPDF (Deckblatt, Zusammenfassung, Detailtabellen)
+- 3-Schichten-Architektur: Domain, Data, Application
+- DB-Schema: `saldo`
+
 ## Tests
 
 - `tests/Kuestencode.Faktura.Tests` (Unit/Integration)
 - `tests/Kuestencode.Offerte.Tests` (Unit/Integration)
 - `tests/Kuestencode.Rapport.IntegrationTests` (Integration)
+- `src/Modules/Saldo/Kuestencode.Werkbank.Saldo.Tests` (Unit)

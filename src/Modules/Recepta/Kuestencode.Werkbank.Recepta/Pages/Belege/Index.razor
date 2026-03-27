@@ -52,11 +52,21 @@
             <MudItem xs="12" sm="6" md="2">
                 <MudSelect T="string" Label="Kategorie" Value="_categoryFilter" ValueChanged="OnCategoryFilterChanged"
                           Clearable="true" Variant="Variant.Outlined" Margin="Margin.Dense">
-                    <MudSelectItem T="string" Value="@("Material")">Material</MudSelectItem>
-                    <MudSelectItem T="string" Value="@("Subcontractor")">Fremdleistung</MudSelectItem>
-                    <MudSelectItem T="string" Value="@("Office")">Büro</MudSelectItem>
-                    <MudSelectItem T="string" Value="@("Travel")">Reise</MudSelectItem>
-                    <MudSelectItem T="string" Value="@("Other")">Sonstig</MudSelectItem>
+                    <MudSelectItem T="string" Value="@("Material")">Material / Waren</MudSelectItem>
+                    <MudSelectItem T="string" Value="@("Subcontractor")">Subunternehmer</MudSelectItem>
+                    <MudSelectItem T="string" Value="@("Wages")">Löhne & Gehälter</MudSelectItem>
+                    <MudSelectItem T="string" Value="@("SocialSecurity")">Sozialversicherung</MudSelectItem>
+                    <MudSelectItem T="string" Value="@("Rent")">Miete</MudSelectItem>
+                    <MudSelectItem T="string" Value="@("Utilities")">Nebenkosten</MudSelectItem>
+                    <MudSelectItem T="string" Value="@("Vehicle")">Kfz-Kosten</MudSelectItem>
+                    <MudSelectItem T="string" Value="@("Travel")">Reisekosten</MudSelectItem>
+                    <MudSelectItem T="string" Value="@("Marketing")">Marketing & Werbung</MudSelectItem>
+                    <MudSelectItem T="string" Value="@("Office")">Büromaterial</MudSelectItem>
+                    <MudSelectItem T="string" Value="@("Software")">Software & Lizenzen</MudSelectItem>
+                    <MudSelectItem T="string" Value="@("Phone")">Telefon & Internet</MudSelectItem>
+                    <MudSelectItem T="string" Value="@("Insurance")">Versicherungen</MudSelectItem>
+                    <MudSelectItem T="string" Value="@("Fees")">Beiträge & Gebühren</MudSelectItem>
+                    <MudSelectItem T="string" Value="@("Other")">Sonstige Kosten</MudSelectItem>
                 </MudSelect>
             </MudItem>
             @if (_actaAvailable)
@@ -455,11 +465,21 @@
 
     private static string GetCategoryText(string category) => category switch
     {
-        "Material" => "Material",
-        "Subcontractor" => "Fremdleistung",
-        "Office" => "Büro",
-        "Travel" => "Reise",
-        "Other" => "Sonstig",
+        "Material" => "Material / Waren",
+        "Subcontractor" => "Subunternehmer",
+        "Wages" => "Löhne & Gehälter",
+        "SocialSecurity" => "Sozialversicherung",
+        "Rent" => "Miete",
+        "Utilities" => "Nebenkosten",
+        "Vehicle" => "Kfz-Kosten",
+        "Travel" => "Reisekosten",
+        "Marketing" => "Marketing & Werbung",
+        "Office" => "Büromaterial",
+        "Software" => "Software & Lizenzen",
+        "Phone" => "Telefon & Internet",
+        "Insurance" => "Versicherungen",
+        "Fees" => "Beiträge & Gebühren",
+        "Other" => "Sonstige Kosten",
         _ => category
     };
 
@@ -467,9 +487,12 @@
     {
         "Material" => Color.Primary,
         "Subcontractor" => Color.Secondary,
-        "Office" => Color.Info,
-        "Travel" => Color.Warning,
-        "Other" => Color.Default,
+        "Wages" or "SocialSecurity" => Color.Tertiary,
+        "Rent" or "Utilities" => Color.Dark,
+        "Vehicle" or "Travel" => Color.Warning,
+        "Marketing" => Color.Success,
+        "Office" or "Software" or "Phone" => Color.Info,
+        "Insurance" or "Fees" => Color.Error,
         _ => Color.Default
     };
 

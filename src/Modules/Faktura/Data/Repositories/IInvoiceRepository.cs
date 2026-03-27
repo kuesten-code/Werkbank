@@ -9,6 +9,7 @@ public interface IInvoiceRepository : IRepository<Invoice>
     Task<string> GenerateInvoiceNumberAsync();
     Task<IEnumerable<Invoice>> GetByCustomerIdAsync(int customerId);
     Task<IEnumerable<Invoice>> GetByStatusAsync(InvoiceStatus status);
+    Task<IEnumerable<Invoice>> GetPaidByDateRangeAsync(DateTime paidFrom, DateTime paidTo);
     Task<IEnumerable<Invoice>> GetOverdueInvoicesAsync();
     Task<Invoice?> GetWithDetailsAsync(int id);
 }

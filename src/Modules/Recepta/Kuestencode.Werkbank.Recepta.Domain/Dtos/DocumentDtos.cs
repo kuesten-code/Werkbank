@@ -52,6 +52,8 @@ public class DocumentFilterDto
     public bool? HasBeenAttached { get; set; }
     public DateOnly? From { get; set; }
     public DateOnly? To { get; set; }
+    public DateOnly? PaidFrom { get; set; }
+    public DateOnly? PaidTo { get; set; }
     public string? Search { get; set; }
 }
 
