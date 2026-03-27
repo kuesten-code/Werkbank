@@ -13,7 +13,7 @@ Kuestencode.Werkbank.Saldo           – Controller, Services, Blazor-Seiten
 Kuestencode.Werkbank.Saldo.Tests     – Unit Tests
 ```
 
-**Port:** 8087 (standalone) · Schema: `saldo`
+**Port:** 8086 (standalone) · Schema: `saldo`
 
 ---
 
@@ -112,11 +112,10 @@ Dateinamen-Schema: `{PaidDate}_{Typ}_{Nummer}.{ext}` (z. B. `2026-03-15_RE_RE-20
 
 Der Bericht wird mit **QuestPDF** generiert und enthält:
 
-1. **Deckblatt** – Firma, Zeitraum, Erstellungsdatum
+1. **Deckblatt** – Firma, Inhaber/GF, Zeitraum, Erstellungsdatum
 2. **Zusammenfassung** – Einnahmen/Ausgaben/Gewinn + USt-Übersicht
 3. **Aufstellung Einnahmen** – Tabelle gruppiert nach Erlöskonto
-4. **Aufstellung Ausgaben** – Tabelle gruppiert nach Kategorie/Konto
-5. **Ausgaben nach Kategorie** – Summensicht mit Beleganzahl
+4. **Aufstellung Ausgaben** – Tabelle gruppiert nach Kategorie/Konto inkl. Anteil (%)
 
 Download: Button _"Als PDF exportieren"_ auf der EÜR-Seite (`/saldo/euer`).
 
