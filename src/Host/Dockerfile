@@ -27,6 +27,13 @@ FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS final
 WORKDIR /app
 EXPOSE 8080
 
+# Timezone
+RUN apt-get update && apt-get install -y --no-install-recommends tzdata && rm -rf /var/lib/apt/lists/*
+ENV TZ=Europe/Berlin
+
+# Surface build metadata for observability
+ARG DOCKER_IMAGE_TAG=dev
+ENV DOCKER_IMAGE_TAG=${DOCKER_IMAGE_TAG}
 
 # Copy published app
 COPY --from=publish /app/publish .
