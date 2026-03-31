@@ -29,13 +29,15 @@ FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS final
 WORKDIR /app
 EXPOSE 8085
 
-# Install Tesseract OCR, German language data, and poppler-utils for PDF conversion
+# Timezone + Tesseract OCR + poppler-utils
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
+        tzdata \
         tesseract-ocr \
         tesseract-ocr-deu \
         poppler-utils \
     && rm -rf /var/lib/apt/lists/*
+ENV TZ=Europe/Berlin
 
 # Surface build metadata for observability
 ARG DOCKER_IMAGE_TAG=dev
