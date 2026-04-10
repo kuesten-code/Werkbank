@@ -3,6 +3,7 @@
 @inject AuthenticationStateProvider AuthStateProvider
 @inject NavigationManager NavigationManager
 @using Kuestencode.Werkbank.Host.Auth
+@using Kuestencode.Werkbank.Host.Services
 @implements IDisposable
 
 <MudThemeProvider @ref="_themeProvider" Theme="@_theme" IsDarkMode="@_isDarkMode" />
@@ -66,6 +67,7 @@
                 _isDarkMode = storedValue;
                 StateHasChanged();
             }
+
         }
     }
 
