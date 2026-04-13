@@ -43,17 +43,37 @@
                     </MudItem>
 
                     <MudItem xs="12">
-                        <MudTextField Label="E-Mail" @bind-Value="_member.Email"
-                                     For="@(() => _member.Email)" InputType="InputType.Email" Required="true" />
+                        <MudPaper Outlined="true" Class="pa-3" Style="border-color: var(--mud-palette-lines-inputs);">
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                                <MudIcon Icon="@Icons.Material.Filled.WifiOff" Color="@(_member.IsOffline ? Color.Warning : Color.Default)" Size="Size.Medium" />
+                                <div style="flex: 1;">
+                                    <MudCheckBox @bind-Value="_member.IsOffline" Label="Offline-Mitarbeiter" Color="Color.Warning" />
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary" Style="margin-left: 34px; margin-top: -4px; display: block;">
+                                        Kein System-Zugang.
+                                    </MudText>
+                                </div>
+                            </MudStack>
+                        </MudPaper>
                     </MudItem>
 
-                    <MudItem xs="12">
-                        <MudSelect T="UserRole" Label="Rolle" @bind-Value="_member.Role">
-                            <MudSelectItem T="UserRole" Value="UserRole.Admin">Admin</MudSelectItem>
-                            <MudSelectItem T="UserRole" Value="UserRole.Buero">Büro</MudSelectItem>
-                            <MudSelectItem T="UserRole" Value="UserRole.Mitarbeiter">Mitarbeiter</MudSelectItem>
-                        </MudSelect>
-                    </MudItem>
+                    @if (!_member.IsOffline)
+                    {
+                        <MudItem xs="12">
+                            <MudTextField Label="E-Mail" @bind-Value="_member.Email"
+                                         For="@(() => _member.Email)" InputType="InputType.Email" />
+                        </MudItem>
+                    }
+
+                    @if (!_member.IsOffline)
+                    {
+                        <MudItem xs="12">
+                            <MudSelect T="UserRole" Label="Rolle" @bind-Value="_member.Role">
+                                <MudSelectItem T="UserRole" Value="UserRole.Admin">Admin</MudSelectItem>
+                                <MudSelectItem T="UserRole" Value="UserRole.Buero">Büro</MudSelectItem>
+                                <MudSelectItem T="UserRole" Value="UserRole.Mitarbeiter">Mitarbeiter</MudSelectItem>
+                            </MudSelect>
+                        </MudItem>
+                    }
 
                     <MudItem xs="12">
                         <MudCheckBox @bind-Value="_member.IsActive" Label="Aktiv" />
@@ -73,7 +93,7 @@
                         </MudItem>
                     }
 
-                    @if (!string.IsNullOrEmpty(_member.Email))
+                    @if (!_member.IsOffline && !string.IsNullOrEmpty(_member.Email))
                     {
                         <MudItem xs="12">
                             <MudButton Variant="Variant.Outlined" Color="Color.Info"
@@ -95,8 +115,8 @@
                         </MudItem>
                     }
 
-                    @* Mobiler Zugang (nur für Mitarbeiter) *@
-                    @if (_member.Role == UserRole.Mitarbeiter)
+                    @* Mobiler Zugang (nur für Online-Mitarbeiter) *@
+                    @if (!_member.IsOffline && _member.Role == UserRole.Mitarbeiter)
                     {
                         <MudItem xs="12">
                             <MudDivider Class="my-4" />
