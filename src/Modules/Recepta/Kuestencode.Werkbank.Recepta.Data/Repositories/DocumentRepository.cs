@@ -21,6 +21,7 @@ public class DocumentRepository : IDocumentRepository
         return await _context.Documents
             .Include(d => d.Supplier)
             .Include(d => d.Files)
+            .Include(d => d.ProjectAllocations)
             .FirstOrDefaultAsync(d => d.Id == id);
     }
 
@@ -28,7 +29,6 @@ public class DocumentRepository : IDocumentRepository
         DocumentStatus? status = null,
         DocumentCategory? category = null,
         Guid? supplierId = null,
-        Guid? projectId = null,
         bool? hasBeenAttached = null)
     {
         var query = _context.Documents
@@ -49,11 +49,6 @@ public class DocumentRepository : IDocumentRepository
         if (supplierId.HasValue)
         {
             query = query.Where(d => d.SupplierId == supplierId.Value);
-        }
-
-        if (projectId.HasValue)
-        {
-            query = query.Where(d => d.ProjectId == projectId.Value);
         }
 
         if (hasBeenAttached.HasValue)

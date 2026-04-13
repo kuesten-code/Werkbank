@@ -1,5 +1,6 @@
 using System.Net.Http.Json;
 using Kuestencode.Shared.Contracts.Faktura;
+using ProjectInvoicesResponseDto = Kuestencode.Shared.Contracts.Faktura.ProjectInvoicesResponseDto;
 
 namespace Kuestencode.Shared.ApiClients;
 
@@ -64,6 +65,13 @@ public class FakturaApiClient : IFakturaApiClient
     {
         var response = await _httpClient.PostAsJsonAsync($"/api/invoice/{id}/mark-paid", new { paidDate });
         response.EnsureSuccessStatusCode();
+    }
+
+    public async Task<ProjectInvoicesResponseDto?> GetProjectInvoicesAsync(int projectId)
+    {
+        var response = await _httpClient.GetAsync($"/api/invoice/project/{projectId}");
+        if (!response.IsSuccessStatusCode) return null;
+        return await response.Content.ReadFromJsonAsync<ProjectInvoicesResponseDto>();
     }
 
     private string BuildQueryString(InvoiceFilterDto? filter)

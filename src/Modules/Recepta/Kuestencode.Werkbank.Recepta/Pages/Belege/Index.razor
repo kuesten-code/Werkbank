@@ -148,9 +148,9 @@
                 @if (_actaAvailable)
                 {
                     <MudTd DataLabel="Projekt">
-                        @if (context.ProjectId.HasValue)
+                        @if (context.ProjectAllocations.Count > 0)
                         {
-                            @GetProjectName(context.ProjectId.Value)
+                            @string.Join(", ", context.ProjectAllocations.Select(a => GetProjectName(a.ProjectId)))
                         }
                         else
                         {
@@ -327,7 +327,6 @@
                 Status = status,
                 Category = category,
                 SupplierId = _supplierFilter,
-                ProjectId = _projectFilter,
                 From = _dateFrom.HasValue ? DateOnly.FromDateTime(_dateFrom.Value) : null,
                 To = _dateTo.HasValue ? DateOnly.FromDateTime(_dateTo.Value) : null,
                 Search = string.IsNullOrWhiteSpace(_searchString) ? null : _searchString

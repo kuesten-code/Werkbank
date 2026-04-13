@@ -123,6 +123,9 @@ namespace Kuestencode.Faktura.Data.Migrations
                     b.Property<DateTime?>("PrintedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<int?>("ProjectId")
+                        .HasColumnType("integer");
+
                     b.Property<DateTime?>("ServicePeriodEnd")
                         .HasColumnType("timestamp with time zone");
 
@@ -141,6 +144,8 @@ namespace Kuestencode.Faktura.Data.Migrations
 
                     b.HasIndex("InvoiceNumber")
                         .IsUnique();
+
+                    b.HasIndex("ProjectId");
 
                     b.ToTable("Invoices", "faktura");
                 });

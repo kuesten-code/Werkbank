@@ -183,6 +183,19 @@ public class InvoiceRepository : Repository<Invoice>, IInvoiceRepository
         return await GetWithDetailsAsync(id);
     }
 
+    public async Task<IEnumerable<Invoice>> GetByProjectIdAsync(int projectId)
+    {
+        var invoices = await _dbSet
+            .Include(i => i.Items)
+            .Include(i => i.DownPayments)
+            .Where(i => i.ProjectId == projectId)
+            .OrderByDescending(i => i.InvoiceDate)
+            .ToListAsync();
+
+        await LoadCustomersAsync(invoices);
+        return invoices;
+    }
+
     /// <summary>
     /// Lädt den Kunden für eine einzelne Rechnung via Host API.
     /// </summary>

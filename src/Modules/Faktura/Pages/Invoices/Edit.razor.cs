@@ -115,6 +115,9 @@ public partial class Edit
             // Initialize discount toggle
             _hasDiscount = _invoice.DiscountType != DiscountType.None;
 
+            // Initialize project selection from existing invoice
+            _selectedProjectExternalId = _invoice.ProjectId;
+
             SyncTimesheetRange();
             await CheckModuleAvailabilityAsync();
             if (!_rapportAvailable)
@@ -510,6 +513,7 @@ public partial class Edit
         try
         {
             _invoice.CustomerId = _selectedCustomer.Id;
+            _invoice.ProjectId = _selectedProjectExternalId;
             _invoice.InvoiceDate = DateTime.SpecifyKind(_invoiceDate.Value, DateTimeKind.Utc);
             _invoice.ServicePeriodStart = _servicePeriodStart.HasValue ? DateTime.SpecifyKind(_servicePeriodStart.Value, DateTimeKind.Utc) : null;
             _invoice.ServicePeriodEnd = _servicePeriodEnd.HasValue ? DateTime.SpecifyKind(_servicePeriodEnd.Value, DateTimeKind.Utc) : null;

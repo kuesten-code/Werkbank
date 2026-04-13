@@ -17,7 +17,6 @@ public class CreateDocumentDto
     public decimal AmountTax { get; set; }
     public decimal AmountGross { get; set; }
     public DocumentCategory Category { get; set; } = DocumentCategory.Other;
-    public Guid? ProjectId { get; set; }
     public string? OcrRawText { get; set; }
     public string? Notes { get; set; }
 }
@@ -36,8 +35,29 @@ public class UpdateDocumentDto
     public decimal AmountTax { get; set; }
     public decimal AmountGross { get; set; }
     public DocumentCategory Category { get; set; } = DocumentCategory.Other;
-    public Guid? ProjectId { get; set; }
     public string? Notes { get; set; }
+}
+
+/// <summary>
+/// DTO für eine Projekt-Zuteilung (Ausgabe).
+/// </summary>
+public class DocumentAllocationDto
+{
+    public Guid Id { get; set; }
+    public Guid ProjectId { get; set; }
+    public decimal AllocatedNet { get; set; }
+    public decimal AllocatedTax { get; set; }
+    public decimal AllocatedGross { get; set; }
+}
+
+/// <summary>
+/// DTO zum Setzen einer Projekt-Zuteilung (Eingabe).
+/// Net und Tax werden aus Gross und dem TaxRate des Belegs rückgerechnet.
+/// </summary>
+public class SetAllocationDto
+{
+    public Guid ProjectId { get; set; }
+    public decimal AllocatedGross { get; set; }
 }
 
 /// <summary>
@@ -48,7 +68,6 @@ public class DocumentFilterDto
     public DocumentStatus? Status { get; set; }
     public DocumentCategory? Category { get; set; }
     public Guid? SupplierId { get; set; }
-    public Guid? ProjectId { get; set; }
     public bool? HasBeenAttached { get; set; }
     public DateOnly? From { get; set; }
     public DateOnly? To { get; set; }

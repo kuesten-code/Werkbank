@@ -112,6 +112,7 @@ public class InvoiceController : ControllerBase
                 ServicePeriodEnd = request.ServicePeriodEnd,
                 DueDate = request.DueDate,
                 CustomerId = request.CustomerId,
+                ProjectId = request.ProjectId,
                 Notes = request.Notes,
                 DiscountType = Enum.Parse<DiscountType>(request.DiscountType),
                 DiscountValue = request.DiscountValue,
@@ -150,6 +151,7 @@ public class InvoiceController : ControllerBase
             invoice.ServicePeriodEnd = request.ServicePeriodEnd;
             invoice.DueDate = request.DueDate;
             invoice.CustomerId = request.CustomerId;
+            invoice.ProjectId = request.ProjectId;
             invoice.Notes = request.Notes;
             invoice.DiscountType = Enum.Parse<DiscountType>(request.DiscountType);
             invoice.DiscountValue = request.DiscountValue;
@@ -258,6 +260,35 @@ public class InvoiceController : ControllerBase
         }
     }
 
+    [HttpGet("project/{projectId:int}")]
+    public async Task<ActionResult<ProjectInvoicesResponseDto>> GetByProjectId(int projectId)
+    {
+        try
+        {
+            var invoices = await _invoiceService.GetByProjectIdAsync(projectId);
+            var dtos = new List<InvoiceDto>();
+            foreach (var invoice in invoices)
+            {
+                dtos.Add(await MapToDtoAsync(invoice));
+            }
+
+            var result = new ProjectInvoicesResponseDto
+            {
+                ProjectId = projectId,
+                TotalNet = dtos.Sum(i => i.TotalNetAfterDiscount),
+                TotalGross = dtos.Sum(i => i.TotalGross),
+                InvoiceCount = dtos.Count,
+                Invoices = dtos
+            };
+            return Ok(result);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving invoices for project {ProjectId}", projectId);
+            return StatusCode(500, "Internal server error");
+        }
+    }
+
     private async Task<InvoiceDto> MapToDtoAsync(Invoice invoice)
     {
         // Load customer name from Host API
@@ -278,6 +309,7 @@ public class InvoiceController : ControllerBase
             DueDate = invoice.DueDate,
             CustomerId = invoice.CustomerId,
             CustomerName = customerName,
+            ProjectId = invoice.ProjectId,
             Notes = invoice.Notes,
             Status = invoice.Status.ToString(),
             PaidDate = invoice.PaidDate,

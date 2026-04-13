@@ -24,6 +24,8 @@ public class Invoice
     [Required]
     public int CustomerId { get; set; }
 
+    public int? ProjectId { get; set; }
+
     [MaxLength(2000)]
     public string? Notes { get; set; }
 

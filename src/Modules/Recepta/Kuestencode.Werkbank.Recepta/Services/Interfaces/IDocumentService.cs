@@ -63,4 +63,16 @@ public interface IDocumentService
     /// Markiert mehrere Belege als bereits an Rechnung angehängt.
     /// </summary>
     Task MarkAsAttachedAsync(IEnumerable<Guid> documentIds);
+
+    /// <summary>
+    /// Lädt alle Projekt-Zuteilungen eines Belegs.
+    /// </summary>
+    Task<List<DocumentAllocationDto>> GetAllocationsAsync(Guid documentId);
+
+    /// <summary>
+    /// Setzt die Projekt-Zuteilungen eines Belegs atomisch.
+    /// Die Summe der Brutto-Zuteilungen darf den Gesamtbetrag nicht überschreiten.
+    /// Nur bei Status Draft erlaubt.
+    /// </summary>
+    Task SetAllocationsAsync(Guid documentId, IEnumerable<SetAllocationDto> allocations);
 }

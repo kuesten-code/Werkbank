@@ -543,6 +543,8 @@ public partial class Create
             if (_selectedCustomer != null)
                 _invoice.CustomerId = _selectedCustomer.Id;
 
+            _invoice.ProjectId = _selectedProjectExternalId;
+
             var invoiceDate = _invoiceDate ?? throw new InvalidOperationException("Rechnungsdatum fehlt.");
             _invoice.InvoiceDate = DateTime.SpecifyKind(invoiceDate, DateTimeKind.Utc);
             _invoice.ServicePeriodStart = _servicePeriodStart.HasValue ? DateTime.SpecifyKind(_servicePeriodStart.Value, DateTimeKind.Utc) : null;
@@ -603,6 +605,8 @@ public partial class Create
         {
             if (_selectedCustomer != null)
                 _invoice.CustomerId = _selectedCustomer.Id;
+
+            _invoice.ProjectId = _selectedProjectExternalId;
 
             var invoiceDate = _invoiceDate ?? throw new InvalidOperationException("Rechnungsdatum fehlt.");
             _invoice.InvoiceDate = DateTime.SpecifyKind(invoiceDate, DateTimeKind.Utc);
