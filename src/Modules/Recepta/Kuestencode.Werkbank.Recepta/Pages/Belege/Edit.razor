@@ -1110,7 +1110,9 @@
 
     private void AddAllocationRow()
     {
-        _allocationRows.Add(new AllocationRowModel());
+        var alreadyAllocated = _allocationRows.Sum(r => r.AllocatedGross);
+        var remaining = Math.Max(0, Math.Round(_model.AmountGross - alreadyAllocated, 2));
+        _allocationRows.Add(new AllocationRowModel { AllocatedGross = remaining });
     }
 
     private void RemoveAllocationRow(AllocationRowModel row)
