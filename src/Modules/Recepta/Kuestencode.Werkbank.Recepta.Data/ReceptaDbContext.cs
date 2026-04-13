@@ -27,6 +27,7 @@ public class ReceptaDbContext : DbContext
     public DbSet<Document> Documents { get; set; } = null!;
     public DbSet<DocumentFile> DocumentFiles { get; set; } = null!;
     public DbSet<SupplierOcrPattern> SupplierOcrPatterns { get; set; } = null!;
+    public DbSet<DocumentProjectAllocation> DocumentProjectAllocations { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -89,6 +90,27 @@ public class ReceptaDbContext : DbContext
                 .WithOne(e => e.Document)
                 .HasForeignKey(e => e.DocumentId)
                 .OnDelete(DeleteBehavior.Cascade);
+
+            // Cascade delete für Projekt-Zuteilungen
+            entity.HasMany(e => e.ProjectAllocations)
+                .WithOne(e => e.Document)
+                .HasForeignKey(e => e.DocumentId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // DocumentProjectAllocation Configuration
+        modelBuilder.Entity<DocumentProjectAllocation>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+
+            entity.Property(e => e.AllocatedNet).HasPrecision(18, 2);
+            entity.Property(e => e.AllocatedTax).HasPrecision(18, 2);
+            entity.Property(e => e.AllocatedGross).HasPrecision(18, 2);
+
+            // Pro Dokument kann ein Projekt nur einmal vorkommen
+            entity.HasIndex(e => new { e.DocumentId, e.ProjectId }).IsUnique();
+            // Schnelle Abfrage aller Belege eines Projekts
+            entity.HasIndex(e => e.ProjectId);
         });
 
         // DocumentFile Configuration

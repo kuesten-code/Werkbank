@@ -1,5 +1,6 @@
 using System.Net.Http.Json;
 using Kuestencode.Shared.Contracts.Acta;
+using Kuestencode.Shared.Contracts.Faktura;
 using Kuestencode.Shared.Contracts.Host;
 using Kuestencode.Shared.Contracts.Navigation;
 using Kuestencode.Shared.Contracts.Rapport;
@@ -141,6 +142,20 @@ public class HostApiClient : IHostApiClient
             var response = await _httpClient.GetAsync($"/api/recepta/documents/project/{projectId}/expenses").ConfigureAwait(false);
             if (!response.IsSuccessStatusCode) return null;
             return await response.Content.ReadFromJsonAsync<ProjectExpensesResponseDto>().ConfigureAwait(false);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    public async Task<ProjectInvoicesResponseDto?> GetProjectInvoicesAsync(int projectId)
+    {
+        try
+        {
+            var response = await _httpClient.GetAsync($"/api/faktura-proxy/invoices/project/{projectId}").ConfigureAwait(false);
+            if (!response.IsSuccessStatusCode) return null;
+            return await response.Content.ReadFromJsonAsync<ProjectInvoicesResponseDto>().ConfigureAwait(false);
         }
         catch
         {

@@ -14,6 +14,7 @@ namespace Kuestencode.Werkbank.Recepta.Services;
 public class DocumentService : IDocumentService
 {
     private readonly IDocumentRepository _documentRepository;
+    private readonly IDocumentAllocationRepository _allocationRepository;
     private readonly ISupplierRepository _supplierRepository;
     private readonly IOcrService _ocrService;
     private readonly IOcrPatternService _patternService;
@@ -22,6 +23,7 @@ public class DocumentService : IDocumentService
 
     public DocumentService(
         IDocumentRepository documentRepository,
+        IDocumentAllocationRepository allocationRepository,
         ISupplierRepository supplierRepository,
         IOcrService ocrService,
         IOcrPatternService patternService,
@@ -29,6 +31,7 @@ public class DocumentService : IDocumentService
         ILogger<DocumentService> logger)
     {
         _documentRepository = documentRepository;
+        _allocationRepository = allocationRepository;
         _supplierRepository = supplierRepository;
         _ocrService = ocrService;
         _patternService = patternService;
@@ -39,7 +42,7 @@ public class DocumentService : IDocumentService
     public async Task<IEnumerable<DocumentDto>> GetAllAsync(DocumentFilterDto filter)
     {
         var documents = await _documentRepository.GetAllAsync(
-            filter.Status, filter.Category, filter.SupplierId, filter.ProjectId, filter.HasBeenAttached);
+            filter.Status, filter.Category, filter.SupplierId, filter.HasBeenAttached);
 
         IEnumerable<Document> result = documents;
 
@@ -119,7 +122,6 @@ public class DocumentService : IDocumentService
             AmountGross = dto.AmountGross,
             Category = dto.Category,
             Status = DocumentStatus.Draft,
-            ProjectId = dto.ProjectId,
             OcrRawText = dto.OcrRawText,
             Notes = dto.Notes
         };
@@ -306,7 +308,6 @@ public class DocumentService : IDocumentService
         document.AmountTax = dto.AmountTax;
         document.AmountGross = dto.AmountGross;
         document.Category = dto.Category;
-        document.ProjectId = dto.ProjectId;
         document.Notes = dto.Notes;
 
         await _documentRepository.UpdateAsync(document);
@@ -417,6 +418,78 @@ public class DocumentService : IDocumentService
         await _documentRepository.MarkAsAttachedAsync(documentIds);
     }
 
+    public async Task<List<DocumentAllocationDto>> GetAllocationsAsync(Guid documentId)
+    {
+        var allocations = await _allocationRepository.GetByDocumentIdAsync(documentId);
+        return allocations.Select(a => new DocumentAllocationDto
+        {
+            Id = a.Id,
+            ProjectId = a.ProjectId,
+            AllocatedNet = a.AllocatedNet,
+            AllocatedTax = a.AllocatedTax,
+            AllocatedGross = a.AllocatedGross
+        }).ToList();
+    }
+
+    public async Task SetAllocationsAsync(Guid documentId, IEnumerable<SetAllocationDto> allocations)
+    {
+        var document = await _documentRepository.GetByIdAsync(documentId);
+        if (document == null)
+        {
+            throw new InvalidOperationException($"Beleg mit ID {documentId} nicht gefunden.");
+        }
+
+        if (!document.IsEditable)
+        {
+            throw new InvalidOperationException(
+                "Projekt-Zuteilungen können nur bei Belegen im Status 'Draft' geändert werden.");
+        }
+
+        var allocationList = allocations.ToList();
+
+        // Keine negativen Beträge
+        if (allocationList.Any(a => a.AllocatedGross < 0))
+        {
+            throw new InvalidOperationException("Zuteilungsbeträge dürfen nicht negativ sein.");
+        }
+
+        // Keine doppelten Projekte
+        if (allocationList.Select(a => a.ProjectId).Distinct().Count() != allocationList.Count)
+        {
+            throw new InvalidOperationException("Jedes Projekt darf pro Beleg nur einmal vorkommen.");
+        }
+
+        // Summe darf Gesamtbetrag nicht überschreiten
+        var totalAllocated = Math.Round(allocationList.Sum(a => a.AllocatedGross), 2);
+        var documentGross = Math.Round(document.AmountGross, 2);
+        if (totalAllocated > documentGross)
+        {
+            throw new InvalidOperationException(
+                $"Die Summe der Zuteilungen ({totalAllocated:N2} €) übersteigt den Bruttobetrag des Belegs ({documentGross:N2} €).");
+        }
+
+        // Net und Tax proportional rückrechnen
+        var entities = allocationList.Select(a =>
+        {
+            var allocatedNet = document.TaxRate > 0
+                ? Math.Round(a.AllocatedGross / (1 + document.TaxRate / 100), 2)
+                : a.AllocatedGross;
+            var allocatedTax = a.AllocatedGross - allocatedNet;
+
+            return new DocumentProjectAllocation
+            {
+                Id = Guid.NewGuid(),
+                DocumentId = documentId,
+                ProjectId = a.ProjectId,
+                AllocatedGross = a.AllocatedGross,
+                AllocatedNet = allocatedNet,
+                AllocatedTax = allocatedTax
+            };
+        });
+
+        await _allocationRepository.SetAllocationsAsync(documentId, entities);
+    }
+
     private static DocumentDto MapToDto(Document document)
     {
         return new DocumentDto
@@ -435,14 +508,21 @@ public class DocumentService : IDocumentService
             AmountGross = document.AmountGross,
             Category = document.Category.ToString(),
             Status = document.Status.ToString(),
-            ProjectId = document.ProjectId,
             HasBeenAttached = document.HasBeenAttached,
             Notes = document.Notes,
             OcrRawText = document.OcrRawText,
             CreatedAt = document.CreatedAt,
             UpdatedAt = document.UpdatedAt,
             IsOverdue = document.IsOverdue,
-            FileCount = document.Files.Count
+            FileCount = document.Files.Count,
+            ProjectAllocations = document.ProjectAllocations.Select(a => new DocumentAllocationDto
+            {
+                Id = a.Id,
+                ProjectId = a.ProjectId,
+                AllocatedNet = a.AllocatedNet,
+                AllocatedTax = a.AllocatedTax,
+                AllocatedGross = a.AllocatedGross
+            }).ToList()
         };
     }
 }

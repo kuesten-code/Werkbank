@@ -28,6 +28,7 @@ public static class ReceptaModule
         // Register Repositories
         services.AddScoped<ISupplierRepository, SupplierRepository>();
         services.AddScoped<IDocumentRepository, DocumentRepository>();
+        services.AddScoped<IDocumentAllocationRepository, DocumentAllocationRepository>();
         services.AddScoped<IDocumentFileRepository, DocumentFileRepository>();
         services.AddScoped<ISupplierOcrPatternRepository, SupplierOcrPatternRepository>();
 

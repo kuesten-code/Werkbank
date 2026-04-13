@@ -12,4 +12,5 @@ public interface IFakturaApiClient
     Task SendInvoiceAsync(int id);
     Task<byte[]> GenerateInvoicePdfAsync(int id);
     Task MarkAsPaidAsync(int id, DateTime paidDate);
+    Task<ProjectInvoicesResponseDto?> GetProjectInvoicesAsync(int projectId);
 }
