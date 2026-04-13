@@ -327,6 +327,9 @@ namespace Kuestencode.Werkbank.Host.Data.Migrations
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean");
 
+                    b.Property<bool>("IsOffline")
+                        .HasColumnType("boolean");
+
                     b.Property<bool>("IsLockedByAdmin")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("boolean")
