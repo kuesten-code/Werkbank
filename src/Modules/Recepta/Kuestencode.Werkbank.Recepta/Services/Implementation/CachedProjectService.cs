@@ -1,6 +1,5 @@
 using Kuestencode.Shared.ApiClients;
 using Kuestencode.Shared.Contracts.Acta;
-using Kuestencode.Shared.Contracts.Navigation;
 using Microsoft.Extensions.Caching.Memory;
 
 namespace Kuestencode.Werkbank.Recepta.Services;
@@ -18,6 +17,7 @@ public class CachedProjectService : ICachedProjectService
     private const string ProjectsCacheKey = "acta_projects";
     private const string AvailabilityCacheKey = "acta_available";
     private static readonly TimeSpan CacheDuration = TimeSpan.FromMinutes(5);
+    private static readonly TimeSpan EmptyCacheDuration = TimeSpan.FromSeconds(15);
 
     public CachedProjectService(
         IHostApiClient hostApiClient,
@@ -36,19 +36,19 @@ public class CachedProjectService : ICachedProjectService
             return cached;
         }
 
-        try
+        var projects = await _hostApiClient.GetActaProjectsAsync();
+        if (projects.Count > 0)
         {
-            var projects = await _hostApiClient.GetActaProjectsAsync();
             _cache.Set(ProjectsCacheKey, projects, CacheDuration);
-            _cache.Set(AvailabilityCacheKey, projects.Count > 0, CacheDuration);
-            return projects;
+            _cache.Set(AvailabilityCacheKey, true, CacheDuration);
         }
-        catch (Exception ex)
+        else
         {
-            _logger.LogDebug(ex, "Acta-Projekte konnten nicht geladen werden");
-            _cache.Set(AvailabilityCacheKey, false, CacheDuration);
-            return [];
+            // Kurzen Cache setzen, damit beim nächsten Seitenaufruf erneut versucht wird
+            _logger.LogDebug("Acta-Projekte nicht verfügbar oder leer, kurzer Cache");
+            _cache.Set(AvailabilityCacheKey, false, EmptyCacheDuration);
         }
+        return projects;
     }
 
     public async Task<bool> IsActaAvailableAsync()
@@ -58,28 +58,8 @@ public class CachedProjectService : ICachedProjectService
             return available;
         }
 
-        try
-        {
-            var navItems = await _hostApiClient.GetNavigationAsync();
-            var isAvailable = navItems.Any(IsActaNavItem);
-            _cache.Set(AvailabilityCacheKey, isAvailable, CacheDuration);
-            return isAvailable;
-        }
-        catch
-        {
-            _cache.Set(AvailabilityCacheKey, false, CacheDuration);
-            return false;
-        }
-    }
-
-    private static bool IsActaNavItem(NavItemDto item)
-    {
-        if (!string.IsNullOrWhiteSpace(item.Href) && item.Href.StartsWith("/acta", StringComparison.OrdinalIgnoreCase))
-            return true;
-
-        if (item.Children is { Count: > 0 })
-            return item.Children.Any(IsActaNavItem);
-
-        return false;
+        // Projekte laden setzt den Availability-Cache mit, daher hier direkt nutzen
+        var projects = await GetProjectsAsync();
+        return projects.Count > 0;
     }
 }

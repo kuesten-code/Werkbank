@@ -34,6 +34,7 @@ public class DocumentRepository : IDocumentRepository
         var query = _context.Documents
             .Include(d => d.Supplier)
             .Include(d => d.Files)
+            .Include(d => d.ProjectAllocations)
             .AsQueryable();
 
         if (status.HasValue)
