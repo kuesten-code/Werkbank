@@ -122,7 +122,7 @@
                         </MudTd>
                         <MudTd DataLabel="Einzelpreis" Style="text-align: right">
                             <MudNumericField @bind-Value="item.UnitPrice" Margin="Margin.Dense"
-                                            Variant="Variant.Outlined" Min="0.01m" Step="1m"
+                                            Variant="Variant.Outlined" Min="-999999999m" Step="1m"
                                             Format="C2" HideSpinButtons="true" Culture="@_culture"
                                             OnBlur="RecalculateTotals" />
                         </MudTd>

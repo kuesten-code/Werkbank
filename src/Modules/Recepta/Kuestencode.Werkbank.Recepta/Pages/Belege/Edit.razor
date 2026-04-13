@@ -308,7 +308,7 @@
                                 <MudNumericField Value="_model.AmountNet"
                                                 Label="Netto" Variant="Variant.Outlined"
                                                 Adornment="Adornment.End" AdornmentText="€"
-                                                Format="N2" Culture="@_culture" Min="0"
+                                                Format="N2" Culture="@_culture" Min="-999999999m"
                                                 ValueChanged="OnAmountNetChanged" T="decimal"
                                                 ReadOnly="@(!_isDraft)" />
                             </MudItem>
@@ -419,7 +419,7 @@
                                                 <MudNumericField T="decimal"
                                                                 @bind-Value="row.AllocatedGross"
                                                                 Variant="Variant.Outlined" Dense="true" Margin="Margin.Dense"
-                                                                Min="0m" Max="@_model.AmountGross"
+                                                                Max="@(Math.Abs(_model.AmountGross))"
                                                                 Format="N2" Culture="@_culture" />
                                             </MudTd>
                                             <MudTd>
@@ -451,7 +451,7 @@
                                     Zugeteilt: <strong>@_allocatedTotal.ToString("N2", _culture) €</strong>
                                     / Gesamt: <strong>@_model.AmountGross.ToString("N2", _culture) €</strong>
                                 </MudText>
-                                @if (!_isOverAllocated && (_model.AmountGross - _allocatedTotal) > 0)
+                                @if (!_isOverAllocated && Math.Abs(_model.AmountGross - _allocatedTotal) > 0)
                                 {
                                     <MudChip T="string" Size="Size.Small" Color="Color.Default">
                                         @((_model.AmountGross - _allocatedTotal).ToString("N2", _culture)) € nicht zugeteilt
@@ -560,7 +560,7 @@
     // Projekt-Zuteilungen
     private List<AllocationRowModel> _allocationRows = new();
     private decimal _allocatedTotal => _allocationRows.Sum(r => r.AllocatedGross);
-    private bool _isOverAllocated => Math.Round(_allocatedTotal, 2) > Math.Round(_model.AmountGross, 2);
+    private bool _isOverAllocated => Math.Round(Math.Abs(_allocatedTotal), 2) > Math.Round(Math.Abs(_model.AmountGross), 2);
 
     protected override async Task OnInitializedAsync()
     {
@@ -900,9 +900,9 @@
             return;
         }
 
-        if (_model.AmountGross <= 0)
+        if (_model.AmountGross == 0)
         {
-            _errorMessage = "Der Bruttobetrag muss größer als 0 sein.";
+            _errorMessage = "Der Bruttobetrag darf nicht 0 sein.";
             return;
         }
 
@@ -1111,7 +1111,8 @@
     private void AddAllocationRow()
     {
         var alreadyAllocated = _allocationRows.Sum(r => r.AllocatedGross);
-        var remaining = Math.Max(0, Math.Round(_model.AmountGross - alreadyAllocated, 2));
+        var remaining = Math.Round(_model.AmountGross - alreadyAllocated, 2);
+        if (Math.Sign(remaining) != Math.Sign(_model.AmountGross) && remaining != 0) remaining = 0;
         _allocationRows.Add(new AllocationRowModel { AllocatedGross = remaining });
     }
 

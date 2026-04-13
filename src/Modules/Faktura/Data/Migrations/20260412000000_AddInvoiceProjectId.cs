@@ -10,18 +10,15 @@ namespace Kuestencode.Faktura.Data.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.AddColumn<int>(
-                name: "ProjectId",
-                schema: "faktura",
-                table: "Invoices",
-                type: "integer",
-                nullable: true);
+            migrationBuilder.Sql(@"
+                ALTER TABLE faktura.""Invoices""
+                ADD COLUMN IF NOT EXISTS ""ProjectId"" integer NULL;
+            ");
 
-            migrationBuilder.CreateIndex(
-                name: "IX_Invoices_ProjectId",
-                schema: "faktura",
-                table: "Invoices",
-                column: "ProjectId");
+            migrationBuilder.Sql(@"
+                CREATE INDEX IF NOT EXISTS ""IX_Invoices_ProjectId""
+                ON faktura.""Invoices"" (""ProjectId"");
+            ");
         }
 
         /// <inheritdoc />

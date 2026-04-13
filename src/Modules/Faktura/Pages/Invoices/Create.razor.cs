@@ -464,9 +464,9 @@ public partial class Create
             return false;
         }
 
-        if (_invoice.Items.Any(i => i.Quantity <= 0 || i.UnitPrice < 0))
+        if (_invoice.Items.Any(i => i.Quantity <= 0))
         {
-            _errorMessage = "Menge muss > 0 sein und Preis darf nicht negativ sein.";
+            _errorMessage = "Menge muss > 0 sein.";
             return false;
         }
 
@@ -501,7 +501,7 @@ public partial class Create
                     _errorMessage = "Rabatt-Betrag muss größer als 0 sein.";
                     return false;
                 }
-                if (_invoice.DiscountValue.Value > _totalNet)
+                if (_invoice.DiscountValue.Value > Math.Abs(_totalNet))
                 {
                     _errorMessage = "Rabatt-Betrag darf die Nettosumme nicht übersteigen.";
                     return false;
@@ -522,7 +522,7 @@ public partial class Create
             return false;
         }
 
-        if (_totalDownPayments > _totalGross)
+        if (_totalDownPayments > Math.Abs(_totalGross))
         {
             _errorMessage = "Abschläge dürfen die Bruttosumme nicht übersteigen.";
             return false;
