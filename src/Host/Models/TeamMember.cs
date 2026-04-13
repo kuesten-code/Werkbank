@@ -19,6 +19,11 @@ public class TeamMember
 
     public bool IsActive { get; set; } = true;
 
+    /// <summary>
+    /// Offline-Mitarbeiter haben keinen System-Zugang. Die Sekretärin pflegt ihre Stunden manuell ein.
+    /// </summary>
+    public bool IsOffline { get; set; } = false;
+
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
 

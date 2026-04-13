@@ -64,7 +64,12 @@ public class TeamMemberService : ITeamMemberService
                 throw new InvalidOperationException("Name ist erforderlich.");
             }
 
-            if (!string.IsNullOrWhiteSpace(member.Email))
+            if (member.IsOffline)
+            {
+                member.Email = null;
+                member.Role = UserRole.Mitarbeiter;
+            }
+            else if (!string.IsNullOrWhiteSpace(member.Email))
             {
                 var emailExists = await _context.TeamMembers
                     .AnyAsync(m => m.Email != null && m.Email == member.Email)
@@ -125,9 +130,10 @@ public class TeamMemberService : ITeamMemberService
             }
 
             existing.DisplayName = member.DisplayName;
-            existing.Email = string.IsNullOrWhiteSpace(member.Email) ? null : member.Email;
+            existing.IsOffline = member.IsOffline;
+            existing.Email = member.IsOffline ? null : (string.IsNullOrWhiteSpace(member.Email) ? null : member.Email);
             existing.IsActive = member.IsActive;
-            existing.Role = member.Role;
+            existing.Role = member.IsOffline ? UserRole.Mitarbeiter : member.Role;
             existing.IsLockedByAdmin = member.IsLockedByAdmin;
             existing.FailedLoginAttempts = member.FailedLoginAttempts;
             existing.LockoutUntil = member.LockoutUntil;
