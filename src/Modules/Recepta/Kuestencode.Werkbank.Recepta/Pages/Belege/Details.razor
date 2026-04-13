@@ -371,9 +371,10 @@
             // Dateien und Projektname sequentiell laden (DbContext ist nicht thread-safe)
             _files = await FileService.GetByDocumentIdAsync(Id);
 
-            if (_document.ProjectId.HasValue)
+            if (_document.ProjectAllocations.Count > 0)
             {
-                await LoadProjectNameAsync(_document.ProjectId.Value);
+                var firstProject = _document.ProjectAllocations.First();
+                await LoadProjectNameAsync(firstProject.ProjectId);
             }
         }
         catch (Exception ex)

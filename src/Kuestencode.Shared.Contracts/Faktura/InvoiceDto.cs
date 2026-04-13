@@ -10,6 +10,7 @@ public record InvoiceDto
     public DateTime? DueDate { get; init; }
     public int CustomerId { get; init; }
     public string? CustomerName { get; init; }
+    public int? ProjectId { get; init; }
     public string? Notes { get; init; }
     public string Status { get; init; } = "Draft";
     public DateTime? PaidDate { get; init; }
@@ -66,6 +67,7 @@ public record CreateInvoiceRequest
     public DateTime? ServicePeriodEnd { get; init; }
     public DateTime? DueDate { get; init; }
     public int CustomerId { get; init; }
+    public int? ProjectId { get; init; }
     public string? Notes { get; init; }
     public string DiscountType { get; init; } = "None";
     public decimal? DiscountValue { get; init; }
@@ -87,6 +89,7 @@ public record UpdateInvoiceRequest
     public DateTime? ServicePeriodEnd { get; init; }
     public DateTime? DueDate { get; init; }
     public int CustomerId { get; init; }
+    public int? ProjectId { get; init; }
     public string? Notes { get; init; }
     public string DiscountType { get; init; } = "None";
     public decimal? DiscountValue { get; init; }

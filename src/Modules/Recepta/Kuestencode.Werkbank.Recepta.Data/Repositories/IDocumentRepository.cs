@@ -20,7 +20,6 @@ public interface IDocumentRepository
         DocumentStatus? status = null,
         DocumentCategory? category = null,
         Guid? supplierId = null,
-        Guid? projectId = null,
         bool? hasBeenAttached = null);
 
     /// <summary>
