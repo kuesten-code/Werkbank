@@ -1,4 +1,5 @@
 using Kuestencode.Werkbank.Recepta.Controllers.Dtos;
+using Kuestencode.Werkbank.Recepta.Data.Repositories;
 using Kuestencode.Werkbank.Recepta.Domain.Dtos;
 using Kuestencode.Werkbank.Recepta.Domain.Enums;
 using Kuestencode.Werkbank.Recepta.Services;
@@ -12,17 +13,20 @@ namespace Kuestencode.Werkbank.Recepta.Controllers;
 public class DocumentsController : ControllerBase
 {
     private readonly IDocumentService _documentService;
+    private readonly IDocumentAllocationRepository _allocationRepository;
     private readonly IOcrService _ocrService;
     private readonly IOcrPatternService _patternService;
     private readonly ILogger<DocumentsController> _logger;
 
     public DocumentsController(
         IDocumentService documentService,
+        IDocumentAllocationRepository allocationRepository,
         IOcrService ocrService,
         IOcrPatternService patternService,
         ILogger<DocumentsController> logger)
     {
         _documentService = documentService;
+        _allocationRepository = allocationRepository;
         _ocrService = ocrService;
         _patternService = patternService;
         _logger = logger;
@@ -36,7 +40,6 @@ public class DocumentsController : ControllerBase
         [FromQuery] string? status = null,
         [FromQuery] string? category = null,
         [FromQuery] Guid? supplierId = null,
-        [FromQuery] Guid? projectId = null,
         [FromQuery] bool? hasBeenAttached = null,
         [FromQuery] DateOnly? from = null,
         [FromQuery] DateOnly? to = null,
@@ -47,7 +50,6 @@ public class DocumentsController : ControllerBase
         var filter = new DocumentFilterDto
         {
             SupplierId = supplierId,
-            ProjectId = projectId,
             HasBeenAttached = hasBeenAttached,
             From = from,
             To = to,
@@ -110,7 +112,6 @@ public class DocumentsController : ControllerBase
                 AmountTax = request.AmountTax,
                 AmountGross = request.AmountGross,
                 Category = category,
-                ProjectId = request.ProjectId,
                 OcrRawText = request.OcrRawText,
                 Notes = request.Notes
             };
@@ -167,7 +168,6 @@ public class DocumentsController : ControllerBase
                 AmountTax = request.AmountTax,
                 AmountGross = request.AmountGross,
                 Category = category,
-                ProjectId = request.ProjectId,
                 Notes = request.Notes
             };
 
@@ -319,73 +319,121 @@ public class DocumentsController : ControllerBase
     }
 
     /// <summary>
-    /// Lädt alle Belege eines Projekts (für Cross-Modul-Integration mit Acta).
+    /// Lädt alle Belege eines Projekts via Allokationen (für Cross-Modul-Integration mit Acta).
     /// </summary>
     [HttpGet("project/{projectId:guid}")]
     public async Task<ActionResult<List<ReceptaDocumentDto>>> GetByProject(Guid projectId, [FromQuery] bool onlyUnattached = false)
     {
-        var filter = new DocumentFilterDto
-        {
-            ProjectId = projectId,
-            HasBeenAttached = onlyUnattached ? false : null
-        };
-        var documents = await _documentService.GetAllAsync(filter);
+        var allocations = await _allocationRepository.GetByProjectIdAsync(projectId);
 
-        var result = documents.Select(d => new ReceptaDocumentDto
-        {
-            Id = d.Id,
-            DocumentNumber = d.DocumentNumber,
-            SupplierName = d.SupplierName,
-            InvoiceNumber = d.InvoiceNumber,
-            InvoiceDate = d.InvoiceDate,
-            PaidDate = d.PaidDate,
-            AmountNet = d.AmountNet,
-            AmountTax = d.AmountTax,
-            AmountGross = d.AmountGross,
-            TaxRate = d.TaxRate,
-            Category = d.Category,
-            Status = d.Status,
-            HasBeenAttached = d.HasBeenAttached
-        }).ToList();
+        var result = allocations
+            .Where(x => !onlyUnattached || !x.Document.HasBeenAttached)
+            .Select(x => new ReceptaDocumentDto
+            {
+                Id = x.Document.Id,
+                DocumentNumber = x.Document.DocumentNumber,
+                SupplierName = x.Document.Supplier?.Name ?? string.Empty,
+                InvoiceNumber = x.Document.InvoiceNumber,
+                InvoiceDate = x.Document.InvoiceDate,
+                PaidDate = x.Document.PaidDate,
+                AmountNet = x.Document.AmountNet,
+                AmountTax = x.Document.AmountTax,
+                AmountGross = x.Document.AmountGross,
+                TaxRate = x.Document.TaxRate,
+                Category = x.Document.Category.ToString(),
+                Status = x.Document.Status.ToString(),
+                HasBeenAttached = x.Document.HasBeenAttached,
+                AllocatedNet = x.Allocation.AllocatedNet,
+                AllocatedGross = x.Allocation.AllocatedGross
+            }).ToList();
 
         return Ok(result);
     }
 
     /// <summary>
     /// Liefert die Kostenübersicht eines Projekts (Aufwand extern für Acta).
+    /// Beträge basieren auf den projektseitigen Allokationen (nicht Gesamtbeträge).
     /// </summary>
     [HttpGet("project/{projectId:guid}/expenses")]
     public async Task<ActionResult<ProjectExpensesResponseDto>> GetProjectExpenses(Guid projectId)
     {
-        var filter = new DocumentFilterDto { ProjectId = projectId };
-        var documents = await _documentService.GetAllAsync(filter);
-        var docList = documents.ToList();
+        var allocations = await _allocationRepository.GetByProjectIdAsync(projectId);
 
         var response = new ProjectExpensesResponseDto
         {
             ProjectId = projectId,
-            TotalNet = docList.Sum(d => d.AmountNet),
-            TotalGross = docList.Sum(d => d.AmountGross),
-            DocumentCount = docList.Count,
-            Documents = docList.Select(d => new ReceptaDocumentDto
+            TotalNet = allocations.Sum(x => x.Allocation.AllocatedNet),
+            TotalGross = allocations.Sum(x => x.Allocation.AllocatedGross),
+            DocumentCount = allocations.Count,
+            Documents = allocations.Select(x => new ReceptaDocumentDto
             {
-                Id = d.Id,
-                DocumentNumber = d.DocumentNumber,
-                SupplierName = d.SupplierName,
-                InvoiceNumber = d.InvoiceNumber,
-                InvoiceDate = d.InvoiceDate,
-                PaidDate = d.PaidDate,
-                AmountNet = d.AmountNet,
-                AmountTax = d.AmountTax,
-                AmountGross = d.AmountGross,
-                TaxRate = d.TaxRate,
-                Category = d.Category,
-                Status = d.Status,
-                HasBeenAttached = d.HasBeenAttached
+                Id = x.Document.Id,
+                DocumentNumber = x.Document.DocumentNumber,
+                SupplierName = x.Document.Supplier?.Name ?? string.Empty,
+                InvoiceNumber = x.Document.InvoiceNumber,
+                InvoiceDate = x.Document.InvoiceDate,
+                PaidDate = x.Document.PaidDate,
+                AmountNet = x.Document.AmountNet,
+                AmountTax = x.Document.AmountTax,
+                AmountGross = x.Document.AmountGross,
+                TaxRate = x.Document.TaxRate,
+                Category = x.Document.Category.ToString(),
+                Status = x.Document.Status.ToString(),
+                HasBeenAttached = x.Document.HasBeenAttached,
+                AllocatedNet = x.Allocation.AllocatedNet,
+                AllocatedGross = x.Allocation.AllocatedGross
             }).ToList()
         };
 
         return Ok(response);
+    }
+
+    /// <summary>
+    /// Lädt die Projekt-Zuteilungen eines Belegs.
+    /// </summary>
+    [HttpGet("{id:guid}/allocations")]
+    public async Task<ActionResult<List<DocumentAllocationDto>>> GetAllocations(Guid id)
+    {
+        try
+        {
+            var allocations = await _documentService.GetAllocationsAsync(id);
+            return Ok(allocations);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return NotFound(new { error = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Setzt die Projekt-Zuteilungen eines Belegs.
+    /// Die Summe der Brutto-Zuteilungen darf den Gesamtbetrag nicht überschreiten.
+    /// Nur bei Status Draft erlaubt.
+    /// </summary>
+    [HttpPut("{id:guid}/allocations")]
+    public async Task<ActionResult<List<DocumentAllocationDto>>> SetAllocations(
+        Guid id, [FromBody] List<SetAllocationRequest> request)
+    {
+        try
+        {
+            var dtos = request.Select(r => new SetAllocationDto
+            {
+                ProjectId = r.ProjectId,
+                AllocatedGross = r.AllocatedGross
+            });
+
+            await _documentService.SetAllocationsAsync(id, dtos);
+            var updated = await _documentService.GetAllocationsAsync(id);
+            return Ok(updated);
+        }
+        catch (InvalidOperationException ex)
+        {
+            if (ex.Message.Contains("nicht gefunden"))
+            {
+                return NotFound(new { error = ex.Message });
+            }
+            return UnprocessableEntity(new { error = ex.Message });
+        }
     }
 
     [HttpPost("mark-attached")]

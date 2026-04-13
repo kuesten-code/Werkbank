@@ -80,11 +80,6 @@ public class Document
     public DocumentStatus Status { get; set; } = DocumentStatus.Draft;
 
     /// <summary>
-    /// Optionale Referenz auf ein Acta-Projekt.
-    /// </summary>
-    public Guid? ProjectId { get; set; }
-
-    /// <summary>
     /// Gibt an, ob der Beleg bereits als Rechnungsanhang in Faktura verwendet wurde.
     /// </summary>
     public bool HasBeenAttached { get; set; }
@@ -107,6 +102,7 @@ public class Document
     // Navigation Properties
     public Supplier Supplier { get; set; } = null!;
     public List<DocumentFile> Files { get; set; } = new();
+    public List<DocumentProjectAllocation> ProjectAllocations { get; set; } = new();
 
     // Berechnete Eigenschaften
 

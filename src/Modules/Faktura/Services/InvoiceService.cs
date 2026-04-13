@@ -7,6 +7,7 @@ public interface IInvoiceService
 {
     Task<List<Invoice>> GetAllAsync();
     Task<List<Invoice>> GetByStatusAsync(InvoiceStatus status);
+    Task<List<Invoice>> GetByProjectIdAsync(int projectId);
     Task<List<Invoice>> GetPaidByDateRangeAsync(DateTime paidFrom, DateTime paidTo);
     Task<Invoice?> GetByIdAsync(int id, bool includeCustomer = true, bool includeItems = true);
     Task<Invoice> CreateAsync(Invoice invoice);
@@ -54,6 +55,20 @@ public class InvoiceService : IInvoiceService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Fehler beim Abrufen der Rechnungen mit Status {Status}", status);
+            throw;
+        }
+    }
+
+    public async Task<List<Invoice>> GetByProjectIdAsync(int projectId)
+    {
+        try
+        {
+            var invoices = await _invoiceRepository.GetByProjectIdAsync(projectId);
+            return invoices.ToList();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Fehler beim Abrufen der Rechnungen für Projekt {ProjectId}", projectId);
             throw;
         }
     }

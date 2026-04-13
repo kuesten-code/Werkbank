@@ -18,4 +18,15 @@ public class ReceptaDocumentDto
     public string Category { get; set; } = string.Empty;
     public string Status { get; set; } = string.Empty;
     public bool HasBeenAttached { get; set; }
+
+    /// <summary>
+    /// Projektseitiger Anteil (Netto), wenn der Beleg auf mehrere Projekte aufgeteilt wurde.
+    /// Null wenn kein Split vorliegt (= voller Betrag gehört diesem Projekt).
+    /// </summary>
+    public decimal? AllocatedNet { get; set; }
+
+    /// <summary>
+    /// Projektseitiger Anteil (Brutto), wenn der Beleg auf mehrere Projekte aufgeteilt wurde.
+    /// </summary>
+    public decimal? AllocatedGross { get; set; }
 }

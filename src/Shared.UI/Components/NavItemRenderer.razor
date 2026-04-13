@@ -33,7 +33,7 @@ else
     {
         <MudNavLink Href="@Item.Href">
             <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-                <MudImage Src="@Item.Icon" Alt="@Item.Label" Width="50" Height="50" />
+                <MudImage Src="@Item.Icon" Alt="@Item.Label" Width="24" Height="24" />
                 <span class="@(IsOverviewItem(Item) ? "nav-overview-link" : "")">@Item.Label</span>
             </MudStack>
         </MudNavLink>

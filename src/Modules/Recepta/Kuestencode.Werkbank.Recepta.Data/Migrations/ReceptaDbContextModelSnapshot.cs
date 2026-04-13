@@ -23,6 +23,40 @@ namespace Kuestencode.Werkbank.Recepta.Data.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("Kuestencode.Werkbank.Recepta.Domain.Entities.DocumentProjectAllocation", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("AllocatedGross")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<decimal>("AllocatedNet")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<decimal>("AllocatedTax")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<Guid>("DocumentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ProjectId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProjectId");
+
+                    b.HasIndex("DocumentId", "ProjectId")
+                        .IsUnique();
+
+                    b.ToTable("DocumentProjectAllocations", "recepta");
+                });
+
             modelBuilder.Entity("Kuestencode.Werkbank.Recepta.Domain.Entities.Document", b =>
                 {
                     b.Property<Guid>("Id")
@@ -81,9 +115,6 @@ namespace Kuestencode.Werkbank.Recepta.Data.Migrations
 
                     b.Property<DateOnly?>("PaidDate")
                         .HasColumnType("date");
-
-                    b.Property<Guid?>("ProjectId")
-                        .HasColumnType("uuid");
 
                     b.Property<string>("Status")
                         .IsRequired()
@@ -284,6 +315,17 @@ namespace Kuestencode.Werkbank.Recepta.Data.Migrations
                     b.Navigation("Document");
                 });
 
+            modelBuilder.Entity("Kuestencode.Werkbank.Recepta.Domain.Entities.DocumentProjectAllocation", b =>
+                {
+                    b.HasOne("Kuestencode.Werkbank.Recepta.Domain.Entities.Document", "Document")
+                        .WithMany("ProjectAllocations")
+                        .HasForeignKey("DocumentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Document");
+                });
+
             modelBuilder.Entity("Kuestencode.Werkbank.Recepta.Domain.Entities.SupplierOcrPattern", b =>
                 {
                     b.HasOne("Kuestencode.Werkbank.Recepta.Domain.Entities.Supplier", "Supplier")
@@ -298,6 +340,8 @@ namespace Kuestencode.Werkbank.Recepta.Data.Migrations
             modelBuilder.Entity("Kuestencode.Werkbank.Recepta.Domain.Entities.Document", b =>
                 {
                     b.Navigation("Files");
+
+                    b.Navigation("ProjectAllocations");
                 });
 
             modelBuilder.Entity("Kuestencode.Werkbank.Recepta.Domain.Entities.Supplier", b =>

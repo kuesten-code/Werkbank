@@ -1,3 +1,5 @@
+using Kuestencode.Werkbank.Recepta.Domain.Dtos;
+
 namespace Kuestencode.Werkbank.Recepta.Controllers.Dtos;
 
 /// <summary>
@@ -19,7 +21,6 @@ public class DocumentDto
     public decimal AmountGross { get; set; }
     public string Category { get; set; } = string.Empty;
     public string Status { get; set; } = string.Empty;
-    public Guid? ProjectId { get; set; }
     public bool HasBeenAttached { get; set; }
     public string? Notes { get; set; }
     public string? OcrRawText { get; set; }
@@ -27,6 +28,7 @@ public class DocumentDto
     public DateTime UpdatedAt { get; set; }
     public bool IsOverdue { get; set; }
     public int FileCount { get; set; }
+    public List<DocumentAllocationDto> ProjectAllocations { get; set; } = new();
 }
 
 /// <summary>
@@ -44,7 +46,6 @@ public class CreateDocumentRequest
     public decimal AmountTax { get; set; }
     public decimal AmountGross { get; set; }
     public string Category { get; set; } = "Other";
-    public Guid? ProjectId { get; set; }
     public string? OcrRawText { get; set; }
     public string? Notes { get; set; }
 }
@@ -63,8 +64,16 @@ public class UpdateDocumentRequest
     public decimal AmountTax { get; set; }
     public decimal AmountGross { get; set; }
     public string Category { get; set; } = "Other";
-    public Guid? ProjectId { get; set; }
     public string? Notes { get; set; }
+}
+
+/// <summary>
+/// API-Request DTO zum Setzen von Projekt-Zuteilungen für einen Beleg.
+/// </summary>
+public class SetAllocationRequest
+{
+    public Guid ProjectId { get; set; }
+    public decimal AllocatedGross { get; set; }
 }
 
 /// <summary>

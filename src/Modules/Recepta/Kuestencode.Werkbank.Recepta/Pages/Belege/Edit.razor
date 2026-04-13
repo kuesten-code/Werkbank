@@ -381,22 +381,93 @@
                                     <MudSelectItem T="DocumentCategory" Value="DocumentCategory.Other">Sonstige Kosten</MudSelectItem>
                                 </MudSelect>
                             </MudItem>
-                            @if (_actaAvailable)
+                        </MudGrid>
+
+                        @* Projekt-Zuteilungen (nur wenn Acta verfügbar) *@
+                        @if (_actaAvailable)
+                        {
+                            <MudDivider Class="my-4" />
+                            <MudText Typo="Typo.subtitle1" GutterBottom="true">Projekt-Zuteilungen</MudText>
+
+                            @if (_allocationRows.Count > 0)
                             {
-                                <MudItem xs="12" sm="6">
-                                    <MudSelect T="Guid?" @bind-Value="_model.ProjectId"
-                                              Label="Projekt" Variant="Variant.Outlined"
-                                              Clearable="@_isDraft"
-                                              ReadOnly="@(!_isDraft)">
-                                        @foreach (var project in _projects)
+                                <MudTable Items="@_allocationRows" Dense="true" Elevation="0">
+                                    <HeaderContent>
+                                        <MudTh>Projekt</MudTh>
+                                        <MudTh Style="text-align: right; width: 160px;">Brutto (€)</MudTh>
+                                        @if (_isDraft)
                                         {
-                                            <MudSelectItem T="Guid?" Value="@_projectGuidMap.GetValueOrDefault(project.Id)">
-                                                @project.ProjectNumber - @project.Name
-                                            </MudSelectItem>
+                                            <MudTh Style="width: 48px;"></MudTh>
                                         }
-                                    </MudSelect>
-                                </MudItem>
+                                    </HeaderContent>
+                                    <RowTemplate Context="row">
+                                        @if (_isDraft)
+                                        {
+                                            <MudTd>
+                                                <MudSelect T="Guid?" @bind-Value="row.ProjectId"
+                                                          Variant="Variant.Outlined" Dense="true" Margin="Margin.Dense">
+                                                    @foreach (var p in _projects)
+                                                    {
+                                                        var guid = _projectGuidMap.GetValueOrDefault(p.Id);
+                                                        <MudSelectItem T="Guid?" Value="@((Guid?)guid)">
+                                                            @p.ProjectNumber - @p.Name
+                                                        </MudSelectItem>
+                                                    }
+                                                </MudSelect>
+                                            </MudTd>
+                                            <MudTd Style="text-align: right;">
+                                                <MudNumericField T="decimal"
+                                                                @bind-Value="row.AllocatedGross"
+                                                                Variant="Variant.Outlined" Dense="true" Margin="Margin.Dense"
+                                                                Min="0m" Max="@_model.AmountGross"
+                                                                Format="N2" Culture="@_culture" />
+                                            </MudTd>
+                                            <MudTd>
+                                                <MudIconButton Icon="@Icons.Material.Filled.DeleteOutline"
+                                                              Color="Color.Error" Size="Size.Small"
+                                                              OnClick="@((_) => RemoveAllocationRow(row))" />
+                                            </MudTd>
+                                        }
+                                        else
+                                        {
+                                            <MudTd>@GetProjectName(row.ProjectId)</MudTd>
+                                            <MudTd Style="text-align: right;">@row.AllocatedGross.ToString("N2", _culture) €</MudTd>
+                                        }
+                                    </RowTemplate>
+                                </MudTable>
                             }
+
+                            @if (_isDraft)
+                            {
+                                <MudButton StartIcon="@Icons.Material.Filled.Add" Size="Size.Small"
+                                          Class="mt-2" OnClick="AddAllocationRow">
+                                    Projekt hinzufügen
+                                </MudButton>
+                            }
+
+                            @* Zusammenfassung *@
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mt-2">
+                                <MudText Typo="Typo.body2" Color="@(_isOverAllocated ? Color.Error : Color.Secondary)">
+                                    Zugeteilt: <strong>@_allocatedTotal.ToString("N2", _culture) €</strong>
+                                    / Gesamt: <strong>@_model.AmountGross.ToString("N2", _culture) €</strong>
+                                </MudText>
+                                @if (!_isOverAllocated && (_model.AmountGross - _allocatedTotal) > 0)
+                                {
+                                    <MudChip T="string" Size="Size.Small" Color="Color.Default">
+                                        @((_model.AmountGross - _allocatedTotal).ToString("N2", _culture)) € nicht zugeteilt
+                                    </MudChip>
+                                }
+                            </MudStack>
+
+                            @if (_isOverAllocated)
+                            {
+                                <MudAlert Severity="Severity.Error" Dense="true" Class="mt-2">
+                                    Die Summe der Zuteilungen übersteigt den Bruttobetrag des Belegs.
+                                </MudAlert>
+                            }
+                        }
+
+                        <MudGrid Class="mt-0" style="display:none"><!-- closing dummy for grid -->
                         </MudGrid>
 
                         <!-- Notizen -->
@@ -432,7 +503,7 @@
                                 {
                                     <MudButton Variant="Variant.Filled" Color="Color.Primary"
                                               ButtonType="ButtonType.Submit"
-                                              Disabled="@_saving">
+                                              Disabled="@(_saving || _isOverAllocated)">
                                         @if (_saving)
                                         {
                                             <MudProgressCircular Class="ms-n1" Size="Size.Small" Indeterminate="true" />
@@ -485,6 +556,11 @@
     private List<ActaProjectDto> _projects = new();
     private Dictionary<int, Guid> _projectGuidMap = new();
     private bool _actaAvailable;
+
+    // Projekt-Zuteilungen
+    private List<AllocationRowModel> _allocationRows = new();
+    private decimal _allocatedTotal => _allocationRows.Sum(r => r.AllocatedGross);
+    private bool _isOverAllocated => Math.Round(_allocatedTotal, 2) > Math.Round(_model.AmountGross, 2);
 
     protected override async Task OnInitializedAsync()
     {
@@ -558,7 +634,6 @@
                 AmountTax = _document.AmountTax,
                 AmountGross = _document.AmountGross,
                 Category = Enum.TryParse<DocumentCategory>(_document.Category, out var cat) ? cat : DocumentCategory.Other,
-                ProjectId = _document.ProjectId,
                 Notes = _document.Notes
             };
 
@@ -568,6 +643,13 @@
             // Referenzdaten und Dateien sequentiell laden (DbContext ist nicht thread-safe)
             await LoadReferenceDataAsync();
             _files = await FileService.GetByDocumentIdAsync(Id!.Value);
+
+            // Bestehende Allokationen laden
+            _allocationRows = _document.ProjectAllocations.Select(a => new AllocationRowModel
+            {
+                ProjectId = a.ProjectId,
+                AllocatedGross = a.AllocatedGross
+            }).ToList();
         }
         catch (Exception ex)
         {
@@ -842,11 +924,11 @@
                     AmountTax = _model.AmountTax,
                     AmountGross = _model.AmountGross,
                     Category = _model.Category,
-                    ProjectId = _model.ProjectId,
                     Notes = _model.Notes
                 };
 
                 var document = await DocumentService.CreateAsync(createDto);
+                await SaveAllocationsAsync(document.Id);
                 Snackbar.Add($"Beleg '{document.DocumentNumber}' wurde erstellt.", Severity.Success);
                 NavigationManager.NavigateTo($"/recepta/belege/{document.Id}");
             }
@@ -863,11 +945,11 @@
                     AmountTax = _model.AmountTax,
                     AmountGross = _model.AmountGross,
                     Category = _model.Category,
-                    ProjectId = _model.ProjectId,
                     Notes = _model.Notes
                 };
 
                 await DocumentService.UpdateAsync(Id!.Value, dto);
+                await SaveAllocationsAsync(Id!.Value);
 
                 // Lerneffekt triggern
                 try
@@ -1026,6 +1108,44 @@
         return new Guid(bytes);
     }
 
+    private void AddAllocationRow()
+    {
+        _allocationRows.Add(new AllocationRowModel());
+    }
+
+    private void RemoveAllocationRow(AllocationRowModel row)
+    {
+        _allocationRows.Remove(row);
+    }
+
+    private string GetProjectName(Guid? projectId)
+    {
+        if (projectId == null) return "—";
+        var match = _projectGuidMap.FirstOrDefault(kv => kv.Value == projectId);
+        if (match.Key == 0 && !_projectGuidMap.ContainsValue(projectId.Value)) return "Unbekannt";
+        var project = _projects.FirstOrDefault(p => p.Id == match.Key);
+        return project != null ? $"{project.ProjectNumber} - {project.Name}" : "Unbekannt";
+    }
+
+    private async Task SaveAllocationsAsync(Guid documentId)
+    {
+        if (!_actaAvailable || _allocationRows.Count == 0)
+        {
+            await DocumentService.SetAllocationsAsync(documentId, []);
+            return;
+        }
+
+        var dtos = _allocationRows
+            .Where(r => r.ProjectId.HasValue)
+            .Select(r => new SetAllocationDto
+            {
+                ProjectId = r.ProjectId!.Value,
+                AllocatedGross = r.AllocatedGross
+            });
+
+        await DocumentService.SetAllocationsAsync(documentId, dtos);
+    }
+
     private class DocumentFormModel
     {
         public string DocumentNumber { get; set; } = string.Empty;
@@ -1036,7 +1156,12 @@
         public decimal AmountTax { get; set; }
         public decimal AmountGross { get; set; }
         public DocumentCategory Category { get; set; } = DocumentCategory.Other;
-        public Guid? ProjectId { get; set; }
         public string? Notes { get; set; }
+    }
+
+    private class AllocationRowModel
+    {
+        public Guid? ProjectId { get; set; }
+        public decimal AllocatedGross { get; set; }
     }
 }
