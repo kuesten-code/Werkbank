@@ -448,9 +448,9 @@ public partial class Edit
             return;
         }
 
-        if (_invoice.Items.Any(i => i.Quantity <= 0 || i.UnitPrice < 0))
+        if (_invoice.Items.Any(i => i.Quantity <= 0))
         {
-            _errorMessage = "Menge muss > 0 sein und Preis darf nicht negativ sein.";
+            _errorMessage = "Menge muss > 0 sein.";
             return;
         }
 
@@ -480,7 +480,7 @@ public partial class Edit
             return;
         }
 
-        if (_totalDownPayments > _totalGross)
+        if (_totalDownPayments > Math.Abs(_totalGross))
         {
             _errorMessage = "Abschläge dürfen die Bruttosumme nicht übersteigen.";
             return;
@@ -501,7 +501,7 @@ public partial class Edit
                 return;
             }
 
-            if (_invoice.DiscountType == DiscountType.Absolute && _invoice.DiscountValue.Value > _totalNet)
+            if (_invoice.DiscountType == DiscountType.Absolute && _invoice.DiscountValue.Value > Math.Abs(_totalNet))
             {
                 _errorMessage = "Absoluter Rabatt darf die Nettosumme nicht übersteigen.";
                 return;
