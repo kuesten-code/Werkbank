@@ -1,5 +1,7 @@
 @page "/belege/scan"
 @using Kuestencode.Werkbank.Recepta.Controllers.Dtos
+@using Kuestencode.Werkbank.Recepta.Domain.Dtos
+@using Kuestencode.Werkbank.Recepta.Domain.Enums
 @using Kuestencode.Shared.Contracts.Acta
 @inject IDocumentService DocumentService
 @inject IDocumentFileService FileService
@@ -66,8 +68,8 @@
         }
 
         <MudGrid Class="mt-4" Spacing="4">
-            @* Links: Dokumentvorschau (65%) *@
-            <MudItem xs="12" md="8">
+            @* Links: Dokumentvorschau *@
+            <MudItem xs="12" md="5">
                 <MudPaper Class="pa-4" Elevation="2" Style="position: sticky; top: 80px;">
                     <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-3">
                         <MudText Typo="Typo.h6">Dokumentvorschau</MudText>
@@ -124,7 +126,7 @@
                     }
                     else if (_fileContentType == "application/pdf")
                     {
-                        <div style="height: calc(100vh - 200px); border-radius: 4px; overflow: hidden;">
+                        <div style="height: 500px; border-radius: 4px; overflow: hidden;">
                             <embed src="data:application/pdf;base64,@_fileBase64"
                                    type="application/pdf" width="100%" height="100%" />
                         </div>
@@ -146,8 +148,8 @@
                 </MudPaper>
             </MudItem>
 
-            @* Rechts: Formular (35%) *@
-            <MudItem xs="12" md="4">
+            @* Rechts: Formular *@
+            <MudItem xs="12" md="7">
                 <MudPaper Class="pa-5" Elevation="2">
 
                     @* Belegnummer als readonly Header *@
@@ -315,16 +317,70 @@
                         </MudSelect>
                         @if (_actaAvailable)
                         {
-                            <MudSelect T="Guid?" @bind-Value="_model.ProjectId"
-                                      Label="Projekt" Variant="Variant.Outlined"
-                                      Clearable="true" Class="mt-3">
-                                @foreach (var project in _projects)
+                            <MudDivider Class="my-4" />
+                            <MudText Typo="Typo.subtitle1" GutterBottom="true">Projekt-Zuteilungen</MudText>
+
+                            @if (_allocationRows.Count > 0)
+                            {
+                                <MudTable Items="@_allocationRows" Dense="true" Elevation="0">
+                                    <HeaderContent>
+                                        <MudTh>Projekt</MudTh>
+                                        <MudTh Style="text-align: right; width: 160px;">Brutto (€)</MudTh>
+                                        <MudTh Style="width: 48px;"></MudTh>
+                                    </HeaderContent>
+                                    <RowTemplate Context="row">
+                                        <MudTd>
+                                            <MudSelect T="Guid?" @bind-Value="row.ProjectId"
+                                                      Variant="Variant.Outlined" Dense="true" Margin="Margin.Dense">
+                                                @foreach (var p in _projects)
+                                                {
+                                                    var guid = _projectGuidMap.GetValueOrDefault(p.Id);
+                                                    <MudSelectItem T="Guid?" Value="@((Guid?)guid)">
+                                                        @p.ProjectNumber - @p.Name
+                                                    </MudSelectItem>
+                                                }
+                                            </MudSelect>
+                                        </MudTd>
+                                        <MudTd Style="text-align: right;">
+                                            <MudNumericField T="decimal"
+                                                            @bind-Value="row.AllocatedGross"
+                                                            Variant="Variant.Outlined" Dense="true" Margin="Margin.Dense"
+                                                            Max="@(Math.Abs(_model.AmountGross))"
+                                                            Format="N2" Culture="@_culture" />
+                                        </MudTd>
+                                        <MudTd>
+                                            <MudIconButton Icon="@Icons.Material.Filled.DeleteOutline"
+                                                          Color="Color.Error" Size="Size.Small"
+                                                          OnClick="@((_) => RemoveAllocationRow(row))" />
+                                        </MudTd>
+                                    </RowTemplate>
+                                </MudTable>
+                            }
+
+                            <MudButton StartIcon="@Icons.Material.Filled.Add" Size="Size.Small"
+                                      Class="mt-2" OnClick="AddAllocationRow">
+                                Projekt hinzufügen
+                            </MudButton>
+
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mt-2">
+                                <MudText Typo="Typo.body2" Color="@(_isOverAllocated ? Color.Error : Color.Secondary)">
+                                    Zugeteilt: <strong>@_allocatedTotal.ToString("N2", _culture) €</strong>
+                                    / Gesamt: <strong>@_model.AmountGross.ToString("N2", _culture) €</strong>
+                                </MudText>
+                                @if (!_isOverAllocated && Math.Abs(_model.AmountGross - _allocatedTotal) > 0.005m && _allocationRows.Count > 0)
                                 {
-                                    <MudSelectItem T="Guid?" Value="@_projectGuidMap.GetValueOrDefault(project.Id)">
-                                        @project.ProjectNumber - @project.Name
-                                    </MudSelectItem>
+                                    <MudChip T="string" Size="Size.Small" Color="Color.Default">
+                                        @((_model.AmountGross - _allocatedTotal).ToString("N2", _culture)) € nicht zugeteilt
+                                    </MudChip>
                                 }
-                            </MudSelect>
+                            </MudStack>
+
+                            @if (_isOverAllocated)
+                            {
+                                <MudAlert Severity="Severity.Error" Dense="true" Class="mt-2">
+                                    Die Summe der Zuteilungen übersteigt den Bruttobetrag des Belegs.
+                                </MudAlert>
+                            }
                         }
 
                         @* Notizen *@
@@ -343,7 +399,7 @@
                             </MudButton>
                             <MudButton Variant="Variant.Filled" Color="Color.Primary"
                                       ButtonType="ButtonType.Submit"
-                                      Disabled="@_saving">
+                                      Disabled="@(_saving || _isOverAllocated)">
                                 @if (_saving)
                                 {
                                     <MudProgressCircular Class="ms-n1" Size="Size.Small" Indeterminate="true" />
@@ -409,6 +465,11 @@
     private List<ActaProjectDto> _projects = new();
     private Dictionary<int, Guid> _projectGuidMap = new();
     private bool _actaAvailable;
+
+    // Projekt-Zuteilungen
+    private List<AllocationRowModel> _allocationRows = new();
+    private decimal _allocatedTotal => _allocationRows.Sum(r => r.AllocatedGross);
+    private bool _isOverAllocated => Math.Round(Math.Abs(_allocatedTotal), 2) > Math.Round(Math.Abs(_model.AmountGross), 2);
 
     private string OcrClass(string field) =>
         _ocrDetected.Contains(field)
@@ -799,6 +860,8 @@
 
             var document = await DocumentService.CreateAsync(dto);
 
+            await SaveAllocationsAsync(document.Id);
+
             // Datei als Anhang hochladen
             if (_fileBytes != null && _uploadedFile != null)
             {
@@ -841,6 +904,38 @@
         }
     }
 
+    private void AddAllocationRow()
+    {
+        var alreadyAllocated = _allocationRows.Sum(r => r.AllocatedGross);
+        var remaining = Math.Round(_model.AmountGross - alreadyAllocated, 2);
+        if (Math.Sign(remaining) != Math.Sign(_model.AmountGross) && remaining != 0) remaining = 0;
+        _allocationRows.Add(new AllocationRowModel { AllocatedGross = remaining });
+    }
+
+    private void RemoveAllocationRow(AllocationRowModel row)
+    {
+        _allocationRows.Remove(row);
+    }
+
+    private async Task SaveAllocationsAsync(Guid documentId)
+    {
+        if (!_actaAvailable || _allocationRows.Count == 0)
+        {
+            await DocumentService.SetAllocationsAsync(documentId, []);
+            return;
+        }
+
+        var dtos = _allocationRows
+            .Where(r => r.ProjectId.HasValue)
+            .Select(r => new SetAllocationDto
+            {
+                ProjectId = r.ProjectId!.Value,
+                AllocatedGross = r.AllocatedGross
+            });
+
+        await DocumentService.SetAllocationsAsync(documentId, dtos);
+    }
+
     private void Cancel()
     {
         NavigationManager.NavigateTo("/recepta/belege");
@@ -865,8 +960,13 @@
         public decimal AmountTax { get; set; }
         public decimal AmountGross { get; set; }
         public DocumentCategory Category { get; set; } = DocumentCategory.Other;
-        public Guid? ProjectId { get; set; }
         public string? OcrRawText { get; set; }
         public string? Notes { get; set; }
+    }
+
+    private class AllocationRowModel
+    {
+        public Guid? ProjectId { get; set; }
+        public decimal AllocatedGross { get; set; }
     }
 }
