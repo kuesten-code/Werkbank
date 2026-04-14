@@ -52,7 +52,7 @@ public partial class Create
     private DateTime? _invoiceDate = DateTime.Today;
     private DateTime? _servicePeriodStart;
     private DateTime? _servicePeriodEnd;
-    private DateTime? _dueDate = DateTime.Today.AddDays(14);
+    private DateTime? _dueDate;
     private bool _saving = false;
     private string? _errorMessage;
     private decimal _totalNet, _totalVat, _totalGross, _totalDownPayments, _amountDue;
@@ -96,6 +96,8 @@ public partial class Create
             _invoice.InvoiceNumber = await InvoiceService.GenerateInvoiceNumberAsync();
             _customers = await CustomerService.GetAllAsync();
             _company = await CompanyService.GetCompanyAsync();
+            var paymentDays = _company?.DefaultPaymentTermDays ?? 14;
+            _dueDate = DateTime.Today.AddDays(paymentDays);
             AddItem();
             SyncTimesheetRange();
             RecalculateTotals();
