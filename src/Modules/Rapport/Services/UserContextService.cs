@@ -38,4 +38,10 @@ public class UserContextService : IUserContextService
         var role = await GetCurrentUserRoleAsync();
         return role == "Admin" || role == "Buero";
     }
+
+    public async Task<bool> IsAdminAsync()
+    {
+        var role = await GetCurrentUserRoleAsync();
+        return role == "Admin";
+    }
 }
