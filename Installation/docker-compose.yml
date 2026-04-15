@@ -34,8 +34,10 @@ services:
       - ServiceUrls__Acta=http://acta:8084
       - ServiceUrls__Recepta=http://recepta:8085
       - ServiceUrls__Saldo=http://saldo:8086
-      - Jwt__Secret=${JWT_SECRET}      
+      - Jwt__Secret=${JWT_SECRET}
       - APPLY_MIGRATIONS=true
+    volumes:
+      - ./data/host:/app/data
     depends_on:
       postgres:
         condition: service_healthy
@@ -53,6 +55,8 @@ services:
       - ServiceUrls__Host=http://host:8080
       - ServiceUrls__Self=http://faktura:8081
       - APPLY_MIGRATIONS=true
+    volumes:
+      - ./data/faktura:/app/wwwroot/invoices
     restart: unless-stopped
     depends_on:
       postgres:
@@ -121,6 +125,8 @@ services:
       - ServiceUrls__Host=http://host:8080
       - ServiceUrls__Self=http://recepta:8085
       - APPLY_MIGRATIONS=true
+    volumes:
+      - ./data/recepta:/app/data
     restart: unless-stopped
     depends_on:
       postgres:
