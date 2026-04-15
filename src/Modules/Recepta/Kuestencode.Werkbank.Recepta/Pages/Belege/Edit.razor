@@ -13,7 +13,7 @@
 
 <PageTitle>@(_isNew ? "Neuer Beleg" : "Beleg bearbeiten") - Küstencode Recepta</PageTitle>
 
-<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4">
+<MudContainer MaxWidth="MaxWidth.False" Class="mt-2 px-4">
     @if (_loading)
     {
         <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
@@ -24,7 +24,7 @@
     }
     else
     {
-        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-4">
+        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-2">
             <MudStack>
                 @if (_isNew)
                 {
@@ -91,7 +91,7 @@
             @if (!_isNew)
             {
             <MudItem xs="12" md="5">
-                <MudPaper Class="pa-4" Elevation="2" Style="position: sticky; top: 80px;">
+                <MudPaper Class="pa-3" Elevation="2" Style="position: sticky; top: 80px;">
                     <MudText Typo="Typo.h6" GutterBottom="true">Dokumente</MudText>
 
                     @* Vorschau der ausgewählten Datei *@
@@ -210,7 +210,7 @@
 
             @* Rechts: Formular *@
             <MudItem xs="12" md="@(_isNew ? 12 : 7)">
-                <MudPaper Class="pa-4" Elevation="2">
+                <MudPaper Class="pa-3" Elevation="2">
                     <MudText Typo="Typo.h6" GutterBottom="true">Belegdaten</MudText>
 
                     @if (!_isNew && !_isDraft)
@@ -269,7 +269,7 @@
                         </MudGrid>
 
                         <!-- Rechnungsdetails -->
-                        <MudText Typo="Typo.h6" Class="mt-4 mb-2">Rechnungsdetails</MudText>
+                        <MudText Typo="Typo.h6" Class="mt-3 mb-1">Rechnungsdetails</MudText>
                         <MudGrid>
                             <MudItem xs="12" sm="6">
                                 <MudTextField @bind-Value="_model.InvoiceNumber"
@@ -302,7 +302,7 @@
                         </MudGrid>
 
                         <!-- Beträge -->
-                        <MudText Typo="Typo.h6" Class="mt-4 mb-2">Beträge</MudText>
+                        <MudText Typo="Typo.h6" Class="mt-3 mb-1">Beträge</MudText>
                         <MudGrid>
                             <MudItem xs="12" sm="3">
                                 <MudNumericField Value="_model.AmountNet"
@@ -339,7 +339,7 @@
                         </MudGrid>
 
                         <!-- Kategorie & Projekt -->
-                        <MudText Typo="Typo.h6" Class="mt-4 mb-2">@(_actaAvailable ? "Zuordnung" : "Kategorie")</MudText>
+                        <MudText Typo="Typo.h6" Class="mt-3 mb-1">@(_actaAvailable ? "Zuordnung" : "Kategorie")</MudText>
                         <MudGrid>
                             <MudItem xs="12" sm="@(_actaAvailable ? 6 : 12)">
                                 <MudSelect T="DocumentCategory" @bind-Value="_model.Category"
@@ -386,7 +386,7 @@
                         @* Projekt-Zuteilungen (nur wenn Acta verfügbar) *@
                         @if (_actaAvailable)
                         {
-                            <MudDivider Class="my-4" />
+                            <MudDivider Class="my-3" />
                             <MudText Typo="Typo.subtitle1" GutterBottom="true">Projekt-Zuteilungen</MudText>
 
                             @if (_allocationRows.Count > 0)
@@ -471,7 +471,7 @@
                         </MudGrid>
 
                         <!-- Notizen -->
-                        <MudGrid Class="mt-4">
+                        <MudGrid Class="mt-3">
                             <MudItem xs="12">
                                 <MudTextField @bind-Value="_model.Notes"
                                              Label="Notizen (optional)"
@@ -483,7 +483,7 @@
                         </MudGrid>
 
                         <!-- Aktionen -->
-                        <MudStack Row="true" Justify="Justify.SpaceBetween" Class="mt-6">
+                        <MudStack Row="true" Justify="Justify.SpaceBetween" Class="mt-4">
                             <MudStack Row="true">
                                 @if (!_isNew && _isDraft)
                                 {
