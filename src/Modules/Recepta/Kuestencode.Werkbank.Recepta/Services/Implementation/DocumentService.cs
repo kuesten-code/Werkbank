@@ -447,10 +447,17 @@ public class DocumentService : IDocumentService
 
         var allocationList = allocations.ToList();
 
-        // Keine negativen Beträge
-        if (allocationList.Any(a => a.AllocatedGross < 0))
+        // Vorzeichen aller Zuteilungen muss mit dem Beleg übereinstimmen
+        var documentIsCredit = document.AmountGross < 0;
+        if (documentIsCredit)
         {
-            throw new InvalidOperationException("Zuteilungsbeträge dürfen nicht negativ sein.");
+            if (allocationList.Any(a => a.AllocatedGross > 0))
+                throw new InvalidOperationException("Zuteilungsbeträge müssen bei Gutschriften negativ sein.");
+        }
+        else
+        {
+            if (allocationList.Any(a => a.AllocatedGross < 0))
+                throw new InvalidOperationException("Zuteilungsbeträge dürfen nicht negativ sein.");
         }
 
         // Keine doppelten Projekte
@@ -459,13 +466,13 @@ public class DocumentService : IDocumentService
             throw new InvalidOperationException("Jedes Projekt darf pro Beleg nur einmal vorkommen.");
         }
 
-        // Summe darf Gesamtbetrag nicht überschreiten
-        var totalAllocated = Math.Round(allocationList.Sum(a => a.AllocatedGross), 2);
-        var documentGross = Math.Round(document.AmountGross, 2);
+        // Absolutbetrag der Summe darf Absolutbetrag des Gesamtbetrags nicht überschreiten
+        var totalAllocated = Math.Round(Math.Abs(allocationList.Sum(a => a.AllocatedGross)), 2);
+        var documentGross = Math.Round(Math.Abs(document.AmountGross), 2);
         if (totalAllocated > documentGross)
         {
             throw new InvalidOperationException(
-                $"Die Summe der Zuteilungen ({totalAllocated:N2} €) übersteigt den Bruttobetrag des Belegs ({documentGross:N2} €).");
+                $"Die Summe der Zuteilungen ({allocationList.Sum(a => a.AllocatedGross):N2} €) übersteigt den Bruttobetrag des Belegs ({document.AmountGross:N2} €).");
         }
 
         // Net und Tax proportional rückrechnen
