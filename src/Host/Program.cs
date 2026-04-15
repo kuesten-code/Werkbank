@@ -189,6 +189,15 @@ builder.Services.AddReverseProxy()
             },
             new Yarp.ReverseProxy.Configuration.RouteConfig
             {
+                RouteId = "recepta-files-route",
+                ClusterId = "recepta-cluster",
+                Match = new Yarp.ReverseProxy.Configuration.RouteMatch
+                {
+                    Path = "/api/recepta/files/{**catch-all}"
+                }
+            },
+            new Yarp.ReverseProxy.Configuration.RouteConfig
+            {
                 RouteId = "saldo-route",
                 ClusterId = "saldo-cluster",
                 Match = new Yarp.ReverseProxy.Configuration.RouteMatch
