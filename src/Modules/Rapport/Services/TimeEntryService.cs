@@ -236,16 +236,18 @@ public class TimeEntryService
 
     /// <summary>
     /// Checks if the current user can edit the given entry.
-    /// Admin/Büro can always edit. Mitarbeiter can edit own entries within 14 days.
+    /// Admin: immer. Büro: alle Einträge, nur innerhalb 14 Tage. Mitarbeiter: nur eigene, nur innerhalb 14 Tage.
     /// </summary>
     public async Task<bool> CanEditEntryAsync(TimeEntry entry)
     {
-        var isAdminOrBuero = await _userContextService.IsAdminOrBueroAsync();
-        if (isAdminOrBuero)
+        if (await _userContextService.IsAdminAsync())
             return true;
 
         var currentUserId = await _userContextService.GetCurrentUserIdAsync();
-        if (currentUserId == null || entry.TeamMemberId != currentUserId)
+        var isAdminOrBuero = await _userContextService.IsAdminOrBueroAsync();
+
+        // Mitarbeiter darf nur eigene Einträge bearbeiten
+        if (!isAdminOrBuero && (currentUserId == null || entry.TeamMemberId != currentUserId))
             return false;
 
         return IsWithinEditWindow(entry);

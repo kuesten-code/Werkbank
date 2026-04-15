@@ -6,4 +6,5 @@ public interface IUserContextService
     Task<string?> GetCurrentUserNameAsync();
     Task<string?> GetCurrentUserRoleAsync();
     Task<bool> IsAdminOrBueroAsync();
+    Task<bool> IsAdminAsync();
 }
