@@ -121,6 +121,8 @@ public class TimeEntryService
         if (entry.ProjectId != projectId) changes["ProjectId"] = (entry.ProjectId, projectId);
         if (entry.ProjectName != resolvedProjectName) changes["ProjectName"] = (entry.ProjectName, resolvedProjectName);
         if (entry.Description != description) changes["Description"] = (entry.Description, description);
+        if (teamMemberId.HasValue && entry.TeamMemberId != teamMemberId) changes["TeamMemberId"] = (entry.TeamMemberId, teamMemberId);
+        if (teamMemberId.HasValue && entry.TeamMemberName != teamMemberName) changes["TeamMemberName"] = (entry.TeamMemberName, teamMemberName);
 
         entry.StartTime = start;
         entry.EndTime = end;
@@ -129,6 +131,12 @@ public class TimeEntryService
         entry.CustomerName = resolvedCustomerName;
         entry.ProjectId = projectId;
         entry.ProjectName = resolvedProjectName;
+
+        if (teamMemberId.HasValue)
+        {
+            entry.TeamMemberId = teamMemberId;
+            entry.TeamMemberName = teamMemberName;
+        }
 
         if (entry.IsManual)
         {
