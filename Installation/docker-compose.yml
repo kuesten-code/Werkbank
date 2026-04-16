@@ -78,6 +78,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      host:
+        condition: service_started
     networks:
       - kuestencode_network
 
@@ -95,6 +97,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      host:
+        condition: service_started
     networks:
       - kuestencode_network
 
@@ -112,6 +116,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      host:
+        condition: service_started
     networks:
       - kuestencode_network
 
@@ -131,6 +137,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      host:
+        condition: service_started
     networks:
       - kuestencode_network
 

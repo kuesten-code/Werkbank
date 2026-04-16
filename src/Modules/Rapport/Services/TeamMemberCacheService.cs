@@ -17,15 +17,19 @@ public class TeamMemberCacheService
 
     public async Task<List<TeamMemberDto>> GetActiveTeamMembersAsync()
     {
-        if (_cachedMembers != null && DateTime.UtcNow - _lastFetch < CacheDuration)
+        if (_cachedMembers != null && _cachedMembers.Count > 0 && DateTime.UtcNow - _lastFetch < CacheDuration)
             return _cachedMembers;
 
         try
         {
             var members = await _hostApiClient.GetTeamMembersAsync();
-            _cachedMembers = members.Where(m => m.IsActive).ToList();
-            _lastFetch = DateTime.UtcNow;
-            return _cachedMembers;
+            var active = members.Where(m => m.IsActive).ToList();
+            if (active.Count > 0)
+            {
+                _cachedMembers = active;
+                _lastFetch = DateTime.UtcNow;
+            }
+            return active;
         }
         catch
         {

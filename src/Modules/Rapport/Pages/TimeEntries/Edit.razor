@@ -52,10 +52,18 @@ else
                 <MudDatePicker Label="Datum" @bind-Date="_date" Variant="Variant.Outlined" />
             </MudItem>
             <MudItem xs="12" md="3">
-                <MudTimePicker Label="Startzeit" @bind-Time="_startTime" @bind-Time:after="UpdateDuration" Variant="Variant.Outlined" />
+                <MudTextField Label="Startzeit" Variant="Variant.Outlined"
+                              InputType="InputType.Time"
+                              Value="@(_startTime.HasValue ? _startTime.Value.ToString(@"hh\:mm") : "")"
+                              ValueChanged="@((string v) => { _startTime = TimeSpan.TryParse(v, out var t) ? t : null; UpdateDuration(); })"
+                              Disabled="@(!_canEdit)" />
             </MudItem>
             <MudItem xs="12" md="3">
-                <MudTimePicker Label="Endzeit" @bind-Time="_endTime" @bind-Time:after="UpdateDuration" Variant="Variant.Outlined" />
+                <MudTextField Label="Endzeit" Variant="Variant.Outlined"
+                              InputType="InputType.Time"
+                              Value="@(_endTime.HasValue ? _endTime.Value.ToString(@"hh\:mm") : "")"
+                              ValueChanged="@((string v) => { _endTime = TimeSpan.TryParse(v, out var t) ? t : null; UpdateDuration(); })"
+                              Disabled="@(!_canEdit)" />
             </MudItem>
             <MudItem xs="12" md="6">
                 <ProjectSelector Projects="_projects"
