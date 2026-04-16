@@ -85,9 +85,20 @@ public class PassThroughAuthStateProvider : AuthenticationStateProvider, IDispos
 
     public override Task<AuthenticationState> GetAuthenticationStateAsync() => _authStateTask;
 
-    private static string? ExtractToken(HttpContext? httpContext)
+    private string? ExtractToken(HttpContext? httpContext)
     {
-        if (httpContext == null) return null;
+        if (httpContext == null)
+        {
+            _logger.LogWarning("PassThrough: ExtractToken — HttpContext is null");
+            return null;
+        }
+
+        _logger.LogInformation("PassThrough: ExtractToken — Path={Path}, CookieCount={CookieCount}, HasAuthCookie={HasAuthCookie}, HasAuthHeader={HasAuthHeader}, Cookies=[{Cookies}]",
+            httpContext.Request.Path,
+            httpContext.Request.Cookies.Count,
+            httpContext.Request.Cookies.ContainsKey("werkbank_auth_cookie"),
+            httpContext.Request.Headers.ContainsKey("Authorization"),
+            string.Join(", ", httpContext.Request.Cookies.Keys));
 
         if (httpContext.Request.Cookies.TryGetValue("werkbank_auth_cookie", out var cookieToken)
             && !string.IsNullOrEmpty(cookieToken))
