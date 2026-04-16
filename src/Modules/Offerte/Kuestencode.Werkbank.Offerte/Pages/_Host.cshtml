@@ -32,6 +32,9 @@
         <a class="dismiss">X</a>
     </div>
 
+    <script>
+        window.__werkbank_jwt = '@(HttpContext.Request.Cookies["werkbank_auth_cookie"] ?? (HttpContext.Request.Headers["Authorization"].FirstOrDefault() ?? "").Replace("Bearer ", ""))';
+    </script>
     <script src="_framework/blazor.server.js"></script>
     <script src="_content/MudBlazor/MudBlazor.min.js"></script>
     <script>

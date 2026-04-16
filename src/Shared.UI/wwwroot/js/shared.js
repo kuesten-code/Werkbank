@@ -139,6 +139,14 @@ function focusElement(elementId) {
     }
 }
 
+/**
+ * Returns the JWT token embedded by the server during prerender.
+ * @returns {string|null}
+ */
+function getWerkbankJwt() {
+    return window.__werkbank_jwt || null;
+}
+
 // Export for module usage
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = {

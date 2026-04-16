@@ -1,108 +1,105 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
-using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Http;
+using Microsoft.JSInterop;
 using Microsoft.Extensions.Logging;
 
 namespace Kuestencode.Shared.UI.Auth;
 
 /// <summary>
-/// AuthenticationStateProvider for modules that reads the JWT token from the
-/// werkbank_auth_cookie and parses the claims directly.
-/// Uses PersistentComponentState to bridge the Prerender → SignalR-Circuit gap.
+/// AuthenticationStateProvider for modules behind YARP reverse proxy.
+/// Prerender: reads JWT from cookie/Authorization header via HttpContext.
+/// SignalR circuit: reads JWT from window.__werkbank_jwt via JS-Interop.
 /// </summary>
-public class PassThroughAuthStateProvider : AuthenticationStateProvider, IDisposable
+public class PassThroughAuthStateProvider : AuthenticationStateProvider
 {
+    private readonly IHttpContextAccessor _httpContextAccessor;
+    private readonly IJSRuntime _jsRuntime;
     private readonly ILogger<PassThroughAuthStateProvider> _logger;
-    private readonly PersistentComponentState _persistentState;
-    private readonly PersistingComponentStateSubscription _subscription;
 
     private static readonly ClaimsPrincipal Anonymous = new(new ClaimsIdentity());
-    private const string PersistKey = "werkbank_jwt";
 
-    private readonly Task<AuthenticationState> _authStateTask;
+    // Populated during Prerender so the circuit can skip JS-Interop if already resolved
+    private AuthenticationState? _resolved;
 
     public PassThroughAuthStateProvider(
         IHttpContextAccessor httpContextAccessor,
-        ILogger<PassThroughAuthStateProvider> logger,
-        PersistentComponentState persistentState)
+        IJSRuntime jsRuntime,
+        ILogger<PassThroughAuthStateProvider> logger)
     {
+        _httpContextAccessor = httpContextAccessor;
+        _jsRuntime = jsRuntime;
         _logger = logger;
-        _persistentState = persistentState;
+    }
 
-        // Try to restore from persisted state first (SignalR circuit after Prerender)
-        if (_persistentState.TryTakeFromJson<string>(PersistKey, out var persistedToken)
-            && !string.IsNullOrEmpty(persistedToken))
+    public override async Task<AuthenticationState> GetAuthenticationStateAsync()
+    {
+        // Already resolved (Prerender ran first in this scope — unlikely for Server but safe)
+        if (_resolved != null)
+            return _resolved;
+
+        // 1. Try HttpContext (Prerender / direct HTTP request)
+        var httpContext = _httpContextAccessor.HttpContext;
+        if (httpContext != null)
         {
-            var principal = ParseJwtToken(persistedToken);
-            if (principal != null)
-            {
-                _logger.LogDebug("PassThrough: Restored JWT from PersistentComponentState. Role={Role}",
-                    principal.FindFirstValue(ClaimTypes.Role));
-                _authStateTask = Task.FromResult(new AuthenticationState(principal));
-                _subscription = persistentState.RegisterOnPersisting(() => Task.CompletedTask);
-                return;
-            }
-        }
-
-        // Prerender / direct HTTP request: read from HttpContext and persist for the circuit
-        var httpContext = httpContextAccessor.HttpContext;
-        var token = ExtractToken(httpContext);
-
-        // Register persisting callback — captures token by value
-        _subscription = persistentState.RegisterOnPersisting(() =>
-        {
+            var token = ExtractTokenFromHttpContext(httpContext);
             if (!string.IsNullOrEmpty(token))
-                _persistentState.PersistAsJson(PersistKey, token);
-            return Task.CompletedTask;
-        });
-
-        if (!string.IsNullOrEmpty(token))
-        {
-            var principal = ParseJwtToken(token);
-            if (principal != null)
             {
-                _logger.LogInformation("PassThrough: JWT resolved from HttpContext. Role={Role}",
-                    principal.FindFirstValue(ClaimTypes.Role));
-                _authStateTask = Task.FromResult(new AuthenticationState(principal));
-                return;
+                var principal = ParseJwt(token);
+                if (principal != null)
+                {
+                    _logger.LogInformation("PassThrough: JWT from HttpContext. Role={Role}",
+                        principal.FindFirstValue(ClaimTypes.Role));
+                    _resolved = new AuthenticationState(principal);
+                    return _resolved;
+                }
+            }
+
+            if (httpContext.User?.Identity?.IsAuthenticated == true)
+            {
+                _resolved = new AuthenticationState(httpContext.User);
+                return _resolved;
             }
         }
 
-        // Fallback: already-authenticated HttpContext.User
-        if (httpContext?.User?.Identity?.IsAuthenticated == true)
+        // 2. SignalR circuit: read from window.__werkbank_jwt set by _Host.cshtml
+        try
         {
-            _logger.LogInformation("PassThrough: Using HttpContext.User. AuthType={AuthType}",
-                httpContext.User.Identity.AuthenticationType);
-            _authStateTask = Task.FromResult(new AuthenticationState(httpContext.User));
-            return;
+            var jwt = await _jsRuntime.InvokeAsync<string?>("getWerkbankJwt");
+            if (!string.IsNullOrEmpty(jwt))
+            {
+                var principal = ParseJwt(jwt);
+                if (principal != null)
+                {
+                    _logger.LogInformation("PassThrough: JWT from JS window.__werkbank_jwt. Role={Role}",
+                        principal.FindFirstValue(ClaimTypes.Role));
+                    _resolved = new AuthenticationState(principal);
+                    return _resolved;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            // JS-Interop not yet available (e.g. during prerender of a different component)
+            _logger.LogDebug("PassThrough: JS-Interop not available: {Message}", ex.Message);
         }
 
         _logger.LogWarning("PassThrough: No auth found — returning anonymous");
-        _authStateTask = Task.FromResult(new AuthenticationState(Anonymous));
+        return new AuthenticationState(Anonymous);
     }
 
-    public override Task<AuthenticationState> GetAuthenticationStateAsync() => _authStateTask;
-
-    private string? ExtractToken(HttpContext? httpContext)
+    private string? ExtractTokenFromHttpContext(HttpContext httpContext)
     {
-        if (httpContext == null)
-        {
-            _logger.LogWarning("PassThrough: ExtractToken — HttpContext is null");
-            return null;
-        }
-
-        _logger.LogInformation("PassThrough: ExtractToken — Path={Path}, CookieCount={CookieCount}, HasAuthCookie={HasAuthCookie}, HasAuthHeader={HasAuthHeader}, Cookies=[{Cookies}]",
+        _logger.LogInformation(
+            "PassThrough: HttpContext available. Path={Path}, HasAuthCookie={HasCookie}, HasAuthHeader={HasHeader}",
             httpContext.Request.Path,
-            httpContext.Request.Cookies.Count,
             httpContext.Request.Cookies.ContainsKey("werkbank_auth_cookie"),
-            httpContext.Request.Headers.ContainsKey("Authorization"),
-            string.Join(", ", httpContext.Request.Cookies.Keys));
+            httpContext.Request.Headers.ContainsKey("Authorization"));
 
-        if (httpContext.Request.Cookies.TryGetValue("werkbank_auth_cookie", out var cookieToken)
-            && !string.IsNullOrEmpty(cookieToken))
-            return cookieToken;
+        if (httpContext.Request.Cookies.TryGetValue("werkbank_auth_cookie", out var cookie)
+            && !string.IsNullOrEmpty(cookie))
+            return cookie;
 
         var authHeader = httpContext.Request.Headers.Authorization.FirstOrDefault();
         if (!string.IsNullOrEmpty(authHeader) && authHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
@@ -111,7 +108,7 @@ public class PassThroughAuthStateProvider : AuthenticationStateProvider, IDispos
         return null;
     }
 
-    private static ClaimsPrincipal? ParseJwtToken(string token)
+    private static ClaimsPrincipal? ParseJwt(string token)
     {
         try
         {
@@ -119,7 +116,7 @@ public class PassThroughAuthStateProvider : AuthenticationStateProvider, IDispos
             var jwt = handler.ReadJwtToken(token);
             if (jwt.ValidTo < DateTime.UtcNow) return null;
 
-            var mappedClaims = jwt.Claims.Select(c => new Claim(
+            var claims = jwt.Claims.Select(c => new Claim(
                 c.Type switch
                 {
                     "role"   => ClaimTypes.Role,
@@ -129,10 +126,8 @@ public class PassThroughAuthStateProvider : AuthenticationStateProvider, IDispos
                     _        => c.Type
                 }, c.Value));
 
-            return new ClaimsPrincipal(new ClaimsIdentity(mappedClaims, "jwt"));
+            return new ClaimsPrincipal(new ClaimsIdentity(claims, "jwt"));
         }
         catch { return null; }
     }
-
-    public void Dispose() => _subscription.Dispose();
 }
