@@ -202,6 +202,10 @@ public class AuthMiddleware
             if (ip.StartsWith("172.") || ip.StartsWith("10.") || ip.StartsWith("192.168."))
                 return true;
 
+            // Loopback (falls ServiceUrls:Host auf localhost/127.0.0.1 fällt)
+            if (ip == "127.0.0.1" || ip == "::1")
+                return true;
+
             // Also check for IPv6 link-local (fe80::) and unique-local (fd/fc)
             if (ip.StartsWith("fe80:") || ip.StartsWith("fd") || ip.StartsWith("fc"))
                 return true;

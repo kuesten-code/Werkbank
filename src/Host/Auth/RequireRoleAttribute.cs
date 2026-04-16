@@ -23,6 +23,10 @@ public class RequireRoleAttribute : Attribute, IAuthorizationFilter
         if (user.Identity?.AuthenticationType == "NoAuth")
             return; // Auth disabled, alles erlaubt
 
+        // Interne Modul-Kommunikation immer durchlassen
+        if (user.Identity?.AuthenticationType == "InternalService")
+            return;
+
         if (user.Identity?.IsAuthenticated != true)
         {
             context.Result = new UnauthorizedResult();
