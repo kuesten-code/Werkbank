@@ -1,5 +1,6 @@
 ﻿@using Kuestencode.Rapport.Services
 @using System.ComponentModel.DataAnnotations
+@using Kuestencode.Shared.Contracts.Host
 @page "/time-entries/edit/{Id:int}"
 @inject TimeEntryService TimeEntryService
 @inject SettingsService SettingsService
@@ -9,6 +10,7 @@
 @inject NavigationManager NavigationManager
 @inject IUserContextService UserContextService
 @inject TimeEntryAuditService AuditService
+@inject TeamMemberCacheService TeamMemberCacheService
 
 <PageTitle>Eintrag bearbeiten - Küstencode Rapport</PageTitle>
 
@@ -65,6 +67,17 @@ else
                               ValueChanged="@((string v) => { _endTime = TimeSpan.TryParse(v, out var t) ? t : null; UpdateDuration(); })"
                               Disabled="@(!_canEdit)" />
             </MudItem>
+            @if (_isAdminOrBuero)
+            {
+                <MudItem xs="12" md="6">
+                    <MudSelect T="Guid?" Label="Mitarbeiter" @bind-Value="_selectedTeamMemberId" Variant="Variant.Outlined">
+                        @foreach (var member in _teamMembers)
+                        {
+                            <MudSelectItem T="Guid?" Value="@member.Id">@member.DisplayName</MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudItem>
+            }
             <MudItem xs="12" md="6">
                 <ProjectSelector Projects="_projects"
                                  IsAvailable="_projectsAvailable"
@@ -119,6 +132,9 @@ else
     private bool _canEdit;
     private bool _isWithinEditWindow;
     private TimeEntryAudit? _latestAudit;
+    private bool _isAdminOrBuero;
+    private List<TeamMemberDto> _teamMembers = new();
+    private Guid? _selectedTeamMemberId;
 
     protected override async Task OnInitializedAsync()
     {
@@ -134,6 +150,27 @@ else
             _projects = new List<IProject>();
         }
 
+        _isAdminOrBuero = await UserContextService.IsAdminOrBueroAsync();
+
+        if (_isAdminOrBuero)
+        {
+            _teamMembers = await TeamMemberCacheService.GetActiveTeamMembersAsync();
+
+            var currentUserId = await UserContextService.GetCurrentUserIdAsync();
+            var currentUserName = await UserContextService.GetCurrentUserNameAsync();
+            if (currentUserId.HasValue && _teamMembers.All(m => m.Id != currentUserId.Value))
+            {
+                _teamMembers.Insert(0, new TeamMemberDto
+                {
+                    Id = currentUserId.Value,
+                    DisplayName = string.IsNullOrWhiteSpace(currentUserName) ? "Aktueller Benutzer" : currentUserName,
+                    Email = string.Empty,
+                    Role = string.Empty,
+                    IsActive = true
+                });
+            }
+        }
+
         if (_settings.DefaultProjectId.HasValue && _projectsAvailable && !_selectedProjectId.HasValue)
         {
             await OnProjectSelected(_settings.DefaultProjectId);
@@ -145,6 +182,7 @@ else
             _canEdit = await TimeEntryService.CanEditEntryAsync(_entry);
             _isWithinEditWindow = (DateTime.UtcNow - _entry.StartTime) < TimeSpan.FromDays(14);
             _latestAudit = await AuditService.GetLatestUpdateAuditAsync(Id);
+            _selectedTeamMemberId = _entry.TeamMemberId;
 
             var startLocal = RapportTimeZone.UtcToBerlin(_entry.StartTime);
             _date = startLocal.Date;
@@ -235,13 +273,31 @@ else
 
         try
         {
+            Guid? teamMemberId = null;
+            string? teamMemberName = null;
+
+            if (_isAdminOrBuero && _selectedTeamMemberId.HasValue)
+            {
+                teamMemberId = _selectedTeamMemberId;
+                var member = _teamMembers.FirstOrDefault(m => m.Id == _selectedTeamMemberId.Value);
+                if (member != null)
+                    teamMemberName = member.DisplayName;
+                else
+                {
+                    var fetched = await TeamMemberCacheService.GetByIdAsync(_selectedTeamMemberId.Value);
+                    teamMemberName = fetched?.DisplayName;
+                }
+            }
+
             await TimeEntryService.UpdateEntryAsync(
                 Id,
                 startUtc,
                 endUtc,
                 _selectedProjectId,
                 _selectedProjectId.HasValue ? null : _selectedCustomer?.Id,
-                _description);
+                _description,
+                teamMemberId,
+                teamMemberName);
 
             Snackbar.Add("Eintrag wurde aktualisiert.", Severity.Success);
             NavigationManager.NavigateTo("/rapport/time-entries");
