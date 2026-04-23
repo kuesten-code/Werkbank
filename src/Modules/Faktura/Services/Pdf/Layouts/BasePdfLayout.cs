@@ -222,6 +222,18 @@ public abstract class BasePdfLayout : IPdfLayoutRenderer
         }
     }
 
+    protected void RenderReverseChargeNotice(ColumnDescriptor column, Invoice invoice, Company company)
+    {
+        if (!company.IsKleinunternehmer && invoice.IsReverseCharge)
+        {
+            column.Item().PaddingTop(15)
+                .Text("Steuerschuldnerschaft des Leistungsempfängers gemäß § 13b UStG")
+                .FontSize(9)
+                .Italic()
+                .FontColor(TextSecondaryColor);
+        }
+    }
+
     /// <summary>
     /// Renders the closing text.
     /// </summary>

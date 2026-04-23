@@ -60,6 +60,9 @@ public class Invoice
     public DiscountType DiscountType { get; set; } = DiscountType.None;
     public decimal? DiscountValue { get; set; }
 
+    // Tax Mode
+    public bool IsReverseCharge { get; set; } = false;
+
     // Navigation Properties
     // Customer ist in einem anderen Schema (host) - wird separat geladen
     [NotMapped]

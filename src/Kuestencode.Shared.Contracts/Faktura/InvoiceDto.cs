@@ -25,6 +25,7 @@ public record InvoiceDto
     public int PrintCount { get; init; }
     public string DiscountType { get; init; } = "None";
     public decimal? DiscountValue { get; init; }
+    public bool IsReverseCharge { get; init; }
     public decimal TotalNet { get; init; }
     public decimal DiscountAmount { get; init; }
     public decimal TotalNetAfterDiscount { get; init; }
@@ -71,6 +72,7 @@ public record CreateInvoiceRequest
     public string? Notes { get; init; }
     public string DiscountType { get; init; } = "None";
     public decimal? DiscountValue { get; init; }
+    public bool IsReverseCharge { get; init; }
     public List<CreateInvoiceItemRequest> Items { get; init; } = [];
 }
 
@@ -93,6 +95,7 @@ public record UpdateInvoiceRequest
     public string? Notes { get; init; }
     public string DiscountType { get; init; } = "None";
     public decimal? DiscountValue { get; init; }
+    public bool IsReverseCharge { get; init; }
     public List<CreateInvoiceItemRequest> Items { get; init; } = [];
 }
 

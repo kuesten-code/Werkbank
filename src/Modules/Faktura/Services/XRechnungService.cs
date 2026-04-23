@@ -234,14 +234,19 @@ public class XRechnungService : IXRechnungService
                         ? new XElement(Ram + "IncludedNote",
                             new XElement(Ram + "Content", "Kleinunternehmerregelung nach § 19 UStG")
                         )
-                        : null
+                        : invoice.IsReverseCharge
+                            ? new XElement(Ram + "IncludedNote",
+                                new XElement(Ram + "Content",
+                                    "Steuerschuldnerschaft des Leistungsempfängers gemäß § 13b UStG")
+                            )
+                            : null
                 ),
 
                 // SupplyChainTradeTransaction
                 new XElement(Rsm + "SupplyChainTradeTransaction",
 
                     // Line Items
-                    BuildLineItems(invoice.Items, company.IsKleinunternehmer),
+                    BuildLineItems(invoice.Items, company.IsKleinunternehmer, invoice.IsReverseCharge),
 
                     // Header Trade Agreement
                     new XElement(Ram + "ApplicableHeaderTradeAgreement",
@@ -271,7 +276,7 @@ public class XRechnungService : IXRechnungService
         return doc;
     }
 
-    private IEnumerable<XElement> BuildLineItems(ICollection<InvoiceItem> items, bool isKleinunternehmer)
+    private IEnumerable<XElement> BuildLineItems(ICollection<InvoiceItem> items, bool isKleinunternehmer, bool isReverseCharge = false)
     {
         var culture = CultureInfo.InvariantCulture;
         int lineId = 1;
@@ -299,8 +304,10 @@ public class XRechnungService : IXRechnungService
                 new XElement(Ram + "SpecifiedLineTradeSettlement",
                     new XElement(Ram + "ApplicableTradeTax",
                         new XElement(Ram + "TypeCode", "VAT"),
-                        new XElement(Ram + "CategoryCode", isKleinunternehmer ? "E" : "S"),
-                        new XElement(Ram + "RateApplicablePercent", isKleinunternehmer ? "0.00" : item.VatRate.ToString("F2", culture))  
+                        new XElement(Ram + "CategoryCode",
+                            isKleinunternehmer ? "E" : isReverseCharge ? "AE" : "S"),
+                        new XElement(Ram + "RateApplicablePercent",
+                            (isKleinunternehmer || isReverseCharge) ? "0.00" : item.VatRate.ToString("F2", culture))
                     ),
                     new XElement(Ram + "SpecifiedTradeSettlementLineMonetarySummation",
                         new XElement(Ram + "LineTotalAmount", item.TotalNet.ToString("F2", culture))
@@ -488,12 +495,15 @@ public class XRechnungService : IXRechnungService
                 new XElement(Ram + "CalculatedAmount", totalVat.ToString("F2", culture)),
                 new XElement(Ram + "TypeCode", "VAT"),
                 new XElement(Ram + "BasisAmount", totalNet.ToString("F2", culture)),
-                new XElement(Ram + "CategoryCode", company.IsKleinunternehmer ? "E" : "S"),
+                new XElement(Ram + "CategoryCode",
+                    company.IsKleinunternehmer ? "E" : invoice.IsReverseCharge ? "AE" : "S"),
                 company.IsKleinunternehmer
                     ? new XElement(Ram + "ExemptionReasonCode", "VATEX-EU-O")
-                    : null,
+                    : invoice.IsReverseCharge
+                        ? new XElement(Ram + "ExemptionReasonCode", "VATEX-EU-AE")
+                        : null,
                 new XElement(Ram + "RateApplicablePercent",
-                    company.IsKleinunternehmer ? "0.00" : "19.00")
+                    (company.IsKleinunternehmer || invoice.IsReverseCharge) ? "0.00" : "19.00")
             ),
 
             // Zahlungsbedingungen (optional)
