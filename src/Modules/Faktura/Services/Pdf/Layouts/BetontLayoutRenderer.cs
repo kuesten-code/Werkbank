@@ -123,8 +123,9 @@ public class BetontLayoutRenderer : BasePdfLayout
             column.Item().PaddingTop(15).Element(c =>
                 SummaryBlockBuilder.RenderWithBackground(c, invoice, company));
 
-            // Kleinunternehmer notice
+            // Tax notices
             RenderKleinunternehmerNotice(column, company);
+            RenderReverseChargeNotice(column, invoice, company);
 
             // Payment information with QR code (bold text)
             column.Item().Element(c =>

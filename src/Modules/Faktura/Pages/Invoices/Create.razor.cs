@@ -58,6 +58,7 @@ public partial class Create
     private decimal _totalNet, _totalVat, _totalGross, _totalDownPayments, _amountDue;
     private decimal _discountAmount, _totalNetAfterDiscount;
     private bool _enableDiscount = false;
+    private bool _isReverseCharge = false;
     private bool _discountWarning = false;
     private System.Globalization.CultureInfo _culture = new System.Globalization.CultureInfo("de-DE");
     private const long MaxAttachmentSize = 10 * 1024 * 1024;
@@ -158,7 +159,13 @@ public partial class Create
             if (dto.Positionen.Count > 0)
             {
                 _invoice.Items.Clear();
-                var vatRate = _company?.IsKleinunternehmer == true ? 0 : 19;
+                decimal vatRate;
+                if (_company?.IsKleinunternehmer == true)
+                    vatRate = 0;
+                else if (_isReverseCharge)
+                    vatRate = 0;
+                else
+                    vatRate = 19;
 
                 foreach (var pos in dto.Positionen)
                 {
@@ -328,7 +335,13 @@ public partial class Create
 
     private void AddItem()
     {
-        var vatRate = _company?.IsKleinunternehmer == true ? 0 : 19;
+        decimal vatRate;
+        if (_company?.IsKleinunternehmer == true)
+            vatRate = 0;
+        else if (_isReverseCharge)
+            vatRate = 0;
+        else
+            vatRate = 19;
         _invoice.Items.Add(new InvoiceItem
         {
             Quantity = 1,
@@ -378,6 +391,13 @@ public partial class Create
         RecalculateTotals();
     }
 
+    private void OnReverseChargeToggle(bool value)
+    {
+        _isReverseCharge = value;
+        _invoice.IsReverseCharge = value;
+        RecalculateTotals();
+    }
+
     private void OnServicePeriodChanged()
     {
         if (_timesheetUseInvoicePeriod)
@@ -406,7 +426,13 @@ public partial class Create
     private void RecalculateTotals()
     {
         // Ensure all items have the correct VAT rate based on company settings
-        var vatRate = _company?.IsKleinunternehmer == true ? 0 : 19;
+        decimal vatRate;
+        if (_company?.IsKleinunternehmer == true)
+            vatRate = 0;
+        else if (_isReverseCharge)
+            vatRate = 0;
+        else
+            vatRate = 19;
         foreach (var item in _invoice.Items)
         {
             item.VatRate = vatRate;

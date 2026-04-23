@@ -112,7 +112,9 @@ public class PdfSummaryBlockBuilder
         {
             var vatText = company.IsKleinunternehmer
                 ? "MwSt (0% §19 UStG):"
-                : $"MwSt ({invoice.Items.FirstOrDefault()?.VatRate ?? 0}%):";
+                : invoice.IsReverseCharge
+                    ? "MwSt (0%, §13b UStG):"
+                    : $"MwSt ({invoice.Items.FirstOrDefault()?.VatRate ?? 0}%):";
 
             var labelText = row.RelativeItem().Text(vatText).FontSize(10);
             if (textColor != null)

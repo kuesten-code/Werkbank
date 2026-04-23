@@ -81,6 +81,9 @@ namespace Kuestencode.Faktura.Data.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("numeric(18,2)");
 
+                    b.Property<bool>("IsReverseCharge")
+                        .HasColumnType("boolean");
+
                     b.Property<DateTime?>("DueDate")
                         .HasColumnType("timestamp with time zone");
 

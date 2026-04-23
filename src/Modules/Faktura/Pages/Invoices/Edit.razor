@@ -95,6 +95,16 @@
                             </MudSelect>
                         </MudItem>
                     }
+                    @if (_company?.IsKleinunternehmer != true)
+                    {
+                        <MudItem xs="12">
+                            <MudCheckBox T="bool"
+                                         Value="_isReverseCharge"
+                                         ValueChanged="OnReverseChargeToggle"
+                                         Label="Reverse Charge (§ 13b UStG)"
+                                         Color="Color.Primary" />
+                        </MudItem>
+                    }
                 </MudGrid>
 
                 <!-- Positionen -->
@@ -355,7 +365,11 @@
                             </MudStack>
                         }
                         <MudStack Row="true" Justify="Justify.SpaceBetween">
-                            <MudText>@(_company?.IsKleinunternehmer == true ? "MwSt (0%, §19 UStG):" : "MwSt (19%):")</MudText>
+                            <MudText>@(_company?.IsKleinunternehmer == true
+                                ? "MwSt (0%, §19 UStG):"
+                                : _isReverseCharge
+                                    ? "MwSt (0%, §13b UStG):"
+                                    : "MwSt (19%):")</MudText>
                             <MudText>@_totalVat.ToString("C2", _culture)</MudText>
                         </MudStack>
                         <MudDivider />
@@ -385,6 +399,12 @@
                         {
                             <MudAlert Severity="Severity.Info" Dense="true" Class="mt-2">
                                 §19 UStG - Kleinunternehmer (keine MwSt)
+                            </MudAlert>
+                        }
+                        @if (_company?.IsKleinunternehmer != true && _isReverseCharge)
+                        {
+                            <MudAlert Severity="Severity.Info" Dense="true" Class="mt-2">
+                                §13b UStG – Steuerschuldnerschaft des Leistungsempfängers
                             </MudAlert>
                         }
                     </MudStack>
