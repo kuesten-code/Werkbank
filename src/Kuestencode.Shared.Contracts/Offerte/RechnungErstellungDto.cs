@@ -51,4 +51,14 @@ public class RechnungspositionDto
     /// Optionaler Rabatt in Prozent.
     /// </summary>
     public decimal? Rabatt { get; set; }
+
+    /// <summary>
+    /// Einheit der Position (optional, z.B. h, Stk., m²).
+    /// </summary>
+    public string? Einheit { get; set; }
+
+    /// <summary>
+    /// Kennzeichnet die Position als Zwischenüberschrift.
+    /// </summary>
+    public bool IsHeader { get; set; } = false;
 }

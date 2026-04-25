@@ -26,6 +26,12 @@ public class Angebotsposition
     public string Text { get; set; } = string.Empty;
 
     /// <summary>
+    /// Einheit (z.B. h, Stk., m²).
+    /// </summary>
+    [MaxLength(20)]
+    public string? Einheit { get; set; }
+
+    /// <summary>
     /// Menge (z.B. Stunden, Stück).
     /// </summary>
     [Required(ErrorMessage = "Menge ist erforderlich")]
@@ -51,6 +57,8 @@ public class Angebotsposition
     [Column(TypeName = "decimal(5,2)")]
     public decimal? Rabatt { get; set; }
 
+    public bool IsHeader { get; set; } = false;
+
     // Navigation Properties
     public Angebot Angebot { get; set; } = null!;
 
@@ -64,6 +72,7 @@ public class Angebotsposition
     {
         get
         {
+            if (IsHeader) return 0;
             var basis = Math.Round(Menge * Einzelpreis, 2);
             if (Rabatt.HasValue && Rabatt.Value > 0)
             {
@@ -78,7 +87,7 @@ public class Angebotsposition
     /// Steuerbetrag der Position.
     /// </summary>
     [NotMapped]
-    public decimal Steuerbetrag => Math.Round(Nettosumme * Steuersatz / 100, 2);
+    public decimal Steuerbetrag => IsHeader ? 0 : Math.Round(Nettosumme * Steuersatz / 100, 2);
 
     /// <summary>
     /// Bruttosumme der Position (Netto + Steuer).

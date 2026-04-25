@@ -354,4 +354,30 @@ public partial class Details
 
         return $"{size} B";
     }
+
+    private record ItemSection(InvoiceItem? Header, List<InvoiceItem> Items);
+
+    private List<ItemSection> GetItemSections()
+    {
+        if (_invoice == null) return [];
+        var result = new List<ItemSection>();
+        InvoiceItem? currentHeader = null;
+        var currentItems = new List<InvoiceItem>();
+
+        foreach (var item in _invoice.Items.OrderBy(i => i.Position))
+        {
+            if (item.IsHeader)
+            {
+                result.Add(new ItemSection(currentHeader, currentItems));
+                currentHeader = item;
+                currentItems = new List<InvoiceItem>();
+            }
+            else
+            {
+                currentItems.Add(item);
+            }
+        }
+        result.Add(new ItemSection(currentHeader, currentItems));
+        return result.Where(s => s.Header != null || s.Items.Count > 0).ToList();
+    }
 }

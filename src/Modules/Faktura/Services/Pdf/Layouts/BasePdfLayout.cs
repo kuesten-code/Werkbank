@@ -135,6 +135,10 @@ public abstract class BasePdfLayout : IPdfLayoutRenderer
             tableContainer = tableContainer.Border(1).BorderColor(company.PdfPrimaryColor);
         }
 
+        var orderedItems = invoice.Items.OrderBy(i => i.Position).ToList();
+        var sections = BuildSections(orderedItems);
+        var hasHeaders = sections.Any(s => s.Header != null);
+
         tableContainer.Table(table =>
         {
             table.ColumnsDefinition(columns =>
@@ -146,7 +150,7 @@ public abstract class BasePdfLayout : IPdfLayoutRenderer
                 columns.ConstantColumn(80);  // Gesamtpreis
             });
 
-            // Header
+            // Header row
             table.Header(header =>
             {
                 header.Cell().Background(company.PdfPrimaryColor)
@@ -161,47 +165,96 @@ public abstract class BasePdfLayout : IPdfLayoutRenderer
                     .Padding(5).AlignRight().Text("Gesamtpreis").FontColor("#FFFFFF").FontSize(9).Bold();
             });
 
-            // Items
-            var orderedItems = invoice.Items.OrderBy(i => i.Position).ToList();
-            for (int i = 0; i < orderedItems.Count; i++)
+            int positionCounter = 0;
+            foreach (var section in sections)
             {
-                var item = orderedItems[i];
-                var bgColor = i % 2 == 0 ? "#FFFFFF" : BackgroundColor;
-
-                if (withBorder)
+                if (section.Header != null)
                 {
-                    RenderItemRowWithBorder(table, item, bgColor);
+                    // Section header row spanning all 5 columns
+                    table.Cell().ColumnSpan(5)
+                        .BorderTop(1).BorderColor(DividerColor)
+                        .Background(BackgroundColor).Padding(5)
+                        .Text(section.Header.Description).Bold().FontSize(9);
                 }
-                else
+
+                for (int i = 0; i < section.Items.Count; i++)
                 {
-                    RenderItemRow(table, item, bgColor);
+                    var item = section.Items[i];
+                    positionCounter++;
+                    var bgColor = positionCounter % 2 == 0 ? BackgroundColor : "#FFFFFF";
+
+                    if (withBorder)
+                        RenderItemRowWithBorder(table, item, bgColor, positionCounter);
+                    else
+                        RenderItemRow(table, item, bgColor, positionCounter);
+                }
+
+                // Section subtotal after each titled section
+                if (hasHeaders && section.Header != null && section.Items.Count > 0)
+                {
+                    var subtotal = section.Items.Sum(i => i.TotalNet);
+                    table.Cell().ColumnSpan(4).AlignRight().PaddingRight(5).PaddingTop(3).PaddingBottom(3)
+                        .Text("Zwischensumme:").FontSize(9).Italic().FontColor(TextSecondaryColor);
+                    table.Cell().AlignRight().BorderTop(1).BorderColor(DividerColor).Padding(3)
+                        .Text(subtotal.ToString("C2", GermanCulture)).FontSize(9).Bold();
                 }
             }
         });
     }
 
-    private void RenderItemRow(TableDescriptor table, InvoiceItem item, string bgColor)
+    private static List<(InvoiceItem? Header, List<InvoiceItem> Items)> BuildSections(List<InvoiceItem> orderedItems)
     {
+        var sections = new List<(InvoiceItem? Header, List<InvoiceItem> Items)>();
+        InvoiceItem? currentHeader = null;
+        var currentItems = new List<InvoiceItem>();
+
+        foreach (var item in orderedItems)
+        {
+            if (item.IsHeader)
+            {
+                sections.Add((currentHeader, currentItems));
+                currentHeader = item;
+                currentItems = new List<InvoiceItem>();
+            }
+            else
+            {
+                currentItems.Add(item);
+            }
+        }
+        sections.Add((currentHeader, currentItems));
+        return sections.Where(s => s.Header != null || s.Items.Count > 0).ToList();
+    }
+
+    private void RenderItemRow(TableDescriptor table, InvoiceItem item, string bgColor, int displayPosition)
+    {
+        var mengeText = string.IsNullOrWhiteSpace(item.Unit)
+            ? item.Quantity.ToString("N3", GermanCulture)
+            : $"{item.Quantity.ToString("N3", GermanCulture)} {item.Unit}";
+
         table.Cell().Background(bgColor).Padding(5)
-            .Text(item.Position.ToString()).FontSize(9);
+            .Text(displayPosition.ToString()).FontSize(9);
         table.Cell().Background(bgColor).Padding(5)
             .Text(text => AppendMultilineText(text, item.Description, 9));
         table.Cell().Background(bgColor).Padding(5).AlignRight()
-            .Text(item.Quantity.ToString("N3", GermanCulture)).FontSize(9);
+            .Text(mengeText).FontSize(9);
         table.Cell().Background(bgColor).Padding(5).AlignRight()
             .Text(item.UnitPrice.ToString("C2", GermanCulture)).FontSize(9);
         table.Cell().Background(bgColor).Padding(5).AlignRight()
             .Text(item.TotalNet.ToString("C2", GermanCulture)).FontSize(9);
     }
 
-    private void RenderItemRowWithBorder(TableDescriptor table, InvoiceItem item, string bgColor)
+    private void RenderItemRowWithBorder(TableDescriptor table, InvoiceItem item, string bgColor, int displayPosition)
     {
+        var mengeText = string.IsNullOrWhiteSpace(item.Unit)
+            ? item.Quantity.ToString("N3", GermanCulture)
+            : $"{item.Quantity.ToString("N3", GermanCulture)} {item.Unit}";
+
         table.Cell().Background(bgColor).BorderBottom(1).BorderColor(DividerColor).Padding(5)
-            .Text(item.Position.ToString()).FontSize(9);
+            .Text(displayPosition.ToString()).FontSize(9);
         table.Cell().Background(bgColor).BorderBottom(1).BorderColor(DividerColor).Padding(5)
             .Text(text => AppendMultilineText(text, item.Description, 9));
         table.Cell().Background(bgColor).BorderBottom(1).BorderColor(DividerColor).Padding(5).AlignRight()
-            .Text(item.Quantity.ToString("N3", GermanCulture)).FontSize(9);
+            .Text(mengeText).FontSize(9);
         table.Cell().Background(bgColor).BorderBottom(1).BorderColor(DividerColor).Padding(5).AlignRight()
             .Text(item.UnitPrice.ToString("C2", GermanCulture)).FontSize(9);
         table.Cell().Background(bgColor).BorderBottom(1).BorderColor(DividerColor).Padding(5).AlignRight()

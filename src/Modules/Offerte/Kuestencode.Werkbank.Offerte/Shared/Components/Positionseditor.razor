@@ -1,87 +1,157 @@
 @* Positionseditor component for editing Angebot positions *@
 
-<MudTable Items="@Positionen" Dense="true" Hover="true" Breakpoint="Breakpoint.Sm" Elevation="0">
-    <HeaderContent>
-        <MudTh Style="width: 60px">Pos.</MudTh>
-        <MudTh>Beschreibung</MudTh>
-        <MudTh Style="width: 100px; text-align: right">Menge</MudTh>
-        <MudTh Style="width: 120px; text-align: right">Einzelpreis</MudTh>
-        @if (!IsKleinunternehmer)
-        {
-            <MudTh Style="width: 80px; text-align: right">MwSt</MudTh>
-        }
-        <MudTh Style="width: 80px; text-align: right">Rabatt</MudTh>
-        <MudTh Style="width: 120px; text-align: right">Gesamt</MudTh>
-        <MudTh Style="width: 100px"></MudTh>
-    </HeaderContent>
-    <RowTemplate Context="position">
-        <MudTd DataLabel="Pos.">@position.Position</MudTd>
-        <MudTd DataLabel="Beschreibung">
-            <MudTextField @bind-Value="position.Text" Margin="Margin.Dense"
-                         Variant="Variant.Outlined" Required="true"
-                         Lines="2" AutoGrow="true" Disabled="@Readonly"
-                         OnBlur="@(() => OnPositionChanged.InvokeAsync())" />
-        </MudTd>
-        <MudTd DataLabel="Menge" Style="text-align: right">
-            <MudNumericField @bind-Value="position.Menge" Margin="Margin.Dense"
-                            Variant="Variant.Outlined" Min="0.001m" Step="1m"
-                            Format="N3" HideSpinButtons="true" Disabled="@Readonly"
-                            OnBlur="@(() => OnPositionChanged.InvokeAsync())" />
-        </MudTd>
-        <MudTd DataLabel="Einzelpreis" Style="text-align: right">
-            <MudNumericField @bind-Value="position.Einzelpreis" Margin="Margin.Dense"
-                            Variant="Variant.Outlined" Min="0.00m" Step="1m"
-                            Format="C2" HideSpinButtons="true" Culture="@_culture" Disabled="@Readonly"
-                            OnBlur="@(() => OnPositionChanged.InvokeAsync())" />
-        </MudTd>
-        @if (!IsKleinunternehmer)
-        {
-            <MudTd DataLabel="MwSt" Style="text-align: right">
-                <MudSelect @bind-Value="position.Steuersatz" Margin="Margin.Dense"
-                          Variant="Variant.Outlined" Disabled="@Readonly"
-                          Dense="true">
-                    <MudSelectItem Value="0m">0%</MudSelectItem>
-                    <MudSelectItem Value="7m">7%</MudSelectItem>
-                    <MudSelectItem Value="19m">19%</MudSelectItem>
-                </MudSelect>
-            </MudTd>
-        }
-        <MudTd DataLabel="Rabatt" Style="text-align: right">
-            <MudNumericField @bind-Value="position.Rabatt" Margin="Margin.Dense"
-                            Variant="Variant.Outlined" Min="0m" Max="100m" Step="1m"
-                            Format="N2" HideSpinButtons="true" Disabled="@Readonly"
-                            Placeholder="0"
-                            OnBlur="@(() => OnPositionChanged.InvokeAsync())" />
-        </MudTd>
-        <MudTd DataLabel="Gesamt" Style="text-align: right">
-            <MudText Typo="Typo.body2">@position.Nettosumme.ToString("C2", _culture)</MudText>
-        </MudTd>
-        <MudTd DataLabel="">
-            @if (!Readonly)
+@{
+    var abschnitte = GetAbschnitte();
+    var hatUeberschriften = abschnitte.Any(a => a.Ueberschrift != null);
+    int posCounter = 0;
+}
+
+<MudSimpleTable Dense="true" Hover="true" Bordered="true" Elevation="0">
+    <thead>
+        <tr>
+            <th style="width: 60px">Pos.</th>
+            <th>Beschreibung</th>
+            <th style="width: 90px">Einheit</th>
+            <th style="width: 100px; text-align: right">Menge</th>
+            <th style="width: 130px; text-align: right">Einzelpreis</th>
+            @if (!IsKleinunternehmer)
             {
-                <MudStack Row="true" Spacing="0">
-                    <MudIconButton Icon="@Icons.Material.Filled.ArrowUpward" Size="Size.Small"
-                                  OnClick="@(() => MovePositionUp(position))"
-                                  Disabled="@(position.Position <= 1)" />
-                    <MudIconButton Icon="@Icons.Material.Filled.ArrowDownward" Size="Size.Small"
-                                  OnClick="@(() => MovePositionDown(position))"
-                                  Disabled="@(position.Position >= Positionen.Count)" />
-                    <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small"
-                                  Color="Color.Error"
-                                  OnClick="@(() => RemovePosition(position))"
-                                  Disabled="@(Positionen.Count <= 1)" />
-                </MudStack>
+                <th style="width: 80px; text-align: right">MwSt</th>
             }
-        </MudTd>
-    </RowTemplate>
-</MudTable>
+            <th style="width: 120px; text-align: right">Gesamt</th>
+            <th style="width: 100px"></th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var abschnitt in abschnitte)
+        {
+            @if (abschnitt.Ueberschrift != null)
+            {
+                int colSpan = IsKleinunternehmer ? 6 : 7;
+                <tr style="background-color: var(--mud-palette-background-grey);">
+                    <td colspan="@colSpan" style="padding: 4px 8px; border-top: 2px solid var(--mud-palette-divider);">
+                        @if (!Readonly)
+                        {
+                            <MudTextField @bind-Value="abschnitt.Ueberschrift.Text"
+                                         Margin="Margin.Dense" Variant="Variant.Outlined"
+                                         Placeholder="Überschrift eingeben..."
+                                         Style="font-weight: 600;"
+                                         OnBlur="@(() => OnPositionChanged.InvokeAsync())" />
+                        }
+                        else
+                        {
+                            <strong>@abschnitt.Ueberschrift.Text</strong>
+                        }
+                    </td>
+                    <td style="text-align: center; border-top: 2px solid var(--mud-palette-divider);">
+                        @if (!Readonly)
+                        {
+                            <MudStack Row="true" Spacing="0">
+                                <MudIconButton Icon="@Icons.Material.Filled.ArrowUpward" Size="Size.Small"
+                                              OnClick="@(() => MovePositionUp(abschnitt.Ueberschrift))"
+                                              Disabled="@(abschnitt.Ueberschrift.Position <= 1)" />
+                                <MudIconButton Icon="@Icons.Material.Filled.ArrowDownward" Size="Size.Small"
+                                              OnClick="@(() => MovePositionDown(abschnitt.Ueberschrift))"
+                                              Disabled="@(abschnitt.Ueberschrift.Position >= Positionen.Count)" />
+                                <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small"
+                                              Color="Color.Error"
+                                              OnClick="@(() => RemovePosition(abschnitt.Ueberschrift))" />
+                            </MudStack>
+                        }
+                    </td>
+                </tr>
+            }
+            @foreach (var position in abschnitt.Positionen)
+            {
+                posCounter++;
+                <tr>
+                    <td>@posCounter</td>
+                    <td>
+                        <MudTextField @bind-Value="position.Text" Margin="Margin.Dense"
+                                     Variant="Variant.Outlined" Required="true"
+                                     Lines="2" AutoGrow="true" Disabled="@Readonly"
+                                     OnBlur="@(() => OnPositionChanged.InvokeAsync())" />
+                    </td>
+                    <td>
+                        <MudTextField @bind-Value="position.Einheit" Margin="Margin.Dense"
+                                     Variant="Variant.Outlined" Disabled="@Readonly"
+                                     Placeholder="Einh."
+                                     OnBlur="@(() => OnPositionChanged.InvokeAsync())" />
+                    </td>
+                    <td style="text-align: right">
+                        <MudNumericField @bind-Value="position.Menge" Margin="Margin.Dense"
+                                        Variant="Variant.Outlined" Min="0.001m" Step="1m"
+                                        Format="N3" HideSpinButtons="true" Disabled="@Readonly"
+                                        OnBlur="@(() => OnPositionChanged.InvokeAsync())" />
+                    </td>
+                    <td style="text-align: right">
+                        <MudNumericField @bind-Value="position.Einzelpreis" Margin="Margin.Dense"
+                                        Variant="Variant.Outlined" Min="0.00m" Step="1m"
+                                        Format="C2" HideSpinButtons="true" Culture="@_culture" Disabled="@Readonly"
+                                        OnBlur="@(() => OnPositionChanged.InvokeAsync())" />
+                    </td>
+                    @if (!IsKleinunternehmer)
+                    {
+                        <td style="text-align: right">
+                            <MudSelect @bind-Value="position.Steuersatz" Margin="Margin.Dense"
+                                      Variant="Variant.Outlined" Disabled="@Readonly"
+                                      Dense="true">
+                                <MudSelectItem Value="0m">0%</MudSelectItem>
+                                <MudSelectItem Value="7m">7%</MudSelectItem>
+                                <MudSelectItem Value="19m">19%</MudSelectItem>
+                            </MudSelect>
+                        </td>
+                    }
+                    <td style="text-align: right">
+                        <MudText Typo="Typo.body2">@position.Nettosumme.ToString("C2", _culture)</MudText>
+                    </td>
+                    <td>
+                        @if (!Readonly)
+                        {
+                            <MudStack Row="true" Spacing="0">
+                                <MudIconButton Icon="@Icons.Material.Filled.ArrowUpward" Size="Size.Small"
+                                              OnClick="@(() => MovePositionUp(position))"
+                                              Disabled="@(position.Position <= 1)" />
+                                <MudIconButton Icon="@Icons.Material.Filled.ArrowDownward" Size="Size.Small"
+                                              OnClick="@(() => MovePositionDown(position))"
+                                              Disabled="@(position.Position >= Positionen.Count)" />
+                                <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small"
+                                              Color="Color.Error"
+                                              OnClick="@(() => RemovePosition(position))"
+                                              Disabled="@(Positionen.Count(p => !p.IsHeader) <= 1)" />
+                            </MudStack>
+                        }
+                    </td>
+                </tr>
+            }
+            @if (hatUeberschriften && abschnitt.Ueberschrift != null && abschnitt.Positionen.Count > 0)
+            {
+                <tr style="background-color: var(--mud-palette-background-grey);">
+                    <td colspan="@(IsKleinunternehmer ? 5 : 6)" style="text-align: right; font-style: italic; padding: 4px 8px; color: var(--mud-palette-text-secondary);">
+                        Zwischensumme:
+                    </td>
+                    <td style="text-align: right; font-weight: 600; padding: 4px 8px; border-top: 1px solid var(--mud-palette-divider);">
+                        @abschnitt.Positionen.Sum(p => p.Nettosumme).ToString("C2", _culture)
+                    </td>
+                    <td></td>
+                </tr>
+            }
+        }
+    </tbody>
+</MudSimpleTable>
 
 @if (!Readonly)
 {
-    <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small"
-              StartIcon="@Icons.Material.Filled.Add" OnClick="AddPosition" Class="mt-2">
-        Position hinzufügen
-    </MudButton>
+    <MudStack Row="true" Class="mt-2 gap-2">
+        <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small"
+                  StartIcon="@Icons.Material.Filled.Add" OnClick="AddPosition">
+            Position hinzufügen
+        </MudButton>
+        <MudButton Variant="Variant.Outlined" Color="Color.Secondary" Size="Size.Small"
+                  StartIcon="@Icons.Material.Filled.Title" OnClick="AddUeberschrift">
+            Überschrift hinzufügen
+        </MudButton>
+    </MudStack>
 }
 
 @code {
@@ -104,6 +174,31 @@
 
     private decimal DefaultSteuersatz => IsKleinunternehmer ? 0m : 19m;
 
+    private record Abschnitt(Angebotsposition? Ueberschrift, List<Angebotsposition> Positionen);
+
+    private List<Abschnitt> GetAbschnitte()
+    {
+        var result = new List<Abschnitt>();
+        Angebotsposition? aktuelleUeberschrift = null;
+        var aktuellePositionen = new List<Angebotsposition>();
+
+        foreach (var p in Positionen.OrderBy(p => p.Position))
+        {
+            if (p.IsHeader)
+            {
+                result.Add(new Abschnitt(aktuelleUeberschrift, aktuellePositionen));
+                aktuelleUeberschrift = p;
+                aktuellePositionen = new List<Angebotsposition>();
+            }
+            else
+            {
+                aktuellePositionen.Add(p);
+            }
+        }
+        result.Add(new Abschnitt(aktuelleUeberschrift, aktuellePositionen));
+        return result.Where(a => a.Ueberschrift != null || a.Positionen.Count > 0).ToList();
+    }
+
     private async Task AddPosition()
     {
         var newPosition = new Angebotsposition
@@ -117,6 +212,24 @@
         };
 
         Positionen.Add(newPosition);
+        await PositionenChanged.InvokeAsync(Positionen);
+        await OnPositionChanged.InvokeAsync();
+    }
+
+    private async Task AddUeberschrift()
+    {
+        var ueberschrift = new Angebotsposition
+        {
+            Id = Guid.NewGuid(),
+            Position = Positionen.Count + 1,
+            Text = "",
+            IsHeader = true,
+            Menge = 0,
+            Einzelpreis = 0,
+            Steuersatz = 0
+        };
+
+        Positionen.Add(ueberschrift);
         await PositionenChanged.InvokeAsync(Positionen);
         await OnPositionChanged.InvokeAsync();
     }

@@ -295,6 +295,37 @@ public static class DemoSeedData
                 }
             },
 
+            // --- NordSoft: Großprojekt mit Zwischenüberschriften (Demo für Abschnitte) ---
+            new Invoice
+            {
+                InvoiceNumber = "RE-2026-0008",
+                InvoiceDate = D(2026, 3, 15),
+                ServicePeriodStart = D(2026, 1, 1),
+                ServicePeriodEnd = D(2026, 3, 15),
+                DueDate = D(2026, 4, 14),
+                CustomerId = customerNordsoft.Id,
+                Status = InvoiceStatus.Sent,
+                EmailSentAt = DT(2026, 3, 15, 10, 0, 0),
+                EmailSentTo = "finanzen@nordsoft.de",
+                EmailSendCount = 1,
+                Notes = "Fullstack-Entwicklung — Abrechnung nach Projektphasen",
+                Items = new List<InvoiceItem>
+                {
+                    new InvoiceItem { Position = 1, IsHeader = true, Description = "Phase 1 – Konzeption & Architektur", Quantity = 0, UnitPrice = 0, VatRate = 0 },
+                    new InvoiceItem { Position = 2, Description = "Anforderungsanalyse und Workshop", Quantity = 8, UnitPrice = 135.00m, VatRate = 19m },
+                    new InvoiceItem { Position = 3, Description = "Systemarchitektur und Technologieentscheidung", Quantity = 6, UnitPrice = 135.00m, VatRate = 19m },
+                    new InvoiceItem { Position = 4, Description = "Erstellung Lasten- und Pflichtenheft", Quantity = 4, UnitPrice = 120.00m, VatRate = 19m },
+                    new InvoiceItem { Position = 5, IsHeader = true, Description = "Phase 2 – Backend-Entwicklung", Quantity = 0, UnitPrice = 0, VatRate = 0 },
+                    new InvoiceItem { Position = 6, Description = "REST-API Entwicklung (ASP.NET Core)", Quantity = 28, UnitPrice = 120.00m, VatRate = 19m },
+                    new InvoiceItem { Position = 7, Description = "Datenbankdesign und Migration (PostgreSQL)", Quantity = 10, UnitPrice = 115.00m, VatRate = 19m },
+                    new InvoiceItem { Position = 8, Description = "Unit- und Integrationstests", Quantity = 8, UnitPrice = 100.00m, VatRate = 19m },
+                    new InvoiceItem { Position = 9, IsHeader = true, Description = "Phase 3 – Frontend & Deployment", Quantity = 0, UnitPrice = 0, VatRate = 0 },
+                    new InvoiceItem { Position = 10, Description = "Frontend-Entwicklung (Blazor)", Quantity = 20, UnitPrice = 110.00m, VatRate = 19m },
+                    new InvoiceItem { Position = 11, Description = "CI/CD-Pipeline und Docker-Deployment", Quantity = 6, UnitPrice = 120.00m, VatRate = 19m },
+                    new InvoiceItem { Position = 12, Description = "Schulung und Übergabedokumentation", Quantity = 4, UnitPrice = 95.00m, VatRate = 19m }
+                }
+            },
+
             // --- Müller & Partner: Überfällige Rechnung Feb 2026 ---
             new Invoice
             {
@@ -321,7 +352,7 @@ public static class DemoSeedData
         await fakturaContext.SaveChangesAsync();
 
         logger.LogInformation(
-            "Faktura Demo-Daten angelegt: {CustomerCount} Kunden, {InvoiceCount} Rechnungen.",
+            "Faktura Demo-Daten angelegt: {CustomerCount} Kunden, {InvoiceCount} Rechnungen (inkl. 1 mit Zwischenüberschriften).",
             4, invoices.Count);
     }
 

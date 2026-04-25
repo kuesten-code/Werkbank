@@ -172,9 +172,11 @@ public partial class Create
                     _invoice.Items.Add(new InvoiceItem
                     {
                         Description = pos.Text,
-                        Quantity = pos.Menge,
-                        UnitPrice = pos.Einzelpreis,
-                        VatRate = vatRate
+                        Quantity = pos.IsHeader ? 0 : pos.Menge,
+                        UnitPrice = pos.IsHeader ? 0 : pos.Einzelpreis,
+                        VatRate = pos.IsHeader ? 0 : vatRate,
+                        IsHeader = pos.IsHeader,
+                        Unit = pos.Einheit
                     });
                 }
 
@@ -333,6 +335,31 @@ public partial class Create
         StateHasChanged();
     }
 
+    private record ItemSection(InvoiceItem? Header, List<InvoiceItem> Items);
+
+    private List<ItemSection> GetItemSections()
+    {
+        var result = new List<ItemSection>();
+        InvoiceItem? currentHeader = null;
+        var currentItems = new List<InvoiceItem>();
+
+        foreach (var item in _invoice.Items)
+        {
+            if (item.IsHeader)
+            {
+                result.Add(new ItemSection(currentHeader, currentItems));
+                currentHeader = item;
+                currentItems = new List<InvoiceItem>();
+            }
+            else
+            {
+                currentItems.Add(item);
+            }
+        }
+        result.Add(new ItemSection(currentHeader, currentItems));
+        return result.Where(s => s.Header != null || s.Items.Count > 0).ToList();
+    }
+
     private void AddItem()
     {
         decimal vatRate;
@@ -348,14 +375,62 @@ public partial class Create
             UnitPrice = 0,
             VatRate = vatRate
         });
+        ReorderItems();
+    }
+
+    private void AddHeader()
+    {
+        _invoice.Items.Add(new InvoiceItem
+        {
+            IsHeader = true,
+            Description = string.Empty,
+            Quantity = 0,
+            UnitPrice = 0,
+            VatRate = 0
+        });
+        ReorderItems();
     }
 
     private void RemoveItem(InvoiceItem item)
     {
-        if (_invoice.Items.Count > 1)
+        var nonHeaderCount = _invoice.Items.Count(i => !i.IsHeader);
+        if (item.IsHeader || nonHeaderCount > 1)
         {
             _invoice.Items.Remove(item);
+            ReorderItems();
             RecalculateTotals();
+        }
+    }
+
+    private void MoveItemUp(InvoiceItem item)
+    {
+        var index = _invoice.Items.IndexOf(item);
+        if (index > 0)
+        {
+            _invoice.Items.RemoveAt(index);
+            _invoice.Items.Insert(index - 1, item);
+            ReorderItems();
+            RecalculateTotals();
+        }
+    }
+
+    private void MoveItemDown(InvoiceItem item)
+    {
+        var index = _invoice.Items.IndexOf(item);
+        if (index < _invoice.Items.Count - 1)
+        {
+            _invoice.Items.RemoveAt(index);
+            _invoice.Items.Insert(index + 1, item);
+            ReorderItems();
+            RecalculateTotals();
+        }
+    }
+
+    private void ReorderItems()
+    {
+        for (int i = 0; i < _invoice.Items.Count; i++)
+        {
+            _invoice.Items[i].Position = i + 1;
         }
     }
 
@@ -376,19 +451,31 @@ public partial class Create
         RecalculateTotals();
     }
 
-    private void OnDiscountToggle()
+    private void AddDiscount()
     {
-        if (!_enableDiscount)
-        {
-            _invoice.DiscountType = DiscountType.None;
-            _invoice.DiscountValue = null;
-        }
-        else
-        {
-            _invoice.DiscountType = DiscountType.Percentage;
-            _invoice.DiscountValue = 0;
-        }
+        _enableDiscount = true;
+        _invoice.DiscountType = DiscountType.Percentage;
+        _invoice.DiscountValue = 0;
         RecalculateTotals();
+    }
+
+    private void RemoveDiscount()
+    {
+        _enableDiscount = false;
+        _invoice.DiscountType = DiscountType.None;
+        _invoice.DiscountValue = null;
+        _discountWarning = false;
+        RecalculateTotals();
+    }
+
+    private void AddTimesheet()
+    {
+        _attachTimesheet = true;
+    }
+
+    private void RemoveTimesheet()
+    {
+        _attachTimesheet = false;
     }
 
     private void OnReverseChargeToggle(bool value)
@@ -433,7 +520,7 @@ public partial class Create
             vatRate = 0;
         else
             vatRate = 19;
-        foreach (var item in _invoice.Items)
+        foreach (var item in _invoice.Items.Where(i => !i.IsHeader))
         {
             item.VatRate = vatRate;
         }
@@ -486,13 +573,14 @@ public partial class Create
         }
 
         // Positionen: Pflicht
-        if ((_invoice.Items.Count == 0 || _invoice.Items.All(i => string.IsNullOrWhiteSpace(i.Description))))
+        var nonHeaderItems = _invoice.Items.Where(i => !i.IsHeader).ToList();
+        if (nonHeaderItems.Count == 0 || nonHeaderItems.All(i => string.IsNullOrWhiteSpace(i.Description)))
         {
             _errorMessage = "Mindestens eine Position angeben.";
             return false;
         }
 
-        if (_invoice.Items.Any(i => i.Quantity <= 0))
+        if (nonHeaderItems.Any(i => i.Quantity <= 0))
         {
             _errorMessage = "Menge muss > 0 sein.";
             return false;

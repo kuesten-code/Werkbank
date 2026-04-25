@@ -143,24 +143,58 @@
                 <!-- Positionen -->
                 <MudItem xs="12" Class="mt-4">
                     <MudText Typo="Typo.h6" GutterBottom="true">Positionen</MudText>
-                    <MudTable Items="@_invoice.Items" Dense="true" Hover="true" Elevation="0">
-                        <HeaderContent>
-                            <MudTh>Pos.</MudTh>
-                            <MudTh>Beschreibung</MudTh>
-                            <MudTh Style="text-align: right">Menge</MudTh>
-                            <MudTh Style="text-align: right">Einzelpreis</MudTh>
-                            <MudTh Style="text-align: right">Gesamt</MudTh>
-                        </HeaderContent>
-                        <RowTemplate Context="item">
-                            <MudTd DataLabel="Pos.">@item.Position</MudTd>
-                            <MudTd DataLabel="Beschreibung">
-                                <MudText Style="white-space: pre-line;">@item.Description</MudText>
-                            </MudTd>
-                            <MudTd DataLabel="Menge" Style="text-align: right">@item.Quantity.ToString("N3", _culture)</MudTd>
-                            <MudTd DataLabel="Einzelpreis" Style="text-align: right">@item.UnitPrice.ToString("C2", _culture)</MudTd>
-                            <MudTd DataLabel="Gesamt" Style="text-align: right">@item.TotalNet.ToString("C2", _culture)</MudTd>
-                        </RowTemplate>
-                    </MudTable>
+                    <MudSimpleTable Dense="true" Hover="true" Bordered="true" Elevation="0">
+                        <thead>
+                            <tr>
+                                <th style="width: 60px">Pos.</th>
+                                <th>Beschreibung</th>
+                                <th style="width: 90px">Einheit</th>
+                                <th style="width: 100px; text-align: right">Menge</th>
+                                <th style="width: 130px; text-align: right">Einzelpreis</th>
+                                <th style="width: 120px; text-align: right">Gesamt</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @{
+                                var hatUeberschriften = _invoice.Items.Any(i => i.IsHeader);
+                                int posCounter = 0;
+                            }
+                            @foreach (var itemGruppe in GetItemSections())
+                            {
+                                @if (itemGruppe.Header != null)
+                                {
+                                    <tr style="background-color: var(--mud-palette-background-grey);">
+                                        <td colspan="6" style="padding: 4px 8px; border-top: 2px solid var(--mud-palette-divider); font-weight: 600;">
+                                            @itemGruppe.Header.Description
+                                        </td>
+                                    </tr>
+                                }
+                                @foreach (var item in itemGruppe.Items)
+                                {
+                                    posCounter++;
+                                    <tr>
+                                        <td>@posCounter</td>
+                                        <td><MudText Style="white-space: pre-line;">@item.Description</MudText></td>
+                                        <td>@item.Unit</td>
+                                        <td style="text-align: right">@item.Quantity.ToString("N3", _culture)</td>
+                                        <td style="text-align: right">@item.UnitPrice.ToString("C2", _culture)</td>
+                                        <td style="text-align: right">@item.TotalNet.ToString("C2", _culture)</td>
+                                    </tr>
+                                }
+                                @if (hatUeberschriften && itemGruppe.Header != null && itemGruppe.Items.Count > 0)
+                                {
+                                    <tr style="background-color: var(--mud-palette-background-grey);">
+                                        <td colspan="5" style="text-align: right; font-style: italic; padding: 4px 8px; color: var(--mud-palette-text-secondary);">
+                                            Zwischensumme:
+                                        </td>
+                                        <td style="text-align: right; font-weight: 600; padding: 4px 8px; border-top: 1px solid var(--mud-palette-divider);">
+                                            @itemGruppe.Items.Sum(i => i.TotalNet).ToString("C2", _culture)
+                                        </td>
+                                    </tr>
+                                }
+                            }
+                        </tbody>
+                    </MudSimpleTable>
                 </MudItem>
 
                 <!-- Abschl&auml;ge -->
