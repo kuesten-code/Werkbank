@@ -368,14 +368,8 @@
             _document = await DocumentService.GetByIdAsync(Id);
             if (_document == null) return;
 
-            // Dateien und Projektname sequentiell laden (DbContext ist nicht thread-safe)
+            // Dateien sequentiell laden (DbContext ist nicht thread-safe)
             _files = await FileService.GetByDocumentIdAsync(Id);
-
-            if (_document.ProjectAllocations.Count > 0)
-            {
-                var firstProject = _document.ProjectAllocations.First();
-                await LoadProjectNameAsync(firstProject.ProjectId);
-            }
         }
         catch (Exception ex)
         {
@@ -391,6 +385,16 @@
         if (_files.Count > 0)
         {
             await PreviewFile(_files[0]);
+            StateHasChanged();
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || _projectName != null) return;
+        if (_document?.ProjectAllocations.Count > 0)
+        {
+            await LoadProjectNameAsync(_document.ProjectAllocations.First().ProjectId);
             StateHasChanged();
         }
     }

@@ -282,6 +282,11 @@
         {
             Snackbar.Add($"Fehler beim Laden der Lieferanten: {ex.Message}", Severity.Warning);
         }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || _actaAvailable) return;
 
         try
         {
@@ -289,7 +294,6 @@
             if (_actaAvailable)
             {
                 _projects = await ProjectCache.GetProjectsAsync();
-
                 foreach (var project in _projects)
                 {
                     var guid = DeterministicGuid(project.Id);
@@ -302,6 +306,7 @@
         {
             _actaAvailable = false;
         }
+        StateHasChanged();
     }
 
     private async Task LoadDocumentsAsync()

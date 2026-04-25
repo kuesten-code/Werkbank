@@ -677,6 +677,11 @@
             _suppliers = suppliers.ToList();
         }
         catch { /* Fehler ignorieren */ }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || _actaAvailable) return;
 
         try
         {
@@ -691,6 +696,7 @@
             }
         }
         catch { _actaAvailable = false; }
+        StateHasChanged();
     }
 
     private async Task LoadFilesAsync()

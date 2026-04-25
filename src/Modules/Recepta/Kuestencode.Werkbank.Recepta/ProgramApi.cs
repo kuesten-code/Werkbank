@@ -93,6 +93,8 @@ public class ProgramApi
         })
         .AddHttpMessageHandler<Kuestencode.Shared.UI.Handlers.AuthTokenDelegatingHandler>();
 
+        builder.Services.AddTransient<ModuleAvailabilityService>();
+
         // Add API-based implementations of Host services (Company, Customer)
         builder.Services.AddScoped<ICompanyService, ApiCompanyService>();
         builder.Services.AddScoped<ICustomerService, ApiCustomerService>();

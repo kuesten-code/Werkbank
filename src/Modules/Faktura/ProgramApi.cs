@@ -98,6 +98,8 @@ public class ProgramApi
         })
         .AddHttpMessageHandler<Kuestencode.Shared.UI.Handlers.AuthTokenDelegatingHandler>();
 
+        builder.Services.AddTransient<ModuleAvailabilityService>();
+
         // Rapport API Client (Timesheet export)
         builder.Services.AddHttpClient<IRapportApiClient, RapportApiClient>(client =>
         {

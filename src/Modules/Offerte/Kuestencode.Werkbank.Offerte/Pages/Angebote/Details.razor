@@ -6,7 +6,7 @@
 @inject ICustomerService CustomerService
 @inject AngebotStatusService StatusService
 @inject IAngebotAblaufService AblaufService
-@inject IHostApiClient HostApiClient
+@inject ModuleAvailabilityService AvailabilityService
 @inject IOffertePdfService PdfService
 @inject IOfferteVersandService VersandService
 @inject IOfferteDruckService DruckService
@@ -385,41 +385,22 @@
 
     protected override async Task OnInitializedAsync()
     {
-        await CheckFakturaAvailabilityAsync();
         await LoadDataAsync();
     }
 
-    private async Task CheckFakturaAvailabilityAsync()
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        if (!firstRender || _fakturaAvailable) return;
+
         try
         {
-            var navItems = await HostApiClient.GetNavigationAsync();
-            _fakturaAvailable = navItems.Any(IsFakturaNavItem);
+            _fakturaAvailable = (await AvailabilityService.CheckAsync()).Faktura;
         }
         catch
         {
             _fakturaAvailable = false;
         }
-    }
-
-    private static bool IsFakturaNavItem(Kuestencode.Shared.Contracts.Navigation.NavItemDto item)
-    {
-        if (!string.IsNullOrWhiteSpace(item.Href) && item.Href.StartsWith("/faktura", StringComparison.OrdinalIgnoreCase))
-        {
-            return true;
-        }
-
-        if (string.Equals(item.Label, "Faktura", StringComparison.OrdinalIgnoreCase))
-        {
-            return true;
-        }
-
-        if (item.Children is { Count: > 0 })
-        {
-            return item.Children.Any(IsFakturaNavItem);
-        }
-
-        return false;
+        StateHasChanged();
     }
 
     private async Task LoadDataAsync()

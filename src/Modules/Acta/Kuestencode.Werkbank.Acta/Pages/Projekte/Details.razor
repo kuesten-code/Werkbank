@@ -3,7 +3,6 @@
 @using Kuestencode.Werkbank.Acta.Domain.Services
 @using Kuestencode.Werkbank.Acta.Shared.Components
 @using Kuestencode.Shared.ApiClients
-@using Kuestencode.Shared.Contracts.Navigation
 @using Kuestencode.Shared.Contracts.Rapport
 @using Kuestencode.Shared.Contracts.Recepta
 @using Kuestencode.Shared.Contracts.Faktura
@@ -14,6 +13,7 @@
 @inject ISnackbar Snackbar
 @inject IDialogService DialogService
 @inject IHostApiClient HostApiClient
+@inject ModuleAvailabilityService ModuleAvailability
 
 <PageTitle>Projekt Details - Küstencode Acta</PageTitle>
 
@@ -496,32 +496,32 @@
         await LoadDataAsync(showLoading: false);
     }
 
-    private async Task CheckModuleAvailabilityAsync()
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        try
+        if (!firstRender) return;
+        if (_rapportAvailable && _receptaAvailable && _fakturaAvailable) return;
+
+        await CheckModuleAvailabilityAsync();
+
+        if (_project?.ExternalId.HasValue == true)
         {
-            var navItems = await HostApiClient.GetNavigationAsync();
-            _rapportAvailable = navItems.Any(n => IsModuleNavItem(n, "/rapport"));
-            _receptaAvailable = navItems.Any(n => IsModuleNavItem(n, "/recepta"));
-            _fakturaAvailable = navItems.Any(n => IsModuleNavItem(n, "/faktura"));
+            if (_rapportAvailable && _projectHours == null)
+                _projectHours = await HostApiClient.GetProjectHoursAsync(_project.ExternalId.Value);
+            if (_receptaAvailable && _projectExpenses == null)
+                _projectExpenses = await HostApiClient.GetProjectExpensesAsync(DeterministicGuid(_project.ExternalId.Value));
+            if (_fakturaAvailable && _projectInvoices == null)
+                _projectInvoices = await HostApiClient.GetProjectInvoicesAsync(_project.ExternalId.Value);
         }
-        catch
-        {
-            _rapportAvailable = false;
-            _receptaAvailable = false;
-            _fakturaAvailable = false;
-        }
+
+        StateHasChanged();
     }
 
-    private static bool IsModuleNavItem(NavItemDto item, string pathPrefix)
+    private async Task CheckModuleAvailabilityAsync()
     {
-        if (!string.IsNullOrWhiteSpace(item.Href) && item.Href.StartsWith(pathPrefix, StringComparison.OrdinalIgnoreCase))
-            return true;
-
-        if (item.Children is { Count: > 0 })
-            return item.Children.Any(c => IsModuleNavItem(c, pathPrefix));
-
-        return false;
+        var availability = await ModuleAvailability.CheckAsync();
+        _rapportAvailable  = availability.Rapport;
+        _receptaAvailable  = availability.Recepta;
+        _fakturaAvailable  = availability.Faktura;
     }
 
     private Color GetProgressColor(int percent) => percent switch

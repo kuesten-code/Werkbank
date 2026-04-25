@@ -17,7 +17,6 @@ using Kuestencode.Faktura.Shared;
 using Kuestencode.Faktura.Shared.Components;
 using Kuestencode.Shared.ApiClients;
 using Kuestencode.Shared.Contracts.Acta;
-using Kuestencode.Shared.Contracts.Navigation;
 using Kuestencode.Shared.Contracts.Rapport;
 using Kuestencode.Shared.Contracts.Recepta;
 
@@ -32,7 +31,7 @@ public partial class Edit
     public IRapportApiClient RapportApiClient { get; set; } = null!;
 
     [Inject]
-    public IHostApiClient HostApiClient { get; set; } = null!;
+    public ModuleAvailabilityService AvailabilityService { get; set; } = null!;
 
     [Inject]
     public IActaApiClient ActaApiClient { get; set; } = null!;
@@ -76,9 +75,9 @@ public partial class Edit
     private TimesheetAttachmentFormat _timesheetFormat = TimesheetAttachmentFormat.Pdf;
     private bool _timesheetGenerating;
     private bool _timesheetAttachmentAdded;
-    private bool _rapportAvailable = true;
-    private bool _actaAvailable = true;
-    private bool _receptaAvailable = true;
+    private bool _rapportAvailable;
+    private bool _actaAvailable;
+    private bool _receptaAvailable;
     private bool _projectWorkflowAvailable;
     private List<ActaProjectDto> _projects = new();
     private List<ReceptaDocumentDto> _projectReceipts = new();
@@ -123,12 +122,6 @@ public partial class Edit
             _selectedProjectExternalId = _invoice.ProjectId;
 
             SyncTimesheetRange();
-            await CheckModuleAvailabilityAsync();
-            if (!_rapportAvailable)
-            {
-                _attachTimesheet = false;
-                _timesheetAttachmentAdded = false;
-            }
             RecalculateTotals();
         }
         catch (Exception ex)
@@ -142,14 +135,26 @@ public partial class Edit
     }
 
 
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        await CheckModuleAvailabilityAsync();
+        if (!_rapportAvailable)
+        {
+            _attachTimesheet = false;
+            _timesheetAttachmentAdded = false;
+        }
+        StateHasChanged();
+    }
+
     private async Task CheckModuleAvailabilityAsync()
     {
         try
         {
-            var navItems = await HostApiClient.GetNavigationAsync();
-            _rapportAvailable = navItems.Any(IsRapportNavItem);
-            _actaAvailable = navItems.Any(IsActaNavItem);
-            _receptaAvailable = navItems.Any(IsReceptaNavItem);
+            var availability = await AvailabilityService.CheckAsync();
+            _rapportAvailable = availability.Rapport;
+            _actaAvailable = availability.Acta;
+            _receptaAvailable = availability.Recepta;
             _projectWorkflowAvailable = _rapportAvailable && _actaAvailable && _receptaAvailable;
 
             if (_projectWorkflowAvailable)
@@ -174,67 +179,6 @@ public partial class Edit
             _projects.Clear();
             _projectReceipts.Clear();
         }
-    }
-
-    private static bool IsRapportNavItem(NavItemDto item)
-    {
-        if (!string.IsNullOrWhiteSpace(item.Href) && item.Href.StartsWith("/rapport", StringComparison.OrdinalIgnoreCase))
-        {
-            return true;
-        }
-
-        if (string.Equals(item.Label, "Rapport", StringComparison.OrdinalIgnoreCase))
-        {
-            return true;
-        }
-
-        if (item.Children is { Count: > 0 })
-        {
-            return item.Children.Any(IsRapportNavItem);
-        }
-
-        return false;
-    }
-
-    private static bool IsActaNavItem(NavItemDto item)
-    {
-        if (!string.IsNullOrWhiteSpace(item.Href) && item.Href.StartsWith("/acta", StringComparison.OrdinalIgnoreCase))
-        {
-            return true;
-        }
-
-        if (string.Equals(item.Label, "Acta", StringComparison.OrdinalIgnoreCase))
-        {
-            return true;
-        }
-
-        if (item.Children is { Count: > 0 })
-        {
-            return item.Children.Any(IsActaNavItem);
-        }
-
-        return false;
-    }
-
-    private static bool IsReceptaNavItem(NavItemDto item)
-    {
-        if (!string.IsNullOrWhiteSpace(item.Href) && item.Href.StartsWith("/recepta", StringComparison.OrdinalIgnoreCase))
-        {
-            return true;
-        }
-
-        if (string.Equals(item.Label, "Recepta", StringComparison.OrdinalIgnoreCase) ||
-            string.Equals(item.Label, "Belege", StringComparison.OrdinalIgnoreCase))
-        {
-            return true;
-        }
-
-        if (item.Children is { Count: > 0 })
-        {
-            return item.Children.Any(IsReceptaNavItem);
-        }
-
-        return false;
     }
 
     private async Task OnProjectChanged(int? projectExternalId)

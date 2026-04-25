@@ -217,21 +217,24 @@
             return;
         }
 
+        await LoadReportAsync();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || _projectsAvailable) return;
+
         try
         {
             _projectsAvailable = await ProjectService.IsAvailableAsync();
             if (_projectsAvailable)
-            {
                 _projects = (await ProjectService.GetAllProjectsAsync()).ToList();
-            }
         }
         catch
         {
             _projectsAvailable = false;
-            _projects = new List<IProject>();
         }
-
-        await LoadReportAsync();
+        StateHasChanged();
     }
 
     private async Task LoadReportAsync()

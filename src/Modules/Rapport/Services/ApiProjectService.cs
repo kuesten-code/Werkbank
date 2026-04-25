@@ -1,21 +1,18 @@
 using Kuestencode.Core.Interfaces;
 using Kuestencode.Shared.ApiClients;
 using Kuestencode.Shared.Contracts.Acta;
-using Kuestencode.Shared.Contracts.Navigation;
 
 namespace Kuestencode.Rapport.Services;
 
-/// <summary>
-/// IProjectService-Implementierung die Projekte über den Host von Acta bezieht.
-/// Prüft dynamisch ob Acta verfügbar ist - wenn nicht, verhält sich wie MockProjectService.
-/// </summary>
 public class ApiProjectService : IProjectService
 {
     private readonly IHostApiClient _hostApiClient;
+    private readonly ModuleAvailabilityService _availability;
 
-    public ApiProjectService(IHostApiClient hostApiClient)
+    public ApiProjectService(IHostApiClient hostApiClient, ModuleAvailabilityService availability)
     {
         _hostApiClient = hostApiClient;
+        _availability = availability;
     }
 
     public async Task<List<IProject>> GetAllProjectsAsync()
@@ -38,26 +35,7 @@ public class ApiProjectService : IProjectService
 
     public async Task<bool> IsAvailableAsync()
     {
-        try
-        {
-            var navItems = await _hostApiClient.GetNavigationAsync();
-            return navItems.Any(IsActaNavItem);
-        }
-        catch
-        {
-            return false;
-        }
-    }
-
-    private static bool IsActaNavItem(NavItemDto item)
-    {
-        if (!string.IsNullOrWhiteSpace(item.Href) && item.Href.StartsWith("/acta", StringComparison.OrdinalIgnoreCase))
-            return true;
-
-        if (item.Children is { Count: > 0 })
-            return item.Children.Any(IsActaNavItem);
-
-        return false;
+        return (await _availability.CheckAsync()).Acta;
     }
 
     private class ActaProject : IProject
