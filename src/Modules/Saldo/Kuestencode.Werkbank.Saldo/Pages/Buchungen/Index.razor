@@ -188,34 +188,6 @@
                 }
             </MudTd>
         </RowTemplate>
-        <FooterContent>
-            @if (_gefiltert.Count > 0)
-            {
-                var sumEinnahmen = _gefiltert.Where(b => b.Typ == BuchungsTyp.Einnahme).Sum(b => b.Brutto);
-                var sumAusgaben  = _gefiltert.Where(b => b.Typ == BuchungsTyp.Ausgabe).Sum(b => b.Brutto);
-                var saldo        = _gefiltert.Where(b => b.Typ == BuchungsTyp.Einnahme).Sum(b => b.Netto)
-                                  - _gefiltert.Where(b => b.Typ == BuchungsTyp.Ausgabe).Sum(b => b.Netto);
-                <MudTr>
-                    <MudTd colspan="5" Style="text-align:right; font-weight:600; border-top: 1px solid rgba(0,0,0,0.12);">
-                        Summe (@_gefiltert.Count Buchungen):
-                    </MudTd>
-                    <MudTd Style="text-align:right; font-weight:600; color:#4caf50; border-top: 1px solid rgba(0,0,0,0.12);">
-                        @sumEinnahmen.ToString("N2") &#8364;
-                    </MudTd>
-                    <MudTd Style="text-align:right; font-weight:600; color:#f44336; border-top: 1px solid rgba(0,0,0,0.12);">
-                        @sumAusgaben.ToString("N2") &#8364;
-                    </MudTd>
-                </MudTr>
-                <MudTr>
-                    <MudTd colspan="5" Style="text-align:right; font-weight:600;">
-                        Saldo (Netto):
-                    </MudTd>
-                    <MudTd colspan="2" Style="@GetSaldoStyle(saldo)">
-                        @saldo.ToString("N2") &#8364;
-                    </MudTd>
-                </MudTr>
-            }
-        </FooterContent>
         <NoRecordsContent>
             @if (!_loading)
             {
@@ -226,6 +198,34 @@
             <MudTablePager PageSizeOptions="new[] { 25, 50, 100, 250 }" />
         </PagerContent>
     </MudTable>
+
+    @if (_gefiltert.Count > 0)
+    {
+        var sumEinnahmen = _gefiltert.Where(b => b.Typ == BuchungsTyp.Einnahme).Sum(b => b.Brutto);
+        var sumAusgaben  = _gefiltert.Where(b => b.Typ == BuchungsTyp.Ausgabe).Sum(b => b.Brutto);
+        var saldo        = _gefiltert.Where(b => b.Typ == BuchungsTyp.Einnahme).Sum(b => b.Netto)
+                          - _gefiltert.Where(b => b.Typ == BuchungsTyp.Ausgabe).Sum(b => b.Netto);
+        <MudPaper Elevation="1" Class="mt-2" Style="padding: 12px 52px;">
+            <MudStack Row="true" Justify="Justify.FlexEnd" AlignItems="AlignItems.Center" Spacing="6">
+                <MudText Typo="Typo.body2" Style="font-weight:600;">
+                    Summe (@_gefiltert.Count Buchungen):
+                </MudText>
+                <MudText Typo="Typo.body2" Style="font-weight:600; color:#4caf50; min-width:110px; text-align:right;">
+                    @sumEinnahmen.ToString("N2") &#8364;
+                </MudText>
+                <MudText Typo="Typo.body2" Style="font-weight:600; color:#f44336; min-width:110px; text-align:right;">
+                    @sumAusgaben.ToString("N2") &#8364;
+                </MudText>
+            </MudStack>
+            <MudDivider Class="my-2" />
+            <MudStack Row="true" Justify="Justify.FlexEnd" AlignItems="AlignItems.Center" Spacing="6">
+                <MudText Typo="Typo.body2" Style="font-weight:600;">Saldo (Netto):</MudText>
+                <MudText Typo="Typo.body2" Style="@(GetSaldoStyle(saldo) + " min-width:230px; text-align:right;")">
+                    @saldo.ToString("N2") &#8364;
+                </MudText>
+            </MudStack>
+        </MudPaper>
+    }
 
 </MudContainer>
 

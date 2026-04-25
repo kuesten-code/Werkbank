@@ -306,7 +306,7 @@
                         <!-- Beträge -->
                         <MudText Typo="Typo.h6" Class="mt-3 mb-1">Beträge</MudText>
                         <MudGrid>
-                            <MudItem xs="12" sm="4">
+                            <MudItem xs="12">
                                 <MudNumericField Value="_model.AmountNet19"
                                                 Label="Netto 19 %" Variant="Variant.Outlined"
                                                 Adornment="Adornment.End" AdornmentText="€"
@@ -314,14 +314,7 @@
                                                 ValueChanged="OnAmountNet19Changed" T="decimal"
                                                 ReadOnly="@(!_isDraft)" />
                             </MudItem>
-                            <MudItem xs="12" sm="2">
-                                <MudNumericField Value="_model.AmountTax19"
-                                                Label="MwSt 19 %" Variant="Variant.Outlined"
-                                                Adornment="Adornment.End" AdornmentText="€"
-                                                Format="N2" Culture="@_culture"
-                                                ReadOnly="true" T="decimal" />
-                            </MudItem>
-                            <MudItem xs="12" sm="4">
+                            <MudItem xs="12">
                                 <MudNumericField Value="_model.AmountNet7"
                                                 Label="Netto 7 %" Variant="Variant.Outlined"
                                                 Adornment="Adornment.End" AdornmentText="€"
@@ -329,14 +322,7 @@
                                                 ValueChanged="OnAmountNet7Changed" T="decimal"
                                                 ReadOnly="@(!_isDraft)" />
                             </MudItem>
-                            <MudItem xs="12" sm="2">
-                                <MudNumericField Value="_model.AmountTax7"
-                                                Label="MwSt 7 %" Variant="Variant.Outlined"
-                                                Adornment="Adornment.End" AdornmentText="€"
-                                                Format="N2" Culture="@_culture"
-                                                ReadOnly="true" T="decimal" />
-                            </MudItem>
-                            <MudItem xs="12" sm="4">
+                            <MudItem xs="12">
                                 <MudNumericField Value="_model.AmountNet0"
                                                 Label="Netto 0 %" Variant="Variant.Outlined"
                                                 Adornment="Adornment.End" AdornmentText="€"
@@ -344,7 +330,19 @@
                                                 ValueChanged="OnAmountNet0Changed" T="decimal"
                                                 ReadOnly="@(!_isDraft)" />
                             </MudItem>
-                            <MudItem xs="12" sm="2">
+                            <MudItem xs="6">
+                                <MudNumericField Value="_model.AmountTax19"
+                                                Label="MwSt 19 %" Variant="Variant.Outlined"
+                                                Adornment="Adornment.End" AdornmentText="€"
+                                                Format="N2" Culture="@_culture"
+                                                ReadOnly="true" T="decimal" />
+                            </MudItem>
+                            <MudItem xs="6">
+                                <MudNumericField Value="_model.AmountTax7"
+                                                Label="MwSt 7 %" Variant="Variant.Outlined"
+                                                Adornment="Adornment.End" AdornmentText="€"
+                                                Format="N2" Culture="@_culture"
+                                                ReadOnly="true" T="decimal" />
                             </MudItem>
                         </MudGrid>
                         <MudGrid Class="mt-1">
