@@ -94,26 +94,26 @@
         try
         {
             _customers = await CustomerService.GetAllAsync();
-            _projectsAvailable = await ProjectService.IsAvailableAsync();
-            if (_projectsAvailable)
-            {
-                _projects = (await ProjectService.GetAllProjectsAsync()).ToList();
-            }
-            else
-            {
-                _projects = new List<IProject>();
-            }
-
             _settings = await SettingsService.GetSettingsAsync();
-            if (_settings.DefaultProjectId.HasValue && _projectsAvailable)
-            {
-                await OnProjectSelected(_settings.DefaultProjectId);
-            }
         }
         finally
         {
             _isLoading = false;
         }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || _projectsAvailable) return;
+
+        _projectsAvailable = await ProjectService.IsAvailableAsync();
+        if (_projectsAvailable)
+        {
+            _projects = (await ProjectService.GetAllProjectsAsync()).ToList();
+            if (_settings?.DefaultProjectId.HasValue == true)
+                await OnProjectSelected(_settings.DefaultProjectId);
+        }
+        StateHasChanged();
     }
 
     private Task OnProjectSelected(int? projectId)

@@ -161,12 +161,6 @@
     protected override async Task OnInitializedAsync()
     {
         _customers = await CustomerService.GetAllAsync();
-        _projectsAvailable = await ProjectService.IsAvailableAsync();
-        if (_projectsAvailable)
-        {
-            _allProjects = (await ProjectService.GetAllProjectsAsync()).ToList();
-            UpdateProjectOptions();
-        }
 
         _isAdminOrBuero = await UserContextService.IsAdminOrBueroAsync();
         if (_isAdminOrBuero)
@@ -178,6 +172,19 @@
         _isMobile = false; // TODO: Could use JS interop to detect screen size
 
         await LoadEntriesAsync();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || _projectsAvailable) return;
+
+        _projectsAvailable = await ProjectService.IsAvailableAsync();
+        if (_projectsAvailable)
+        {
+            _allProjects = (await ProjectService.GetAllProjectsAsync()).ToList();
+            UpdateProjectOptions();
+        }
+        StateHasChanged();
     }
 
     private async Task LoadEntriesAsync()

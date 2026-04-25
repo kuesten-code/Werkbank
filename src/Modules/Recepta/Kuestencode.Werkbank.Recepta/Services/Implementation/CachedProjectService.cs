@@ -17,7 +17,6 @@ public class CachedProjectService : ICachedProjectService
     private const string ProjectsCacheKey = "acta_projects";
     private const string AvailabilityCacheKey = "acta_available";
     private static readonly TimeSpan CacheDuration = TimeSpan.FromMinutes(5);
-    private static readonly TimeSpan EmptyCacheDuration = TimeSpan.FromSeconds(15);
 
     public CachedProjectService(
         IHostApiClient hostApiClient,
@@ -41,12 +40,6 @@ public class CachedProjectService : ICachedProjectService
         {
             _cache.Set(ProjectsCacheKey, projects, CacheDuration);
             _cache.Set(AvailabilityCacheKey, true, CacheDuration);
-        }
-        else
-        {
-            // Kurzen Cache setzen, damit beim nächsten Seitenaufruf erneut versucht wird
-            _logger.LogDebug("Acta-Projekte nicht verfügbar oder leer, kurzer Cache");
-            _cache.Set(AvailabilityCacheKey, false, EmptyCacheDuration);
         }
         return projects;
     }
