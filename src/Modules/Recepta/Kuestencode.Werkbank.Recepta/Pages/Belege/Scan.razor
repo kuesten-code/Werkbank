@@ -244,37 +244,66 @@
 
                         @* Beträge *@
                         <MudText Typo="Typo.overline" Color="Color.Secondary" Class="mt-6 mb-2">Beträge</MudText>
-                        <MudNumericField Value="_model.AmountGross"
-                                        Label="Bruttobetrag" Variant="Variant.Outlined"
-                                        Adornment="Adornment.End" AdornmentText="€"
-                                        Format="N2" Culture="@_culture" Min="-999999999m"
-                                        ValueChanged="OnAmountGrossChanged" T="decimal"
-                                        Class="@OcrClass("AmountGross")" />
-
-                        <MudStack Row="true" Spacing="2" Class="mt-3">
-                            <MudNumericField Value="_model.AmountNet"
-                                            Label="Netto" Variant="Variant.Outlined"
+                        <MudStack Row="true" Spacing="2">
+                            <MudNumericField Value="_model.AmountNet19"
+                                            Label="Netto 19 %" Variant="Variant.Outlined"
                                             Adornment="Adornment.End" AdornmentText="€"
-                                            Format="N2" Culture="@_culture"
-                                            ReadOnly="true"
+                                            Format="N2" Culture="@_culture" Min="-999999999m"
+                                            ValueChanged="OnAmountNet19Changed" T="decimal"
                                             Style="flex: 1;"
-                                            Class="@OcrClass("AmountNet")" T="decimal" />
-                            <MudNumericField @bind-Value="_model.AmountTax"
-                                            Label="MwSt" Variant="Variant.Outlined"
+                                            Class="@OcrClass("AmountNet19")" />
+                            <MudNumericField Value="_model.AmountTax19"
+                                            Label="MwSt 19 %" Variant="Variant.Outlined"
                                             Adornment="Adornment.End" AdornmentText="€"
                                             Format="N2" Culture="@_culture"
                                             ReadOnly="true"
                                             Style="flex: 1;" T="decimal" />
                         </MudStack>
-
-                        <MudSelect T="decimal" Label="MwSt-Satz" Value="_model.TaxRate"
-                                  ValueChanged="OnTaxRateChanged"
-                                  Variant="Variant.Outlined"
-                                  Class="@($"mt-3 {OcrClass("TaxRate")}")">
-                            <MudSelectItem T="decimal" Value="19m">19 %</MudSelectItem>
-                            <MudSelectItem T="decimal" Value="7m">7 %</MudSelectItem>
-                            <MudSelectItem T="decimal" Value="0m">0 %</MudSelectItem>
-                        </MudSelect>
+                        <MudStack Row="true" Spacing="2" Class="mt-3">
+                            <MudNumericField Value="_model.AmountNet7"
+                                            Label="Netto 7 %" Variant="Variant.Outlined"
+                                            Adornment="Adornment.End" AdornmentText="€"
+                                            Format="N2" Culture="@_culture" Min="-999999999m"
+                                            ValueChanged="OnAmountNet7Changed" T="decimal"
+                                            Style="flex: 1;"
+                                            Class="@OcrClass("AmountNet7")" />
+                            <MudNumericField Value="_model.AmountTax7"
+                                            Label="MwSt 7 %" Variant="Variant.Outlined"
+                                            Adornment="Adornment.End" AdornmentText="€"
+                                            Format="N2" Culture="@_culture"
+                                            ReadOnly="true"
+                                            Style="flex: 1;" T="decimal" />
+                        </MudStack>
+                        <MudStack Row="true" Spacing="2" Class="mt-3">
+                            <MudNumericField Value="_model.AmountNet0"
+                                            Label="Netto 0 %" Variant="Variant.Outlined"
+                                            Adornment="Adornment.End" AdornmentText="€"
+                                            Format="N2" Culture="@_culture" Min="-999999999m"
+                                            ValueChanged="OnAmountNet0Changed" T="decimal"
+                                            Style="flex: 1;"
+                                            Class="@OcrClass("AmountNet0")" />
+                            <div style="flex: 1;"></div>
+                        </MudStack>
+                        <MudStack Row="true" Spacing="2" Class="mt-3">
+                            <MudNumericField Value="_model.AmountNet"
+                                            Label="Netto gesamt" Variant="Variant.Outlined"
+                                            Adornment="Adornment.End" AdornmentText="€"
+                                            Format="N2" Culture="@_culture"
+                                            ReadOnly="true"
+                                            Style="flex: 1;" T="decimal" />
+                            <MudNumericField Value="_model.AmountTax"
+                                            Label="MwSt gesamt" Variant="Variant.Outlined"
+                                            Adornment="Adornment.End" AdornmentText="€"
+                                            Format="N2" Culture="@_culture"
+                                            ReadOnly="true"
+                                            Style="flex: 1;" T="decimal" />
+                            <MudNumericField Value="_model.AmountGross"
+                                            Label="Brutto gesamt" Variant="Variant.Outlined"
+                                            Adornment="Adornment.End" AdornmentText="€"
+                                            Format="N2" Culture="@_culture"
+                                            ReadOnly="true"
+                                            Style="flex: 1;" T="decimal" />
+                        </MudStack>
 
                         @* Zuordnung *@
                         <MudText Typo="Typo.overline" Color="Color.Secondary" Class="mt-6 mb-2">@(_actaAvailable ? "Zuordnung" : "Kategorie")</MudText>
@@ -582,7 +611,6 @@
             PopulateFromOcr();
         }
 
-        RecalculateFromGross();
     }
 
     private void PopulateFromXRechnung()
@@ -612,26 +640,24 @@
             _ocrDetected.Add("DueDate");
         }
 
+        var xTaxRate = _scanResult.TaxRate ?? 19m;
         if (_scanResult.AmountNet.HasValue)
         {
-            _model.AmountNet = _scanResult.AmountNet.Value;
-            _ocrDetected.Add("AmountNet");
-        }
-
-        if (_scanResult.AmountGross.HasValue)
-        {
-            _model.AmountGross = _scanResult.AmountGross.Value;
-            _ocrDetected.Add("AmountGross");
-        }
-
-        if (_scanResult.TaxRate.HasValue)
-        {
-            _model.TaxRate = _scanResult.TaxRate.Value;
-            _ocrDetected.Add("TaxRate");
-        }
-        else
-        {
-            _model.TaxRate = 19m;
+            if (xTaxRate == 7m)
+            {
+                _model.AmountNet7 = _scanResult.AmountNet.Value;
+                _ocrDetected.Add("AmountNet7");
+            }
+            else if (xTaxRate == 0m)
+            {
+                _model.AmountNet0 = _scanResult.AmountNet.Value;
+                _ocrDetected.Add("AmountNet0");
+            }
+            else
+            {
+                _model.AmountNet19 = _scanResult.AmountNet.Value;
+                _ocrDetected.Add("AmountNet19");
+            }
         }
 
         // Positionen als Notizen anhängen
@@ -664,58 +690,33 @@
         }
 
         // Beträge
+        var ocrTaxRate = _scanResult.TaxRate ?? 19m;
         if (_scanResult.AmountNet.HasValue)
         {
-            _model.AmountNet = _scanResult.AmountNet.Value;
-            _ocrDetected.Add("AmountNet");
-        }
-
-        if (_scanResult.TaxRate.HasValue)
-        {
-            _model.TaxRate = _scanResult.TaxRate.Value;
-            _ocrDetected.Add("TaxRate");
-        }
-        else
-        {
-            _model.TaxRate = 19m;
-        }
-
-        if (_scanResult.AmountGross.HasValue)
-        {
-            _model.AmountGross = _scanResult.AmountGross.Value;
-            _ocrDetected.Add("AmountGross");
+            if (ocrTaxRate == 7m)
+            {
+                _model.AmountNet7 = _scanResult.AmountNet.Value;
+                _ocrDetected.Add("AmountNet7");
+            }
+            else if (ocrTaxRate == 0m)
+            {
+                _model.AmountNet0 = _scanResult.AmountNet.Value;
+                _ocrDetected.Add("AmountNet0");
+            }
+            else
+            {
+                _model.AmountNet19 = _scanResult.AmountNet.Value;
+                _ocrDetected.Add("AmountNet19");
+            }
         }
 
         // OCR-Rohtext merken
         _model.OcrRawText = _scanResult.OcrRawText;
     }
 
-    // Brutto ist das Haupteingabefeld — Netto und MwSt werden berechnet
-    private void OnAmountGrossChanged(decimal value)
-    {
-        _model.AmountGross = value;
-        RecalculateFromGross();
-    }
-
-    private void OnTaxRateChanged(decimal value)
-    {
-        _model.TaxRate = value;
-        RecalculateFromGross();
-    }
-
-    private void RecalculateFromGross()
-    {
-        if (_model.TaxRate > 0)
-        {
-            _model.AmountNet = Math.Round(_model.AmountGross / (1 + _model.TaxRate / 100m), 2);
-            _model.AmountTax = _model.AmountGross - _model.AmountNet;
-        }
-        else
-        {
-            _model.AmountNet = _model.AmountGross;
-            _model.AmountTax = 0;
-        }
-    }
+    private void OnAmountNet19Changed(decimal value) => _model.AmountNet19 = value;
+    private void OnAmountNet7Changed(decimal value) => _model.AmountNet7 = value;
+    private void OnAmountNet0Changed(decimal value) => _model.AmountNet0 = value;
 
     private async Task OnSupplierChanged(Guid? value)
     {
@@ -752,28 +753,32 @@
                 _ocrDetected.Add("InvoiceDate");
             }
 
-            if (fields.TryGetValue("AmountNet", out var amountNetStr) &&
-                decimal.TryParse(amountNetStr, NumberStyles.Any, CultureInfo.InvariantCulture, out var amountNet))
-            {
-                _model.AmountNet = amountNet;
-                _ocrDetected.Add("AmountNet");
-            }
-
-            if (fields.TryGetValue("AmountGross", out var amountGrossStr) &&
-                decimal.TryParse(amountGrossStr, NumberStyles.Any, CultureInfo.InvariantCulture, out var amountGross))
-            {
-                _model.AmountGross = amountGross;
-                _ocrDetected.Add("AmountGross");
-            }
-
+            decimal reTaxRate = 19m;
             if (fields.TryGetValue("TaxRate", out var taxRateStr) &&
                 decimal.TryParse(taxRateStr, NumberStyles.Any, CultureInfo.InvariantCulture, out var taxRate))
             {
-                _model.TaxRate = taxRate;
-                _ocrDetected.Add("TaxRate");
+                reTaxRate = taxRate;
             }
 
-            RecalculateFromGross();
+            if (fields.TryGetValue("AmountNet", out var amountNetStr) &&
+                decimal.TryParse(amountNetStr, NumberStyles.Any, CultureInfo.InvariantCulture, out var amountNet))
+            {
+                if (reTaxRate == 7m)
+                {
+                    _model.AmountNet7 = amountNet;
+                    _ocrDetected.Add("AmountNet7");
+                }
+                else if (reTaxRate == 0m)
+                {
+                    _model.AmountNet0 = amountNet;
+                    _ocrDetected.Add("AmountNet0");
+                }
+                else
+                {
+                    _model.AmountNet19 = amountNet;
+                    _ocrDetected.Add("AmountNet19");
+                }
+            }
 
             if (fields.Count > 0)
             {
@@ -849,8 +854,12 @@
                 InvoiceNumber = _model.InvoiceNumber,
                 InvoiceDate = _invoiceDate.HasValue ? DateOnly.FromDateTime(_invoiceDate.Value) : DateOnly.FromDateTime(DateTime.Today),
                 DueDate = _dueDate.HasValue ? DateOnly.FromDateTime(_dueDate.Value) : null,
+                AmountNet19 = _model.AmountNet19,
+                AmountTax19 = _model.AmountTax19,
+                AmountNet7 = _model.AmountNet7,
+                AmountTax7 = _model.AmountTax7,
+                AmountNet0 = _model.AmountNet0,
                 AmountNet = _model.AmountNet,
-                TaxRate = _model.TaxRate,
                 AmountTax = _model.AmountTax,
                 AmountGross = _model.AmountGross,
                 Category = _model.Category,
@@ -955,10 +964,14 @@
         public string DocumentNumber { get; set; } = string.Empty;
         public Guid? SupplierId { get; set; }
         public string InvoiceNumber { get; set; } = string.Empty;
-        public decimal AmountNet { get; set; }
-        public decimal TaxRate { get; set; } = 19m;
-        public decimal AmountTax { get; set; }
-        public decimal AmountGross { get; set; }
+        public decimal AmountNet19 { get; set; }
+        public decimal AmountNet7 { get; set; }
+        public decimal AmountNet0 { get; set; }
+        public decimal AmountTax19 => Math.Round(AmountNet19 * 0.19m, 2);
+        public decimal AmountTax7 => Math.Round(AmountNet7 * 0.07m, 2);
+        public decimal AmountNet => AmountNet19 + AmountNet7 + AmountNet0;
+        public decimal AmountTax => AmountTax19 + AmountTax7;
+        public decimal AmountGross => AmountNet + AmountTax;
         public DocumentCategory Category { get; set; } = DocumentCategory.Other;
         public string? OcrRawText { get; set; }
         public string? Notes { get; set; }

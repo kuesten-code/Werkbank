@@ -15,6 +15,11 @@ public class DocumentDto
     public DateOnly InvoiceDate { get; set; }
     public DateOnly? DueDate { get; set; }
     public DateOnly? PaidDate { get; set; }
+    public decimal AmountNet19 { get; set; }
+    public decimal AmountTax19 { get; set; }
+    public decimal AmountNet7 { get; set; }
+    public decimal AmountTax7 { get; set; }
+    public decimal AmountNet0 { get; set; }
     public decimal AmountNet { get; set; }
     public decimal TaxRate { get; set; }
     public decimal AmountTax { get; set; }
@@ -41,8 +46,12 @@ public class CreateDocumentRequest
     public string InvoiceNumber { get; set; } = string.Empty;
     public DateOnly InvoiceDate { get; set; }
     public DateOnly? DueDate { get; set; }
+    public decimal AmountNet19 { get; set; }
+    public decimal AmountTax19 { get; set; }
+    public decimal AmountNet7 { get; set; }
+    public decimal AmountTax7 { get; set; }
+    public decimal AmountNet0 { get; set; }
     public decimal AmountNet { get; set; }
-    public decimal TaxRate { get; set; }
     public decimal AmountTax { get; set; }
     public decimal AmountGross { get; set; }
     public string Category { get; set; } = "Other";
@@ -59,8 +68,12 @@ public class UpdateDocumentRequest
     public string InvoiceNumber { get; set; } = string.Empty;
     public DateOnly InvoiceDate { get; set; }
     public DateOnly? DueDate { get; set; }
+    public decimal AmountNet19 { get; set; }
+    public decimal AmountTax19 { get; set; }
+    public decimal AmountNet7 { get; set; }
+    public decimal AmountTax7 { get; set; }
+    public decimal AmountNet0 { get; set; }
     public decimal AmountNet { get; set; }
-    public decimal TaxRate { get; set; }
     public decimal AmountTax { get; set; }
     public decimal AmountGross { get; set; }
     public string Category { get; set; } = "Other";

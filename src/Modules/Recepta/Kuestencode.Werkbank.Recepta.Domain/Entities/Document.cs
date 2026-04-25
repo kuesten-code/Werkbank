@@ -46,19 +46,49 @@ public class Document
     public DateOnly? PaidDate { get; set; }
 
     /// <summary>
-    /// Nettobetrag.
+    /// Nettobetrag zu 19% MwSt.
+    /// </summary>
+    [Column(TypeName = "decimal(18,2)")]
+    public decimal AmountNet19 { get; set; }
+
+    /// <summary>
+    /// MwSt-Betrag zu 19%.
+    /// </summary>
+    [Column(TypeName = "decimal(18,2)")]
+    public decimal AmountTax19 { get; set; }
+
+    /// <summary>
+    /// Nettobetrag zu 7% MwSt.
+    /// </summary>
+    [Column(TypeName = "decimal(18,2)")]
+    public decimal AmountNet7 { get; set; }
+
+    /// <summary>
+    /// MwSt-Betrag zu 7%.
+    /// </summary>
+    [Column(TypeName = "decimal(18,2)")]
+    public decimal AmountTax7 { get; set; }
+
+    /// <summary>
+    /// Betrag ohne MwSt (0% — steuerfrei oder Kleinunternehmer).
+    /// </summary>
+    [Column(TypeName = "decimal(18,2)")]
+    public decimal AmountNet0 { get; set; }
+
+    /// <summary>
+    /// Gesamter Nettobetrag (Summe aller Steuer-Buckets).
     /// </summary>
     [Column(TypeName = "decimal(18,2)")]
     public decimal AmountNet { get; set; }
 
     /// <summary>
-    /// Steuersatz in Prozent (z.B. 19).
+    /// Effektiver Steuersatz in Prozent (für Zuteilungsberechnung).
     /// </summary>
     [Column(TypeName = "decimal(5,2)")]
     public decimal TaxRate { get; set; }
 
     /// <summary>
-    /// Steuerbetrag.
+    /// Gesamter Steuerbetrag.
     /// </summary>
     [Column(TypeName = "decimal(18,2)")]
     public decimal AmountTax { get; set; }
