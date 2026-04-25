@@ -81,6 +81,13 @@ namespace Kuestencode.Werkbank.Offerte.Data.Migrations
                     b.Property<int>("KundeId")
                         .HasColumnType("integer");
 
+                    b.Property<int>("RabattTyp")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal?>("RabattWert")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
                     b.Property<string>("Referenz")
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
@@ -119,9 +126,16 @@ namespace Kuestencode.Werkbank.Offerte.Data.Migrations
                     b.Property<Guid>("AngebotId")
                         .HasColumnType("uuid");
 
+                    b.Property<string>("Einheit")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
                     b.Property<decimal>("Einzelpreis")
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
+
+                    b.Property<bool>("IsHeader")
+                        .HasColumnType("boolean");
 
                     b.Property<decimal>("Menge")
                         .HasPrecision(18, 3)

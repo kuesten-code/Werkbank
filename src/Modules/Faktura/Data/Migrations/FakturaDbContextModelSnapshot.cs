@@ -206,6 +206,9 @@ namespace Kuestencode.Faktura.Data.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)");
 
+                    b.Property<bool>("IsHeader")
+                        .HasColumnType("boolean");
+
                     b.Property<int>("InvoiceId")
                         .HasColumnType("integer");
 
@@ -215,6 +218,10 @@ namespace Kuestencode.Faktura.Data.Migrations
                     b.Property<decimal>("Quantity")
                         .HasPrecision(18, 3)
                         .HasColumnType("decimal(18,3)");
+
+                    b.Property<string>("Unit")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
 
                     b.Property<decimal>("UnitPrice")
                         .HasPrecision(18, 2)

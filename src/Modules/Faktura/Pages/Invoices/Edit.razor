@@ -109,80 +109,171 @@
 
                 <!-- Positionen -->
                 <MudText Typo="Typo.h6" Class="mt-6 mb-2">Positionen</MudText>
-                <MudTable Items="@_invoice.Items" Dense="true" Hover="true" Breakpoint="Breakpoint.Sm">
-                    <HeaderContent>
-                        <MudTh>Beschreibung</MudTh>
-                        <MudTh Style="width: 120px; text-align: right">Menge</MudTh>
-                        <MudTh Style="width: 120px; text-align: right">Einzelpreis</MudTh>
-                        <MudTh Style="width: 120px; text-align: right">Gesamt</MudTh>
-                        <MudTh Style="width: 60px"></MudTh>
-                    </HeaderContent>
-                    <RowTemplate Context="item">
-                        <MudTd DataLabel="Beschreibung">
-                            <MudTextField @bind-Value="item.Description" Margin="Margin.Dense"
-                                         Variant="Variant.Outlined" Required="true"
-                                         Lines="3" AutoGrow="true"
-                                         OnBlur="RecalculateTotals" />
-                        </MudTd>
-                        <MudTd DataLabel="Menge" Style="text-align: right">
-                            <MudNumericField @bind-Value="item.Quantity" Margin="Margin.Dense"
-                                            Variant="Variant.Outlined" Min="0.001m" Step="1m"
-                                            Format="N3" HideSpinButtons="true"
-                                            OnBlur="RecalculateTotals" />
-                        </MudTd>
-                        <MudTd DataLabel="Einzelpreis" Style="text-align: right">
-                            <MudNumericField @bind-Value="item.UnitPrice" Margin="Margin.Dense"
-                                            Variant="Variant.Outlined" Min="-999999999m" Step="1m"
-                                            Format="C2" HideSpinButtons="true" Culture="@_culture"
-                                            OnBlur="RecalculateTotals" />
-                        </MudTd>
-                        <MudTd DataLabel="Gesamt" Style="text-align: right">
-                            <MudText Typo="Typo.body2">@item.TotalNet.ToString("C2", _culture)</MudText>
-                        </MudTd>
-                        <MudTd DataLabel="">
-                            <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small"
-                                          Color="Color.Error" OnClick="@(() => RemoveItem(item))"
-                                          Disabled="@(_invoice.Items.Count <= 1)" />
-                        </MudTd>
-                    </RowTemplate>
-                </MudTable>
+                <MudSimpleTable Dense="true" Hover="true" Bordered="true">
+                    <thead>
+                        <tr>
+                            <th>Beschreibung</th>
+                            <th style="width: 90px">Einheit</th>
+                            <th style="width: 100px; text-align: right">Menge</th>
+                            <th style="width: 130px; text-align: right">Einzelpreis</th>
+                            <th style="width: 120px; text-align: right">Gesamt</th>
+                            <th style="width: 100px"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var itemGroup in GetItemSections())
+                        {
+                            @if (itemGroup.Header != null)
+                            {
+                                <tr style="background-color: var(--mud-palette-background-grey);">
+                                    <td colspan="5" style="padding: 4px 8px; border-top: 2px solid var(--mud-palette-divider);">
+                                        <MudTextField @bind-Value="itemGroup.Header.Description"
+                                                     Margin="Margin.Dense" Variant="Variant.Outlined"
+                                                     Placeholder="Überschrift eingeben..."
+                                                     Style="font-weight: 600;"
+                                                     OnBlur="RecalculateTotals" />
+                                    </td>
+                                    <td style="text-align: center; border-top: 2px solid var(--mud-palette-divider);">
+                                        <MudStack Row="true" Spacing="0">
+                                            <MudIconButton Icon="@Icons.Material.Filled.ArrowUpward" Size="Size.Small"
+                                                          OnClick="@(() => MoveItemUp(itemGroup.Header))"
+                                                          Disabled="@(itemGroup.Header.Position <= 1)" />
+                                            <MudIconButton Icon="@Icons.Material.Filled.ArrowDownward" Size="Size.Small"
+                                                          OnClick="@(() => MoveItemDown(itemGroup.Header))"
+                                                          Disabled="@(itemGroup.Header.Position >= _invoice.Items.Count)" />
+                                            <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small"
+                                                          Color="Color.Error" OnClick="@(() => RemoveItem(itemGroup.Header))" />
+                                        </MudStack>
+                                    </td>
+                                </tr>
+                            }
+                            @foreach (var item in itemGroup.Items)
+                            {
+                                <tr>
+                                    <td>
+                                        <MudTextField @bind-Value="item.Description" Margin="Margin.Dense"
+                                                     Variant="Variant.Outlined" Required="true"
+                                                     Lines="3" AutoGrow="true"
+                                                     OnBlur="RecalculateTotals" />
+                                    </td>
+                                    <td>
+                                        <MudTextField @bind-Value="item.Unit" Margin="Margin.Dense"
+                                                     Variant="Variant.Outlined"
+                                                     Placeholder="z.B. h, Stk."
+                                                     OnBlur="RecalculateTotals" />
+                                    </td>
+                                    <td style="text-align: right">
+                                        <MudNumericField @bind-Value="item.Quantity" Margin="Margin.Dense"
+                                                        Variant="Variant.Outlined" Min="0.001m" Step="1m"
+                                                        Format="N3" HideSpinButtons="true"
+                                                        OnBlur="RecalculateTotals" />
+                                    </td>
+                                    <td style="text-align: right">
+                                        <MudNumericField @bind-Value="item.UnitPrice" Margin="Margin.Dense"
+                                                        Variant="Variant.Outlined" Min="-999999999m" Step="1m"
+                                                        Format="C2" HideSpinButtons="true" Culture="@_culture"
+                                                        OnBlur="RecalculateTotals" />
+                                    </td>
+                                    <td style="text-align: right">
+                                        <MudText Typo="Typo.body2">@item.TotalNet.ToString("C2", _culture)</MudText>
+                                    </td>
+                                    <td style="text-align: center">
+                                        <MudStack Row="true" Spacing="0">
+                                            <MudIconButton Icon="@Icons.Material.Filled.ArrowUpward" Size="Size.Small"
+                                                          OnClick="@(() => MoveItemUp(item))"
+                                                          Disabled="@(item.Position <= 1)" />
+                                            <MudIconButton Icon="@Icons.Material.Filled.ArrowDownward" Size="Size.Small"
+                                                          OnClick="@(() => MoveItemDown(item))"
+                                                          Disabled="@(item.Position >= _invoice.Items.Count)" />
+                                            <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small"
+                                                          Color="Color.Error" OnClick="@(() => RemoveItem(item))"
+                                                          Disabled="@(_invoice.Items.Count(i => !i.IsHeader) <= 1 && !item.IsHeader)" />
+                                        </MudStack>
+                                    </td>
+                                </tr>
+                            }
+                            @if (itemGroup.Header != null && itemGroup.Items.Count > 0)
+                            {
+                                <tr style="background-color: var(--mud-palette-background-grey);">
+                                    <td colspan="4" style="text-align: right; font-style: italic; padding: 4px 8px; color: var(--mud-palette-text-secondary);">
+                                        Zwischensumme:
+                                    </td>
+                                    <td style="text-align: right; font-weight: 600; padding: 4px 8px; border-top: 1px solid var(--mud-palette-divider);">
+                                        @itemGroup.Items.Sum(i => i.TotalNet).ToString("C2", _culture)
+                                    </td>
+                                    <td></td>
+                                </tr>
+                            }
+                        }
+                    </tbody>
+                </MudSimpleTable>
 
-                <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small"
-                          StartIcon="@Icons.Material.Filled.Add" OnClick="AddItem" Class="mt-2">
-                    Position hinzufügen
-                </MudButton>
+                <MudStack Row="true" Class="mt-2 gap-2">
+                    <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small"
+                              StartIcon="@Icons.Material.Filled.Add" OnClick="AddItem"
+                              Style="width: 230px">
+                        Position hinzufügen
+                    </MudButton>
+                    <MudButton Variant="Variant.Outlined" Color="Color.Secondary" Size="Size.Small"
+                              StartIcon="@Icons.Material.Filled.Title" OnClick="AddHeader"
+                              Style="width: 230px">
+                        Überschrift hinzufügen
+                    </MudButton>
+                </MudStack>
 
                 <!-- Rabatt (optional) -->
                 <MudText Typo="Typo.h6" Class="mt-6 mb-2">Rabatt (optional)</MudText>
-                <MudCheckBox @bind-Value="_hasDiscount" Label="Rabatt gewähren" Color="Color.Primary" Class="mb-3"
-                            T="bool" @bind-Value:after="OnDiscountToggle" />
-
                 @if (_hasDiscount)
                 {
-                    <MudPaper Elevation="1" Class="pa-3 mb-4">
-                        <MudRadioGroup @bind-Value="_invoice.DiscountType" T="DiscountType">
-                            <MudRadio Value="@DiscountType.Percentage" Color="Color.Primary">Prozentual (%)</MudRadio>
-                            <MudRadio Value="@DiscountType.Absolute" Color="Color.Primary">Absolut (EUR)</MudRadio>
-                        </MudRadioGroup>
-
-                        <MudNumericField @bind-Value="_invoice.DiscountValue"
-                                        Label="@GetDiscountLabel()"
-                                        Variant="Variant.Outlined"
-                                        Min="0.01m"
-                                        Step="1m"
-                                        Format="@(_invoice.DiscountType == DiscountType.Percentage ? "N2" : "C2")"
-                                        HideSpinButtons="true"
-                                        Culture="@_culture"
-                                        OnBlur="RecalculateTotals"
-                                        Class="mt-3" />
-
-                        @if (_invoice.DiscountType == DiscountType.Percentage && _invoice.DiscountValue > 50)
-                        {
-                            <MudAlert Severity="Severity.Warning" Dense="true" Class="mt-2">
-                                Warnung: Rabatt über 50% ist ungewöhnlich hoch
-                            </MudAlert>
-                        }
-                    </MudPaper>
+                    <MudSimpleTable Dense="true" Hover="true" Bordered="true">
+                        <thead>
+                            <tr>
+                                <th>Typ</th>
+                                <th style="width: 200px; text-align: right">Wert</th>
+                                <th style="width: 60px"></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>
+                                    <MudSelect @bind-Value="_invoice!.DiscountType" T="DiscountType" Margin="Margin.Dense"
+                                               Variant="Variant.Outlined" @bind-Value:after="RecalculateTotals">
+                                        <MudSelectItem Value="@DiscountType.Percentage">Prozentual (%)</MudSelectItem>
+                                        <MudSelectItem Value="@DiscountType.Absolute">Absolut (€)</MudSelectItem>
+                                    </MudSelect>
+                                </td>
+                                <td style="text-align: right">
+                                    <MudNumericField @bind-Value="_invoice!.DiscountValue"
+                                                    Margin="Margin.Dense"
+                                                    Variant="Variant.Outlined"
+                                                    Min="0.01m"
+                                                    Step="1m"
+                                                    Format="@(_invoice!.DiscountType == DiscountType.Percentage ? "N2" : "C2")"
+                                                    HideSpinButtons="true"
+                                                    Culture="@_culture"
+                                                    OnBlur="RecalculateTotals" />
+                                </td>
+                                <td>
+                                    <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small"
+                                                  Color="Color.Error" OnClick="RemoveDiscount" />
+                                </td>
+                            </tr>
+                        </tbody>
+                    </MudSimpleTable>
+                    @if (_invoice!.DiscountType == DiscountType.Percentage && _invoice.DiscountValue > 50)
+                    {
+                        <MudAlert Severity="Severity.Warning" Dense="true" Class="mt-2">
+                            Warnung: Rabatt über 50% ist ungewöhnlich hoch
+                        </MudAlert>
+                    }
+                }
+                @if (!_hasDiscount)
+                {
+                    <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small"
+                              StartIcon="@Icons.Material.Filled.Add" OnClick="AddDiscount" Class="mt-2"
+                              Style="width: 230px">
+                        Rabatt hinzufügen
+                    </MudButton>
                 }
 
                 <!-- Abschläge (optional) -->
@@ -223,127 +314,132 @@
                 }
 
                 <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small"
-                          StartIcon="@Icons.Material.Filled.Add" OnClick="AddDownPayment" Class="mt-2">
+                          StartIcon="@Icons.Material.Filled.Add" OnClick="AddDownPayment" Class="mt-2"
+                          Style="width: 230px">
                     Abschlag hinzufügen
                 </MudButton>
 
                 <!-- Anhänge (optional) -->
                 <MudText Typo="Typo.h6" Class="mt-6 mb-2">Anhänge (optional)</MudText>
-                <MudPaper Elevation="0" Class="pa-3 mb-3">
-                    @if (_rapportAvailable)
-                    {
-                        <MudCheckBox @bind-Value="_attachTimesheet" Label="Tätigkeitsnachweis anhängen" Color="Color.Primary" />
-                    }
-                    @if (_attachTimesheet)
-                    {
-                        <MudGrid Class="mt-2">
-                            <MudItem xs="12" md="4">
-                                <MudCheckBox @bind-Value="_timesheetUseInvoicePeriod" @bind-Value:after="OnServicePeriodChanged" Label="Rechnungszeitraum verwenden" />
-                            </MudItem>
-                            <MudItem xs="12" md="4">
-                                <MudDatePicker Label="Von" @bind-Date="_timesheetFromDate" Variant="Variant.Outlined" Disabled="_timesheetUseInvoicePeriod" />
-                            </MudItem>
-                            <MudItem xs="12" md="4">
-                                <MudDatePicker Label="Bis" @bind-Date="_timesheetToDate" Variant="Variant.Outlined" Disabled="_timesheetUseInvoicePeriod" />
-                            </MudItem>
-                            <MudItem xs="12" md="4">
-                                <MudNumericField T="decimal?" Label="Stundensatz (optional)" Variant="Variant.Outlined"
-                                                 @bind-Value="_timesheetHourlyRate" HideSpinButtons="true" Min="0m" Step="1m" />
-                            </MudItem>
-                            <MudItem xs="12" md="4">
-                                <MudTextField Label="Titel" Variant="Variant.Outlined" @bind-Value="_timesheetTitle" />
-                            </MudItem>
-                            <MudItem xs="12" md="4">
-                                <MudTextField Label="Dateiname (optional)" Variant="Variant.Outlined" @bind-Value="_timesheetFileName" />
-                            </MudItem>
-                            <MudItem xs="12">
-                                <MudRadioGroup @bind-Value="_timesheetFormat" T="TimesheetAttachmentFormat">
-                                    <MudRadio Value="@TimesheetAttachmentFormat.Pdf" Color="Color.Primary">PDF</MudRadio>
-                                    <MudRadio Value="@TimesheetAttachmentFormat.Csv" Color="Color.Primary">CSV</MudRadio>
-                                </MudRadioGroup>
-                            </MudItem>
-                            <MudItem xs="12" Class="d-flex gap-2">
-                                <MudButton Variant="Variant.Outlined" Color="Color.Primary" Disabled="@_timesheetGenerating"
-                                          OnClick="CreateTimesheetAttachmentAsync">
-                                    Tätigkeitsnachweis erstellen
-                                </MudButton>
-                                @if (_timesheetGenerating)
-                                {
-                                    <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="ml-2" />
-                                }
-                            </MudItem>
-                        </MudGrid>
-                    }
-
-                    @if (_projectWorkflowAvailable && _selectedProjectExternalId.HasValue)
-                    {
-                        <MudDivider Class="my-3" />
-                        <MudText Typo="Typo.subtitle2">Projektbelege</MudText>
-                        @if (_loadingProjectReceipts)
-                        {
-                            <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mt-2" />
-                        }
-                        <MudButton Variant="Variant.Outlined"
-                                   Color="Color.Primary"
-                                   Disabled="@(_loadingProjectReceipts || _receiptAttachmentAdded)"
-                                   OnClick="AddReceiptAttachmentAsync"
-                                   Class="mt-2">
-                            Belegliste als CSV anhängen
-                        </MudButton>
-                        @if (!_loadingProjectReceipts)
-                        {
-                            <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mt-1 d-block">Gefundene Belege: @_projectReceipts.Count</MudText>
-                        }
-                    }
-                </MudPaper>
-
-                <MudPaper Elevation="0" Class="pa-3">
-                    <MudFileUpload T="IReadOnlyList<IBrowserFile>"
-                                   Accept=".pdf,.csv"
-                                   MaximumFileCount="10"
-                                   FilesChanged="HandleAttachmentUpload">
-                        <ActivatorContent>
-                            <MudButton Variant="Variant.Filled"
-                                       Color="Color.Primary"
-                                       StartIcon="@Icons.Material.Filled.AttachFile"
-                                       Size="Size.Small">
-                                Datei(en) auswählen
+                @if (_attachTimesheet)
+                {
+                    <MudGrid Class="mt-2">
+                        <MudItem xs="12" md="4">
+                            <MudCheckBox @bind-Value="_timesheetUseInvoicePeriod" @bind-Value:after="OnServicePeriodChanged" Label="Rechnungszeitraum verwenden" />
+                        </MudItem>
+                        <MudItem xs="12" md="4">
+                            <MudDatePicker Label="Von" @bind-Date="_timesheetFromDate" Variant="Variant.Outlined" Disabled="_timesheetUseInvoicePeriod" />
+                        </MudItem>
+                        <MudItem xs="12" md="4">
+                            <MudDatePicker Label="Bis" @bind-Date="_timesheetToDate" Variant="Variant.Outlined" Disabled="_timesheetUseInvoicePeriod" />
+                        </MudItem>
+                        <MudItem xs="12" md="4">
+                            <MudNumericField T="decimal?" Label="Stundensatz (optional)" Variant="Variant.Outlined"
+                                             @bind-Value="_timesheetHourlyRate" HideSpinButtons="true" Min="0m" Step="1m" />
+                        </MudItem>
+                        <MudItem xs="12" md="4">
+                            <MudTextField Label="Titel" Variant="Variant.Outlined" @bind-Value="_timesheetTitle" />
+                        </MudItem>
+                        <MudItem xs="12" md="4">
+                            <MudTextField Label="Dateiname (optional)" Variant="Variant.Outlined" @bind-Value="_timesheetFileName" />
+                        </MudItem>
+                        <MudItem xs="12">
+                            <MudRadioGroup @bind-Value="_timesheetFormat" T="TimesheetAttachmentFormat">
+                                <MudRadio Value="@TimesheetAttachmentFormat.Pdf" Color="Color.Primary">PDF</MudRadio>
+                                <MudRadio Value="@TimesheetAttachmentFormat.Csv" Color="Color.Primary">CSV</MudRadio>
+                            </MudRadioGroup>
+                        </MudItem>
+                        <MudItem xs="12" Class="d-flex gap-2">
+                            <MudButton Variant="Variant.Outlined" Color="Color.Primary" Disabled="@_timesheetGenerating"
+                                      OnClick="CreateTimesheetAttachmentAsync">
+                                Tätigkeitsnachweis erstellen
                             </MudButton>
-                        </ActivatorContent>
-                    </MudFileUpload>
+                            @if (_timesheetGenerating)
+                            {
+                                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="ml-2" />
+                            }
+                            <MudButton Variant="Variant.Text" Color="Color.Error" OnClick="RemoveTimesheet">
+                                Entfernen
+                            </MudButton>
+                        </MudItem>
+                    </MudGrid>
+                }
+                @if (_rapportAvailable && !_attachTimesheet)
+                {
+                    <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small"
+                              StartIcon="@Icons.Material.Filled.Add" OnClick="AddTimesheet" Class="mt-2"
+                              Style="width: 230px">
+                        Tätigkeitsnachweis anhängen
+                    </MudButton>
+                }
 
-                    <MudText Typo="Typo.caption" Class="mt-2" Color="Color.Secondary">
-                        Erlaubt: PDF und CSV. Maximal 10 Dateien, je 10 MB.
-                    </MudText>
-
-                    @if (_invoice.Attachments.Count > 0)
+                @if (_projectWorkflowAvailable && _selectedProjectExternalId.HasValue)
+                {
+                    <MudDivider Class="my-3" />
+                    <MudText Typo="Typo.subtitle2">Projektbelege</MudText>
+                    @if (_loadingProjectReceipts)
                     {
-                        <MudSimpleTable Dense="true" Hover="true" Bordered="true" Class="mt-3">
-                            <thead>
-                                <tr>
-                                    <th>Datei</th>
-                                    <th>Typ</th>
-                                    <th>Größe</th>
-                                    <th></th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach (var attachment in _invoice.Attachments)
-                                {
-                                    <tr>
-                                        <td>@attachment.FileName</td>
-                                        <td>@attachment.ContentType</td>
-                                        <td>@FormatFileSize(attachment.FileSize)</td>
-                                        <td style="text-align: right;">
-                                            <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small"
-                                                          Color="Color.Error" OnClick="@(() => RemoveAttachment(attachment))" />
-                                        </td>
-                                    </tr>
-                                }
-                            </tbody>
-                        </MudSimpleTable>
+                        <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mt-2" />
                     }
-                </MudPaper>
+                    <MudButton Variant="Variant.Outlined"
+                               Color="Color.Primary"
+                               Disabled="@(_loadingProjectReceipts || _receiptAttachmentAdded)"
+                               OnClick="AddReceiptAttachmentAsync"
+                               Class="mt-2">
+                        Belegliste als CSV anhängen
+                    </MudButton>
+                    @if (!_loadingProjectReceipts)
+                    {
+                        <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mt-1 d-block">Gefundene Belege: @_projectReceipts.Count</MudText>
+                    }
+                }
+
+                <MudFileUpload T="IReadOnlyList<IBrowserFile>"
+                               Accept=".pdf,.csv"
+                               MaximumFileCount="10"
+                               FilesChanged="HandleAttachmentUpload"
+                               Class="mt-3">
+                    <ActivatorContent>
+                        <MudButton Variant="Variant.Filled"
+                                   Color="Color.Primary"
+                                   StartIcon="@Icons.Material.Filled.AttachFile"
+                                   Size="Size.Small">
+                            Datei(en) auswählen
+                        </MudButton>
+                    </ActivatorContent>
+                </MudFileUpload>
+
+                <MudText Typo="Typo.caption" Class="mt-2" Color="Color.Secondary">
+                    Erlaubt: PDF und CSV. Maximal 10 Dateien, je 10 MB.
+                </MudText>
+
+                @if (_invoice.Attachments.Count > 0)
+                {
+                    <MudSimpleTable Dense="true" Hover="true" Bordered="true" Class="mt-3">
+                        <thead>
+                            <tr>
+                                <th>Datei</th>
+                                <th>Typ</th>
+                                <th>Größe</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var attachment in _invoice.Attachments)
+                            {
+                                <tr>
+                                    <td>@attachment.FileName</td>
+                                    <td>@attachment.ContentType</td>
+                                    <td>@FormatFileSize(attachment.FileSize)</td>
+                                    <td style="text-align: right;">
+                                        <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small"
+                                                      Color="Color.Error" OnClick="@(() => RemoveAttachment(attachment))" />
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </MudSimpleTable>
+                }
 
                 <!-- Summen -->
                 <MudPaper Elevation="2" Class="pa-4 mt-6" Style="max-width: 400px; margin-left: auto;">

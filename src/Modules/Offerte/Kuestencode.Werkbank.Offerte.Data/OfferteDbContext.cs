@@ -52,6 +52,8 @@ public class OfferteDbContext : DbContext
             // KundeId bleibt als FK, aber ohne Navigation Property zum Host-Schema
             entity.Property(e => e.KundeId).IsRequired();
 
+            entity.Property(e => e.RabattWert).HasPrecision(18, 2);
+
             // Relationships innerhalb des Offerte-Schemas
             entity.HasMany(e => e.Positionen)
                 .WithOne(e => e.Angebot)

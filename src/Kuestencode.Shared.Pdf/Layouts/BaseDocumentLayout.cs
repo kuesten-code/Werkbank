@@ -117,31 +117,83 @@ public abstract class BaseDocumentLayout
 
             // Positionen
             var orderedItems = items.OrderBy(i => i.Position).ToList();
-            for (int i = 0; i < orderedItems.Count; i++)
-            {
-                var item = orderedItems[i];
-                var bgColor = i % 2 == 0 ? PdfColors.White : PdfColors.BackgroundAlternate;
+            var sections = BuildSections(orderedItems);
+            var hasHeaders = sections.Any(s => s.Header != null);
+            int columnCount = showVatColumn ? 6 : 5;
+            int positionCounter = 0;
 
-                if (withBorder)
+            foreach (var section in sections)
+            {
+                if (section.Header != null)
                 {
-                    RenderItemRowWithBorder(table, item, bgColor, showVatColumn);
+                    // Section header row spanning all columns
+                    table.Cell().ColumnSpan((uint)columnCount)
+                        .BorderTop(1).BorderColor(PdfColors.Divider)
+                        .Background(PdfColors.BackgroundAlternate).Padding(5)
+                        .Text(section.Header.Description).Bold().FontSize(PdfFonts.Small);
                 }
-                else
+
+                for (int i = 0; i < section.Items.Count; i++)
                 {
-                    RenderItemRow(table, item, bgColor, showVatColumn);
+                    var item = section.Items[i];
+                    positionCounter++;
+                    var bgColor = positionCounter % 2 == 0 ? PdfColors.BackgroundAlternate : PdfColors.White;
+
+                    if (withBorder)
+                        RenderItemRowWithBorder(table, item, bgColor, showVatColumn, positionCounter);
+                    else
+                        RenderItemRow(table, item, bgColor, showVatColumn, positionCounter);
+                }
+
+                // Section subtotal after each titled section
+                if (hasHeaders && section.Header != null && section.Items.Count > 0)
+                {
+                    var subtotal = section.Items.Sum(i => i.TotalNet);
+                    int subtotalLabelSpan = columnCount - 1;
+                    table.Cell().ColumnSpan((uint)subtotalLabelSpan).AlignRight().PaddingRight(5).PaddingTop(3).PaddingBottom(3)
+                        .Text("Zwischensumme:").FontSize(PdfFonts.Small).Italic().FontColor(PdfColors.TextSecondary);
+                    table.Cell().AlignRight().BorderTop(1).BorderColor(PdfColors.Divider).Padding(3)
+                        .Text(subtotal.ToString("C2", GermanCulture)).FontSize(PdfFonts.Small).Bold();
                 }
             }
         });
     }
 
-    private void RenderItemRow(TableDescriptor table, DocumentLineItem item, string bgColor, bool showVatColumn)
+    private static List<(DocumentLineItem? Header, List<DocumentLineItem> Items)> BuildSections(List<DocumentLineItem> orderedItems)
     {
+        var sections = new List<(DocumentLineItem? Header, List<DocumentLineItem> Items)>();
+        DocumentLineItem? currentHeader = null;
+        var currentItems = new List<DocumentLineItem>();
+
+        foreach (var item in orderedItems)
+        {
+            if (item.IsHeader)
+            {
+                sections.Add((currentHeader, currentItems));
+                currentHeader = item;
+                currentItems = new List<DocumentLineItem>();
+            }
+            else
+            {
+                currentItems.Add(item);
+            }
+        }
+        sections.Add((currentHeader, currentItems));
+        return sections.Where(s => s.Header != null || s.Items.Count > 0).ToList();
+    }
+
+    private void RenderItemRow(TableDescriptor table, DocumentLineItem item, string bgColor, bool showVatColumn, int displayPosition)
+    {
+        var mengeText = string.IsNullOrWhiteSpace(item.Unit)
+            ? item.Quantity.ToString("N3", GermanCulture)
+            : $"{item.Quantity.ToString("N3", GermanCulture)} {item.Unit}";
+
         table.Cell().Background(bgColor).Padding(5)
-            .Text(item.Position.ToString()).FontSize(PdfFonts.Small);
+            .Text(displayPosition.ToString()).FontSize(PdfFonts.Small);
         table.Cell().Background(bgColor).Padding(5)
             .Text(text => AppendMultilineText(text, item.Description, PdfFonts.Small));
         table.Cell().Background(bgColor).Padding(5).AlignRight()
-            .Text(item.Quantity.ToString("N3", GermanCulture)).FontSize(PdfFonts.Small);
+            .Text(mengeText).FontSize(PdfFonts.Small);
         table.Cell().Background(bgColor).Padding(5).AlignRight()
             .Text(item.UnitPrice.ToString("C2", GermanCulture)).FontSize(PdfFonts.Small);
 
@@ -155,14 +207,18 @@ public abstract class BaseDocumentLayout
             .Text(item.TotalNet.ToString("C2", GermanCulture)).FontSize(PdfFonts.Small);
     }
 
-    private void RenderItemRowWithBorder(TableDescriptor table, DocumentLineItem item, string bgColor, bool showVatColumn)
+    private void RenderItemRowWithBorder(TableDescriptor table, DocumentLineItem item, string bgColor, bool showVatColumn, int displayPosition)
     {
+        var mengeText = string.IsNullOrWhiteSpace(item.Unit)
+            ? item.Quantity.ToString("N3", GermanCulture)
+            : $"{item.Quantity.ToString("N3", GermanCulture)} {item.Unit}";
+
         table.Cell().Background(bgColor).BorderBottom(1).BorderColor(PdfColors.Divider).Padding(5)
-            .Text(item.Position.ToString()).FontSize(PdfFonts.Small);
+            .Text(displayPosition.ToString()).FontSize(PdfFonts.Small);
         table.Cell().Background(bgColor).BorderBottom(1).BorderColor(PdfColors.Divider).Padding(5)
             .Text(text => AppendMultilineText(text, item.Description, PdfFonts.Small));
         table.Cell().Background(bgColor).BorderBottom(1).BorderColor(PdfColors.Divider).Padding(5).AlignRight()
-            .Text(item.Quantity.ToString("N3", GermanCulture)).FontSize(PdfFonts.Small);
+            .Text(mengeText).FontSize(PdfFonts.Small);
         table.Cell().Background(bgColor).BorderBottom(1).BorderColor(PdfColors.Divider).Padding(5).AlignRight()
             .Text(item.UnitPrice.ToString("C2", GermanCulture)).FontSize(PdfFonts.Small);
 

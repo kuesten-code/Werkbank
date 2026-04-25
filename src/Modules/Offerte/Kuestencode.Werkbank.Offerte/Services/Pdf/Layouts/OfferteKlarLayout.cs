@@ -3,6 +3,7 @@ using Kuestencode.Shared.Pdf.Core;
 using Kuestencode.Shared.Pdf.Layouts;
 using Kuestencode.Shared.Pdf.Styling;
 using Kuestencode.Werkbank.Offerte.Domain.Entities;
+using Kuestencode.Werkbank.Offerte.Domain.Enums;
 using QuestPDF.Fluent;
 using QuestPDF.Infrastructure;
 
@@ -63,19 +64,34 @@ public class OfferteKlarLayout : KlarDocumentLayout, IDocument
             Position = p.Position,
             Description = p.Text,
             Quantity = p.Menge,
+            Unit = p.Einheit,
             UnitPrice = p.Einzelpreis,
-            VatRate = p.Steuersatz
+            VatRate = p.Steuersatz,
+            IsHeader = p.IsHeader
         });
 
-    protected override DocumentSummary Summary => new()
+    protected override DocumentSummary Summary
     {
-        TotalNet = _angebot.Nettosumme,
-        VatGroups = _angebot.Positionen
-            .GroupBy(p => p.Steuersatz)
-            .Select(g => new VatGroup { Rate = g.Key, Amount = g.Sum(p => p.Steuerbetrag) })
-            .OrderBy(v => v.Rate)
-            .ToList()
-    };
+        get
+        {
+            var netto = _angebot.Nettosumme;
+            var rabattBetrag = _angebot.RabattBetrag;
+            var discountFactor = netto > 0 && rabattBetrag > 0 ? 1 - rabattBetrag / netto : 1m;
+            return new()
+            {
+                TotalNet = netto,
+                DiscountAmount = rabattBetrag > 0 ? rabattBetrag : null,
+                DiscountPercent = _angebot.RabattTyp == AngebotRabattTyp.Prozentual ? _angebot.RabattWert : null,
+                VatGroups = _angebot.Positionen
+                    .Where(p => !p.IsHeader)
+                    .GroupBy(p => p.Steuersatz)
+                    .Select(g => new VatGroup { Rate = g.Key, Amount = Math.Round(g.Sum(p => p.Nettosumme) * discountFactor * g.Key / 100, 2) })
+                    .Where(v => v.Amount > 0)
+                    .OrderBy(v => v.Rate)
+                    .ToList()
+            };
+        }
+    }
 
     protected override bool ShowVatColumn => !_firma.IsKleinunternehmer;
     protected override bool IsKleinunternehmer => _firma.IsKleinunternehmer;

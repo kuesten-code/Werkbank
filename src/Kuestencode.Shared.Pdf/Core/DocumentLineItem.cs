@@ -14,6 +14,9 @@ public class DocumentLineItem
     /// <summary>Menge</summary>
     public decimal Quantity { get; init; }
 
+    /// <summary>Einheit (optional, z.B. h, Stk.)</summary>
+    public string? Unit { get; init; }
+
     /// <summary>Einzelpreis (Netto)</summary>
     public decimal UnitPrice { get; init; }
 
@@ -22,6 +25,9 @@ public class DocumentLineItem
 
     /// <summary>Rabatt in Prozent (optional)</summary>
     public decimal? DiscountPercent { get; init; }
+
+    /// <summary>Kennzeichnet die Position als Zwischenüberschrift (keine Menge/Preis)</summary>
+    public bool IsHeader { get; init; } = false;
 
     /// <summary>Nettosumme der Position (berechnet)</summary>
     public decimal TotalNet => CalculateTotalNet();

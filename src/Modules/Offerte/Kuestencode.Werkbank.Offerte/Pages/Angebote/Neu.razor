@@ -64,6 +64,27 @@
             }
             <Positionseditor @bind-Positionen="_positionen" OnPositionChanged="RecalculateTotals" IsKleinunternehmer="@_isKleinunternehmer" />
 
+            <!-- Rabatt -->
+            <MudStack Row="true" AlignItems="AlignItems.Center" Class="mt-4 gap-4" Wrap="Wrap.Wrap">
+                <MudSwitch T="bool" @bind-Value="_enableRabatt" @bind-Value:after="OnRabattToggle"
+                           Color="Color.Primary" Label="Rabatt gewähren" />
+                @if (_enableRabatt)
+                {
+                    <MudSelect T="AngebotRabattTyp" @bind-Value="_rabattTyp" Variant="Variant.Outlined"
+                               Margin="Margin.Dense" Style="width: 180px"
+                               @bind-Value:after="RecalculateTotals">
+                        <MudSelectItem Value="AngebotRabattTyp.Prozentual">Prozentual (%)</MudSelectItem>
+                        <MudSelectItem Value="AngebotRabattTyp.Absolut">Absolut (€)</MudSelectItem>
+                    </MudSelect>
+                    <MudNumericField T="decimal?" @bind-Value="_rabattWert" Variant="Variant.Outlined"
+                                    Margin="Margin.Dense" HideSpinButtons="true"
+                                    Culture="@_culture"
+                                    Format="@(_rabattTyp == AngebotRabattTyp.Prozentual ? "N2" : "C2")"
+                                    @bind-Value:after="RecalculateTotals"
+                                    Style="width: 150px" />
+                }
+            </MudStack>
+
             <!-- Schlusstext -->
             <MudText Typo="Typo.h6" Class="mt-6 mb-2">Schlusstext (optional)</MudText>
             <MudTextField @bind-Value="_angebot.Schlusstext" Lines="3" Variant="Variant.Outlined"
@@ -80,7 +101,8 @@
                             MwstGesamt="@_mwstGesamt"
                             Bruttosumme="@_bruttosumme"
                             MwstSaetze="@_mwstSaetze"
-                            IsKleinunternehmer="@_isKleinunternehmer" />
+                            IsKleinunternehmer="@_isKleinunternehmer"
+                            RabattBetrag="@_rabattBetrag" />
             </div>
 
             <!-- Actions -->
@@ -129,6 +151,10 @@
     private decimal _mwstGesamt;
     private decimal _bruttosumme;
     private List<Summenblock.MwstZeile>? _mwstSaetze;
+    private bool _enableRabatt;
+    private AngebotRabattTyp _rabattTyp = AngebotRabattTyp.Prozentual;
+    private decimal? _rabattWert;
+    private decimal _rabattBetrag;
 
     protected override async Task OnInitializedAsync()
     {
@@ -161,15 +187,27 @@
 
     private void RecalculateTotals()
     {
-        _nettosumme = _positionen.Sum(p => p.Nettosumme);
+        var nettoBasis = _positionen.Sum(p => p.Nettosumme);
+        _nettosumme = nettoBasis;
 
-        // Group by tax rate
+        _rabattBetrag = 0;
+        if (_enableRabatt && _rabattWert.HasValue && _rabattWert.Value > 0)
+        {
+            if (_rabattTyp == AngebotRabattTyp.Prozentual)
+                _rabattBetrag = Math.Round(nettoBasis * _rabattWert.Value / 100, 2);
+            else if (_rabattTyp == AngebotRabattTyp.Absolut)
+                _rabattBetrag = Math.Min(_rabattWert.Value, nettoBasis);
+        }
+
+        var discountFactor = nettoBasis > 0 ? 1 - _rabattBetrag / nettoBasis : 1m;
+
         var mwstGroups = _positionen
+            .Where(p => !p.IsHeader)
             .GroupBy(p => p.Steuersatz)
             .Select(g => new Summenblock.MwstZeile
             {
                 Satz = g.Key,
-                Betrag = g.Sum(p => p.Nettosumme * g.Key / 100)
+                Betrag = Math.Round(g.Sum(p => p.Nettosumme) * discountFactor * g.Key / 100, 2)
             })
             .Where(m => m.Betrag > 0)
             .OrderBy(m => m.Satz)
@@ -177,7 +215,14 @@
 
         _mwstSaetze = mwstGroups.Count > 1 ? mwstGroups : null;
         _mwstGesamt = mwstGroups.Sum(m => m.Betrag);
-        _bruttosumme = _nettosumme + _mwstGesamt;
+        _bruttosumme = nettoBasis - _rabattBetrag + _mwstGesamt;
+    }
+
+    private void OnRabattToggle()
+    {
+        if (!_enableRabatt)
+            _rabattWert = null;
+        RecalculateTotals();
     }
 
     private bool ValidateForm()
@@ -202,7 +247,7 @@
             return false;
         }
 
-        if (_positionen.Any(p => string.IsNullOrWhiteSpace(p.Text)))
+        if (_positionen.Any(p => !p.IsHeader && string.IsNullOrWhiteSpace(p.Text)))
         {
             _errorMessage = "Bitte geben Sie für alle Positionen eine Beschreibung ein.";
             return false;
@@ -218,6 +263,8 @@
         _angebot.Erstelldatum = DateTime.SpecifyKind(_erstelldatum!.Value, DateTimeKind.Utc);
         _angebot.GueltigBis = DateTime.SpecifyKind(_gueltigBis!.Value, DateTimeKind.Utc);
         _angebot.Status = AngebotStatus.Entwurf;
+        _angebot.RabattTyp = _enableRabatt && _rabattWert.HasValue ? _rabattTyp : AngebotRabattTyp.Kein;
+        _angebot.RabattWert = _enableRabatt ? _rabattWert : null;
 
         // Clear and re-add positions
         _angebot.Positionen.Clear();

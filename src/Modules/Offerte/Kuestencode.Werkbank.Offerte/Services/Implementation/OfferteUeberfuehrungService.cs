@@ -48,7 +48,9 @@ public class OfferteUeberfuehrungService : IOfferteUeberfuehrungService
                     Menge = p.Menge,
                     Einzelpreis = p.Einzelpreis,
                     Steuersatz = p.Steuersatz,
-                    Rabatt = p.Rabatt
+                    Rabatt = p.Rabatt,
+                    IsHeader = p.IsHeader,
+                    Einheit = p.Einheit
                 })
                 .ToList()
         };

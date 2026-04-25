@@ -87,28 +87,71 @@ public class Angebot
     public DateTime? GedrucktAm { get; set; }
     public int DruckAnzahl { get; set; } = 0;
 
+    /// <summary>
+    /// Art des globalen Rabatts.
+    /// </summary>
+    public AngebotRabattTyp RabattTyp { get; set; } = AngebotRabattTyp.Kein;
+
+    /// <summary>
+    /// Rabattwert (Prozent oder absoluter Betrag, je nach RabattTyp).
+    /// </summary>
+    [Column(TypeName = "decimal(18,2)")]
+    public decimal? RabattWert { get; set; }
+
     // Navigation Properties
     public List<Angebotsposition> Positionen { get; set; } = new();
 
     // Berechnete Eigenschaften
 
     /// <summary>
-    /// Summe aller Nettowerte der Positionen.
+    /// Summe aller Nettowerte der Positionen (vor globalem Rabatt).
     /// </summary>
     [NotMapped]
     public decimal Nettosumme => Positionen.Sum(p => p.Nettosumme);
 
     /// <summary>
-    /// Summe aller Steuerbeträge der Positionen.
+    /// Globaler Rabattbetrag.
     /// </summary>
     [NotMapped]
-    public decimal Steuersumme => Positionen.Sum(p => p.Steuerbetrag);
+    public decimal RabattBetrag
+    {
+        get
+        {
+            if (RabattTyp == AngebotRabattTyp.Kein || !RabattWert.HasValue || RabattWert.Value <= 0) return 0;
+            var netto = Nettosumme;
+            if (RabattTyp == AngebotRabattTyp.Prozentual)
+                return Math.Round(netto * RabattWert.Value / 100, 2);
+            return Math.Min(RabattWert.Value, netto);
+        }
+    }
 
     /// <summary>
-    /// Gesamtsumme (Netto + Steuer).
+    /// Nettosumme nach Abzug des globalen Rabatts.
     /// </summary>
     [NotMapped]
-    public decimal Bruttosumme => Nettosumme + Steuersumme;
+    public decimal NettosummeNachRabatt => Nettosumme - RabattBetrag;
+
+    /// <summary>
+    /// Summe aller Steuerbeträge (proportional auf Rabatt verteilt).
+    /// </summary>
+    [NotMapped]
+    public decimal Steuersumme
+    {
+        get
+        {
+            var netto = Nettosumme;
+            if (RabattBetrag <= 0 || netto <= 0)
+                return Positionen.Sum(p => p.Steuerbetrag);
+            var discountFactor = 1 - RabattBetrag / netto;
+            return Math.Round(Positionen.Sum(p => p.Nettosumme * discountFactor * p.Steuersatz / 100), 2);
+        }
+    }
+
+    /// <summary>
+    /// Gesamtsumme (Netto nach Rabatt + Steuer).
+    /// </summary>
+    [NotMapped]
+    public decimal Bruttosumme => NettosummeNachRabatt + Steuersumme;
 
     /// <summary>
     /// Prüft, ob das Angebot in einem terminalen Status ist.
