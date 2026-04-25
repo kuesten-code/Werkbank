@@ -621,11 +621,6 @@ public partial class Create
                 }
             }
 
-            if (_projectWorkflowAvailable && _selectedProjectExternalId.HasValue)
-            {
-                await EnsureReceiptAttachmentAsync();
-            }
-
             _invoice.Status = asDraft ? InvoiceStatus.Draft : InvoiceStatus.Sent;
 
             await InvoiceService.CreateAsync(_invoice);
@@ -682,11 +677,6 @@ public partial class Create
                     _saving = false;
                     return;
                 }
-            }
-
-            if (_projectWorkflowAvailable && _selectedProjectExternalId.HasValue)
-            {
-                await EnsureReceiptAttachmentAsync();
             }
 
             _invoice.Status = InvoiceStatus.Sent;

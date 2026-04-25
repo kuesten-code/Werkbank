@@ -366,24 +366,19 @@
                 </MudButton>
             }
 
-            @if (_projectWorkflowAvailable && _selectedProjectExternalId.HasValue)
+            @if (_receptaAvailable && _selectedProjectExternalId.HasValue && !_receiptAttachmentAdded)
             {
-                <MudDivider Class="my-3" />
-                <MudText Typo="Typo.subtitle2">Projektbelege</MudText>
                 @if (_loadingProjectReceipts)
                 {
                     <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mt-2" />
                 }
-                <MudButton Variant="Variant.Outlined"
-                           Color="Color.Primary"
-                           Disabled="@(_loadingProjectReceipts || _receiptAttachmentAdded)"
-                           OnClick="AddReceiptAttachmentAsync"
-                           Class="mt-2">
-                    Belegliste als CSV anhängen
-                </MudButton>
-                @if (!_loadingProjectReceipts)
+                else
                 {
-                    <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mt-1 d-block">Gefundene Belege: @_projectReceipts.Count</MudText>
+                    <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small"
+                               StartIcon="@Icons.Material.Filled.Add" OnClick="AddReceiptAttachmentAsync" Class="mt-2"
+                               Style="width: 230px">
+                        Belege aus Recepta anhängen
+                    </MudButton>
                 }
             }
 

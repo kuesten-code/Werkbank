@@ -582,11 +582,6 @@ public partial class Edit
                 }
             }
 
-            if (_projectWorkflowAvailable && _selectedProjectExternalId.HasValue)
-            {
-                await EnsureReceiptAttachmentAsync();
-            }
-
             // Set invoice status based on asDraft parameter
             _invoice.Status = asDraft ? InvoiceStatus.Draft : InvoiceStatus.Sent;
 
