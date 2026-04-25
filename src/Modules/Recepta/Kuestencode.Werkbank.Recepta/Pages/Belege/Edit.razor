@@ -280,7 +280,9 @@
                                              MaxLength="100"
                                              ReadOnly="@(!_isDraft)" />
                             </MudItem>
-                            <MudItem xs="12" sm="3">
+                        </MudGrid>
+                        <MudGrid Class="mt-4">
+                            <MudItem xs="12" sm="5">
                                 <MudDatePicker Date="_invoiceDate"
                                               DateChanged="OnInvoiceDateChanged"
                                               Label="Rechnungsdatum"
@@ -290,7 +292,7 @@
                                               RequiredError="Datum ist erforderlich"
                                               ReadOnly="@(!_isDraft)" />
                             </MudItem>
-                            <MudItem xs="12" sm="3">
+                            <MudItem xs="12" sm="5">
                                 <MudDatePicker Date="_dueDate"
                                               DateChanged="OnDueDateChanged"
                                               Label="Fälligkeitsdatum"
@@ -304,37 +306,68 @@
                         <!-- Beträge -->
                         <MudText Typo="Typo.h6" Class="mt-3 mb-1">Beträge</MudText>
                         <MudGrid>
-                            <MudItem xs="12" sm="3">
-                                <MudNumericField Value="_model.AmountNet"
-                                                Label="Netto" Variant="Variant.Outlined"
+                            <MudItem xs="12" sm="4">
+                                <MudNumericField Value="_model.AmountNet19"
+                                                Label="Netto 19 %" Variant="Variant.Outlined"
                                                 Adornment="Adornment.End" AdornmentText="€"
                                                 Format="N2" Culture="@_culture" Min="-999999999m"
-                                                ValueChanged="OnAmountNetChanged" T="decimal"
+                                                ValueChanged="OnAmountNet19Changed" T="decimal"
                                                 ReadOnly="@(!_isDraft)" />
                             </MudItem>
-                            <MudItem xs="12" sm="3">
-                                <MudSelect T="decimal" Label="MwSt-Satz" Value="_model.TaxRate"
-                                          ValueChanged="OnTaxRateChanged"
-                                          Variant="Variant.Outlined"
-                                          ReadOnly="@(!_isDraft)">
-                                    <MudSelectItem T="decimal" Value="19m">19 %</MudSelectItem>
-                                    <MudSelectItem T="decimal" Value="7m">7 %</MudSelectItem>
-                                    <MudSelectItem T="decimal" Value="0m">0 %</MudSelectItem>
-                                </MudSelect>
-                            </MudItem>
-                            <MudItem xs="12" sm="3">
-                                <MudNumericField @bind-Value="_model.AmountTax"
-                                                Label="MwSt" Variant="Variant.Outlined"
+                            <MudItem xs="12" sm="2">
+                                <MudNumericField Value="_model.AmountTax19"
+                                                Label="MwSt 19 %" Variant="Variant.Outlined"
                                                 Adornment="Adornment.End" AdornmentText="€"
                                                 Format="N2" Culture="@_culture"
-                                                ReadOnly="true" />
+                                                ReadOnly="true" T="decimal" />
                             </MudItem>
-                            <MudItem xs="12" sm="3">
-                                <MudNumericField @bind-Value="_model.AmountGross"
-                                                Label="Brutto" Variant="Variant.Outlined"
+                            <MudItem xs="12" sm="4">
+                                <MudNumericField Value="_model.AmountNet7"
+                                                Label="Netto 7 %" Variant="Variant.Outlined"
+                                                Adornment="Adornment.End" AdornmentText="€"
+                                                Format="N2" Culture="@_culture" Min="-999999999m"
+                                                ValueChanged="OnAmountNet7Changed" T="decimal"
+                                                ReadOnly="@(!_isDraft)" />
+                            </MudItem>
+                            <MudItem xs="12" sm="2">
+                                <MudNumericField Value="_model.AmountTax7"
+                                                Label="MwSt 7 %" Variant="Variant.Outlined"
                                                 Adornment="Adornment.End" AdornmentText="€"
                                                 Format="N2" Culture="@_culture"
-                                                ReadOnly="true" />
+                                                ReadOnly="true" T="decimal" />
+                            </MudItem>
+                            <MudItem xs="12" sm="4">
+                                <MudNumericField Value="_model.AmountNet0"
+                                                Label="Netto 0 %" Variant="Variant.Outlined"
+                                                Adornment="Adornment.End" AdornmentText="€"
+                                                Format="N2" Culture="@_culture" Min="-999999999m"
+                                                ValueChanged="OnAmountNet0Changed" T="decimal"
+                                                ReadOnly="@(!_isDraft)" />
+                            </MudItem>
+                            <MudItem xs="12" sm="2">
+                            </MudItem>
+                        </MudGrid>
+                        <MudGrid Class="mt-1">
+                            <MudItem xs="12" sm="4">
+                                <MudNumericField Value="_model.AmountNet"
+                                                Label="Netto gesamt" Variant="Variant.Outlined"
+                                                Adornment="Adornment.End" AdornmentText="€"
+                                                Format="N2" Culture="@_culture"
+                                                ReadOnly="true" T="decimal" />
+                            </MudItem>
+                            <MudItem xs="12" sm="4">
+                                <MudNumericField Value="_model.AmountTax"
+                                                Label="MwSt gesamt" Variant="Variant.Outlined"
+                                                Adornment="Adornment.End" AdornmentText="€"
+                                                Format="N2" Culture="@_culture"
+                                                ReadOnly="true" T="decimal" />
+                            </MudItem>
+                            <MudItem xs="12" sm="4">
+                                <MudNumericField Value="_model.AmountGross"
+                                                Label="Brutto gesamt" Variant="Variant.Outlined"
+                                                Adornment="Adornment.End" AdornmentText="€"
+                                                Format="N2" Culture="@_culture"
+                                                ReadOnly="true" T="decimal" />
                             </MudItem>
                         </MudGrid>
 
@@ -582,7 +615,6 @@
         {
             _model = new DocumentFormModel
             {
-                TaxRate = 19m,
                 Category = DocumentCategory.Other
             };
 
@@ -629,10 +661,9 @@
                 DocumentNumber = _document.DocumentNumber,
                 SupplierId = _document.SupplierId,
                 InvoiceNumber = _document.InvoiceNumber,
-                AmountNet = _document.AmountNet,
-                TaxRate = _document.TaxRate,
-                AmountTax = _document.AmountTax,
-                AmountGross = _document.AmountGross,
+                AmountNet19 = _document.AmountNet19,
+                AmountNet7 = _document.AmountNet7,
+                AmountNet0 = _document.AmountNet0,
                 Category = Enum.TryParse<DocumentCategory>(_document.Category, out var cat) ? cat : DocumentCategory.Other,
                 Notes = _document.Notes
             };
@@ -836,24 +867,9 @@
     private void ZoomIn() => _zoom = Math.Min(_zoom + 0.25, 3.0);
     private void ZoomOut() => _zoom = Math.Max(_zoom - 0.25, 0.5);
 
-    // Betragsberechnung
-    private void OnAmountNetChanged(decimal value)
-    {
-        _model.AmountNet = value;
-        RecalculateAmounts();
-    }
-
-    private void OnTaxRateChanged(decimal value)
-    {
-        _model.TaxRate = value;
-        RecalculateAmounts();
-    }
-
-    private void RecalculateAmounts()
-    {
-        _model.AmountTax = Math.Round(_model.AmountNet * _model.TaxRate / 100m, 2);
-        _model.AmountGross = _model.AmountNet + _model.AmountTax;
-    }
+    private void OnAmountNet19Changed(decimal value) => _model.AmountNet19 = value;
+    private void OnAmountNet7Changed(decimal value) => _model.AmountNet7 = value;
+    private void OnAmountNet0Changed(decimal value) => _model.AmountNet0 = value;
 
     private void OnSupplierChanged(Guid? value)
     {
@@ -925,8 +941,12 @@
                     InvoiceNumber = _model.InvoiceNumber,
                     InvoiceDate = _invoiceDate.HasValue ? DateOnly.FromDateTime(_invoiceDate.Value) : DateOnly.FromDateTime(DateTime.Today),
                     DueDate = _dueDate.HasValue ? DateOnly.FromDateTime(_dueDate.Value) : null,
+                    AmountNet19 = _model.AmountNet19,
+                    AmountTax19 = _model.AmountTax19,
+                    AmountNet7 = _model.AmountNet7,
+                    AmountTax7 = _model.AmountTax7,
+                    AmountNet0 = _model.AmountNet0,
                     AmountNet = _model.AmountNet,
-                    TaxRate = _model.TaxRate,
                     AmountTax = _model.AmountTax,
                     AmountGross = _model.AmountGross,
                     Category = _model.Category,
@@ -946,8 +966,12 @@
                     InvoiceNumber = _model.InvoiceNumber,
                     InvoiceDate = _invoiceDate.HasValue ? DateOnly.FromDateTime(_invoiceDate.Value) : DateOnly.FromDateTime(DateTime.Today),
                     DueDate = _dueDate.HasValue ? DateOnly.FromDateTime(_dueDate.Value) : null,
+                    AmountNet19 = _model.AmountNet19,
+                    AmountTax19 = _model.AmountTax19,
+                    AmountNet7 = _model.AmountNet7,
+                    AmountTax7 = _model.AmountTax7,
+                    AmountNet0 = _model.AmountNet0,
                     AmountNet = _model.AmountNet,
-                    TaxRate = _model.TaxRate,
                     AmountTax = _model.AmountTax,
                     AmountGross = _model.AmountGross,
                     Category = _model.Category,
@@ -1160,10 +1184,14 @@
         public string DocumentNumber { get; set; } = string.Empty;
         public Guid? SupplierId { get; set; }
         public string InvoiceNumber { get; set; } = string.Empty;
-        public decimal AmountNet { get; set; }
-        public decimal TaxRate { get; set; } = 19m;
-        public decimal AmountTax { get; set; }
-        public decimal AmountGross { get; set; }
+        public decimal AmountNet19 { get; set; }
+        public decimal AmountNet7 { get; set; }
+        public decimal AmountNet0 { get; set; }
+        public decimal AmountTax19 => Math.Round(AmountNet19 * 0.19m, 2);
+        public decimal AmountTax7 => Math.Round(AmountNet7 * 0.07m, 2);
+        public decimal AmountNet => AmountNet19 + AmountNet7 + AmountNet0;
+        public decimal AmountTax => AmountTax19 + AmountTax7;
+        public decimal AmountGross => AmountNet + AmountTax;
         public DocumentCategory Category { get; set; } = DocumentCategory.Other;
         public string? Notes { get; set; }
     }

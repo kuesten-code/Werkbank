@@ -79,6 +79,11 @@ public class ReceptaDbContext : DbContext
                 .HasMaxLength(20);
 
             // Decimal Precision
+            entity.Property(e => e.AmountNet19).HasPrecision(18, 2);
+            entity.Property(e => e.AmountTax19).HasPrecision(18, 2);
+            entity.Property(e => e.AmountNet7).HasPrecision(18, 2);
+            entity.Property(e => e.AmountTax7).HasPrecision(18, 2);
+            entity.Property(e => e.AmountNet0).HasPrecision(18, 2);
             entity.Property(e => e.AmountNet).HasPrecision(18, 2);
             entity.Property(e => e.AmountTax).HasPrecision(18, 2);
             entity.Property(e => e.AmountGross).HasPrecision(18, 2);
