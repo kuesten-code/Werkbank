@@ -303,22 +303,14 @@ public partial class Details
         }
     }
 
-    private async Task PrintInvoice()
+    private async Task PrintAndConfirm()
     {
-        var invoice = _invoice;
-        if (invoice == null) return;
+        if (_invoice == null) return;
 
         try
         {
-            // Generate PDF
-            var pdfBytes = await PdfGeneratorService.GenerateInvoicePdfAsync(invoice.Id);
-            var mergedPdfBytes = PdfMergeService.MergeForPrint(pdfBytes, invoice.Attachments);
-            var base64 = Convert.ToBase64String(mergedPdfBytes);
+            await JSRuntime.InvokeVoidAsync("openInNewTab", $"api/invoice/{_invoice.Id}/pdf-print");
 
-            // Open print dialog
-            await JSRuntime.InvokeVoidAsync("printPdf", base64);
-
-            // Show confirmation dialog
             var parameters = new DialogParameters();
             var options = new DialogOptions { CloseOnEscapeKey = true, MaxWidth = MaxWidth.Small };
             var dialog = await DialogService.ShowAsync<PrintConfirmationDialog>("Rechnung gedruckt?", parameters, options);
@@ -326,14 +318,14 @@ public partial class Details
 
             if (result is not null && !result.Canceled)
             {
-                await InvoiceService.MarkAsPrintedAsync(invoice.Id);
+                await InvoiceService.MarkAsPrintedAsync(_invoice.Id);
                 Snackbar.Add("Rechnung als gedruckt markiert", Severity.Success);
-                await LoadInvoice(); // Reload to update print tracking info
+                await LoadInvoice();
             }
         }
         catch (Exception ex)
         {
-            Snackbar.Add($"Fehler beim Drucken: {ex.Message}", Severity.Error);
+            Snackbar.Add($"Fehler: {ex.Message}", Severity.Error);
         }
     }
 

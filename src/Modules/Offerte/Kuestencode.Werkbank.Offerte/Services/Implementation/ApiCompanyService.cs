@@ -158,7 +158,16 @@ public class ApiCompanyService : ICompanyService
             PdfAccentColor = dto.PdfAccentColor,
             PdfHeaderText = dto.PdfHeaderText,
             PdfFooterText = dto.PdfFooterText,
-            PdfPaymentNotice = dto.PdfPaymentNotice
+            PdfPaymentNotice = dto.PdfPaymentNotice,
+            AdditionalBankAccounts = dto.AdditionalBankAccounts
+                .Select(a => new AdditionalBankAccount
+                {
+                    BankName = a.BankName,
+                    Iban = a.Iban,
+                    Bic = a.Bic,
+                    AccountHolder = a.AccountHolder,
+                    SortOrder = a.SortOrder
+                }).ToList()
         };
     }
 }

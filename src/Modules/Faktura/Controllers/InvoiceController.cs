@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Kuestencode.Faktura.Models;
 using Kuestencode.Faktura.Services;
+using Kuestencode.Faktura.Services.Pdf;
 using Kuestencode.Shared.Contracts.Faktura;
 using Kuestencode.Shared.ApiClients;
 
@@ -12,6 +13,7 @@ public class InvoiceController : ControllerBase
 {
     private readonly IInvoiceService _invoiceService;
     private readonly IPdfGeneratorService _pdfGeneratorService;
+    private readonly IPdfMergeService _pdfMergeService;
     private readonly IEmailService _emailService;
     private readonly IHostApiClient _hostApiClient;
     private readonly ILogger<InvoiceController> _logger;
@@ -19,12 +21,14 @@ public class InvoiceController : ControllerBase
     public InvoiceController(
         IInvoiceService invoiceService,
         IPdfGeneratorService pdfGeneratorService,
+        IPdfMergeService pdfMergeService,
         IEmailService emailService,
         IHostApiClient hostApiClient,
         ILogger<InvoiceController> logger)
     {
         _invoiceService = invoiceService;
         _pdfGeneratorService = pdfGeneratorService;
+        _pdfMergeService = pdfMergeService;
         _emailService = emailService;
         _hostApiClient = hostApiClient;
         _logger = logger;
@@ -96,6 +100,43 @@ public class InvoiceController : ControllerBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error retrieving invoice {InvoiceId}", id);
+            return StatusCode(500, "Internal server error");
+        }
+    }
+
+    [HttpGet("{id}/pdf-print")]
+    public async Task<IActionResult> GetPdfForPrint(int id)
+    {
+        try
+        {
+            var invoice = await _invoiceService.GetByIdAsync(id);
+            if (invoice == null) return NotFound();
+
+            var pdfBytes = await _pdfGeneratorService.GenerateInvoicePdfAsync(id);
+            var mergedBytes = _pdfMergeService.MergeForPrint(pdfBytes, invoice.Attachments);
+            var base64 = Convert.ToBase64String(mergedBytes);
+
+            var html = $$"""
+                <!DOCTYPE html>
+                <html>
+                <head>
+                  <title>{{invoice.InvoiceNumber}}</title>
+                  <style>html,body,embed{margin:0;padding:0;width:100%;height:100%;}</style>
+                </head>
+                <body>
+                  <embed src="data:application/pdf;base64,{{base64}}" type="application/pdf" width="100%" height="100%">
+                  <script>
+                    setTimeout(function() { window.print(); }, 1500);
+                  </script>
+                </body>
+                </html>
+                """;
+
+            return Content(html, "text/html");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error generating print PDF for invoice {InvoiceId}", id);
             return StatusCode(500, "Internal server error");
         }
     }

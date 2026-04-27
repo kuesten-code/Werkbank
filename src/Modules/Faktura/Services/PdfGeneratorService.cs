@@ -109,7 +109,16 @@ public class PdfGeneratorService : IPdfGeneratorService
             PdfAccentColor = companyDto.PdfAccentColor,
             PdfHeaderText = companyDto.PdfHeaderText,
             PdfFooterText = companyDto.PdfFooterText,
-            PdfPaymentNotice = companyDto.PdfPaymentNotice
+            PdfPaymentNotice = companyDto.PdfPaymentNotice,
+            AdditionalBankAccounts = companyDto.AdditionalBankAccounts
+                .Select(a => new AdditionalBankAccount
+                {
+                    BankName = a.BankName,
+                    Iban = a.Iban,
+                    Bic = a.Bic,
+                    AccountHolder = a.AccountHolder,
+                    SortOrder = a.SortOrder
+                }).ToList()
         };
 
         _logger.LogInformation("PdfGenerator: rendering pdf (InvoiceId={InvoiceId})", invoiceId);

@@ -9,6 +9,7 @@ using Microsoft.JSInterop;
 using MudBlazor;
 using Kuestencode.Core.Interfaces;
 using Kuestencode.Core.Models;
+using System.Linq;
 using Kuestencode.Werkbank.Host.Services;
 
 namespace Kuestencode.Werkbank.Host.Pages.Settings;
@@ -44,6 +45,7 @@ public partial class CompanySettings
         try
         {
             await CompanyService.UpdateCompanyAsync(_company);
+            _company = await CompanyService.GetCompanyAsync();
             Snackbar.Add("Firmendaten gespeichert", Severity.Success);
         }
         catch (Exception ex)
@@ -130,6 +132,20 @@ public partial class CompanySettings
         {
             Snackbar.Add($"Fehler beim Entfernen: {ex.Message}", Severity.Error);
         }
+    }
+
+    private void AddAdditionalBankAccount()
+    {
+        _company.AdditionalBankAccounts.Add(new AdditionalBankAccount
+        {
+            CompanyId = _company.Id,
+            SortOrder = _company.AdditionalBankAccounts.Count
+        });
+    }
+
+    private void RemoveAdditionalBankAccount(int index)
+    {
+        _company.AdditionalBankAccounts.RemoveAt(index);
     }
 
     private string GetLogoDataUrl()

@@ -23,6 +23,45 @@ namespace Kuestencode.Werkbank.Host.Data.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("Kuestencode.Core.Models.AdditionalBankAccount", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("AccountHolder")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("BankName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("Bic")
+                        .HasMaxLength(11)
+                        .HasColumnType("character varying(11)");
+
+                    b.Property<int>("CompanyId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Iban")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CompanyId");
+
+                    b.ToTable("AdditionalBankAccounts", "host");
+                });
+
             modelBuilder.Entity("Kuestencode.Core.Models.Company", b =>
                 {
                     b.Property<int>("Id")
@@ -398,6 +437,20 @@ namespace Kuestencode.Werkbank.Host.Data.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("WerkbankSettings", "host");
+                });
+
+            modelBuilder.Entity("Kuestencode.Core.Models.AdditionalBankAccount", b =>
+                {
+                    b.HasOne("Kuestencode.Core.Models.Company", null)
+                        .WithMany("AdditionalBankAccounts")
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Kuestencode.Core.Models.Company", b =>
+                {
+                    b.Navigation("AdditionalBankAccounts");
                 });
 #pragma warning restore 612, 618
         }

@@ -22,7 +22,9 @@ public class CompanyService : ICompanyService
 
     public async Task<Company> GetCompanyAsync()
     {
-        var company = await _context.Companies.FirstOrDefaultAsync();
+        var company = await _context.Companies
+            .Include(c => c.AdditionalBankAccounts)
+            .FirstOrDefaultAsync();
 
         if (company == null)
         {
@@ -126,7 +128,28 @@ public class CompanyService : ICompanyService
         existing.PdfFooterText = company.PdfFooterText;
         existing.PdfPaymentNotice = company.PdfPaymentNotice;
 
+        // Snapshot additional bank accounts before EF can touch the collection.
+        var newAccounts = company.AdditionalBankAccounts
+            .Select(a => (a.BankName, a.Iban, a.Bic, a.AccountHolder, a.SortOrder))
+            .ToList();
+
+        // Detach all tracked AdditionalBankAccount entries so SaveChanges ignores them.
+        foreach (var entry in _context.ChangeTracker.Entries<AdditionalBankAccount>().ToList())
+            entry.State = EntityState.Detached;
+
+        // Save Company entity only — additional bank accounts handled via raw SQL below
+        // to avoid EF relationship fixup modifying the navigation collection mid-render.
         await _context.SaveChangesAsync();
+
+        await _context.Database.ExecuteSqlAsync(
+            $"DELETE FROM host.\"AdditionalBankAccounts\" WHERE \"CompanyId\" = {existing.Id}");
+
+        for (int i = 0; i < newAccounts.Count; i++)
+        {
+            var (bankName, iban, bic, accountHolder, sortOrder) = newAccounts[i];
+            await _context.Database.ExecuteSqlAsync(
+                $"INSERT INTO host.\"AdditionalBankAccounts\" (\"CompanyId\", \"BankName\", \"Iban\", \"Bic\", \"AccountHolder\", \"SortOrder\") VALUES ({existing.Id}, {bankName}, {iban}, {bic}, {accountHolder}, {sortOrder})");
+        }
 
         return existing;
     }

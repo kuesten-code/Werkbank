@@ -38,6 +38,16 @@
     <script src="_framework/blazor.server.js"></script>
     <script src="_content/MudBlazor/MudBlazor.min.js"></script>
     <script>
+        function openInNewTab(url) {
+            var a = document.createElement('a');
+            a.href = url;
+            a.target = '_blank';
+            a.rel = 'noopener noreferrer';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        }
+
         function downloadFile(filename, base64Data) {
             const linkSource = `data:application/pdf;base64,${base64Data}`;
             const downloadLink = document.createElement("a");
