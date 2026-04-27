@@ -52,6 +52,17 @@ public record CompanyDto
     public string? PdfHeaderText { get; init; }
     public string? PdfFooterText { get; init; }
     public string? PdfPaymentNotice { get; init; }
+    public List<AdditionalBankAccountDto> AdditionalBankAccounts { get; init; } = [];
+}
+
+public record AdditionalBankAccountDto
+{
+    public int Id { get; init; }
+    public string BankName { get; init; } = string.Empty;
+    public string Iban { get; init; } = string.Empty;
+    public string? Bic { get; init; }
+    public string? AccountHolder { get; init; }
+    public int SortOrder { get; init; }
 }
 
 public record CreateCompanyRequest
@@ -121,4 +132,14 @@ public record UpdateCompanyRequest
     public string? PdfHeaderText { get; init; }
     public string? PdfFooterText { get; init; }
     public string? PdfPaymentNotice { get; init; }
+    public List<UpdateAdditionalBankAccountRequest> AdditionalBankAccounts { get; init; } = [];
+}
+
+public record UpdateAdditionalBankAccountRequest
+{
+    public string BankName { get; init; } = string.Empty;
+    public string Iban { get; init; } = string.Empty;
+    public string? Bic { get; init; }
+    public string? AccountHolder { get; init; }
+    public int SortOrder { get; init; }
 }

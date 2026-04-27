@@ -38,6 +38,16 @@
     <script src="_framework/blazor.server.js"></script>
     <script src="_content/MudBlazor/MudBlazor.min.js"></script>
     <script>
+        function openInNewTab(url) {
+            var a = document.createElement('a');
+            a.href = url;
+            a.target = '_blank';
+            a.rel = 'noopener noreferrer';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        }
+
         function downloadFile(filename, base64Data) {
             const linkSource = `data:application/pdf;base64,${base64Data}`;
             const downloadLink = document.createElement("a");
@@ -46,7 +56,7 @@
             downloadLink.click();
         }
 
-        function printPdf(base64Data) {
+        function printPdfFromBase64(base64Data) {
             const pdfData = atob(base64Data);
             const bytes = new Uint8Array(pdfData.length);
             for (let i = 0; i < pdfData.length; i++) {
@@ -55,12 +65,22 @@
             const blob = new Blob([bytes], { type: 'application/pdf' });
             const url = URL.createObjectURL(blob);
 
-            const printWindow = window.open(url, '_blank');
-            if (printWindow) {
-                printWindow.onload = function() {
-                    printWindow.print();
-                };
-            }
+            const iframe = document.createElement('iframe');
+            iframe.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:1px;height:1px;border:none;';
+            iframe.src = url;
+            document.body.appendChild(iframe);
+            iframe.onload = function () {
+                try {
+                    iframe.contentWindow.focus();
+                    iframe.contentWindow.print();
+                } catch (e) {
+                    window.open(url, '_blank');
+                }
+                setTimeout(function () {
+                    document.body.removeChild(iframe);
+                    URL.revokeObjectURL(url);
+                }, 60000);
+            };
         }
 
         async function printPdfSequence(base64List) {

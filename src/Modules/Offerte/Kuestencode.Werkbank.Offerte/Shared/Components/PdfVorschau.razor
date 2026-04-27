@@ -75,6 +75,6 @@
     {
         if (_pdfDataUrl == null) return;
 
-        await JSRuntime.InvokeVoidAsync("printPdf", _pdfDataUrl);
+        await JSRuntime.InvokeVoidAsync("openInNewTab", _pdfDataUrl);
     }
 }

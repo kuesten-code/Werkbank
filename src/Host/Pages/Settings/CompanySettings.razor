@@ -203,6 +203,49 @@
                     </MudItem>
                 </MudGrid>
 
+                <!-- Sektion 5: Weitere Bankverbindungen -->
+                <MudText Typo="Typo.h6" Class="mt-6 mb-1">Weitere Bankverbindungen</MudText>
+                <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-3">
+                    Diese Konten werden in der PDF-Fußzeile unterhalb der primären Bankverbindung aufgeführt.
+                </MudText>
+
+                @foreach (var (acc, idx) in _company.AdditionalBankAccounts.Select((a, i) => (a, i)))
+                {
+                    <MudPaper Elevation="0" Class="pa-3 mb-3" Style="border: 1px solid var(--mud-palette-divider);">
+                        <MudGrid>
+                            <MudItem xs="12" sm="6">
+                                <MudTextField Label="Bankname" @bind-Value="acc.BankName" Required="true" />
+                            </MudItem>
+                            <MudItem xs="12" sm="6">
+                                <MudTextField Label="Kontoinhaber" @bind-Value="acc.AccountHolder"
+                                             Placeholder="@_company.OwnerFullName" />
+                            </MudItem>
+                            <MudItem xs="12" sm="8">
+                                <MudTextField Label="IBAN" @bind-Value="acc.Iban" Required="true" />
+                            </MudItem>
+                            <MudItem xs="12" sm="4">
+                                <MudTextField Label="BIC" @bind-Value="acc.Bic" />
+                            </MudItem>
+                            <MudItem xs="12">
+                                <MudButton Color="Color.Error" Variant="Variant.Text"
+                                           StartIcon="@Icons.Material.Filled.Delete"
+                                           Size="Size.Small"
+                                           OnClick="@(() => RemoveAdditionalBankAccount(idx))">
+                                    Entfernen
+                                </MudButton>
+                            </MudItem>
+                        </MudGrid>
+                    </MudPaper>
+                }
+
+                <MudButton Color="Color.Primary" Variant="Variant.Outlined"
+                           StartIcon="@Icons.Material.Filled.Add"
+                           Size="Size.Small"
+                           OnClick="AddAdditionalBankAccount"
+                           Class="mb-4">
+                    Weitere Bankverbindung hinzufügen
+                </MudButton>
+
                 <!-- Sektion 5: Rechnungseinstellungen -->
                 <MudText Typo="Typo.h6" Class="mt-6 mb-2">Rechnungseinstellungen</MudText>
                 <MudGrid>

@@ -161,6 +161,10 @@ public class Company : BaseEntity, IValidatableObject
     [MaxLength(500)]
     public string? PdfPaymentNotice { get; set; }
 
+    // === Weitere Bankverbindungen ===
+
+    public List<AdditionalBankAccount> AdditionalBankAccounts { get; set; } = [];
+
     // === Computed Properties ===
 
     /// <summary>

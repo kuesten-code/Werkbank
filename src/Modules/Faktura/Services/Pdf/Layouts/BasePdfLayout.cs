@@ -75,8 +75,14 @@ public abstract class BasePdfLayout : IPdfLayoutRenderer
 
                 row.RelativeItem().AlignRight().Column(rightColumn =>
                 {
-                    rightColumn.Item().Text($"{company.BankName}").FontSize(8).FontColor(TextSecondaryColor);
+                    rightColumn.Item().Text(company.BankName).FontSize(8).FontColor(TextSecondaryColor);
                     rightColumn.Item().Text($"IBAN: {company.BankAccount}").FontSize(8).FontColor(TextSecondaryColor);
+
+                    foreach (var additional in company.AdditionalBankAccounts.OrderBy(a => a.SortOrder))
+                    {
+                        rightColumn.Item().PaddingTop(4).Text(additional.BankName).FontSize(8).FontColor(TextSecondaryColor);
+                        rightColumn.Item().Text($"IBAN: {additional.Iban}").FontSize(8).FontColor(TextSecondaryColor);
+                    }
                 });
             });
         });

@@ -476,6 +476,12 @@ public abstract class BaseDocumentLayout
                     {
                         rightColumn.Item().Text($"IBAN: {company.BankAccount}").FontSize(PdfFonts.Footer).FontColor(PdfColors.TextSecondary);
                     }
+
+                    foreach (var additional in company.AdditionalBankAccounts.OrderBy(a => a.SortOrder))
+                    {
+                        rightColumn.Item().PaddingTop(4).Text(additional.BankName).FontSize(PdfFonts.Footer).FontColor(PdfColors.TextSecondary);
+                        rightColumn.Item().Text($"IBAN: {additional.Iban}").FontSize(PdfFonts.Footer).FontColor(PdfColors.TextSecondary);
+                    }
                 });
             });
         });

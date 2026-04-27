@@ -509,11 +509,8 @@
 
         try
         {
-            var pdfBytes = await DruckService.DruckvorbereitungAsync(_angebot.Id);
-            var base64 = Convert.ToBase64String(pdfBytes);
-            await JSRuntime.InvokeVoidAsync("printPdf", base64);
+            await JSRuntime.InvokeVoidAsync("openInNewTab", $"api/angebot/{_angebot.Id}/pdf-print");
 
-            // Bestätigung nach Druckvorgang fragen
             var confirmResult = await DialogService.ShowMessageBox(
                 "Druck bestätigen",
                 "Wurde das Angebot erfolgreich gedruckt?",

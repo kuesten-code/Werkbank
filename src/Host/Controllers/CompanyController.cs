@@ -3,6 +3,7 @@ using Kuestencode.Core.Enums;
 using Kuestencode.Core.Interfaces;
 using Kuestencode.Core.Models;
 using Kuestencode.Shared.Contracts.Host;
+using System.Linq;
 using Kuestencode.Werkbank.Host.Auth;
 using Kuestencode.Werkbank.Host.Models;
 using Kuestencode.Werkbank.Host.Services;
@@ -91,6 +92,17 @@ public class CompanyController : ControllerBase
         if (request.PdfFooterText != null) company.PdfFooterText = request.PdfFooterText;
         if (request.PdfPaymentNotice != null) company.PdfPaymentNotice = request.PdfPaymentNotice;
 
+        company.AdditionalBankAccounts = request.AdditionalBankAccounts
+            .Select((a, i) => new AdditionalBankAccount
+            {
+                CompanyId = company.Id,
+                BankName = a.BankName,
+                Iban = a.Iban,
+                Bic = a.Bic,
+                AccountHolder = a.AccountHolder,
+                SortOrder = a.SortOrder == 0 ? i : a.SortOrder
+            }).ToList();
+
         await _companyService.UpdateCompanyAsync(company);
         return NoContent();
     }
@@ -142,7 +154,18 @@ public class CompanyController : ControllerBase
             PdfAccentColor = company.PdfAccentColor,
             PdfHeaderText = company.PdfHeaderText,
             PdfFooterText = company.PdfFooterText,
-            PdfPaymentNotice = company.PdfPaymentNotice
+            PdfPaymentNotice = company.PdfPaymentNotice,
+            AdditionalBankAccounts = company.AdditionalBankAccounts
+                .OrderBy(a => a.SortOrder)
+                .Select(a => new AdditionalBankAccountDto
+                {
+                    Id = a.Id,
+                    BankName = a.BankName,
+                    Iban = a.Iban,
+                    Bic = a.Bic,
+                    AccountHolder = a.AccountHolder,
+                    SortOrder = a.SortOrder
+                }).ToList()
         };
     }
 }

@@ -15,6 +15,7 @@ public class HostDbContext : DbContext
     }
 
     public DbSet<Company> Companies => Set<Company>();
+    public DbSet<AdditionalBankAccount> AdditionalBankAccounts => Set<AdditionalBankAccount>();
     public DbSet<Customer> Customers => Set<Customer>();
     public DbSet<TeamMember> TeamMembers => Set<TeamMember>();
     public DbSet<WerkbankSettings> WerkbankSettings => Set<WerkbankSettings>();
@@ -23,6 +24,17 @@ public class HostDbContext : DbContext
     {
         // Schema-Trennung
         modelBuilder.HasDefaultSchema("host");
+
+        // AdditionalBankAccount Konfiguration
+        modelBuilder.Entity<AdditionalBankAccount>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+
+            entity.HasOne<Company>()
+                .WithMany(c => c.AdditionalBankAccounts)
+                .HasForeignKey(e => e.CompanyId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
 
         // Company Konfiguration
         modelBuilder.Entity<Company>(entity =>
