@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using Kuestencode.Werkbank.Recepta.Domain.Enums;
 
 namespace Kuestencode.Werkbank.Recepta.Domain.Entities;
 
@@ -82,6 +83,11 @@ public class Supplier
     /// </summary>
     [MaxLength(2000)]
     public string? Notes { get; set; }
+
+    /// <summary>
+    /// Standard-Kategorie für neue Belege dieses Lieferanten.
+    /// </summary>
+    public DocumentCategory? DefaultCategory { get; set; }
 
     // Timestamps
     public DateTime CreatedAt { get; set; }

@@ -1,3 +1,5 @@
+using Kuestencode.Werkbank.Recepta.Domain.Enums;
+
 namespace Kuestencode.Werkbank.Recepta.Domain.Dtos;
 
 /// <summary>
@@ -17,6 +19,7 @@ public class CreateSupplierDto
     public string? Iban { get; set; }
     public string? Bic { get; set; }
     public string? Notes { get; set; }
+    public DocumentCategory? DefaultCategory { get; set; }
 }
 
 /// <summary>
@@ -35,4 +38,5 @@ public class UpdateSupplierDto
     public string? Iban { get; set; }
     public string? Bic { get; set; }
     public string? Notes { get; set; }
+    public DocumentCategory? DefaultCategory { get; set; }
 }

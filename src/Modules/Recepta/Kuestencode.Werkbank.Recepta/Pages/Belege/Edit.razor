@@ -872,6 +872,13 @@
     private void OnSupplierChanged(Guid? value)
     {
         _model.SupplierId = value;
+
+        if (_isNew && value.HasValue)
+        {
+            var supplier = _suppliers.FirstOrDefault(s => s.Id == value.Value);
+            if (supplier?.DefaultCategory != null && Enum.TryParse<DocumentCategory>(supplier.DefaultCategory, out var cat))
+                _model.Category = cat;
+        }
     }
 
     private async Task OnSupplierCreated(SupplierDto supplier)

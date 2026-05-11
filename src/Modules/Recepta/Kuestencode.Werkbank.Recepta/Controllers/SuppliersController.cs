@@ -1,5 +1,6 @@
 using Kuestencode.Werkbank.Recepta.Controllers.Dtos;
 using Kuestencode.Werkbank.Recepta.Domain.Dtos;
+using Kuestencode.Werkbank.Recepta.Domain.Enums;
 using Kuestencode.Werkbank.Recepta.Services;
 using Microsoft.AspNetCore.Mvc;
 
@@ -64,7 +65,8 @@ public class SuppliersController : ControllerBase
                 TaxId = request.TaxId,
                 Iban = request.Iban,
                 Bic = request.Bic,
-                Notes = request.Notes
+                Notes = request.Notes,
+                DefaultCategory = Enum.TryParse<DocumentCategory>(request.DefaultCategory, out var createCat) ? createCat : null
             };
 
             var supplier = await _supplierService.CreateAsync(dto);
@@ -96,7 +98,8 @@ public class SuppliersController : ControllerBase
                 TaxId = request.TaxId,
                 Iban = request.Iban,
                 Bic = request.Bic,
-                Notes = request.Notes
+                Notes = request.Notes,
+                DefaultCategory = Enum.TryParse<DocumentCategory>(request.DefaultCategory, out var updateCat) ? updateCat : null
             };
 
             var supplier = await _supplierService.UpdateAsync(id, dto);
