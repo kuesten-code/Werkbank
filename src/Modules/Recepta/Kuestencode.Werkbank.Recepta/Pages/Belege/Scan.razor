@@ -680,12 +680,21 @@
             }
         }
 
-        // Positionen als Notizen anhängen
+        // Positionen als Notizen anhängen (auf 2000 Zeichen begrenzt)
         if (xData?.LineItems.Count > 0)
         {
-            var lines = xData.LineItems.Select(li =>
-                $"• {li.Description}: {li.Quantity:N2} x {li.UnitPrice:N2} € = {li.NetAmount:N2} € ({li.TaxPercent:N0}% MwSt)");
-            _model.Notes = string.Join("\n", lines);
+            var sb = new System.Text.StringBuilder();
+            foreach (var li in xData.LineItems)
+            {
+                var line = $"• {li.Description}: {li.Quantity:N2} x {li.UnitPrice:N2} € = {li.NetAmount:N2} € ({li.TaxPercent:N0}% MwSt)\n";
+                if (sb.Length + line.Length > 1950)
+                {
+                    sb.Append($"… (+{xData.LineItems.Count - xData.LineItems.IndexOf(li)} weitere Positionen)");
+                    break;
+                }
+                sb.Append(line);
+            }
+            _model.Notes = sb.ToString().TrimEnd();
         }
     }
 

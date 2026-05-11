@@ -71,6 +71,24 @@ Alle Module sind über den Host unter http://localhost:8080 erreichbar:
 
 Die Modul-Ports (8081–8086) sind intern und nicht nach außen exponiert.
 
+## Reverse Proxy (nginx)
+
+Wenn der Stack hinter nginx (oder einem anderen Proxy) läuft, **müssen** WebSocket-Upgrades durchgeleitet werden – sonst bricht die Blazor-Verbindung sofort ab:
+
+```nginx
+location / {
+    proxy_pass http://127.0.0.1:8080;
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade    $http_upgrade;
+    proxy_set_header Connection "upgrade";
+    proxy_read_timeout 3600s;
+    proxy_send_timeout 3600s;
+    # ... weitere Standard-Header, siehe nginx.example.conf
+}
+```
+
+Eine vollständige Beispiel-Konfiguration inkl. SSL liegt in `nginx.example.conf`.
+
 ## Versionen
 
 Versionen werden aus den Docker Images gezogen (`DOCKER_IMAGE_TAG`).
