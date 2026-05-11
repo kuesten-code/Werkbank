@@ -46,6 +46,10 @@ public class ReceptaDbContext : DbContext
             entity.Property(e => e.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
             entity.Property(e => e.UpdatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
 
+            entity.Property(e => e.DefaultCategory)
+                .HasConversion<string>()
+                .HasMaxLength(20);
+
             // Relationships
             entity.HasMany(e => e.Documents)
                 .WithOne(e => e.Supplier)

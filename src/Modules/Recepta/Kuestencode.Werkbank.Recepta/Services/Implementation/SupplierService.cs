@@ -60,7 +60,8 @@ public class SupplierService : ISupplierService
             TaxId = dto.TaxId,
             Iban = dto.Iban,
             Bic = dto.Bic,
-            Notes = dto.Notes
+            Notes = dto.Notes,
+            DefaultCategory = dto.DefaultCategory
         };
 
         await _supplierRepository.AddAsync(supplier);
@@ -91,6 +92,7 @@ public class SupplierService : ISupplierService
         supplier.Iban = dto.Iban;
         supplier.Bic = dto.Bic;
         supplier.Notes = dto.Notes;
+        supplier.DefaultCategory = dto.DefaultCategory;
 
         await _supplierRepository.UpdateAsync(supplier);
         return MapToDto(supplier);
@@ -129,6 +131,7 @@ public class SupplierService : ISupplierService
             Iban = supplier.Iban,
             Bic = supplier.Bic,
             Notes = supplier.Notes,
+            DefaultCategory = supplier.DefaultCategory?.ToString(),
             CreatedAt = supplier.CreatedAt,
             UpdatedAt = supplier.UpdatedAt,
             DocumentCount = supplier.Documents.Count

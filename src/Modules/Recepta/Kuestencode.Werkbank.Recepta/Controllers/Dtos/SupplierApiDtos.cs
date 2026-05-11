@@ -18,6 +18,7 @@ public class SupplierDto
     public string? Iban { get; set; }
     public string? Bic { get; set; }
     public string? Notes { get; set; }
+    public string? DefaultCategory { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
     public int DocumentCount { get; set; }
@@ -40,6 +41,7 @@ public class CreateSupplierRequest
     public string? Iban { get; set; }
     public string? Bic { get; set; }
     public string? Notes { get; set; }
+    public string? DefaultCategory { get; set; }
 }
 
 /// <summary>
@@ -58,4 +60,5 @@ public class UpdateSupplierRequest
     public string? Iban { get; set; }
     public string? Bic { get; set; }
     public string? Notes { get; set; }
+    public string? DefaultCategory { get; set; }
 }

@@ -1,6 +1,7 @@
 @page "/lieferanten/neu"
 @page "/lieferanten/{Id:guid}"
 @using Kuestencode.Werkbank.Recepta.Controllers.Dtos
+@using Kuestencode.Werkbank.Recepta.Domain.Enums
 @inject ISupplierService SupplierService
 @inject IDocumentService DocumentService
 @inject NavigationManager NavigationManager
@@ -64,6 +65,55 @@
                                      Variant="Variant.Outlined"
                                      MaxLength="200"
                                      Immediate="true" />
+                    </MudItem>
+                </MudGrid>
+
+                <!-- Einstellungen -->
+                <MudText Typo="Typo.h6" Class="mt-6 mb-2">Einstellungen</MudText>
+                <MudGrid>
+                    <MudItem xs="12" sm="6">
+                        <MudSelect T="DocumentCategory?" @bind-Value="_model.DefaultCategory"
+                                  Label="Standard-Kategorie"
+                                  Variant="Variant.Outlined"
+                                  Clearable="true"
+                                  HelperText="Wird bei neuen Belegen dieses Lieferanten vorbelegt">
+                            <MudSelectItem T="DocumentCategory?" Value="@((DocumentCategory?)null)"><em>— Keine Standard-Kategorie —</em></MudSelectItem>
+
+                            <MudSelectItem T="DocumentCategory?" Value="(DocumentCategory?)(-1)" Disabled="true"><MudText Typo="Typo.overline" Color="Color.Secondary">Wareneinsatz</MudText></MudSelectItem>
+                            <MudSelectItem T="DocumentCategory?" Value="@((DocumentCategory?)DocumentCategory.Material)">Material / Waren</MudSelectItem>
+
+                            <MudSelectItem T="DocumentCategory?" Value="(DocumentCategory?)(-2)" Disabled="true"><MudText Typo="Typo.overline" Color="Color.Secondary">Fremdleistungen</MudText></MudSelectItem>
+                            <MudSelectItem T="DocumentCategory?" Value="@((DocumentCategory?)DocumentCategory.Subcontractor)">Subunternehmer / Fremdleistungen</MudSelectItem>
+
+                            <MudSelectItem T="DocumentCategory?" Value="(DocumentCategory?)(-3)" Disabled="true"><MudText Typo="Typo.overline" Color="Color.Secondary">Personal</MudText></MudSelectItem>
+                            <MudSelectItem T="DocumentCategory?" Value="@((DocumentCategory?)DocumentCategory.Wages)">Löhne & Gehälter</MudSelectItem>
+                            <MudSelectItem T="DocumentCategory?" Value="@((DocumentCategory?)DocumentCategory.SocialSecurity)">Sozialversicherung</MudSelectItem>
+
+                            <MudSelectItem T="DocumentCategory?" Value="(DocumentCategory?)(-4)" Disabled="true"><MudText Typo="Typo.overline" Color="Color.Secondary">Raum & Betrieb</MudText></MudSelectItem>
+                            <MudSelectItem T="DocumentCategory?" Value="@((DocumentCategory?)DocumentCategory.Rent)">Miete</MudSelectItem>
+                            <MudSelectItem T="DocumentCategory?" Value="@((DocumentCategory?)DocumentCategory.Utilities)">Nebenkosten (Strom, Wasser, Heizung)</MudSelectItem>
+
+                            <MudSelectItem T="DocumentCategory?" Value="(DocumentCategory?)(-5)" Disabled="true"><MudText Typo="Typo.overline" Color="Color.Secondary">Fahrzeuge</MudText></MudSelectItem>
+                            <MudSelectItem T="DocumentCategory?" Value="@((DocumentCategory?)DocumentCategory.Vehicle)">Kfz-Kosten</MudSelectItem>
+
+                            <MudSelectItem T="DocumentCategory?" Value="(DocumentCategory?)(-6)" Disabled="true"><MudText Typo="Typo.overline" Color="Color.Secondary">Reisen</MudText></MudSelectItem>
+                            <MudSelectItem T="DocumentCategory?" Value="@((DocumentCategory?)DocumentCategory.Travel)">Reisekosten</MudSelectItem>
+
+                            <MudSelectItem T="DocumentCategory?" Value="(DocumentCategory?)(-7)" Disabled="true"><MudText Typo="Typo.overline" Color="Color.Secondary">Marketing</MudText></MudSelectItem>
+                            <MudSelectItem T="DocumentCategory?" Value="@((DocumentCategory?)DocumentCategory.Marketing)">Marketing & Werbung</MudSelectItem>
+
+                            <MudSelectItem T="DocumentCategory?" Value="(DocumentCategory?)(-8)" Disabled="true"><MudText Typo="Typo.overline" Color="Color.Secondary">Büro & IT</MudText></MudSelectItem>
+                            <MudSelectItem T="DocumentCategory?" Value="@((DocumentCategory?)DocumentCategory.Office)">Büromaterial</MudSelectItem>
+                            <MudSelectItem T="DocumentCategory?" Value="@((DocumentCategory?)DocumentCategory.Software)">Software & Lizenzen</MudSelectItem>
+                            <MudSelectItem T="DocumentCategory?" Value="@((DocumentCategory?)DocumentCategory.Phone)">Telefon & Internet</MudSelectItem>
+
+                            <MudSelectItem T="DocumentCategory?" Value="(DocumentCategory?)(-9)" Disabled="true"><MudText Typo="Typo.overline" Color="Color.Secondary">Versicherungen & Beiträge</MudText></MudSelectItem>
+                            <MudSelectItem T="DocumentCategory?" Value="@((DocumentCategory?)DocumentCategory.Insurance)">Versicherungen</MudSelectItem>
+                            <MudSelectItem T="DocumentCategory?" Value="@((DocumentCategory?)DocumentCategory.Fees)">Beiträge & Gebühren</MudSelectItem>
+
+                            <MudSelectItem T="DocumentCategory?" Value="(DocumentCategory?)(-10)" Disabled="true"><MudText Typo="Typo.overline" Color="Color.Secondary">Sonstiges</MudText></MudSelectItem>
+                            <MudSelectItem T="DocumentCategory?" Value="@((DocumentCategory?)DocumentCategory.Other)">Sonstige Kosten</MudSelectItem>
+                        </MudSelect>
                     </MudItem>
                 </MudGrid>
 
@@ -286,7 +336,8 @@
                     TaxId = _supplier.TaxId,
                     Iban = _supplier.Iban,
                     Bic = _supplier.Bic,
-                    Notes = _supplier.Notes
+                    Notes = _supplier.Notes,
+                    DefaultCategory = Enum.TryParse<DocumentCategory>(_supplier.DefaultCategory, out var cat) ? cat : null
                 };
 
                 // Belege dieses Lieferanten laden
@@ -348,7 +399,8 @@
                     TaxId = _model.TaxId,
                     Iban = _model.Iban,
                     Bic = _model.Bic,
-                    Notes = _model.Notes
+                    Notes = _model.Notes,
+                    DefaultCategory = _model.DefaultCategory
                 };
 
                 var supplier = await SupplierService.CreateAsync(dto);
@@ -369,7 +421,8 @@
                     TaxId = _model.TaxId,
                     Iban = _model.Iban,
                     Bic = _model.Bic,
-                    Notes = _model.Notes
+                    Notes = _model.Notes,
+                    DefaultCategory = _model.DefaultCategory
                 };
 
                 await SupplierService.UpdateAsync(Id!.Value, dto);
@@ -455,5 +508,6 @@
         public string? Iban { get; set; }
         public string? Bic { get; set; }
         public string? Notes { get; set; }
+        public DocumentCategory? DefaultCategory { get; set; }
     }
 }
