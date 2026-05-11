@@ -242,6 +242,24 @@
                                       Clearable="true"
                                       Class="@($"mt-3 {OcrClass("DueDate")}")" />
 
+                        @* Skonto *@
+                        <MudText Typo="Typo.overline" Color="Color.Secondary" Class="mt-6 mb-2">Skonto</MudText>
+                        <MudStack Row="true" Spacing="2">
+                            <MudNumericField @bind-Value="_model.SkontoPercent" T="decimal?"
+                                            Label="Skonto %"
+                                            Variant="Variant.Outlined"
+                                            Adornment="Adornment.End" AdornmentText="%"
+                                            Format="N2" Culture="@_culture" Min="0m" Max="100m"
+                                            Clearable="true"
+                                            Style="flex: 1;" />
+                            <MudNumericField @bind-Value="_model.SkontoDays" T="int?"
+                                            Label="Zahlungsziel (Tage)"
+                                            Variant="Variant.Outlined"
+                                            Min="1"
+                                            Clearable="true"
+                                            Style="flex: 1;" />
+                        </MudStack>
+
                         @* Beträge *@
                         <MudText Typo="Typo.overline" Color="Color.Secondary" Class="mt-6 mb-2">Beträge</MudText>
                         <MudStack Row="true" Spacing="2">
@@ -351,15 +369,11 @@
 
                             @if (_allocationRows.Count > 0)
                             {
-                                <MudTable Items="@_allocationRows" Dense="true" Elevation="0">
-                                    <HeaderContent>
-                                        <MudTh>Projekt</MudTh>
-                                        <MudTh Style="text-align: right; width: 160px;">Brutto (€)</MudTh>
-                                        <MudTh Style="width: 48px;"></MudTh>
-                                    </HeaderContent>
-                                    <RowTemplate Context="row">
-                                        <MudTd>
-                                            <MudSelect T="Guid?" @bind-Value="row.ProjectId"
+                                @foreach (var row in _allocationRows)
+                                {
+                                    <div class="mb-2">
+                                        <MudStack Row="false" Spacing="1">
+                                            <MudSelect T="Guid?" @bind-Value="row.ProjectId" Label="Projekt"
                                                       Variant="Variant.Outlined" Dense="true" Margin="Margin.Dense">
                                                 @foreach (var p in _projects)
                                                 {
@@ -369,21 +383,27 @@
                                                     </MudSelectItem>
                                                 }
                                             </MudSelect>
-                                        </MudTd>
-                                        <MudTd Style="text-align: right;">
                                             <MudNumericField T="decimal"
-                                                            @bind-Value="row.AllocatedGross"
+                                                            Value="row.AllocatedNet"
+                                                            ValueChanged="@((decimal v) => OnAllocationNetChanged(row, v))"
+                                                            Label="Netto (€)"
                                                             Variant="Variant.Outlined" Dense="true" Margin="Margin.Dense"
-                                                            Max="@(Math.Abs(_model.AmountGross))"
                                                             Format="N2" Culture="@_culture" />
-                                        </MudTd>
-                                        <MudTd>
-                                            <MudIconButton Icon="@Icons.Material.Filled.DeleteOutline"
-                                                          Color="Color.Error" Size="Size.Small"
-                                                          OnClick="@((_) => RemoveAllocationRow(row))" />
-                                        </MudTd>
-                                    </RowTemplate>
-                                </MudTable>
+                                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                                                <MudNumericField T="decimal"
+                                                                Value="row.AllocatedGross"
+                                                                ValueChanged="@((decimal v) => OnAllocationGrossChanged(row, v))"
+                                                                Label="Brutto (€)"
+                                                                Variant="Variant.Outlined" Dense="true" Margin="Margin.Dense"
+                                                                Max="@(Math.Abs(_model.AmountGross))"
+                                                                Format="N2" Culture="@_culture" />
+                                                <MudIconButton Icon="@Icons.Material.Filled.DeleteOutline"
+                                                              Color="Color.Error" Size="Size.Small"
+                                                              OnClick="@((_) => RemoveAllocationRow(row))" />
+                                            </MudStack>
+                                        </MudStack>
+                                    </div>
+                                }
                             }
 
                             <MudButton StartIcon="@Icons.Material.Filled.Add" Size="Size.Small"
@@ -862,6 +882,8 @@
                 AmountNet = _model.AmountNet,
                 AmountTax = _model.AmountTax,
                 AmountGross = _model.AmountGross,
+                SkontoPercent = _model.SkontoPercent,
+                SkontoDays = _model.SkontoDays,
                 Category = _model.Category,
                 OcrRawText = _model.OcrRawText,
                 Notes = _model.Notes
@@ -918,13 +940,35 @@
         var alreadyAllocated = _allocationRows.Sum(r => r.AllocatedGross);
         var remaining = Math.Round(_model.AmountGross - alreadyAllocated, 2);
         if (Math.Sign(remaining) != Math.Sign(_model.AmountGross) && remaining != 0) remaining = 0;
-        _allocationRows.Add(new AllocationRowModel { AllocatedGross = remaining });
+        _allocationRows.Add(new AllocationRowModel { AllocatedGross = remaining, AllocatedNet = GrossToNet(remaining) });
     }
 
     private void RemoveAllocationRow(AllocationRowModel row)
     {
         _allocationRows.Remove(row);
     }
+
+    private void OnAllocationGrossChanged(AllocationRowModel row, decimal gross)
+    {
+        row.AllocatedGross = gross;
+        row.AllocatedNet = GrossToNet(gross);
+    }
+
+    private void OnAllocationNetChanged(AllocationRowModel row, decimal net)
+    {
+        row.AllocatedNet = net;
+        row.AllocatedGross = NetToGross(net);
+    }
+
+    private decimal GrossToNet(decimal gross) =>
+        _model.AmountGross != 0
+            ? Math.Round(gross * _model.AmountNet / _model.AmountGross, 2)
+            : gross;
+
+    private decimal NetToGross(decimal net) =>
+        _model.AmountNet != 0
+            ? Math.Round(net * _model.AmountGross / _model.AmountNet, 2)
+            : net;
 
     private async Task SaveAllocationsAsync(Guid documentId)
     {
@@ -972,6 +1016,8 @@
         public decimal AmountNet => AmountNet19 + AmountNet7 + AmountNet0;
         public decimal AmountTax => AmountTax19 + AmountTax7;
         public decimal AmountGross => AmountNet + AmountTax;
+        public decimal? SkontoPercent { get; set; }
+        public int? SkontoDays { get; set; }
         public DocumentCategory Category { get; set; } = DocumentCategory.Other;
         public string? OcrRawText { get; set; }
         public string? Notes { get; set; }
@@ -980,6 +1026,7 @@
     private class AllocationRowModel
     {
         public Guid? ProjectId { get; set; }
+        public decimal AllocatedNet { get; set; }
         public decimal AllocatedGross { get; set; }
     }
 }

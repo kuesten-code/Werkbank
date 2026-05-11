@@ -303,6 +303,54 @@
                             </MudItem>
                         </MudGrid>
 
+                        <!-- Skonto -->
+                        <MudText Typo="Typo.h6" Class="mt-3 mb-1">Skonto</MudText>
+                        <MudGrid>
+                            <MudItem xs="6" sm="3">
+                                <MudNumericField @bind-Value="_model.SkontoPercent" T="decimal?"
+                                                Label="Skonto %"
+                                                Variant="Variant.Outlined"
+                                                Adornment="Adornment.End" AdornmentText="%"
+                                                Format="N2" Culture="@_culture" Min="0m" Max="100m"
+                                                Clearable="@_isDraft"
+                                                ReadOnly="@(!_isDraft)" />
+                            </MudItem>
+                            <MudItem xs="6" sm="3">
+                                <MudNumericField @bind-Value="_model.SkontoDays" T="int?"
+                                                Label="Zahlungsziel"
+                                                Variant="Variant.Outlined"
+                                                Min="1"
+                                                Clearable="@_isDraft"
+                                                ReadOnly="@(!_isDraft)" />
+                            </MudItem>
+                            @if (_model.SkontoPercent.HasValue && _model.SkontoDays.HasValue)
+                            {
+                                <MudItem xs="6" sm="3">
+                                    <MudTextField Value="@SkontoDeadlineDisplay"
+                                                 Label="Skonto-Frist"
+                                                 Variant="Variant.Outlined"
+                                                 ReadOnly="true" T="string" />
+                                </MudItem>
+                                <MudItem xs="6" sm="3">
+                                    <MudNumericField Value="@SkontoAmountDisplay"
+                                                    Label="Skontobetrag"
+                                                    Variant="Variant.Outlined"
+                                                    Adornment="Adornment.End" AdornmentText="€"
+                                                    Format="N2" Culture="@_culture"
+                                                    ReadOnly="true" T="decimal" />
+                                </MudItem>
+                            }
+                        </MudGrid>
+                        @if (_model.SkontoPercent.HasValue && _model.SkontoDays.HasValue && !_isDraft)
+                        {
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mt-2">
+                                <MudSwitch T="bool" Value="_document!.SkontoApplied"
+                                          ValueChanged="OnSkontoAppliedChanged"
+                                          Color="Color.Success"
+                                          Label="Skonto angewendet" />
+                            </MudStack>
+                        }
+
                         <!-- Beträge -->
                         <MudText Typo="Typo.h6" Class="mt-3 mb-1">Beträge</MudText>
                         <MudGrid>
@@ -422,20 +470,13 @@
 
                             @if (_allocationRows.Count > 0)
                             {
-                                <MudTable Items="@_allocationRows" Dense="true" Elevation="0">
-                                    <HeaderContent>
-                                        <MudTh>Projekt</MudTh>
-                                        <MudTh Style="text-align: right; width: 160px;">Brutto (€)</MudTh>
+                                @foreach (var row in _allocationRows)
+                                {
+                                    <div class="mb-2">
                                         @if (_isDraft)
                                         {
-                                            <MudTh Style="width: 48px;"></MudTh>
-                                        }
-                                    </HeaderContent>
-                                    <RowTemplate Context="row">
-                                        @if (_isDraft)
-                                        {
-                                            <MudTd>
-                                                <MudSelect T="Guid?" @bind-Value="row.ProjectId"
+                                            <MudStack Row="false" Spacing="1">
+                                                <MudSelect T="Guid?" @bind-Value="row.ProjectId" Label="Projekt"
                                                           Variant="Variant.Outlined" Dense="true" Margin="Margin.Dense">
                                                     @foreach (var p in _projects)
                                                     {
@@ -445,27 +486,37 @@
                                                         </MudSelectItem>
                                                     }
                                                 </MudSelect>
-                                            </MudTd>
-                                            <MudTd Style="text-align: right;">
                                                 <MudNumericField T="decimal"
-                                                                @bind-Value="row.AllocatedGross"
+                                                                Value="row.AllocatedNet"
+                                                                ValueChanged="@((decimal v) => OnAllocationNetChanged(row, v))"
+                                                                Label="Netto (€)"
                                                                 Variant="Variant.Outlined" Dense="true" Margin="Margin.Dense"
-                                                                Max="@(Math.Abs(_model.AmountGross))"
                                                                 Format="N2" Culture="@_culture" />
-                                            </MudTd>
-                                            <MudTd>
-                                                <MudIconButton Icon="@Icons.Material.Filled.DeleteOutline"
-                                                              Color="Color.Error" Size="Size.Small"
-                                                              OnClick="@((_) => RemoveAllocationRow(row))" />
-                                            </MudTd>
+                                                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                                                    <MudNumericField T="decimal"
+                                                                    Value="row.AllocatedGross"
+                                                                    ValueChanged="@((decimal v) => OnAllocationGrossChanged(row, v))"
+                                                                    Label="Brutto (€)"
+                                                                    Variant="Variant.Outlined" Dense="true" Margin="Margin.Dense"
+                                                                    Max="@(Math.Abs(_model.AmountGross))"
+                                                                    Format="N2" Culture="@_culture" />
+                                                    <MudIconButton Icon="@Icons.Material.Filled.DeleteOutline"
+                                                                  Color="Color.Error" Size="Size.Small"
+                                                                  OnClick="@((_) => RemoveAllocationRow(row))" />
+                                                </MudStack>
+                                            </MudStack>
                                         }
                                         else
                                         {
-                                            <MudTd>@GetProjectName(row.ProjectId)</MudTd>
-                                            <MudTd Style="text-align: right;">@row.AllocatedGross.ToString("N2", _culture) €</MudTd>
+                                            <MudStack Row="false" Spacing="0">
+                                                <MudText>@GetProjectName(row.ProjectId)</MudText>
+                                                <MudText Typo="Typo.body2" Color="Color.Secondary">
+                                                    Netto: @row.AllocatedNet.ToString("N2", _culture) € / Brutto: @row.AllocatedGross.ToString("N2", _culture) €
+                                                </MudText>
+                                            </MudStack>
                                         }
-                                    </RowTemplate>
-                                </MudTable>
+                                    </div>
+                                }
                             }
 
                             @if (_isDraft)
@@ -575,6 +626,20 @@
     private DateTime? _invoiceDate;
     private DateTime? _dueDate;
 
+    private string SkontoDeadlineDisplay
+    {
+        get
+        {
+            if (!_model.SkontoDays.HasValue || !_invoiceDate.HasValue) return "—";
+            return DateOnly.FromDateTime(_invoiceDate.Value).AddDays(_model.SkontoDays.Value).ToString("dd.MM.yyyy");
+        }
+    }
+
+    private decimal SkontoAmountDisplay =>
+        _model.SkontoPercent.HasValue
+            ? Math.Round(_model.AmountGross * _model.SkontoPercent.Value / 100, 2)
+            : 0m;
+
     // Dateien
     private List<DocumentFileDto> _files = new();
     private Guid? _selectedFileId;
@@ -662,6 +727,8 @@
                 AmountNet19 = _document.AmountNet19,
                 AmountNet7 = _document.AmountNet7,
                 AmountNet0 = _document.AmountNet0,
+                SkontoPercent = _document.SkontoPercent,
+                SkontoDays = _document.SkontoDays,
                 Category = Enum.TryParse<DocumentCategory>(_document.Category, out var cat) ? cat : DocumentCategory.Other,
                 Notes = _document.Notes
             };
@@ -677,6 +744,7 @@
             _allocationRows = _document.ProjectAllocations.Select(a => new AllocationRowModel
             {
                 ProjectId = a.ProjectId,
+                AllocatedNet = a.AllocatedNet,
                 AllocatedGross = a.AllocatedGross
             }).ToList();
         }
@@ -904,6 +972,20 @@
         _dueDate = value;
     }
 
+    private async Task OnSkontoAppliedChanged(bool applied)
+    {
+        if (_document == null) return;
+        try
+        {
+            await DocumentService.SetSkontoAppliedAsync(_document.Id, applied);
+            _document = await DocumentService.GetByIdAsync(_document.Id);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Fehler beim Speichern: {ex.Message}", Severity.Error);
+        }
+    }
+
     // Speichern
     private async Task SaveDocument()
     {
@@ -954,6 +1036,8 @@
                     AmountNet = _model.AmountNet,
                     AmountTax = _model.AmountTax,
                     AmountGross = _model.AmountGross,
+                    SkontoPercent = _model.SkontoPercent,
+                    SkontoDays = _model.SkontoDays,
                     Category = _model.Category,
                     Notes = _model.Notes
                 };
@@ -979,6 +1063,8 @@
                     AmountNet = _model.AmountNet,
                     AmountTax = _model.AmountTax,
                     AmountGross = _model.AmountGross,
+                    SkontoPercent = _model.SkontoPercent,
+                    SkontoDays = _model.SkontoDays,
                     Category = _model.Category,
                     Notes = _model.Notes
                 };
@@ -1148,8 +1234,30 @@
         var alreadyAllocated = _allocationRows.Sum(r => r.AllocatedGross);
         var remaining = Math.Round(_model.AmountGross - alreadyAllocated, 2);
         if (Math.Sign(remaining) != Math.Sign(_model.AmountGross) && remaining != 0) remaining = 0;
-        _allocationRows.Add(new AllocationRowModel { AllocatedGross = remaining });
+        _allocationRows.Add(new AllocationRowModel { AllocatedGross = remaining, AllocatedNet = GrossToNet(remaining) });
     }
+
+    private void OnAllocationGrossChanged(AllocationRowModel row, decimal gross)
+    {
+        row.AllocatedGross = gross;
+        row.AllocatedNet = GrossToNet(gross);
+    }
+
+    private void OnAllocationNetChanged(AllocationRowModel row, decimal net)
+    {
+        row.AllocatedNet = net;
+        row.AllocatedGross = NetToGross(net);
+    }
+
+    private decimal GrossToNet(decimal gross) =>
+        _model.AmountGross != 0
+            ? Math.Round(gross * _model.AmountNet / _model.AmountGross, 2)
+            : gross;
+
+    private decimal NetToGross(decimal net) =>
+        _model.AmountNet != 0
+            ? Math.Round(net * _model.AmountGross / _model.AmountNet, 2)
+            : net;
 
     private void RemoveAllocationRow(AllocationRowModel row)
     {
@@ -1197,6 +1305,8 @@
         public decimal AmountNet => AmountNet19 + AmountNet7 + AmountNet0;
         public decimal AmountTax => AmountTax19 + AmountTax7;
         public decimal AmountGross => AmountNet + AmountTax;
+        public decimal? SkontoPercent { get; set; }
+        public int? SkontoDays { get; set; }
         public DocumentCategory Category { get; set; } = DocumentCategory.Other;
         public string? Notes { get; set; }
     }
@@ -1204,6 +1314,7 @@
     private class AllocationRowModel
     {
         public Guid? ProjectId { get; set; }
+        public decimal AllocatedNet { get; set; }
         public decimal AllocatedGross { get; set; }
     }
 }
