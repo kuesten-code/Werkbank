@@ -120,6 +120,22 @@ public class Document
     public string? OcrRawText { get; set; }
 
     /// <summary>
+    /// Skonto-Prozentsatz (z. B. 2,00 für 2 %). Null = kein Skonto vereinbart.
+    /// </summary>
+    [Column(TypeName = "decimal(5,2)")]
+    public decimal? SkontoPercent { get; set; }
+
+    /// <summary>
+    /// Zahlungsziel für Skonto in Tagen ab Rechnungsdatum. Null = kein Skonto vereinbart.
+    /// </summary>
+    public int? SkontoDays { get; set; }
+
+    /// <summary>
+    /// Gibt an, ob Skonto tatsächlich angewendet wurde (manuell gesetzt).
+    /// </summary>
+    public bool SkontoApplied { get; set; }
+
+    /// <summary>
     /// Optionale Notizen.
     /// </summary>
     [MaxLength(2000)]
@@ -149,4 +165,20 @@ public class Document
     public bool IsOverdue => DueDate.HasValue
         && DateOnly.FromDateTime(DateTime.UtcNow) > DueDate.Value
         && Status != DocumentStatus.Paid;
+
+    /// <summary>
+    /// Letzter Tag, an dem Skonto noch gilt. Null wenn kein Skonto hinterlegt.
+    /// </summary>
+    [NotMapped]
+    public DateOnly? SkontoDeadline => SkontoDays.HasValue
+        ? InvoiceDate.AddDays(SkontoDays.Value)
+        : null;
+
+    /// <summary>
+    /// Absoluter Skontobetrag (AmountGross × SkontoPercent / 100). Null wenn kein Skonto hinterlegt.
+    /// </summary>
+    [NotMapped]
+    public decimal? SkontoAmount => SkontoPercent.HasValue
+        ? Math.Round(AmountGross * SkontoPercent.Value / 100, 2)
+        : null;
 }

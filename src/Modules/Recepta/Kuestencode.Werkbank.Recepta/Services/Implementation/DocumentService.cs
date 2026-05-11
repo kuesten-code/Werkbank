@@ -125,6 +125,8 @@ public class DocumentService : IDocumentService
             TaxRate = dto.AmountNet > 0 ? Math.Round(dto.AmountTax / dto.AmountNet * 100, 2) : 0,
             AmountTax = dto.AmountTax,
             AmountGross = dto.AmountGross,
+            SkontoPercent = dto.SkontoPercent,
+            SkontoDays = dto.SkontoDays,
             Category = dto.Category,
             Status = DocumentStatus.Draft,
             OcrRawText = dto.OcrRawText,
@@ -317,6 +319,8 @@ public class DocumentService : IDocumentService
         document.TaxRate = dto.AmountNet > 0 ? Math.Round(dto.AmountTax / dto.AmountNet * 100, 2) : 0;
         document.AmountTax = dto.AmountTax;
         document.AmountGross = dto.AmountGross;
+        document.SkontoPercent = dto.SkontoPercent;
+        document.SkontoDays = dto.SkontoDays;
         document.Category = dto.Category;
         document.Notes = dto.Notes;
 
@@ -507,6 +511,16 @@ public class DocumentService : IDocumentService
         await _allocationRepository.SetAllocationsAsync(documentId, entities);
     }
 
+    public async Task SetSkontoAppliedAsync(Guid documentId, bool applied)
+    {
+        var document = await _documentRepository.GetByIdAsync(documentId);
+        if (document == null)
+            throw new InvalidOperationException($"Beleg mit ID {documentId} nicht gefunden.");
+
+        document.SkontoApplied = applied;
+        await _documentRepository.UpdateAsync(document);
+    }
+
     private static DocumentDto MapToDto(Document document)
     {
         return new DocumentDto
@@ -528,6 +542,11 @@ public class DocumentService : IDocumentService
             TaxRate = document.TaxRate,
             AmountTax = document.AmountTax,
             AmountGross = document.AmountGross,
+            SkontoPercent = document.SkontoPercent,
+            SkontoDays = document.SkontoDays,
+            SkontoApplied = document.SkontoApplied,
+            SkontoAmount = document.SkontoAmount,
+            SkontoDeadline = document.SkontoDeadline,
             Category = document.Category.ToString(),
             Status = document.Status.ToString(),
             HasBeenAttached = document.HasBeenAttached,

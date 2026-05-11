@@ -455,4 +455,18 @@ public class DocumentsController : ControllerBase
         await _documentService.MarkAsAttachedAsync(request.DocumentIds);
         return Ok(new { updated = request.DocumentIds.Distinct().Count() });
     }
+
+    [HttpPatch("{id:guid}/skonto-applied")]
+    public async Task<IActionResult> SetSkontoApplied(Guid id, [FromBody] bool applied)
+    {
+        try
+        {
+            await _documentService.SetSkontoAppliedAsync(id, applied);
+            return NoContent();
+        }
+        catch (InvalidOperationException ex)
+        {
+            return NotFound(new { error = ex.Message });
+        }
+    }
 }

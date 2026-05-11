@@ -20,6 +20,8 @@ public class CreateDocumentDto
     public decimal AmountNet { get; set; }
     public decimal AmountTax { get; set; }
     public decimal AmountGross { get; set; }
+    public decimal? SkontoPercent { get; set; }
+    public int? SkontoDays { get; set; }
     public DocumentCategory Category { get; set; } = DocumentCategory.Other;
     public string? OcrRawText { get; set; }
     public string? Notes { get; set; }
@@ -42,6 +44,8 @@ public class UpdateDocumentDto
     public decimal AmountNet { get; set; }
     public decimal AmountTax { get; set; }
     public decimal AmountGross { get; set; }
+    public decimal? SkontoPercent { get; set; }
+    public int? SkontoDays { get; set; }
     public DocumentCategory Category { get; set; } = DocumentCategory.Other;
     public string? Notes { get; set; }
 }

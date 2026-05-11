@@ -24,6 +24,11 @@ public class DocumentDto
     public decimal TaxRate { get; set; }
     public decimal AmountTax { get; set; }
     public decimal AmountGross { get; set; }
+    public decimal? SkontoPercent { get; set; }
+    public int? SkontoDays { get; set; }
+    public bool SkontoApplied { get; set; }
+    public decimal? SkontoAmount { get; set; }
+    public DateOnly? SkontoDeadline { get; set; }
     public string Category { get; set; } = string.Empty;
     public string Status { get; set; } = string.Empty;
     public bool HasBeenAttached { get; set; }

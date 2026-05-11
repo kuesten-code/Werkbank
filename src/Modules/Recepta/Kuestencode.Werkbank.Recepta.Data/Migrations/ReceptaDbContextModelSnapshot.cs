@@ -136,6 +136,18 @@ namespace Kuestencode.Werkbank.Recepta.Data.Migrations
                     b.Property<DateOnly?>("PaidDate")
                         .HasColumnType("date");
 
+                    b.Property<bool>("SkontoApplied")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
+
+                    b.Property<int?>("SkontoDays")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal?>("SkontoPercent")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("decimal(5,2)");
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasMaxLength(20)

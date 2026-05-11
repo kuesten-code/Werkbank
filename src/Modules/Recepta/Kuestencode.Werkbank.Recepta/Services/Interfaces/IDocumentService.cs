@@ -75,4 +75,9 @@ public interface IDocumentService
     /// Nur bei Status Draft erlaubt.
     /// </summary>
     Task SetAllocationsAsync(Guid documentId, IEnumerable<SetAllocationDto> allocations);
+
+    /// <summary>
+    /// Setzt das SkontoApplied-Flag unabhängig vom Beleg-Status.
+    /// </summary>
+    Task SetSkontoAppliedAsync(Guid documentId, bool applied);
 }
