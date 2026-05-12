@@ -22,6 +22,7 @@ public class DocumentRepository : IDocumentRepository
             .Include(d => d.Supplier)
             .Include(d => d.Files)
             .Include(d => d.ProjectAllocations)
+            .Include(d => d.Payments.OrderByDescending(p => p.PaymentDate))
             .FirstOrDefaultAsync(d => d.Id == id);
     }
 
@@ -35,6 +36,7 @@ public class DocumentRepository : IDocumentRepository
             .Include(d => d.Supplier)
             .Include(d => d.Files)
             .Include(d => d.ProjectAllocations)
+            .Include(d => d.Payments)
             .AsQueryable();
 
         if (status.HasValue)

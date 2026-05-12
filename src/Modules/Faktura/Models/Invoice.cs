@@ -71,6 +71,7 @@ public class Invoice
     public List<InvoiceItem> Items { get; set; } = new();
     public List<DownPayment> DownPayments { get; set; } = new();
     public List<InvoiceAttachment> Attachments { get; set; } = new();
+    public List<InvoicePayment> Payments { get; set; } = new();
 
     // Computed Properties
     [NotMapped]
@@ -115,4 +116,10 @@ public class Invoice
 
     [NotMapped]
     public decimal AmountDue => TotalGross - TotalDownPayments;
+
+    [NotMapped]
+    public decimal TotalPaid => Payments?.Sum(p => p.Amount) ?? 0;
+
+    [NotMapped]
+    public decimal RemainingAmount => TotalGross - TotalPaid;
 }

@@ -1,4 +1,5 @@
 using FluentAssertions;
+using Kuestencode.Core.Interfaces;
 using Kuestencode.Shared.ApiClients;
 using Kuestencode.Shared.Contracts.Faktura;
 using Kuestencode.Werkbank.Saldo.Data.Repositories;
@@ -22,6 +23,7 @@ public class DatevExportServiceTests
     private readonly Mock<IReceptaApiClient> _receptaClient = new();
     private readonly Mock<IReceptaDataService> _receptaDataService = new();
     private readonly Mock<IExportLogRepository> _exportLogRepo = new();
+    private readonly Mock<ICompanyService> _companyService = new();
 
     private static readonly DateOnly Von = new(2026, 1, 1);
     private static readonly DateOnly Bis = new(2026, 12, 31);
@@ -29,7 +31,7 @@ public class DatevExportServiceTests
     private DatevExportService CreateService() =>
         new(_saldoService.Object, _settingsRepo.Object, _kontoMappingService.Object,
             _fakturaClient.Object, _receptaClient.Object, _receptaDataService.Object,
-            _exportLogRepo.Object, NullLogger<DatevExportService>.Instance);
+            _exportLogRepo.Object, _companyService.Object, NullLogger<DatevExportService>.Instance);
 
     private void SetupBasicMocks()
     {
@@ -396,10 +398,10 @@ public class DatevExportServiceTests
     public async Task ExportBelege_GibtGueltigesZipZurueck()
     {
         SetupBasicMocks();
-        _receptaDataService.Setup(s => s.GetDocumentsAsync(Von, Bis))
-            .ReturnsAsync(new List<Kuestencode.Shared.Contracts.Recepta.ReceptaDocumentDto>());
-        _fakturaClient.Setup(c => c.GetAllInvoicesAsync(It.IsAny<InvoiceFilterDto>()))
-            .ReturnsAsync(new List<BuchungDto>().Select(_ => new Kuestencode.Shared.Contracts.Faktura.InvoiceDto()).ToList());
+        _receptaDataService.Setup(s => s.GetPaymentsAsync(Von, Bis))
+            .ReturnsAsync(new List<Kuestencode.Shared.Contracts.Recepta.ReceptaPaymentDto>());
+        _fakturaClient.Setup(c => c.GetEuerPaymentsAsync(Von, Bis))
+            .ReturnsAsync(new List<Kuestencode.Shared.Contracts.Faktura.InvoiceEuerPaymentDto>());
 
         var service = CreateService();
         var result = await service.ExportBelegeAsync(Von, Bis);
@@ -415,10 +417,10 @@ public class DatevExportServiceTests
     public async Task ExportBelege_LoggtExport()
     {
         SetupBasicMocks();
-        _receptaDataService.Setup(s => s.GetDocumentsAsync(Von, Bis))
-            .ReturnsAsync(new List<Kuestencode.Shared.Contracts.Recepta.ReceptaDocumentDto>());
-        _fakturaClient.Setup(c => c.GetAllInvoicesAsync(It.IsAny<InvoiceFilterDto>()))
-            .ReturnsAsync(new List<Kuestencode.Shared.Contracts.Faktura.InvoiceDto>());
+        _receptaDataService.Setup(s => s.GetPaymentsAsync(Von, Bis))
+            .ReturnsAsync(new List<Kuestencode.Shared.Contracts.Recepta.ReceptaPaymentDto>());
+        _fakturaClient.Setup(c => c.GetEuerPaymentsAsync(Von, Bis))
+            .ReturnsAsync(new List<Kuestencode.Shared.Contracts.Faktura.InvoiceEuerPaymentDto>());
 
         var service = CreateService();
         await service.ExportBelegeAsync(Von, Bis);

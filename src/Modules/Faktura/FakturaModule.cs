@@ -33,12 +33,14 @@ public static class FakturaModule
         // Register Repositories
         services.AddScoped(typeof(FakturaRepo.IRepository<>), typeof(Repository<>));
         services.AddScoped<IInvoiceRepository, InvoiceRepository>();
+        services.AddScoped<FakturaRepo.IInvoicePaymentRepository, FakturaRepo.InvoicePaymentRepository>();
 
         // HINWEIS: Company und Customer Services kommen aus dem Host-Projekt
         // und müssen dort registriert werden
 
         // Register Faktura Services
         services.AddScoped<IInvoiceService, InvoiceService>();
+        services.AddScoped<IInvoicePaymentService, InvoicePaymentService>();
         services.AddScoped<IDashboardService, DashboardService>();
         services.AddScoped<IXRechnungService, XRechnungService>();
         services.AddScoped<IPreviewService, PreviewService>();

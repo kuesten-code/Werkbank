@@ -12,6 +12,7 @@ namespace Kuestencode.Faktura.Controllers;
 public class InvoiceController : ControllerBase
 {
     private readonly IInvoiceService _invoiceService;
+    private readonly IInvoicePaymentService _paymentService;
     private readonly IPdfGeneratorService _pdfGeneratorService;
     private readonly IPdfMergeService _pdfMergeService;
     private readonly IEmailService _emailService;
@@ -20,6 +21,7 @@ public class InvoiceController : ControllerBase
 
     public InvoiceController(
         IInvoiceService invoiceService,
+        IInvoicePaymentService paymentService,
         IPdfGeneratorService pdfGeneratorService,
         IPdfMergeService pdfMergeService,
         IEmailService emailService,
@@ -27,6 +29,7 @@ public class InvoiceController : ControllerBase
         ILogger<InvoiceController> logger)
     {
         _invoiceService = invoiceService;
+        _paymentService = paymentService;
         _pdfGeneratorService = pdfGeneratorService;
         _pdfMergeService = pdfMergeService;
         _emailService = emailService;
@@ -297,6 +300,64 @@ public class InvoiceController : ControllerBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error marking invoice {InvoiceId} as paid", id);
+            return StatusCode(500, "Internal server error");
+        }
+    }
+
+    /// <summary>
+    /// Liefert alle Zahlungen im Zeitraum, angereichert mit Rechnungspositionen, für die EÜR.
+    /// Jede Teilzahlung erscheint als eigener Eintrag.
+    /// </summary>
+    [HttpGet("euer-payments")]
+    public async Task<ActionResult<List<InvoiceEuerPaymentDto>>> GetEuerPayments(
+        [FromQuery] DateTime from,
+        [FromQuery] DateTime to)
+    {
+        try
+        {
+            var payments = await _paymentService.GetByPaymentDateRangeAsync(
+                DateTime.SpecifyKind(from, DateTimeKind.Utc),
+                DateTime.SpecifyKind(to, DateTimeKind.Utc));
+
+            // Resolve customer names once per unique CustomerId
+            var customerIds = payments.Select(p => p.Invoice.CustomerId).Distinct();
+            var customerNames = new Dictionary<int, string?>();
+            foreach (var customerId in customerIds)
+            {
+                var customer = await _hostApiClient.GetCustomerAsync(customerId);
+                customerNames[customerId] = customer?.Name;
+            }
+
+            var result = payments.Select(p => new InvoiceEuerPaymentDto
+            {
+                PaymentId = p.Id,
+                InvoiceId = p.InvoiceId,
+                InvoiceNumber = p.Invoice.InvoiceNumber,
+                InvoiceDate = p.Invoice.InvoiceDate,
+                PaymentDate = DateOnly.FromDateTime(p.PaymentDate),
+                PaymentAmount = p.Amount,
+                InvoiceTotalGross = p.Invoice.TotalGross,
+                CustomerName = customerNames.GetValueOrDefault(p.Invoice.CustomerId),
+                Items = p.Invoice.Items.Select(item => new InvoiceItemDto
+                {
+                    Id = item.Id,
+                    InvoiceId = item.InvoiceId,
+                    Position = item.Position,
+                    Description = item.Description,
+                    Quantity = item.Quantity,
+                    UnitPrice = item.UnitPrice,
+                    VatRate = item.VatRate,
+                    TotalNet = item.TotalNet,
+                    TotalVat = item.TotalVat,
+                    TotalGross = item.TotalGross
+                }).ToList()
+            }).ToList();
+
+            return Ok(result);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Fehler beim Laden der EÜR-Zahlungen für {From} - {To}", from, to);
             return StatusCode(500, "Internal server error");
         }
     }

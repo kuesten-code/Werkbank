@@ -9,6 +9,7 @@
 @inject ICachedProjectService ProjectCache
 @inject NavigationManager NavigationManager
 @inject ISnackbar Snackbar
+@inject Kuestencode.Werkbank.Recepta.Services.Interfaces.IDocumentPaymentService PaymentService
 
 <PageTitle>Beleg @(_document?.DocumentNumber ?? "") - Küstencode Recepta</PageTitle>
 
@@ -75,6 +76,19 @@
                               StartIcon="@Icons.Material.Filled.Paid"
                               OnClick="OpenMarkAsPaidDialog" Disabled="@_statusChanging">
                         Als bezahlt markieren
+                    </MudButton>
+                    <MudButton Variant="Variant.Filled" Color="Color.Warning"
+                              StartIcon="@Icons.Material.Filled.Payments"
+                              OnClick="OpenZahlungModal" Disabled="@_statusChanging">
+                        Zahlung erfassen
+                    </MudButton>
+                }
+                else if (_document.Status == "PartiallyPaid")
+                {
+                    <MudButton Variant="Variant.Filled" Color="Color.Warning"
+                              StartIcon="@Icons.Material.Filled.Payments"
+                              OnClick="OpenZahlungModal" Disabled="@_statusChanging">
+                        Zahlung erfassen
                     </MudButton>
                 }
                 @if (_statusChanging)
@@ -320,6 +334,100 @@
             </MudPaper>
         }
 
+        @* Zahlungen *@
+        @if (_document.Status != "Draft")
+        {
+            <MudPaper Class="pa-4 mt-4" Elevation="2">
+                <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-3">
+                    <MudText Typo="Typo.h6">Zahlungen</MudText>
+                    @if (_document.Status != "Paid")
+                    {
+                        <MudButton Variant="Variant.Filled" Color="Color.Warning"
+                                  StartIcon="@Icons.Material.Filled.Add"
+                                  Size="Size.Small"
+                                  OnClick="OpenZahlungModal">
+                            Zahlung erfassen
+                        </MudButton>
+                    }
+                </MudStack>
+
+                @if (_document.Payments.Count > 0)
+                {
+                    <MudTable Items="@_document.Payments" Dense="true" Hover="false" Elevation="0">
+                        <HeaderContent>
+                            <MudTh>Datum</MudTh>
+                            <MudTh Style="text-align: right">Betrag</MudTh>
+                            <MudTh>Notiz</MudTh>
+                            <MudTh Style="text-align: right"></MudTh>
+                        </HeaderContent>
+                        <RowTemplate>
+                            <MudTd DataLabel="Datum">@context.PaymentDate.ToString("dd.MM.yyyy")</MudTd>
+                            <MudTd DataLabel="Betrag" Style="text-align: right">@context.Amount.ToString("N2", _culture) €</MudTd>
+                            <MudTd DataLabel="Notiz">@context.Notes</MudTd>
+                            <MudTd Style="text-align: right">
+                                @if (_document.Status != "Paid")
+                                {
+                                    <MudIconButton Icon="@Icons.Material.Filled.Delete"
+                                                  Size="Size.Small" Color="Color.Error"
+                                                  OnClick="@(() => LoescheZahlung(context.Id))" />
+                                }
+                            </MudTd>
+                        </RowTemplate>
+                    </MudTable>
+
+                    <MudDivider Class="my-2" />
+                    <MudStack Row="true" Justify="Justify.FlexEnd" Spacing="4" Class="pr-2">
+                        @if (_document.Status == "Paid")
+                        {
+                            <MudText Typo="Typo.subtitle2" Color="Color.Success">
+                                Vollständig bezahlt
+                            </MudText>
+                        }
+                        else
+                        {
+                            <MudText Typo="Typo.subtitle2" Color="Color.Secondary">
+                                Offen: <strong>@_document.RemainingAmount.ToString("N2", _culture) €</strong>
+                            </MudText>
+                        }
+                    </MudStack>
+                }
+                else
+                {
+                    <MudText Typo="Typo.body2" Color="Color.Secondary" Align="Align.Center" Class="py-3">
+                        Noch keine Zahlungen erfasst.
+                    </MudText>
+                }
+            </MudPaper>
+        }
+
+        @* Zahlung erfassen Modal *@
+        @if (_zahlungModalOpen)
+        {
+            <MudOverlay Visible="true" DarkBackground="true" ZIndex="1200" />
+            <MudPaper Style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 1300; min-width: 360px;"
+                      Elevation="8" Class="pa-6">
+                <MudText Typo="Typo.h6" GutterBottom="true">Zahlung erfassen</MudText>
+                <MudDatePicker Label="Datum" @bind-Date="_zahlungDatumInput"
+                               DateFormat="dd.MM.yyyy" Variant="Variant.Outlined"
+                               MaxDate="DateTime.Today" Class="mb-3" />
+                <MudNumericField T="decimal" Label="Betrag (€)" @bind-Value="_zahlungBetrag"
+                                 Variant="Variant.Outlined" Min="0.01m" Format="N2" Class="mb-3" />
+                <MudTextField T="string" Label="Notiz (optional)" @bind-Value="_zahlungNotiz"
+                              Variant="Variant.Outlined" Class="mb-4" />
+                <MudStack Row="true" Justify="Justify.FlexEnd" Spacing="2">
+                    <MudButton Variant="Variant.Text" OnClick="CloseZahlungModal" Disabled="@_zahlungSaving">
+                        Abbrechen
+                    </MudButton>
+                    <MudButton Variant="Variant.Filled" Color="Color.Warning"
+                               StartIcon="@Icons.Material.Filled.Save"
+                               OnClick="ErfasseZahlung" Disabled="@(_zahlungSaving || _zahlungBetrag <= 0)">
+                        @if (_zahlungSaving) { <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" /> }
+                        Speichern
+                    </MudButton>
+                </MudStack>
+            </MudPaper>
+        }
+
         @* Footer Actions *@
         <MudStack Row="true" Justify="Justify.SpaceBetween" Class="mt-4">
             <MudButton Variant="Variant.Filled" Color="Color.Default"
@@ -349,6 +457,13 @@
     private bool _statusChanging;
     private bool _markAsPaidOpen = false;
     private DateTime? _paidDateInput = DateTime.Today;
+
+    // Zahlung erfassen Modal
+    private bool _zahlungModalOpen = false;
+    private decimal _zahlungBetrag;
+    private DateTime? _zahlungDatumInput = DateTime.Today;
+    private string? _zahlungNotiz;
+    private bool _zahlungSaving = false;
 
     private DocumentDto? _document;
     private List<DocumentFileDto> _files = new();
@@ -529,11 +644,64 @@
         NavigationManager.NavigateTo("/recepta/belege");
     }
 
+    private void OpenZahlungModal()
+    {
+        if (_document == null) return;
+        _zahlungBetrag = _document.RemainingAmount > 0 ? _document.RemainingAmount : 0;
+        _zahlungDatumInput = DateTime.Today;
+        _zahlungNotiz = null;
+        _zahlungModalOpen = true;
+    }
+
+    private void CloseZahlungModal()
+    {
+        _zahlungModalOpen = false;
+    }
+
+    private async Task ErfasseZahlung()
+    {
+        if (_document == null || _zahlungBetrag <= 0) return;
+
+        _zahlungSaving = true;
+        try
+        {
+            var datum = DateOnly.FromDateTime((_zahlungDatumInput ?? DateTime.Today).Date);
+            await PaymentService.ZahlungErfassenAsync(_document.Id, _zahlungBetrag, datum, _zahlungNotiz);
+            _zahlungModalOpen = false;
+            Snackbar.Add($"Zahlung über {_zahlungBetrag.ToString("N2", _culture)} € wurde erfasst.", Severity.Success);
+            _document = await DocumentService.GetByIdAsync(Id);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Fehler beim Erfassen der Zahlung: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _zahlungSaving = false;
+        }
+    }
+
+    private async Task LoescheZahlung(Guid zahlungId)
+    {
+        if (_document == null) return;
+        try
+        {
+            await PaymentService.ZahlungLoeschenAsync(zahlungId);
+            Snackbar.Add("Zahlung wurde gelöscht.", Severity.Success);
+            _document = await DocumentService.GetByIdAsync(Id);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Fehler beim Löschen der Zahlung: {ex.Message}", Severity.Error);
+        }
+    }
+
     private static string GetStatusText(string status) => status switch
     {
         "Draft" => "Entwurf",
         "Booked" => "Verbucht",
         "Paid" => "Bezahlt",
+        "PartiallyPaid" => "Teilbezahlt",
         _ => status
     };
 
@@ -542,6 +710,7 @@
         "Draft" => Color.Default,
         "Booked" => Color.Info,
         "Paid" => Color.Success,
+        "PartiallyPaid" => Color.Warning,
         _ => Color.Default
     };
 

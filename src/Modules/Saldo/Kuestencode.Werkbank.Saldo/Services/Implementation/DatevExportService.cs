@@ -232,42 +232,37 @@ public class DatevExportService : IDatevExportService
 
     private async Task<int> AddFakturaRechnungenAsync(ZipArchive archive, DateOnly von, DateOnly bis)
     {
-        var filter = new InvoiceFilterDto
-        {
-            Status = "Paid",
-            PaidFrom = von.ToDateTime(TimeOnly.MinValue),
-            PaidTo = bis.ToDateTime(TimeOnly.MaxValue)
-        };
-
-        List<Kuestencode.Shared.Contracts.Faktura.InvoiceDto> invoices;
+        List<Kuestencode.Shared.Contracts.Faktura.InvoiceEuerPaymentDto> payments;
         try
         {
-            invoices = await _fakturaClient.GetAllInvoicesAsync(filter);
+            payments = await _fakturaClient.GetEuerPaymentsAsync(von, bis);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Fehler beim Laden der Faktura-Rechnungen für Belege-Export");
+            _logger.LogError(ex, "Fehler beim Laden der Faktura-Zahlungen für Belege-Export");
             return 0;
         }
 
+        // One PDF per unique invoice, regardless of how many partial payments exist
+        var uniqueInvoices = payments
+            .DistinctBy(p => p.InvoiceId)
+            .ToList();
+
         var count = 0;
-        foreach (var invoice in invoices)
+        foreach (var payment in uniqueInvoices)
         {
             try
             {
-                var pdfBytes = await _fakturaClient.GenerateInvoicePdfAsync(invoice.Id);
-                var paidDate = invoice.PaidDate.HasValue
-                    ? DateOnly.FromDateTime(invoice.PaidDate.Value)
-                    : DateOnly.FromDateTime(invoice.InvoiceDate);
+                var pdfBytes = await _fakturaClient.GenerateInvoicePdfAsync(payment.InvoiceId);
+                var belegDatum = payment.PaymentDate;
 
-                // Dateinamen-Schema: {Datum}_{Typ}_{Nummer}.pdf
-                var fileName = $"{paidDate:yyyy-MM-dd}_RE_{SanitizeFileName(invoice.InvoiceNumber)}.pdf";
+                var fileName = $"{belegDatum:yyyy-MM-dd}_RE_{SanitizeFileName(payment.InvoiceNumber)}.pdf";
                 AddFileToZip(archive, $"Rechnungen/{fileName}", pdfBytes);
                 count++;
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "PDF für Rechnung {InvoiceNumber} konnte nicht generiert werden", invoice.InvoiceNumber);
+                _logger.LogWarning(ex, "PDF für Rechnung {InvoiceNumber} konnte nicht generiert werden", payment.InvoiceNumber);
             }
         }
 
@@ -276,44 +271,45 @@ public class DatevExportService : IDatevExportService
 
     private async Task<int> AddReceptaBelegeAsync(ZipArchive archive, DateOnly von, DateOnly bis)
     {
-        List<Kuestencode.Shared.Contracts.Recepta.ReceptaDocumentDto> docs;
+        List<Kuestencode.Shared.Contracts.Recepta.ReceptaPaymentDto> payments;
         try
         {
-            docs = await _receptaDataService.GetDocumentsAsync(von, bis);
+            payments = await _receptaDataService.GetPaymentsAsync(von, bis);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Fehler beim Laden der Recepta-Belege für Belege-Export");
+            _logger.LogError(ex, "Fehler beim Laden der Recepta-Zahlungen für Belege-Export");
             return 0;
         }
 
+        // One file per unique document, regardless of how many partial payments exist
+        var uniqueDocuments = payments
+            .DistinctBy(p => p.DocumentId)
+            .ToList();
+
         var count = 0;
-        foreach (var doc in docs)
+        foreach (var payment in uniqueDocuments)
         {
             try
             {
-                // Dateien zum Beleg laden
-                var files = await _receptaClient.GetFilesByDocumentAsync(doc.Id);
+                var files = await _receptaClient.GetFilesByDocumentAsync(payment.DocumentId);
                 if (files.Count == 0) continue;
 
-                // Nur die erste (primäre) Datei exportieren
                 var primaryFile = files[0];
                 var downloaded = await _receptaClient.DownloadFileAsync(primaryFile.Id);
                 if (downloaded == null) continue;
 
                 var (data, _, _) = downloaded.Value;
-                var paidDate = doc.PaidDate ?? doc.InvoiceDate;
                 var ext = Path.GetExtension(primaryFile.FileName).TrimStart('.');
                 if (string.IsNullOrEmpty(ext)) ext = "pdf";
 
-                // Dateinamen-Schema: {Datum}_{Typ}_{Nummer}.{ext}
-                var fileName = $"{paidDate:yyyy-MM-dd}_ER_{SanitizeFileName(doc.DocumentNumber)}.{ext}";
+                var fileName = $"{payment.PaymentDate:yyyy-MM-dd}_ER_{SanitizeFileName(payment.DocumentNumber)}.{ext}";
                 AddFileToZip(archive, $"Belege/{fileName}", data);
                 count++;
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Datei für Beleg {DocumentNumber} konnte nicht geladen werden", doc.DocumentNumber);
+                _logger.LogWarning(ex, "Datei für Beleg {DocumentNumber} konnte nicht geladen werden", payment.DocumentNumber);
             }
         }
 

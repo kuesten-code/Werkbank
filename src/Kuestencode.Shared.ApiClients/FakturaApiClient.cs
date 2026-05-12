@@ -74,6 +74,14 @@ public class FakturaApiClient : IFakturaApiClient
         return await response.Content.ReadFromJsonAsync<ProjectInvoicesResponseDto>();
     }
 
+    public async Task<List<InvoiceEuerPaymentDto>> GetEuerPaymentsAsync(DateOnly von, DateOnly bis)
+    {
+        var url = $"/api/invoice/euer-payments?from={von:yyyy-MM-dd}T00:00:00&to={bis:yyyy-MM-dd}T23:59:59";
+        var response = await _httpClient.GetAsync(url);
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync<List<InvoiceEuerPaymentDto>>() ?? [];
+    }
+
     private string BuildQueryString(InvoiceFilterDto? filter)
     {
         if (filter == null) return string.Empty;

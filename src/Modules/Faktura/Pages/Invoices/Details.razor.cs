@@ -29,6 +29,13 @@ public partial class Details
     private bool _isEmailConfigured = false;
     private System.Globalization.CultureInfo _culture = new System.Globalization.CultureInfo("de-DE");
 
+    // Zahlung erfassen Modal
+    private bool _zahlungModalOpen = false;
+    private decimal _zahlungBetrag;
+    private DateTime? _zahlungDatum = DateTime.Today;
+    private string? _zahlungNotiz;
+    private bool _zahlungSaving = false;
+
     protected override async Task OnInitializedAsync()
     {
         await LoadInvoice();
@@ -145,6 +152,7 @@ public partial class Details
             InvoiceStatus.Paid => Color.Success,
             InvoiceStatus.Overdue => Color.Error,
             InvoiceStatus.Cancelled => Color.Dark,
+            InvoiceStatus.PartiallyPaid => Color.Warning,
             _ => Color.Default
         };
     }
@@ -158,8 +166,65 @@ public partial class Details
             InvoiceStatus.Paid => "Beglichen",
             InvoiceStatus.Overdue => "Überfällig",
             InvoiceStatus.Cancelled => "Storniert",
+            InvoiceStatus.PartiallyPaid => "Teilgezahlt",
             _ => status.ToString()
         };
+    }
+
+    private void OpenZahlungModal()
+    {
+        if (_invoice == null) return;
+        _zahlungBetrag = _invoice.RemainingAmount > 0 ? _invoice.RemainingAmount : 0;
+        _zahlungDatum = DateTime.Today;
+        _zahlungNotiz = null;
+        _zahlungModalOpen = true;
+    }
+
+    private void CloseZahlungModal()
+    {
+        _zahlungModalOpen = false;
+    }
+
+    private async Task ErfasseZahlung()
+    {
+        if (_invoice == null || _zahlungBetrag <= 0) return;
+
+        _zahlungSaving = true;
+        try
+        {
+            await PaymentService.ZahlungErfassenAsync(
+                _invoice.Id,
+                _zahlungBetrag,
+                _zahlungDatum ?? DateTime.Today,
+                _zahlungNotiz);
+
+            _zahlungModalOpen = false;
+            Snackbar.Add($"Zahlung über {_zahlungBetrag.ToString("C2", _culture)} wurde erfasst.", Severity.Success);
+            await LoadInvoice();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Fehler beim Erfassen der Zahlung: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _zahlungSaving = false;
+        }
+    }
+
+    private async Task LoescheZahlung(int zahlungId)
+    {
+        if (_invoice == null) return;
+        try
+        {
+            await PaymentService.ZahlungLoeschenAsync(zahlungId);
+            Snackbar.Add("Zahlung wurde gelöscht.", Severity.Success);
+            await LoadInvoice();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Fehler beim Löschen der Zahlung: {ex.Message}", Severity.Error);
+        }
     }
 
     private async Task DownloadPdf()

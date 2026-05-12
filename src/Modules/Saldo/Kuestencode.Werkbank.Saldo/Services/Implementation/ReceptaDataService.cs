@@ -22,7 +22,6 @@ public class ReceptaDataService : IReceptaDataService
     {
         try
         {
-            // Zufluss-/Abflussprinzip: Filter nach PaidDate, nicht InvoiceDate
             var url = $"/api/recepta/documents?status=Paid&paidFrom={von:yyyy-MM-dd}&paidTo={bis:yyyy-MM-dd}";
             var response = await _httpClient.GetAsync(url);
             if (!response.IsSuccessStatusCode)
@@ -38,6 +37,28 @@ public class ReceptaDataService : IReceptaDataService
         {
             _logger.LogError(ex, "Error fetching documents from Recepta for period {Von} - {Bis}", von, bis);
             return new List<ReceptaDocumentDto>();
+        }
+    }
+
+    public async Task<List<ReceptaPaymentDto>> GetPaymentsAsync(DateOnly von, DateOnly bis)
+    {
+        try
+        {
+            var url = $"/api/recepta/documents/euer-payments?from={von:yyyy-MM-dd}&to={bis:yyyy-MM-dd}";
+            var response = await _httpClient.GetAsync(url);
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.LogWarning("Recepta API returned {StatusCode} for payments request", response.StatusCode);
+                return new List<ReceptaPaymentDto>();
+            }
+
+            var payments = await response.Content.ReadFromJsonAsync<List<ReceptaPaymentDto>>();
+            return payments ?? new List<ReceptaPaymentDto>();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error fetching payments from Recepta for period {Von} - {Bis}", von, bis);
+            return new List<ReceptaPaymentDto>();
         }
     }
 }
