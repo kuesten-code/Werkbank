@@ -620,6 +620,10 @@
         if (_scanResult.SuggestedSupplierId.HasValue)
         {
             _model.SupplierId = _scanResult.SuggestedSupplierId;
+
+            var supplier = _suppliers.FirstOrDefault(s => s.Id == _scanResult.SuggestedSupplierId.Value);
+            if (supplier?.DefaultCategory != null && Enum.TryParse<DocumentCategory>(supplier.DefaultCategory, out var cat))
+                _model.Category = cat;
         }
 
         if (_scanResult.IsXRechnung)
@@ -750,6 +754,13 @@
     private async Task OnSupplierChanged(Guid? value)
     {
         _model.SupplierId = value;
+
+        if (value.HasValue)
+        {
+            var supplier = _suppliers.FirstOrDefault(s => s.Id == value.Value);
+            if (supplier?.DefaultCategory != null && Enum.TryParse<DocumentCategory>(supplier.DefaultCategory, out var cat))
+                _model.Category = cat;
+        }
 
         // Bei XRechnung keine Pattern-Neuextraktion (Daten sind strukturiert)
         if (_scanResult?.IsXRechnung == true) return;
