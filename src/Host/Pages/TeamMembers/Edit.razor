@@ -1,4 +1,5 @@
 ﻿@page "/team-members/edit/{Id:guid}"
+@attribute [Authorize]
 @using Kuestencode.Werkbank.Host.Models
 @inject Kuestencode.Werkbank.Host.Services.ITeamMemberService TeamMemberService
 @inject Kuestencode.Werkbank.Host.Services.IInviteService InviteService

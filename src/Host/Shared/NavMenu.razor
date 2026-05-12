@@ -57,8 +57,9 @@
     private void HandleModulesChanged()
     {
         // InvokeAsync because this is called from a background thread (module registration)
-        InvokeAsync(() =>
+        InvokeAsync(async () =>
         {
+            await LoadRoleAsync();
             RefreshNavItems();
             StateHasChanged();
         });
