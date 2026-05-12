@@ -1,4 +1,5 @@
 ﻿@page "/settings/auth"
+@attribute [Authorize]
 @using Kuestencode.Shared.Contracts.Host
 @using Kuestencode.Werkbank.Host.Models
 @inject Kuestencode.Werkbank.Host.Services.IWerkbankSettingsService SettingsService
