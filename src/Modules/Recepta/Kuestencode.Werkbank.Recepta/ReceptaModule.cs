@@ -1,6 +1,8 @@
 using Kuestencode.Werkbank.Recepta.Data;
 using Kuestencode.Werkbank.Recepta.Data.Repositories;
 using Kuestencode.Werkbank.Recepta.Services;
+using Kuestencode.Werkbank.Recepta.Services.Implementation;
+using Kuestencode.Werkbank.Recepta.Services.Interfaces;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -31,11 +33,13 @@ public static class ReceptaModule
         services.AddScoped<IDocumentAllocationRepository, DocumentAllocationRepository>();
         services.AddScoped<IDocumentFileRepository, DocumentFileRepository>();
         services.AddScoped<ISupplierOcrPatternRepository, SupplierOcrPatternRepository>();
+        services.AddScoped<IDocumentPaymentRepository, DocumentPaymentRepository>();
 
         // Register Application Services
         services.AddScoped<ISupplierService, SupplierService>();
         services.AddScoped<IDocumentService, DocumentService>();
         services.AddScoped<IDocumentFileService, DocumentFileService>();
+        services.AddScoped<IDocumentPaymentService, DocumentPaymentService>();
 
         // Register OCR Services
         services.AddSingleton<IOcrService, TesseractOcrService>();

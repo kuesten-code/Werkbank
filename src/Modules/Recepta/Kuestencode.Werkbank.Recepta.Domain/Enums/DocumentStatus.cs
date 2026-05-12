@@ -18,5 +18,10 @@ public enum DocumentStatus
     /// <summary>
     /// Beleg ist bezahlt.
     /// </summary>
-    Paid = 2
+    Paid = 2,
+
+    /// <summary>
+    /// Beleg ist teilweise bezahlt.
+    /// </summary>
+    PartiallyPaid = 3
 }

@@ -1,5 +1,4 @@
 using Kuestencode.Shared.ApiClients;
-using Kuestencode.Shared.Contracts.Faktura;
 using Kuestencode.Werkbank.Saldo.Data.Repositories;
 using Kuestencode.Werkbank.Saldo.Domain.Dtos;
 using Kuestencode.Werkbank.Saldo.Domain.Enums;
@@ -7,7 +6,8 @@ using Kuestencode.Werkbank.Saldo.Domain.Enums;
 namespace Kuestencode.Werkbank.Saldo.Services;
 
 /// <summary>
-/// Aggregiert bezahlte Faktura-Rechnungen nach Zufluss-/Abflussprinzip (PaidDate).
+/// Aggregiert Faktura-Zahlungen nach Zufluss-/Abflussprinzip (§11 EStG, PaymentDate).
+/// Teilzahlungen erscheinen im Monat ihrer Zahlung; Positionen werden anteilig aufgeteilt.
 /// </summary>
 public class EinnahmenService : IEinnahmenService
 {
@@ -30,41 +30,55 @@ public class EinnahmenService : IEinnahmenService
 
     public async Task<List<BuchungDto>> GetEinnahmenAsync(DateOnly von, DateOnly bis)
     {
-        var invoices = await LoadBezahlteRechnungenAsync(von, bis);
+        var payments = await LoadZahlungenAsync(von, bis);
         var settings = await _settingsRepo.GetAsync();
         var kontenrahmen = settings?.Kontenrahmen ?? "SKR03";
         var konten = await _kontoRepo.GetByKontenrahmenAsync(kontenrahmen);
 
         var buchungen = new List<BuchungDto>();
-        foreach (var inv in invoices)
+
+        // Group by InvoiceId to detect partial payments (/1, /2 suffix)
+        var byInvoice = payments.GroupBy(p => p.InvoiceId).ToList();
+
+        foreach (var group in byInvoice)
         {
-            var paidDate = inv.PaidDate.HasValue
-                ? DateOnly.FromDateTime(inv.PaidDate.Value)
-                : DateOnly.FromDateTime(inv.InvoiceDate);
+            var isPartial = group.Count() > 1;
+            var invoicePayments = group.OrderBy(p => p.PaymentDate).ToList();
 
-            foreach (var item in inv.Items)
+            for (var n = 0; n < invoicePayments.Count; n++)
             {
-                var konto = konten.FirstOrDefault(k =>
-                    k.KontoTyp == KontoTyp.Einnahme &&
-                    k.UstSatz.HasValue &&
-                    k.UstSatz.Value == item.VatRate);
+                var payment = invoicePayments[n];
+                var ratio = payment.InvoiceTotalGross > 0
+                    ? payment.PaymentAmount / payment.InvoiceTotalGross
+                    : 1m;
+                var quelleId = isPartial
+                    ? $"{payment.InvoiceNumber}/{n + 1}"
+                    : payment.InvoiceNumber;
 
-                buchungen.Add(new BuchungDto
+                foreach (var item in payment.Items)
                 {
-                    Id = Guid.NewGuid(),
-                    Quelle = "Faktura",
-                    QuelleId = inv.InvoiceNumber,
-                    BelegDatum = DateOnly.FromDateTime(inv.InvoiceDate),
-                    ZahlungsDatum = paidDate,
-                    Beschreibung = inv.CustomerName ?? $"Kunde #{inv.CustomerId}",
-                    Netto = item.TotalNet,
-                    Ust = item.TotalVat,
-                    Brutto = item.TotalGross,
-                    UstSatz = item.VatRate,
-                    KontoNummer = konto?.KontoNummer ?? "8400",
-                    KontoBezeichnung = konto?.KontoBezeichnung ?? $"Erlöse {item.VatRate}% USt",
-                    Typ = BuchungsTyp.Einnahme
-                });
+                    var konto = konten.FirstOrDefault(k =>
+                        k.KontoTyp == KontoTyp.Einnahme &&
+                        k.UstSatz.HasValue &&
+                        k.UstSatz.Value == item.VatRate);
+
+                    buchungen.Add(new BuchungDto
+                    {
+                        Id = Guid.NewGuid(),
+                        Quelle = "Faktura",
+                        QuelleId = quelleId,
+                        BelegDatum = DateOnly.FromDateTime(payment.InvoiceDate),
+                        ZahlungsDatum = payment.PaymentDate,
+                        Beschreibung = payment.CustomerName ?? $"Rechnung {payment.InvoiceNumber}",
+                        Netto = item.TotalNet * ratio,
+                        Ust = item.TotalVat * ratio,
+                        Brutto = item.TotalGross * ratio,
+                        UstSatz = item.VatRate,
+                        KontoNummer = konto?.KontoNummer ?? "8400",
+                        KontoBezeichnung = konto?.KontoBezeichnung ?? $"Erlöse {item.VatRate}% USt",
+                        Typ = BuchungsTyp.Einnahme
+                    });
+                }
             }
         }
 
@@ -73,35 +87,37 @@ public class EinnahmenService : IEinnahmenService
 
     public async Task<decimal> GetSummeAsync(DateOnly von, DateOnly bis)
     {
-        var invoices = await LoadBezahlteRechnungenAsync(von, bis);
-        return invoices.Sum(i => i.TotalNetAfterDiscount);
+        var payments = await LoadZahlungenAsync(von, bis);
+        return payments.Sum(p =>
+        {
+            var ratio = p.InvoiceTotalGross > 0 ? p.PaymentAmount / p.InvoiceTotalGross : 1m;
+            return p.Items.Sum(i => i.TotalNet) * ratio;
+        });
     }
 
     public async Task<Dictionary<string, decimal>> GetNachUstSatzAsync(DateOnly von, DateOnly bis)
     {
-        var invoices = await LoadBezahlteRechnungenAsync(von, bis);
-        return invoices
-            .SelectMany(i => i.Items)
-            .GroupBy(item => $"{item.VatRate}%")
-            .ToDictionary(g => g.Key, g => g.Sum(item => item.TotalNet));
+        var payments = await LoadZahlungenAsync(von, bis);
+        return payments
+            .SelectMany(p =>
+            {
+                var ratio = p.InvoiceTotalGross > 0 ? p.PaymentAmount / p.InvoiceTotalGross : 1m;
+                return p.Items.Select(i => (Key: $"{i.VatRate}%", Net: i.TotalNet * ratio));
+            })
+            .GroupBy(x => x.Key)
+            .ToDictionary(g => g.Key, g => g.Sum(x => x.Net));
     }
 
-    private async Task<List<InvoiceDto>> LoadBezahlteRechnungenAsync(DateOnly von, DateOnly bis)
+    private async Task<List<Kuestencode.Shared.Contracts.Faktura.InvoiceEuerPaymentDto>> LoadZahlungenAsync(DateOnly von, DateOnly bis)
     {
         try
         {
-            var filter = new InvoiceFilterDto
-            {
-                Status = "Paid",
-                PaidFrom = von.ToDateTime(TimeOnly.MinValue),
-                PaidTo = bis.ToDateTime(TimeOnly.MaxValue)
-            };
-            return await _fakturaClient.GetAllInvoicesAsync(filter);
+            return await _fakturaClient.GetEuerPaymentsAsync(von, bis);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Fehler beim Laden bezahlter Faktura-Rechnungen für {Von} - {Bis}", von, bis);
-            return new List<InvoiceDto>();
+            _logger.LogError(ex, "Fehler beim Laden der Faktura-EÜR-Zahlungen für {Von} - {Bis}", von, bis);
+            return [];
         }
     }
 }

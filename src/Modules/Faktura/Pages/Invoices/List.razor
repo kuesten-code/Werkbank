@@ -54,6 +54,12 @@
                         <MudChip T="string" Size="Size.Small" Color="@GetStatusColor(context.Status)">
                             @GetStatusText(context.Status)
                         </MudChip>
+                        @if (context.Status == InvoiceStatus.PartiallyPaid)
+                        {
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                · noch @context.RemainingAmount.ToString("C2", _culture)
+                            </MudText>
+                        }
                         @if (context.PrintCount > 0 && context.PrintedAt.HasValue)
                         {
                             <MudIcon Icon="@Icons.Material.Filled.Print" Size="Size.Small" Color="Color.Default" title="Gedruckt" />
@@ -74,7 +80,7 @@
                                       Color="Color.Primary" Size="Size.Small"
                                       OnClick="@(() => EditInvoice(context.Id))" />
                     }
-                    @if (context.Status == InvoiceStatus.Sent)
+                    @if (context.Status == InvoiceStatus.Sent || context.Status == InvoiceStatus.PartiallyPaid)
                     {
                         <MudIconButton Icon="@Icons.Material.Filled.CheckCircle"
                                       Color="Color.Success" Size="Size.Small"

@@ -4,6 +4,7 @@
 @using Kuestencode.Faktura.Models
 @using Microsoft.AspNetCore.WebUtilities
 @inject IInvoiceService InvoiceService
+@inject IInvoicePaymentService PaymentService
 @inject IPdfGeneratorService PdfGeneratorService
 @inject IXRechnungService XRechnungService
 @inject ICompanyService CompanyService
@@ -302,6 +303,68 @@
                     </MudPaper>
                 </MudItem>
 
+                <!-- Zahlungen -->
+                @if (_invoice.Status != InvoiceStatus.Draft)
+                {
+                    <MudItem xs="12" Class="mt-4">
+                        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-2">
+                            <MudText Typo="Typo.h6">Zahlungen</MudText>
+                            @if (_invoice.Status != InvoiceStatus.Paid && _invoice.Status != InvoiceStatus.Cancelled)
+                            {
+                                <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small"
+                                           StartIcon="@Icons.Material.Filled.AddCircleOutline"
+                                           OnClick="OpenZahlungModal">
+                                    Zahlung erfassen
+                                </MudButton>
+                            }
+                        </MudStack>
+
+                        @if (_invoice.Payments.Any())
+                        {
+                            <MudTable Items="@_invoice.Payments" Dense="true" Hover="true" Elevation="0">
+                                <HeaderContent>
+                                    <MudTh>Datum</MudTh>
+                                    <MudTh Style="text-align: right">Betrag</MudTh>
+                                    <MudTh>Notiz</MudTh>
+                                    <MudTh Style="text-align: right"></MudTh>
+                                </HeaderContent>
+                                <RowTemplate Context="zahlung">
+                                    <MudTd DataLabel="Datum">@zahlung.PaymentDate.ToLocalTime().ToString("dd.MM.yyyy")</MudTd>
+                                    <MudTd DataLabel="Betrag" Style="text-align: right">@zahlung.Amount.ToString("C2", _culture)</MudTd>
+                                    <MudTd DataLabel="Notiz">@zahlung.Notes</MudTd>
+                                    <MudTd Style="text-align: right">
+                                        @if (_invoice.Status != InvoiceStatus.Cancelled)
+                                        {
+                                            <MudIconButton Icon="@Icons.Material.Filled.DeleteOutline"
+                                                           Color="Color.Error" Size="Size.Small"
+                                                           OnClick="@(() => LoescheZahlung(zahlung.Id))" />
+                                        }
+                                    </MudTd>
+                                </RowTemplate>
+                                <FooterContent>
+                                    <MudTh></MudTh>
+                                    <MudTh Style="text-align: right">
+                                        @if (_invoice.RemainingAmount <= 0)
+                                        {
+                                            <MudText Color="Color.Success"><strong>Vollständig bezahlt</strong></MudText>
+                                        }
+                                        else
+                                        {
+                                            <MudText><strong>Offen: @_invoice.RemainingAmount.ToString("C2", _culture)</strong></MudText>
+                                        }
+                                    </MudTh>
+                                    <MudTh></MudTh>
+                                    <MudTh></MudTh>
+                                </FooterContent>
+                            </MudTable>
+                        }
+                        else
+                        {
+                            <MudText Typo="Typo.body2" Color="Color.Secondary">Noch keine Zahlungen erfasst.</MudText>
+                        }
+                    </MudItem>
+                }
+
                 <!-- Notizen -->
                 @if (!string.IsNullOrWhiteSpace(_invoice.Notes))
                 {
@@ -332,7 +395,7 @@
                                 </MudButton>
                             }
 
-                            @if (_invoice.Status == InvoiceStatus.Sent || _invoice.Status == InvoiceStatus.Overdue)
+                            @if (_invoice.Status == InvoiceStatus.Sent || _invoice.Status == InvoiceStatus.Overdue || _invoice.Status == InvoiceStatus.PartiallyPaid)
                             {
                                 <MudButton Variant="Variant.Filled" Color="Color.Success"
                                           StartIcon="@Icons.Material.Filled.CheckCircle"
@@ -399,6 +462,38 @@
                 </MudItem>
             </MudGrid>
         </MudPaper>
+
+        @if (_zahlungModalOpen)
+        {
+            <MudOverlay Visible="true" DarkBackground="true" ZIndex="1200" />
+            <MudPaper Style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 1300; min-width: 360px;"
+                      Elevation="8" Class="pa-6">
+                <MudText Typo="Typo.h6" GutterBottom="true">Zahlung erfassen</MudText>
+                <MudStack Spacing="3">
+                    <MudDatePicker Label="Datum" @bind-Date="_zahlungDatum"
+                                   DateFormat="dd.MM.yyyy" Variant="Variant.Outlined"
+                                   MaxDate="DateTime.Today" />
+                    <MudNumericField T="decimal" Label="Betrag (€)" @bind-Value="_zahlungBetrag"
+                                     Variant="Variant.Outlined" Min="0.01m" Step="0.01m"
+                                     Format="F2" Culture="@_culture" />
+                    <MudTextField Label="Notiz (optional)" @bind-Value="_zahlungNotiz"
+                                  Variant="Variant.Outlined" MaxLength="500" />
+                </MudStack>
+                <MudStack Row="true" Justify="Justify.FlexEnd" Class="mt-4" Spacing="2">
+                    <MudButton Variant="Variant.Text" OnClick="CloseZahlungModal" Disabled="@_zahlungSaving">Abbrechen</MudButton>
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                               StartIcon="@Icons.Material.Filled.Save"
+                               OnClick="ErfasseZahlung"
+                               Disabled="@(_zahlungSaving || _zahlungBetrag <= 0)">
+                        @if (_zahlungSaving)
+                        {
+                            <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                        }
+                        Speichern
+                    </MudButton>
+                </MudStack>
+            </MudPaper>
+        }
 
         @if (_markAsPaidOpen)
         {

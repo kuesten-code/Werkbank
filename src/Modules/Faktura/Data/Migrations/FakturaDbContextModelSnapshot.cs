@@ -238,6 +238,39 @@ namespace Kuestencode.Faktura.Data.Migrations
                     b.ToTable("InvoiceItems", "faktura");
                 });
 
+            modelBuilder.Entity("Kuestencode.Faktura.Models.InvoicePayment", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.Property<int>("InvoiceId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Notes")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("PaymentDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("InvoiceId");
+
+                    b.ToTable("InvoicePayments", "faktura");
+                });
+
             modelBuilder.Entity("Kuestencode.Faktura.Models.DownPayment", b =>
                 {
                     b.HasOne("Kuestencode.Faktura.Models.Invoice", "Invoice")
@@ -271,6 +304,17 @@ namespace Kuestencode.Faktura.Data.Migrations
                     b.Navigation("Invoice");
                 });
 
+            modelBuilder.Entity("Kuestencode.Faktura.Models.InvoicePayment", b =>
+                {
+                    b.HasOne("Kuestencode.Faktura.Models.Invoice", "Invoice")
+                        .WithMany("Payments")
+                        .HasForeignKey("InvoiceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Invoice");
+                });
+
             modelBuilder.Entity("Kuestencode.Faktura.Models.Invoice", b =>
                 {
                     b.Navigation("Attachments");
@@ -278,6 +322,8 @@ namespace Kuestencode.Faktura.Data.Migrations
                     b.Navigation("DownPayments");
 
                     b.Navigation("Items");
+
+                    b.Navigation("Payments");
                 });
 #pragma warning restore 612, 618
         }

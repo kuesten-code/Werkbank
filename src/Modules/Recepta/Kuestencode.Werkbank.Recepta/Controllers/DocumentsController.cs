@@ -3,6 +3,7 @@ using Kuestencode.Werkbank.Recepta.Data.Repositories;
 using Kuestencode.Werkbank.Recepta.Domain.Dtos;
 using Kuestencode.Werkbank.Recepta.Domain.Enums;
 using Kuestencode.Werkbank.Recepta.Services;
+using Kuestencode.Werkbank.Recepta.Services.Interfaces;
 using Kuestencode.Shared.Contracts.Recepta;
 using Microsoft.AspNetCore.Mvc;
 
@@ -13,6 +14,7 @@ namespace Kuestencode.Werkbank.Recepta.Controllers;
 public class DocumentsController : ControllerBase
 {
     private readonly IDocumentService _documentService;
+    private readonly IDocumentPaymentService _paymentService;
     private readonly IDocumentAllocationRepository _allocationRepository;
     private readonly IOcrService _ocrService;
     private readonly IOcrPatternService _patternService;
@@ -20,12 +22,14 @@ public class DocumentsController : ControllerBase
 
     public DocumentsController(
         IDocumentService documentService,
+        IDocumentPaymentService paymentService,
         IDocumentAllocationRepository allocationRepository,
         IOcrService ocrService,
         IOcrPatternService patternService,
         ILogger<DocumentsController> logger)
     {
         _documentService = documentService;
+        _paymentService = paymentService;
         _allocationRepository = allocationRepository;
         _ocrService = ocrService;
         _patternService = patternService;
@@ -324,6 +328,19 @@ public class DocumentsController : ControllerBase
             _logger.LogError(ex, "Fehler bei der Feld-Extraktion");
             return BadRequest(new { error = ex.Message });
         }
+    }
+
+    /// <summary>
+    /// Liefert alle Zahlungen im Zeitraum, angereichert mit Belegdaten, für die EÜR.
+    /// Jede Teilzahlung erscheint als eigener Eintrag.
+    /// </summary>
+    [HttpGet("euer-payments")]
+    public async Task<ActionResult<List<ReceptaPaymentDto>>> GetEuerPayments(
+        [FromQuery] DateOnly from,
+        [FromQuery] DateOnly to)
+    {
+        var payments = await _paymentService.GetEuerPaymentsAsync(from, to);
+        return Ok(payments);
     }
 
     /// <summary>

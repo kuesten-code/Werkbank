@@ -149,6 +149,7 @@ public class Document
     public Supplier Supplier { get; set; } = null!;
     public List<DocumentFile> Files { get; set; } = new();
     public List<DocumentProjectAllocation> ProjectAllocations { get; set; } = new();
+    public List<DocumentPayment> Payments { get; set; } = new();
 
     // Berechnete Eigenschaften
 
@@ -158,13 +159,20 @@ public class Document
     [NotMapped]
     public bool IsEditable => Status == DocumentStatus.Draft;
 
+    [NotMapped]
+    public decimal TotalPaid => Payments?.Sum(p => p.Amount) ?? 0;
+
+    [NotMapped]
+    public decimal RemainingAmount => AmountGross - TotalPaid;
+
     /// <summary>
     /// Prüft, ob der Beleg überfällig ist.
     /// </summary>
     [NotMapped]
     public bool IsOverdue => DueDate.HasValue
         && DateOnly.FromDateTime(DateTime.UtcNow) > DueDate.Value
-        && Status != DocumentStatus.Paid;
+        && Status != DocumentStatus.Paid
+        && Status != DocumentStatus.PartiallyPaid;
 
     /// <summary>
     /// Letzter Tag, an dem Skonto noch gilt. Null wenn kein Skonto hinterlegt.

@@ -38,6 +38,7 @@
                     <MudSelectItem T="string" Value="@("Draft")">Entwurf</MudSelectItem>
                     <MudSelectItem T="string" Value="@("Booked")">Verbucht</MudSelectItem>
                     <MudSelectItem T="string" Value="@("Paid")">Bezahlt</MudSelectItem>
+                    <MudSelectItem T="string" Value="@("PartiallyPaid")">Teilbezahlt</MudSelectItem>
                 </MudSelect>
             </MudItem>
             <MudItem xs="12" sm="6" md="@(_actaAvailable ? 2 : 3)">
@@ -141,9 +142,17 @@
                     </MudChip>
                 </MudTd>
                 <MudTd DataLabel="Status">
-                    <MudChip T="string" Size="Size.Small" Color="@GetStatusColor(context.Status)">
-                        @GetStatusText(context.Status)
-                    </MudChip>
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                        <MudChip T="string" Size="Size.Small" Color="@GetStatusColor(context.Status)">
+                            @GetStatusText(context.Status)
+                        </MudChip>
+                        @if (context.Status == "PartiallyPaid")
+                        {
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                · noch @context.RemainingAmount.ToString("N2", _culture) €
+                            </MudText>
+                        }
+                    </MudStack>
                 </MudTd>
                 @if (_actaAvailable)
                 {
@@ -263,6 +272,7 @@
                 "draft" => "Draft",
                 "booked" => "Booked",
                 "paid" => "Paid",
+                "partiallypaid" => "PartiallyPaid",
                 _ => null
             };
         }
@@ -456,6 +466,7 @@
         "Draft" => "Entwurf",
         "Booked" => "Verbucht",
         "Paid" => "Bezahlt",
+        "PartiallyPaid" => "Teilbezahlt",
         _ => status
     };
 
@@ -464,6 +475,7 @@
         "Draft" => Color.Default,
         "Booked" => Color.Info,
         "Paid" => Color.Success,
+        "PartiallyPaid" => Color.Warning,
         _ => Color.Default
     };
 

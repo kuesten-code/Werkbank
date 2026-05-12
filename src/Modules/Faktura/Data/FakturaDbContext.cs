@@ -27,6 +27,7 @@ public class FakturaDbContext : DbContext
     public DbSet<InvoiceItem> InvoiceItems { get; set; } = null!;
     public DbSet<DownPayment> DownPayments { get; set; } = null!;
     public DbSet<InvoiceAttachment> InvoiceAttachments { get; set; } = null!;
+    public DbSet<InvoicePayment> InvoicePayments { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -64,6 +65,11 @@ public class FakturaDbContext : DbContext
                 .HasForeignKey(e => e.InvoiceId)
                 .OnDelete(DeleteBehavior.Cascade);
 
+            entity.HasMany(e => e.Payments)
+                .WithOne(e => e.Invoice)
+                .HasForeignKey(e => e.InvoiceId)
+                .OnDelete(DeleteBehavior.Cascade);
+
             // Customer Navigation Property ignorieren (Cross-Schema)
             entity.Ignore(e => e.Customer);
         });
@@ -79,6 +85,14 @@ public class FakturaDbContext : DbContext
 
         // DownPayment Configuration
         modelBuilder.Entity<DownPayment>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Amount).HasPrecision(18, 2);
+            entity.Property(e => e.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
+        });
+
+        // InvoicePayment Configuration
+        modelBuilder.Entity<InvoicePayment>(entity =>
         {
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Amount).HasPrecision(18, 2);

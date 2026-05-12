@@ -180,6 +180,7 @@ public partial class List
             InvoiceStatus.Paid => Color.Success,
             InvoiceStatus.Overdue => Color.Error,
             InvoiceStatus.Cancelled => Color.Dark,
+            InvoiceStatus.PartiallyPaid => Color.Warning,
             _ => Color.Default
         };
     }
@@ -193,6 +194,7 @@ public partial class List
             InvoiceStatus.Paid => "Beglichen",
             InvoiceStatus.Overdue => "Überfällig",
             InvoiceStatus.Cancelled => "Storniert",
+            InvoiceStatus.PartiallyPaid => "Teilgezahlt",
             _ => status.ToString()
         };
     }

@@ -175,6 +175,37 @@ namespace Kuestencode.Werkbank.Recepta.Data.Migrations
                     b.ToTable("Documents", "recepta");
                 });
 
+            modelBuilder.Entity("Kuestencode.Werkbank.Recepta.Domain.Entities.DocumentPayment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.Property<Guid>("DocumentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Notes")
+                        .HasColumnType("text");
+
+                    b.Property<DateOnly>("PaymentDate")
+                        .HasColumnType("date");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DocumentId");
+
+                    b.ToTable("DocumentPayments", "recepta");
+                });
+
             modelBuilder.Entity("Kuestencode.Werkbank.Recepta.Domain.Entities.DocumentFile", b =>
                 {
                     b.Property<Guid>("Id")
@@ -351,6 +382,17 @@ namespace Kuestencode.Werkbank.Recepta.Data.Migrations
                     b.Navigation("Document");
                 });
 
+            modelBuilder.Entity("Kuestencode.Werkbank.Recepta.Domain.Entities.DocumentPayment", b =>
+                {
+                    b.HasOne("Kuestencode.Werkbank.Recepta.Domain.Entities.Document", "Document")
+                        .WithMany("Payments")
+                        .HasForeignKey("DocumentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Document");
+                });
+
             modelBuilder.Entity("Kuestencode.Werkbank.Recepta.Domain.Entities.DocumentProjectAllocation", b =>
                 {
                     b.HasOne("Kuestencode.Werkbank.Recepta.Domain.Entities.Document", "Document")
@@ -376,6 +418,8 @@ namespace Kuestencode.Werkbank.Recepta.Data.Migrations
             modelBuilder.Entity("Kuestencode.Werkbank.Recepta.Domain.Entities.Document", b =>
                 {
                     b.Navigation("Files");
+
+                    b.Navigation("Payments");
 
                     b.Navigation("ProjectAllocations");
                 });

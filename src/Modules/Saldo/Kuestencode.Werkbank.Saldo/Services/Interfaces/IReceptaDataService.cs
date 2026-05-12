@@ -8,4 +8,5 @@ namespace Kuestencode.Werkbank.Saldo.Services;
 public interface IReceptaDataService
 {
     Task<List<ReceptaDocumentDto>> GetDocumentsAsync(DateOnly von, DateOnly bis);
+    Task<List<ReceptaPaymentDto>> GetPaymentsAsync(DateOnly von, DateOnly bis);
 }

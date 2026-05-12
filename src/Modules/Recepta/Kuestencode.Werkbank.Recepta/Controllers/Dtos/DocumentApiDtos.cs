@@ -37,8 +37,19 @@ public class DocumentDto
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
     public bool IsOverdue { get; set; }
+    public decimal TotalPaid { get; set; }
+    public decimal RemainingAmount { get; set; }
     public int FileCount { get; set; }
     public List<DocumentAllocationDto> ProjectAllocations { get; set; } = new();
+    public List<DocumentPaymentDto> Payments { get; set; } = new();
+}
+
+public class DocumentPaymentDto
+{
+    public Guid Id { get; set; }
+    public decimal Amount { get; set; }
+    public DateOnly PaymentDate { get; set; }
+    public string? Notes { get; set; }
 }
 
 /// <summary>

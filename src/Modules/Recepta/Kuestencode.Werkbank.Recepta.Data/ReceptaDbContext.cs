@@ -28,6 +28,7 @@ public class ReceptaDbContext : DbContext
     public DbSet<DocumentFile> DocumentFiles { get; set; } = null!;
     public DbSet<SupplierOcrPattern> SupplierOcrPatterns { get; set; } = null!;
     public DbSet<DocumentProjectAllocation> DocumentProjectAllocations { get; set; } = null!;
+    public DbSet<DocumentPayment> DocumentPayments { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -105,6 +106,23 @@ public class ReceptaDbContext : DbContext
                 .WithOne(e => e.Document)
                 .HasForeignKey(e => e.DocumentId)
                 .OnDelete(DeleteBehavior.Cascade);
+
+            // Cascade delete für Zahlungen
+            entity.HasMany(e => e.Payments)
+                .WithOne(e => e.Document)
+                .HasForeignKey(e => e.DocumentId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // DocumentPayment Configuration
+        modelBuilder.Entity<DocumentPayment>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+
+            entity.Property(e => e.Amount).HasPrecision(18, 2);
+            entity.Property(e => e.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+            entity.HasIndex(e => e.DocumentId);
         });
 
         // DocumentProjectAllocation Configuration

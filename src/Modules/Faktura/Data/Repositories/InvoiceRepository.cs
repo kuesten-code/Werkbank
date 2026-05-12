@@ -21,6 +21,7 @@ public class InvoiceRepository : Repository<Invoice>, IInvoiceRepository
             .Include(i => i.Items)
             .Include(i => i.DownPayments)
             .Include(i => i.Attachments)
+            .Include(i => i.Payments)
             .FirstOrDefaultAsync(i => i.InvoiceNumber == invoiceNumber);
 
         if (invoice != null)
@@ -90,6 +91,7 @@ public class InvoiceRepository : Repository<Invoice>, IInvoiceRepository
             .Include(i => i.Items)
             .Include(i => i.DownPayments)
             .Include(i => i.Attachments)
+            .Include(i => i.Payments)
             .Where(i => i.CustomerId == customerId)
             .OrderByDescending(i => i.InvoiceDate)
             .ToListAsync();
@@ -104,6 +106,7 @@ public class InvoiceRepository : Repository<Invoice>, IInvoiceRepository
             .Include(i => i.Items)
             .Include(i => i.DownPayments)
             .Include(i => i.Attachments)
+            .Include(i => i.Payments)
             .Where(i => i.Status == status)
             .OrderByDescending(i => i.InvoiceDate)
             .ToListAsync();
@@ -120,6 +123,7 @@ public class InvoiceRepository : Repository<Invoice>, IInvoiceRepository
             .Include(i => i.Items)
             .Include(i => i.DownPayments)
             .Include(i => i.Attachments)
+            .Include(i => i.Payments)
             .Where(i => i.Status == InvoiceStatus.Paid &&
                        i.PaidDate.HasValue &&
                        i.PaidDate.Value >= from &&
@@ -139,6 +143,7 @@ public class InvoiceRepository : Repository<Invoice>, IInvoiceRepository
             .Include(i => i.Items)
             .Include(i => i.DownPayments)
             .Include(i => i.Attachments)
+            .Include(i => i.Payments)
             .Where(i => i.Status == InvoiceStatus.Sent &&
                        i.DueDate.HasValue &&
                        i.DueDate.Value < today)
@@ -155,6 +160,7 @@ public class InvoiceRepository : Repository<Invoice>, IInvoiceRepository
             .Include(i => i.Items.OrderBy(item => item.Position))
             .Include(i => i.DownPayments)
             .Include(i => i.Attachments)
+            .Include(i => i.Payments.OrderByDescending(p => p.PaymentDate))
             .FirstOrDefaultAsync(i => i.Id == id);
 
         if (invoice != null)
@@ -171,6 +177,7 @@ public class InvoiceRepository : Repository<Invoice>, IInvoiceRepository
             .Include(i => i.Items)
             .Include(i => i.DownPayments)
             .Include(i => i.Attachments)
+            .Include(i => i.Payments)
             .OrderByDescending(i => i.InvoiceDate)
             .ToListAsync();
 
@@ -188,6 +195,7 @@ public class InvoiceRepository : Repository<Invoice>, IInvoiceRepository
         var invoices = await _dbSet
             .Include(i => i.Items)
             .Include(i => i.DownPayments)
+            .Include(i => i.Payments)
             .Where(i => i.ProjectId == projectId)
             .OrderByDescending(i => i.InvoiceDate)
             .ToListAsync();

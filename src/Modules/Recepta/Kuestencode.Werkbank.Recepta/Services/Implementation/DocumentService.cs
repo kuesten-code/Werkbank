@@ -555,6 +555,8 @@ public class DocumentService : IDocumentService
             CreatedAt = document.CreatedAt,
             UpdatedAt = document.UpdatedAt,
             IsOverdue = document.IsOverdue,
+            TotalPaid = document.TotalPaid,
+            RemainingAmount = document.RemainingAmount,
             FileCount = document.Files.Count,
             ProjectAllocations = document.ProjectAllocations.Select(a => new DocumentAllocationDto
             {
@@ -563,6 +565,13 @@ public class DocumentService : IDocumentService
                 AllocatedNet = a.AllocatedNet,
                 AllocatedTax = a.AllocatedTax,
                 AllocatedGross = a.AllocatedGross
+            }).ToList(),
+            Payments = document.Payments.Select(p => new DocumentPaymentDto
+            {
+                Id = p.Id,
+                Amount = p.Amount,
+                PaymentDate = p.PaymentDate,
+                Notes = p.Notes
             }).ToList()
         };
     }
