@@ -30,6 +30,33 @@
             </MudButton>
         </MudStack>
 
+        <!-- Quick-Filter-Buttons -->
+        <MudStack Row="true" Spacing="1" Class="mb-3" Wrap="Wrap.Wrap">
+            <MudButton Variant="@(_statusFilter == null && !_overdueFilter ? Variant.Filled : Variant.Outlined)"
+                      Color="Color.Default" Size="Size.Small"
+                      OnClick="@(() => SetQuickFilter(null, false))">Alle</MudButton>
+            <MudButton Variant="@(_statusFilter == "Draft" ? Variant.Filled : Variant.Outlined)"
+                      Color="Color.Default" Size="Size.Small"
+                      StartIcon="@Icons.Material.Filled.Edit"
+                      OnClick="@(() => SetQuickFilter("Draft", false))">Entwurf</MudButton>
+            <MudButton Variant="@(_statusFilter == "Booked" ? Variant.Filled : Variant.Outlined)"
+                      Color="Color.Info" Size="Size.Small"
+                      StartIcon="@Icons.Material.Filled.BookmarkAdded"
+                      OnClick="@(() => SetQuickFilter("Booked", false))">Verbucht</MudButton>
+            <MudButton Variant="@(_statusFilter == "Paid" ? Variant.Filled : Variant.Outlined)"
+                      Color="Color.Success" Size="Size.Small"
+                      StartIcon="@Icons.Material.Filled.Paid"
+                      OnClick="@(() => SetQuickFilter("Paid", false))">Bezahlt</MudButton>
+            <MudButton Variant="@(_statusFilter == "PartiallyPaid" ? Variant.Filled : Variant.Outlined)"
+                      Color="Color.Warning" Size="Size.Small"
+                      StartIcon="@Icons.Material.Filled.Payments"
+                      OnClick="@(() => SetQuickFilter("PartiallyPaid", false))">Teilbezahlt</MudButton>
+            <MudButton Variant="@(_overdueFilter ? Variant.Filled : Variant.Outlined)"
+                      Color="Color.Error" Size="Size.Small"
+                      StartIcon="@Icons.Material.Filled.Warning"
+                      OnClick="@(() => SetQuickFilter(null, true))">Überfällig</MudButton>
+        </MudStack>
+
         <!-- Filter -->
         <MudGrid Class="mb-4">
             <MudItem xs="12" sm="6" md="2">
@@ -237,12 +264,16 @@
     [SupplyParameterFromQuery(Name = "status")]
     public string? StatusQueryParam { get; set; }
 
+    [SupplyParameterFromQuery(Name = "overdue")]
+    public bool? OverdueQueryParam { get; set; }
+
     private readonly CultureInfo _culture = new("de-DE");
     private bool _loading = true;
 
     // Filter-State
     private string _searchString = string.Empty;
     private string? _statusFilter;
+    private bool _overdueFilter;
     private Guid? _supplierFilter;
     private string? _categoryFilter;
     private Guid? _projectFilter;
@@ -264,7 +295,6 @@
 
     protected override async Task OnInitializedAsync()
     {
-        // Status aus Query-Parameter übernehmen
         if (!string.IsNullOrEmpty(StatusQueryParam))
         {
             _statusFilter = StatusQueryParam switch
@@ -275,6 +305,11 @@
                 "partiallypaid" => "PartiallyPaid",
                 _ => null
             };
+        }
+
+        if (OverdueQueryParam == true)
+        {
+            _overdueFilter = true;
         }
 
         await LoadReferenceDataAsync();
@@ -344,7 +379,8 @@
                 SupplierId = _supplierFilter,
                 From = _dateFrom.HasValue ? DateOnly.FromDateTime(_dateFrom.Value) : null,
                 To = _dateTo.HasValue ? DateOnly.FromDateTime(_dateTo.Value) : null,
-                Search = string.IsNullOrWhiteSpace(_searchString) ? null : _searchString
+                Search = string.IsNullOrWhiteSpace(_searchString) ? null : _searchString,
+                IsOverdue = _overdueFilter ? true : null
             };
 
             var documents = await DocumentService.GetAllAsync(filter);
@@ -379,6 +415,14 @@
     private async Task OnStatusFilterChanged(string? value)
     {
         _statusFilter = value;
+        _overdueFilter = false;
+        await LoadDocumentsAsync();
+    }
+
+    private async Task SetQuickFilter(string? status, bool overdue)
+    {
+        _statusFilter = status;
+        _overdueFilter = overdue;
         await LoadDocumentsAsync();
     }
 

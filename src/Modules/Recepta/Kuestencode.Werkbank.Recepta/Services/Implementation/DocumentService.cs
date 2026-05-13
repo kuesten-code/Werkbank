@@ -76,6 +76,11 @@ public class DocumentService : IDocumentService
                 (d.Notes?.ToLower().Contains(term) ?? false));
         }
 
+        if (filter.IsOverdue == true)
+        {
+            result = result.Where(d => d.IsOverdue);
+        }
+
         return result.Select(MapToDto);
     }
 

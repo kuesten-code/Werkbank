@@ -2,8 +2,10 @@
 @page "/recepta"
 @using Kuestencode.Werkbank.Recepta.Domain.Dtos
 @using Kuestencode.Werkbank.Recepta.Services
+@using Kuestencode.Werkbank.Recepta.Services.Interfaces
 @inject IDocumentService DocumentService
 @inject ISupplierService SupplierService
+@inject IDocumentActivityService ActivityService
 @inject NavigationManager NavigationManager
 
 <PageTitle>Recepta - Übersicht</PageTitle>
@@ -59,7 +61,7 @@
             </MudItem>
 
             <MudItem xs="12" sm="6" md="4" lg="2">
-                <MudPaper Class="pa-4" Elevation="2">
+                <MudPaper Class="pa-4 cursor-pointer" Elevation="2" @onclick="@(() => NavigateToBelege("overdue"))">
                     <MudStack AlignItems="AlignItems.Center">
                         <MudIcon Icon="@Icons.Material.Filled.Warning" Size="Size.Large" Color="Color.Warning" />
                         <MudText Typo="Typo.h4">@_overdueCount</MudText>
@@ -80,7 +82,7 @@
         </MudGrid>
 
         <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-6"
-                  StartIcon="@Icons.Material.Filled.Add"
+                  StartIcon="@Icons.Material.Filled.Visibility"
                   OnClick="@(() => NavigationManager.NavigateTo("/recepta/belege"))">
             Alle Belege anzeigen
         </MudButton>
@@ -90,6 +92,28 @@
                   OnClick="@(() => NavigationManager.NavigateTo("/recepta/lieferanten"))">
             Lieferanten verwalten
         </MudButton>
+
+        @if (_recentActivities.Count > 0)
+        {
+            <MudText Typo="Typo.h6" Class="mt-8 mb-3">Letzte Aktivitäten</MudText>
+            <MudPaper Elevation="1" Class="pa-0">
+                <MudList T="string" Dense="true">
+                    @foreach (var entry in _recentActivities)
+                    {
+                        <MudListItem T="string" Icon="@Icons.Material.Filled.HistoryEdu" IconColor="Color.Secondary">
+                            <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Style="width:100%">
+                                <MudText Typo="Typo.body2">
+                                    <strong>@entry.UserName</strong> hat <strong>@entry.DocumentNumber</strong> @entry.Action
+                                </MudText>
+                                <MudText Typo="Typo.caption" Color="Color.Secondary" Style="white-space: nowrap; margin-left: 16px;">
+                                    @FormatActivityTime(entry.CreatedAt)
+                                </MudText>
+                            </MudStack>
+                        </MudListItem>
+                    }
+                </MudList>
+            </MudPaper>
+        }
     }
 </MudContainer>
 
@@ -110,6 +134,7 @@
     private int _totalCount;
     private int _overdueCount;
     private int _supplierCount;
+    private List<DocumentActivityDto> _recentActivities = new();
 
     protected override async Task OnInitializedAsync()
     {
@@ -122,6 +147,7 @@
         {
             var documents = (await DocumentService.GetAllAsync(new DocumentFilterDto())).ToList();
             var suppliers = (await SupplierService.GetAllAsync()).ToList();
+            _recentActivities = (await ActivityService.GetRecentAsync(15)).ToList();
 
             _draftCount = documents.Count(d => d.Status == "Draft");
             _bookedCount = documents.Count(d => d.Status == "Booked");
@@ -136,11 +162,26 @@
         }
     }
 
-    private void NavigateToBelege(string? statusFilter)
+    private static string FormatActivityTime(DateTime utc)
     {
-        var url = string.IsNullOrEmpty(statusFilter)
-            ? "/recepta/belege"
-            : $"/recepta/belege?status={statusFilter}";
+        var local = utc.ToLocalTime();
+        var diff = DateTime.Now - local;
+
+        if (diff.TotalMinutes < 1) return "gerade eben";
+        if (diff.TotalMinutes < 60) return $"vor {(int)diff.TotalMinutes} Min.";
+        if (diff.TotalHours < 24) return $"vor {(int)diff.TotalHours} Std.";
+        if (diff.TotalDays < 7) return $"vor {(int)diff.TotalDays} Tag(en)";
+        return local.ToString("dd.MM.yyyy HH:mm");
+    }
+
+    private void NavigateToBelege(string? filter)
+    {
+        var url = filter switch
+        {
+            null or "" => "/recepta/belege",
+            "overdue" => "/recepta/belege?overdue=true",
+            _ => $"/recepta/belege?status={filter}"
+        };
         NavigationManager.NavigateTo(url);
     }
 }
