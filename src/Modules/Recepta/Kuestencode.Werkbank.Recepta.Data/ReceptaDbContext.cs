@@ -29,6 +29,7 @@ public class ReceptaDbContext : DbContext
     public DbSet<SupplierOcrPattern> SupplierOcrPatterns { get; set; } = null!;
     public DbSet<DocumentProjectAllocation> DocumentProjectAllocations { get; set; } = null!;
     public DbSet<DocumentPayment> DocumentPayments { get; set; } = null!;
+    public DbSet<DocumentActivityLog> DocumentActivityLogs { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -146,6 +147,19 @@ public class ReceptaDbContext : DbContext
             entity.HasKey(e => e.Id);
 
             entity.Property(e => e.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
+        });
+
+        // DocumentActivityLog Configuration
+        modelBuilder.Entity<DocumentActivityLog>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+
+            entity.Property(e => e.UserName).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.DocumentNumber).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.Action).IsRequired().HasMaxLength(500);
+            entity.Property(e => e.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+            entity.HasIndex(e => e.CreatedAt);
         });
 
         // SupplierOcrPattern Configuration

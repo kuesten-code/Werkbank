@@ -40,6 +40,8 @@ public static class ReceptaModule
         services.AddScoped<IDocumentService, DocumentService>();
         services.AddScoped<IDocumentFileService, DocumentFileService>();
         services.AddScoped<IDocumentPaymentService, DocumentPaymentService>();
+        services.AddScoped<IDocumentActivityRepository, DocumentActivityRepository>();
+        services.AddScoped<IDocumentActivityService, DocumentActivityService>();
 
         // Register OCR Services
         services.AddSingleton<IOcrService, TesseractOcrService>();

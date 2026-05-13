@@ -86,6 +86,7 @@ public class DocumentFilterDto
     public DateOnly? PaidFrom { get; set; }
     public DateOnly? PaidTo { get; set; }
     public string? Search { get; set; }
+    public bool? IsOverdue { get; set; }
 }
 
 /// <summary>
