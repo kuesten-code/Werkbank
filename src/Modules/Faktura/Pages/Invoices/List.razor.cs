@@ -23,7 +23,7 @@ public partial class List
     private string _searchString = string.Empty;
     private bool _loading = true;
     private int _activeTabIndex = 0;
-    private int _draftCount, _sentCount, _paidCount, _overdueCount;
+    private int _draftCount, _sentCount, _paidCount, _partiallyPaidCount, _overdueCount;
     private System.Globalization.CultureInfo _culture = new System.Globalization.CultureInfo("de-DE");
 
     private IEnumerable<Invoice> _filteredInvoices
@@ -38,7 +38,8 @@ public partial class List
                 1 => filtered.Where(i => i.Status == InvoiceStatus.Draft),
                 2 => filtered.Where(i => i.Status == InvoiceStatus.Sent),
                 3 => filtered.Where(i => i.Status == InvoiceStatus.Paid),
-                4 => filtered.Where(i => i.Status == InvoiceStatus.Overdue),
+                4 => filtered.Where(i => i.Status == InvoiceStatus.PartiallyPaid),
+                5 => filtered.Where(i => i.Status == InvoiceStatus.Overdue),
                 _ => filtered
             };
 
@@ -74,7 +75,8 @@ public partial class List
             {
                 "draft" => 1,
                 "sent" => 2,
-                "overdue" => 4,
+                "partiallypaid" => 4,
+                "overdue" => 5,
                 _ => 0
             };
         }
@@ -113,6 +115,7 @@ public partial class List
         _draftCount = _invoices.Count(i => i.Status == InvoiceStatus.Draft);
         _sentCount = _invoices.Count(i => i.Status == InvoiceStatus.Sent);
         _paidCount = _invoices.Count(i => i.Status == InvoiceStatus.Paid);
+        _partiallyPaidCount = _invoices.Count(i => i.Status == InvoiceStatus.PartiallyPaid);
         _overdueCount = _invoices.Count(i => i.Status == InvoiceStatus.Overdue);
     }
 

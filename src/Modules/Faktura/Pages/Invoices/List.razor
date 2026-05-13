@@ -30,6 +30,7 @@
             <MudTabPanel Text="Entwurf" Icon="@Icons.Material.Filled.Edit" BadgeData="@_draftCount" BadgeColor="Color.Default" />
             <MudTabPanel Text="Versendet" Icon="@Icons.Material.Filled.Send" BadgeData="@_sentCount" BadgeColor="Color.Info" />
             <MudTabPanel Text="Beglichen" Icon="@Icons.Material.Filled.CheckCircle" BadgeData="@_paidCount" BadgeColor="Color.Success" />
+            <MudTabPanel Text="Teilgezahlt" Icon="@Icons.Material.Filled.Payments" BadgeData="@_partiallyPaidCount" BadgeColor="Color.Warning" />
             <MudTabPanel Text="Überfällig" Icon="@Icons.Material.Filled.Warning" BadgeData="@_overdueCount" BadgeColor="Color.Error" />
         </MudTabs>
 
@@ -126,3 +127,9 @@
         </MudPaper>
     }
 </MudContainer>
+
+<style>
+    .mud-tab {
+        overflow: visible !important;
+    }
+</style>

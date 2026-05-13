@@ -30,32 +30,21 @@
             </MudButton>
         </MudStack>
 
-        <!-- Quick-Filter-Buttons -->
-        <MudStack Row="true" Spacing="1" Class="mb-3" Wrap="Wrap.Wrap">
-            <MudButton Variant="@(_statusFilter == null && !_overdueFilter ? Variant.Filled : Variant.Outlined)"
-                      Color="Color.Default" Size="Size.Small"
-                      OnClick="@(() => SetQuickFilter(null, false))">Alle</MudButton>
-            <MudButton Variant="@(_statusFilter == "Draft" ? Variant.Filled : Variant.Outlined)"
-                      Color="Color.Default" Size="Size.Small"
-                      StartIcon="@Icons.Material.Filled.Edit"
-                      OnClick="@(() => SetQuickFilter("Draft", false))">Entwurf</MudButton>
-            <MudButton Variant="@(_statusFilter == "Booked" ? Variant.Filled : Variant.Outlined)"
-                      Color="Color.Info" Size="Size.Small"
-                      StartIcon="@Icons.Material.Filled.BookmarkAdded"
-                      OnClick="@(() => SetQuickFilter("Booked", false))">Verbucht</MudButton>
-            <MudButton Variant="@(_statusFilter == "Paid" ? Variant.Filled : Variant.Outlined)"
-                      Color="Color.Success" Size="Size.Small"
-                      StartIcon="@Icons.Material.Filled.Paid"
-                      OnClick="@(() => SetQuickFilter("Paid", false))">Bezahlt</MudButton>
-            <MudButton Variant="@(_statusFilter == "PartiallyPaid" ? Variant.Filled : Variant.Outlined)"
-                      Color="Color.Warning" Size="Size.Small"
-                      StartIcon="@Icons.Material.Filled.Payments"
-                      OnClick="@(() => SetQuickFilter("PartiallyPaid", false))">Teilbezahlt</MudButton>
-            <MudButton Variant="@(_overdueFilter ? Variant.Filled : Variant.Outlined)"
-                      Color="Color.Error" Size="Size.Small"
-                      StartIcon="@Icons.Material.Filled.Warning"
-                      OnClick="@(() => SetQuickFilter(null, true))">Überfällig</MudButton>
-        </MudStack>
+        <!-- Quick-Filter-Tabs -->
+        <MudTabs Elevation="0" Rounded="true" ApplyEffectsToContainer="true" Class="mb-4"
+                 ActivePanelIndex="_activeTabIndex" ActivePanelIndexChanged="OnTabChanged">
+            <MudTabPanel Text="Alle" Icon="@Icons.Material.Filled.List" />
+            <MudTabPanel Text="Entwurf" Icon="@Icons.Material.Filled.Edit"
+                         BadgeData="@_draftCount" BadgeColor="Color.Default" />
+            <MudTabPanel Text="Verbucht" Icon="@Icons.Material.Filled.BookmarkAdded"
+                         BadgeData="@_bookedCount" BadgeColor="Color.Info" />
+            <MudTabPanel Text="Bezahlt" Icon="@Icons.Material.Filled.Paid"
+                         BadgeData="@_paidCount" BadgeColor="Color.Success" />
+            <MudTabPanel Text="Teilbezahlt" Icon="@Icons.Material.Filled.Payments"
+                         BadgeData="@_partiallyPaidCount" BadgeColor="Color.Warning" />
+            <MudTabPanel Text="Überfällig" Icon="@Icons.Material.Filled.Warning"
+                         BadgeData="@_overdueCount" BadgeColor="Color.Error" />
+        </MudTabs>
 
         <!-- Filter -->
         <MudGrid Class="mb-4">
@@ -258,6 +247,9 @@
     .cursor-pointer {
         cursor: pointer;
     }
+    .mud-tab {
+        overflow: visible !important;
+    }
 </style>
 
 @code {
@@ -269,6 +261,10 @@
 
     private readonly CultureInfo _culture = new("de-DE");
     private bool _loading = true;
+    private int _activeTabIndex = 0;
+
+    // Badge-Zählungen (ungefiltert)
+    private int _draftCount, _bookedCount, _paidCount, _partiallyPaidCount, _overdueCount;
 
     // Filter-State
     private string _searchString = string.Empty;
@@ -310,10 +306,23 @@
         if (OverdueQueryParam == true)
         {
             _overdueFilter = true;
+            _activeTabIndex = 5;
+        }
+        else if (!string.IsNullOrEmpty(_statusFilter))
+        {
+            _activeTabIndex = _statusFilter switch
+            {
+                "Draft" => 1,
+                "Booked" => 2,
+                "Paid" => 3,
+                "PartiallyPaid" => 4,
+                _ => 0
+            };
         }
 
         await LoadReferenceDataAsync();
         await LoadDocumentsAsync();
+        await LoadCountsAsync();
     }
 
     private async Task LoadReferenceDataAsync()
@@ -412,10 +421,47 @@
         await LoadDocumentsAsync();
     }
 
+    private async Task LoadCountsAsync()
+    {
+        try
+        {
+            var all = (await DocumentService.GetAllAsync(new DocumentFilterDto())).ToList();
+            _draftCount = all.Count(d => d.Status == "Draft");
+            _bookedCount = all.Count(d => d.Status == "Booked");
+            _paidCount = all.Count(d => d.Status == "Paid");
+            _partiallyPaidCount = all.Count(d => d.Status == "PartiallyPaid");
+            _overdueCount = all.Count(d => d.IsOverdue);
+        }
+        catch { /* Zählungen sind nicht kritisch */ }
+    }
+
+    private async Task OnTabChanged(int index)
+    {
+        _activeTabIndex = index;
+        (_statusFilter, _overdueFilter) = index switch
+        {
+            1 => ("Draft", false),
+            2 => ("Booked", false),
+            3 => ("Paid", false),
+            4 => ("PartiallyPaid", false),
+            5 => ((string?)null, true),
+            _ => (null, false)
+        };
+        await LoadDocumentsAsync();
+    }
+
     private async Task OnStatusFilterChanged(string? value)
     {
         _statusFilter = value;
         _overdueFilter = false;
+        _activeTabIndex = value switch
+        {
+            "Draft" => 1,
+            "Booked" => 2,
+            "Paid" => 3,
+            "PartiallyPaid" => 4,
+            _ => 0
+        };
         await LoadDocumentsAsync();
     }
 
