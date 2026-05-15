@@ -86,6 +86,15 @@ public class Project
     public decimal? BudgetNet { get; set; }
 
     /// <summary>
+    /// Bereits berechnete Materialkosten (kumuliert über alle Rechnungen).
+    /// </summary>
+    [Column(TypeName = "decimal(18,2)")]
+    public decimal MaterialBerechnedNetto { get; set; }
+
+    [Column(TypeName = "decimal(18,2)")]
+    public decimal MaterialBerechnedBrutto { get; set; }
+
+    /// <summary>
     /// Externe Projekt-ID für die Verknüpfung mit anderen Modulen (z.B. Rapport).
     /// </summary>
     public int? ExternalId { get; set; }

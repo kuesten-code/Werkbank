@@ -118,6 +118,9 @@ public class StundensatzService : IStundensatzService
             });
         }
 
+        abrechnung.MaterialBerechnedNetto = project?.MaterialBerechnedNetto ?? 0;
+        abrechnung.MaterialBerechnedBrutto = project?.MaterialBerechnedBrutto ?? 0;
+
         try
         {
             var receptaId = project?.ExternalId.HasValue == true
@@ -126,8 +129,8 @@ public class StundensatzService : IStundensatzService
             var expenses = await _receptaClient.GetProjectExpensesAsync(receptaId);
             if (expenses != null)
             {
-                abrechnung.MaterialNetto = expenses.TotalNet;
-                abrechnung.MaterialBrutto = expenses.TotalGross;
+                abrechnung.MaterialNetto = Math.Max(0, expenses.TotalNet - abrechnung.MaterialBerechnedNetto);
+                abrechnung.MaterialBrutto = Math.Max(0, expenses.TotalGross - abrechnung.MaterialBerechnedBrutto);
             }
         }
         catch
@@ -141,6 +144,15 @@ public class StundensatzService : IStundensatzService
     public async Task MarkProjectTimeEntriesAsInvoicedAsync(int externalProjectId)
     {
         await _rapportClient.MarkProjectTimeEntriesAsInvoicedAsync(externalProjectId);
+    }
+
+    public async Task UpdateMaterialBerechnedAsync(Guid projektId, decimal additionalNetto, decimal additionalBrutto)
+    {
+        var project = await _projectRepo.GetByIdAsync(projektId);
+        if (project == null) return;
+        project.MaterialBerechnedNetto += additionalNetto;
+        project.MaterialBerechnedBrutto += additionalBrutto;
+        await _projectRepo.UpdateAsync(project);
     }
 
     private static Guid DeterministicGuid(int id)

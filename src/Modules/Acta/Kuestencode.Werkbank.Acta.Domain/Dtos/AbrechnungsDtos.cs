@@ -22,5 +22,7 @@ public class ProjektAbrechnung
     public List<AbrechnungsPosition> BerechnetePositionen { get; set; } = new();
     public decimal MaterialNetto { get; set; }
     public decimal MaterialBrutto { get; set; }
+    public decimal MaterialBerechnedNetto { get; set; }
+    public decimal MaterialBerechnedBrutto { get; set; }
     public decimal GesamtNetto => Positionen.Sum(p => p.Betrag) + MaterialNetto;
 }

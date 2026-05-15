@@ -59,6 +59,18 @@ namespace Kuestencode.Werkbank.Acta.Data.Migrations
                     b.Property<int?>("ExternalId")
                         .HasColumnType("integer");
 
+                    b.Property<decimal>("MaterialBerechnedBrutto")
+                        .ValueGeneratedOnAdd()
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)")
+                        .HasDefaultValue(0m);
+
+                    b.Property<decimal>("MaterialBerechnedNetto")
+                        .ValueGeneratedOnAdd()
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)")
+                        .HasDefaultValue(0m);
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(200)

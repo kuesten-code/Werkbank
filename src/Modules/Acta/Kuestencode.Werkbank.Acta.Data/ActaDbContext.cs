@@ -55,6 +55,9 @@ public class ActaDbContext : DbContext
             // Budget Precision
             entity.Property(e => e.BudgetNet).HasPrecision(18, 2);
 
+            entity.Property(e => e.MaterialBerechnedNetto).HasPrecision(18, 2).HasDefaultValue(0m);
+            entity.Property(e => e.MaterialBerechnedBrutto).HasPrecision(18, 2).HasDefaultValue(0m);
+
             // Relationships innerhalb des Acta-Schemas
             entity.HasMany(e => e.Tasks)
                 .WithOne(e => e.Project)
