@@ -53,4 +53,53 @@ public class DashboardController : ControllerBase
             TotalHours = Math.Round(totalHours, 2)
         });
     }
+
+    [HttpGet("projects/{projectId:int}/hours/by-type")]
+    public async Task<ActionResult<ProjectHoursByTypeResponseDto>> GetProjectHoursByType(int projectId)
+    {
+        var entries = await _dashboardService.GetEntriesAsync(
+            DateTime.MinValue,
+            DateTime.UtcNow,
+            customerIds: null,
+            projectIds: new[] { projectId });
+
+        var settings = await _settingsService.GetSettingsAsync();
+        var roundingMinutes = settings.RoundingMinutes;
+        var now = DateTime.UtcNow;
+
+        var offenByRolle = new Dictionary<int, (string Name, decimal Stunden)>();
+        var invoicedByRolle = new Dictionary<int, (string Name, decimal Stunden)>();
+
+        foreach (var entry in entries)
+        {
+            var duration = (entry.EndTime ?? now) - entry.StartTime;
+            if (roundingMinutes > 0)
+                duration = _roundingService.RoundDuration(duration, roundingMinutes);
+
+            var stunden = (decimal)duration.TotalHours;
+            var rolleId = entry.MitarbeiterRolleId ?? 0;
+            var rolleName = entry.MitarbeiterRolleName ?? "Unbekannt";
+            var target = entry.IsInvoiced ? invoicedByRolle : offenByRolle;
+
+            if (target.TryGetValue(rolleId, out var existing))
+                target[rolleId] = (existing.Name, existing.Stunden + stunden);
+            else
+                target[rolleId] = (rolleName, stunden);
+        }
+
+        static List<ProjectHoursByRolleDto> ToList(Dictionary<int, (string Name, decimal Stunden)> dict) =>
+            dict.Select(kvp => new ProjectHoursByRolleDto
+            {
+                RolleId = kvp.Key,
+                RolleName = kvp.Value.Name,
+                Stunden = Math.Round(kvp.Value.Stunden, 2)
+            }).OrderBy(r => r.RolleId).ToList();
+
+        return Ok(new ProjectHoursByTypeResponseDto
+        {
+            ProjectId = projectId,
+            StundenByRolle = ToList(offenByRolle),
+            InvoicedStundenByRolle = ToList(invoicedByRolle)
+        });
+    }
 }

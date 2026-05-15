@@ -93,6 +93,33 @@ public class ProgramApi
         })
         .AddHttpMessageHandler<Kuestencode.Shared.UI.Handlers.AuthTokenDelegatingHandler>();
 
+        // Add Rapport API Client
+        builder.Services.AddHttpClient<IRapportApiClient, RapportApiClient>(client =>
+        {
+            var rapportUrl = builder.Configuration.GetValue<string>("ServiceUrls:Rapport") ?? "http://localhost:8082";
+            client.BaseAddress = new Uri(rapportUrl);
+            client.Timeout = TimeSpan.FromSeconds(30);
+        })
+        .AddHttpMessageHandler<Kuestencode.Shared.UI.Handlers.AuthTokenDelegatingHandler>();
+
+        // Add Recepta API Client
+        builder.Services.AddHttpClient<IReceptaApiClient, ReceptaApiClient>(client =>
+        {
+            var receptaUrl = builder.Configuration.GetValue<string>("ServiceUrls:Recepta") ?? "http://localhost:8085";
+            client.BaseAddress = new Uri(receptaUrl);
+            client.Timeout = TimeSpan.FromSeconds(30);
+        })
+        .AddHttpMessageHandler<Kuestencode.Shared.UI.Handlers.AuthTokenDelegatingHandler>();
+
+        // Add Faktura API Client
+        builder.Services.AddHttpClient<IFakturaApiClient, FakturaApiClient>(client =>
+        {
+            var fakturaUrl = builder.Configuration.GetValue<string>("ServiceUrls:Faktura") ?? "http://localhost:8083";
+            client.BaseAddress = new Uri(fakturaUrl);
+            client.Timeout = TimeSpan.FromSeconds(30);
+        })
+        .AddHttpMessageHandler<Kuestencode.Shared.UI.Handlers.AuthTokenDelegatingHandler>();
+
         builder.Services.AddTransient<ModuleAvailabilityService>();
 
         // Add API-based implementations of Host services (Company, Customer)

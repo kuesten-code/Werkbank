@@ -151,10 +151,10 @@ public class InvoiceController : ControllerBase
         {
             var invoice = new Invoice
             {
-                InvoiceDate = request.InvoiceDate,
-                ServicePeriodStart = request.ServicePeriodStart,
-                ServicePeriodEnd = request.ServicePeriodEnd,
-                DueDate = request.DueDate,
+                InvoiceDate = DateTime.SpecifyKind(request.InvoiceDate, DateTimeKind.Utc),
+                ServicePeriodStart = request.ServicePeriodStart.HasValue ? DateTime.SpecifyKind(request.ServicePeriodStart.Value, DateTimeKind.Utc) : null,
+                ServicePeriodEnd = request.ServicePeriodEnd.HasValue ? DateTime.SpecifyKind(request.ServicePeriodEnd.Value, DateTimeKind.Utc) : null,
+                DueDate = request.DueDate.HasValue ? DateTime.SpecifyKind(request.DueDate.Value, DateTimeKind.Utc) : null,
                 CustomerId = request.CustomerId,
                 ProjectId = request.ProjectId,
                 Notes = request.Notes,
@@ -164,6 +164,7 @@ public class InvoiceController : ControllerBase
                 Items = request.Items.Select(item => new InvoiceItem
                 {
                     Description = item.Description,
+                    Unit = item.Unit,
                     Quantity = item.Quantity,
                     UnitPrice = item.UnitPrice,
                     VatRate = item.VatRate
@@ -190,10 +191,10 @@ public class InvoiceController : ControllerBase
             var invoice = await _invoiceService.GetByIdAsync(id);
             if (invoice == null) return NotFound();
 
-            invoice.InvoiceDate = request.InvoiceDate;
-            invoice.ServicePeriodStart = request.ServicePeriodStart;
-            invoice.ServicePeriodEnd = request.ServicePeriodEnd;
-            invoice.DueDate = request.DueDate;
+            invoice.InvoiceDate = DateTime.SpecifyKind(request.InvoiceDate, DateTimeKind.Utc);
+            invoice.ServicePeriodStart = request.ServicePeriodStart.HasValue ? DateTime.SpecifyKind(request.ServicePeriodStart.Value, DateTimeKind.Utc) : null;
+            invoice.ServicePeriodEnd = request.ServicePeriodEnd.HasValue ? DateTime.SpecifyKind(request.ServicePeriodEnd.Value, DateTimeKind.Utc) : null;
+            invoice.DueDate = request.DueDate.HasValue ? DateTime.SpecifyKind(request.DueDate.Value, DateTimeKind.Utc) : null;
             invoice.CustomerId = request.CustomerId;
             invoice.ProjectId = request.ProjectId;
             invoice.Notes = request.Notes;

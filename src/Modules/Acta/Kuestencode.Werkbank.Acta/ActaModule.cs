@@ -23,12 +23,15 @@ public static class ActaModule
     public static IServiceCollection AddActaModule(this IServiceCollection services, IConfiguration configuration)
     {
         // Add DbContext with PostgreSQL (Acta-Schema)
-        services.AddDbContext<ActaDbContext>(options =>
+        // Factory pattern avoids concurrency issues in Blazor Server (OnInitializedAsync + OnAfterRenderAsync overlap)
+        services.AddDbContextFactory<ActaDbContext>(options =>
             options.UseNpgsql(configuration.GetConnectionString("DefaultConnection")));
+        services.AddScoped(sp => sp.GetRequiredService<IDbContextFactory<ActaDbContext>>().CreateDbContext());
 
         // Register Repositories
         services.AddScoped<IProjectRepository, ProjectRepository>();
         services.AddScoped<IProjectTaskRepository, ProjectTaskRepository>();
+        services.AddScoped<IProjektStundensatzRepository, ProjektStundensatzRepository>();
 
         // Register Domain Services
         services.AddScoped<ProjectStatusService>();
@@ -36,6 +39,7 @@ public static class ActaModule
         // Register Application Services
         services.AddScoped<IProjectService, ProjectService>();
         services.AddScoped<IProjectTaskService, ProjectTaskService>();
+        services.AddScoped<IStundensatzService, StundensatzService>();
         services.AddSingleton<ITeamMemberDirectory, HostTeamMemberDirectory>();
 
         return services;
@@ -47,7 +51,8 @@ public static class ActaModule
     public static async Task ApplyMigrationsAsync(IServiceProvider serviceProvider)
     {
         using var scope = serviceProvider.CreateScope();
-        var context = scope.ServiceProvider.GetRequiredService<ActaDbContext>();
+        var factory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<ActaDbContext>>();
+        await using var context = await factory.CreateDbContextAsync();
         await context.Database.MigrateAsync();
     }
 }

@@ -1,5 +1,6 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using Kuestencode.Shared.ApiClients;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Http;
 
@@ -9,14 +10,19 @@ public class UserContextService : IUserContextService
 {
     private readonly AuthenticationStateProvider _authStateProvider;
     private readonly IHttpContextAccessor _httpContextAccessor;
+    private readonly IHostApiClient _hostApiClient;
 
-    // Circuit-level cache: populated on first successful resolve and kept for lifetime of the scoped service
     private ClaimsPrincipal? _cachedPrincipal;
+    private (int? RolleId, string? RolleName)? _cachedRolle;
 
-    public UserContextService(AuthenticationStateProvider authStateProvider, IHttpContextAccessor httpContextAccessor)
+    public UserContextService(
+        AuthenticationStateProvider authStateProvider,
+        IHttpContextAccessor httpContextAccessor,
+        IHostApiClient hostApiClient)
     {
         _authStateProvider = authStateProvider;
         _httpContextAccessor = httpContextAccessor;
+        _hostApiClient = hostApiClient;
     }
 
     private async Task<ClaimsPrincipal> GetPrincipalAsync()
@@ -24,11 +30,9 @@ public class UserContextService : IUserContextService
         if (_cachedPrincipal != null)
             return _cachedPrincipal;
 
-        // 1. Try HttpContext directly (available during Prerender / API calls)
         var httpContext = _httpContextAccessor.HttpContext;
         if (httpContext != null)
         {
-            // Try cookie
             if (httpContext.Request.Cookies.TryGetValue("werkbank_auth_cookie", out var cookieToken)
                 && !string.IsNullOrEmpty(cookieToken))
             {
@@ -36,7 +40,6 @@ public class UserContextService : IUserContextService
                 if (p != null) { _cachedPrincipal = p; return p; }
             }
 
-            // Try Authorization header (set by YARP transform)
             var authHeader = httpContext.Request.Headers.Authorization.FirstOrDefault();
             if (!string.IsNullOrEmpty(authHeader) && authHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
             {
@@ -44,7 +47,6 @@ public class UserContextService : IUserContextService
                 if (p != null) { _cachedPrincipal = p; return p; }
             }
 
-            // Try already-authenticated HttpContext.User
             if (httpContext.User?.Identity?.IsAuthenticated == true)
             {
                 _cachedPrincipal = httpContext.User;
@@ -52,8 +54,6 @@ public class UserContextService : IUserContextService
             }
         }
 
-        // 2. Fallback: AuthStateProvider (works when HttpContext is null in SignalR circuit
-        //    and _cachedState was populated during prerender)
         var state = await _authStateProvider.GetAuthenticationStateAsync();
         if (state.User.Identity?.IsAuthenticated == true)
         {
@@ -95,6 +95,26 @@ public class UserContextService : IUserContextService
     {
         var role = await GetCurrentUserRoleAsync();
         return role == "Admin";
+    }
+
+    public async Task<(int? RolleId, string? RolleName)> GetCurrentUserMitarbeiterRolleAsync()
+    {
+        if (_cachedRolle.HasValue)
+            return _cachedRolle.Value;
+
+        var userId = await GetCurrentUserIdAsync();
+        if (userId.HasValue)
+        {
+            var member = await _hostApiClient.GetTeamMemberAsync(userId.Value);
+            if (member != null)
+            {
+                var result = (member.MitarbeiterRolleId, member.MitarbeiterRolleName);
+                _cachedRolle = result;
+                return result;
+            }
+        }
+
+        return (null, null);
     }
 
     private static ClaimsPrincipal? ParseJwt(string token)

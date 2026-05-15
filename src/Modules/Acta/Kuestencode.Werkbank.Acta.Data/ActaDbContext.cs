@@ -1,5 +1,4 @@
 using Kuestencode.Werkbank.Acta.Domain.Entities;
-using Kuestencode.Werkbank.Acta.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 
@@ -25,6 +24,7 @@ public class ActaDbContext : DbContext
     // DbSets
     public DbSet<Project> Projects { get; set; } = null!;
     public DbSet<ProjectTask> Tasks { get; set; } = null!;
+    public DbSet<ProjektStundensatz> ProjektStundensaetze { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -58,6 +58,30 @@ public class ActaDbContext : DbContext
             // Relationships innerhalb des Acta-Schemas
             entity.HasMany(e => e.Tasks)
                 .WithOne(e => e.Project)
+                .HasForeignKey(e => e.ProjectId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // ProjektStundensatz Configuration
+        modelBuilder.Entity<ProjektStundensatz>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+
+            entity.Property(e => e.RolleId).IsRequired();
+            entity.Property(e => e.RolleName).HasMaxLength(100).IsRequired();
+
+            entity.Property(e => e.Stundensatz)
+                .HasPrecision(10, 2)
+                .IsRequired();
+
+            entity.Property(e => e.ErstelltAm)
+                .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+            entity.HasIndex(e => new { e.ProjectId, e.RolleId })
+                .IsUnique();
+
+            entity.HasOne(e => e.Project)
+                .WithMany()
                 .HasForeignKey(e => e.ProjectId)
                 .OnDelete(DeleteBehavior.Cascade);
         });

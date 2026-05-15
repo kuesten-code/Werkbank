@@ -28,6 +28,16 @@ public class TeamMembersController : ControllerBase
         return Ok(members.Select(Map).ToList());
     }
 
+    [HttpGet("{id:guid}")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<TeamMemberDto>> GetTeamMemberAsync(Guid id)
+    {
+        var member = await _teamMemberService.GetByIdAsync(id);
+        if (member == null) return NotFound();
+        return Ok(Map(member));
+    }
+
     [HttpPost("{id}/invite")]
     [RequireRole(UserRole.Admin)]
     public async Task<IActionResult> SendInvite(Guid id)
@@ -73,7 +83,9 @@ public class TeamMembersController : ControllerBase
         DisplayName = member.DisplayName,
         Email = member.Email,
         Role = member.Role.ToString(),
-        IsActive = member.IsActive
+        IsActive = member.IsActive,
+        MitarbeiterRolleId = member.MitarbeiterRolleId,
+        MitarbeiterRolleName = member.MitarbeiterRolle?.Name
     };
 }
 

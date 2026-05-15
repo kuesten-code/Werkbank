@@ -39,7 +39,9 @@ public class TimerService
         int? customerId,
         string? description = null,
         Guid? teamMemberId = null,
-        string? teamMemberName = null)
+        string? teamMemberName = null,
+        int? mitarbeiterRolleId = null,
+        string? mitarbeiterRolleName = null)
     {
         var existing = await _timeEntryRepository.GetRunningEntryAsync(teamMemberId);
         if (existing != null)
@@ -87,7 +89,9 @@ public class TimerService
             ProjectName = resolvedProjectName,
             Status = TimeEntryStatus.Running,
             TeamMemberId = teamMemberId,
-            TeamMemberName = teamMemberName
+            TeamMemberName = teamMemberName,
+            MitarbeiterRolleId = mitarbeiterRolleId,
+            MitarbeiterRolleName = mitarbeiterRolleName
         };
 
         await _timeEntryRepository.AddAsync(entry);

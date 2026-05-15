@@ -93,6 +93,20 @@ public class HostApiClient : IHostApiClient
         }
     }
 
+    public async Task<TeamMemberDto?> GetTeamMemberAsync(Guid id)
+    {
+        try
+        {
+            var response = await _httpClient.GetAsync($"/api/team-members/{id}").ConfigureAwait(false);
+            if (!response.IsSuccessStatusCode) return null;
+            return await response.Content.ReadFromJsonAsync<TeamMemberDto>().ConfigureAwait(false);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
     public async Task<ProjectHoursResponseDto?> GetProjectHoursAsync(int projectId)
     {
         try
@@ -176,5 +190,19 @@ public class HostApiClient : IHostApiClient
         response.EnsureSuccessStatusCode();
         return await response.Content.ReadFromJsonAsync<CustomerDto>().ConfigureAwait(false)
                ?? throw new InvalidOperationException("Failed to deserialize created customer.");
+    }
+
+    public async Task<List<MitarbeiterRolleDto>> GetMitarbeiterRollenAsync()
+    {
+        try
+        {
+            var response = await _httpClient.GetAsync("/api/mitarbeiter-rollen").ConfigureAwait(false);
+            if (!response.IsSuccessStatusCode) return new();
+            return await response.Content.ReadFromJsonAsync<List<MitarbeiterRolleDto>>().ConfigureAwait(false) ?? new();
+        }
+        catch
+        {
+            return new();
+        }
     }
 }

@@ -1,0 +1,150 @@
+@page "/settings/mitarbeiter-rollen"
+@attribute [Authorize]
+@using Kuestencode.Werkbank.Host.Models
+@using Kuestencode.Werkbank.Host.Auth
+@using Microsoft.EntityFrameworkCore
+@inject Kuestencode.Werkbank.Host.Data.HostDbContext DbContext
+@inject ISnackbar Snackbar
+
+<PageTitle>Abrechnungsrollen - Küstencode Werkbank</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Medium" Class="mt-4">
+    <MudText Typo="Typo.h4" GutterBottom="true">Abrechnungsrollen</MudText>
+    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">
+        Hier können Mitarbeiterrollen für die Projektabrechnung definiert werden.
+    </MudText>
+
+    <MudPaper Class="pa-4">
+        <MudTable Items="@_rollen" Dense="true" Hover="true">
+            <HeaderContent>
+                <MudTh>Name</MudTh>
+                <MudTh>Reihenfolge</MudTh>
+                <MudTh Style="text-align: right">Aktionen</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd>
+                    @if (_editingId == context.Id)
+                    {
+                        <MudTextField @bind-Value="_editName" Variant="Variant.Outlined" Margin="Margin.Dense" />
+                    }
+                    else
+                    {
+                        @context.Name
+                    }
+                </MudTd>
+                <MudTd>
+                    @if (_editingId == context.Id)
+                    {
+                        <MudNumericField @bind-Value="_editSortOrder" Variant="Variant.Outlined" Margin="Margin.Dense" />
+                    }
+                    else
+                    {
+                        @context.SortOrder
+                    }
+                </MudTd>
+                <MudTd Style="text-align: right">
+                    @if (_editingId == context.Id)
+                    {
+                        <MudIconButton Icon="@Icons.Material.Filled.Save" Color="Color.Success" Size="Size.Small"
+                                       OnClick="@(() => SaveEditAsync(context))" />
+                        <MudIconButton Icon="@Icons.Material.Filled.Cancel" Color="Color.Default" Size="Size.Small"
+                                       OnClick="CancelEdit" />
+                    }
+                    else
+                    {
+                        <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small"
+                                       OnClick="@(() => StartEdit(context))" />
+                        <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small"
+                                       OnClick="@(() => DeleteAsync(context))" />
+                    }
+                </MudTd>
+            </RowTemplate>
+        </MudTable>
+
+        <MudDivider Class="my-4" />
+
+        <MudText Typo="Typo.h6" Class="mb-2">Neue Rolle</MudText>
+        <MudStack Row="true" Spacing="2" AlignItems="AlignItems.End">
+            <MudTextField @bind-Value="_newName" Label="Name" Variant="Variant.Outlined" Style="flex: 1;" />
+            <MudNumericField @bind-Value="_newSortOrder" Label="Reihenfolge" Variant="Variant.Outlined" Style="width: 120px;" />
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="AddAsync"
+                       Disabled="@string.IsNullOrWhiteSpace(_newName)">Hinzufügen</MudButton>
+        </MudStack>
+    </MudPaper>
+</MudContainer>
+
+@code {
+    private List<MitarbeiterRolle> _rollen = new();
+    private int? _editingId;
+    private string _editName = "";
+    private int _editSortOrder;
+    private string _newName = "";
+    private int _newSortOrder;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _rollen = await DbContext.MitarbeiterRollen
+            .OrderBy(r => r.SortOrder).ThenBy(r => r.Name).ToListAsync();
+    }
+
+    private void StartEdit(MitarbeiterRolle rolle)
+    {
+        _editingId = rolle.Id;
+        _editName = rolle.Name;
+        _editSortOrder = rolle.SortOrder;
+    }
+
+    private void CancelEdit()
+    {
+        _editingId = null;
+    }
+
+    private async Task SaveEditAsync(MitarbeiterRolle rolle)
+    {
+        if (string.IsNullOrWhiteSpace(_editName)) return;
+
+        rolle.Name = _editName.Trim();
+        rolle.SortOrder = _editSortOrder;
+        await DbContext.SaveChangesAsync();
+        _editingId = null;
+        Snackbar.Add("Rolle gespeichert.", Severity.Success);
+        await LoadAsync();
+    }
+
+    private async Task AddAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_newName)) return;
+
+        DbContext.MitarbeiterRollen.Add(new MitarbeiterRolle
+        {
+            Name = _newName.Trim(),
+            SortOrder = _newSortOrder
+        });
+        await DbContext.SaveChangesAsync();
+
+        _newName = "";
+        _newSortOrder = 0;
+        Snackbar.Add("Rolle hinzugefügt.", Severity.Success);
+        await LoadAsync();
+    }
+
+    private async Task DeleteAsync(MitarbeiterRolle rolle)
+    {
+        var inUse = await DbContext.TeamMembers.AnyAsync(m => m.MitarbeiterRolleId == rolle.Id);
+        if (inUse)
+        {
+            Snackbar.Add("Diese Rolle wird noch von Mitarbeitern verwendet.", Severity.Warning);
+            return;
+        }
+
+        DbContext.MitarbeiterRollen.Remove(rolle);
+        await DbContext.SaveChangesAsync();
+        Snackbar.Add("Rolle gelöscht.", Severity.Success);
+        await LoadAsync();
+    }
+}

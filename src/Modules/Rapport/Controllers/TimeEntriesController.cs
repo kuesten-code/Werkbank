@@ -121,6 +121,10 @@ public class TimeEntriesController : ControllerBase
 
         try
         {
+            var member = teamMemberId.HasValue
+                ? await _teamMemberCacheService.GetByIdAsync(teamMemberId.Value)
+                : null;
+
             var entry = await _timeEntryService.CreateManualEntryAsync(
                 dto.StartTime,
                 dto.EndTime,
@@ -128,7 +132,9 @@ public class TimeEntriesController : ControllerBase
                 dto.CustomerId,
                 dto.Description,
                 teamMemberId,
-                teamMemberName);
+                teamMemberName,
+                member?.MitarbeiterRolleId,
+                member?.MitarbeiterRolleName);
 
             return CreatedAtAction(nameof(GetEntry), new { id = entry.Id }, entry);
         }
@@ -206,11 +212,15 @@ public class TimeEntriesController : ControllerBase
             return BadRequest(new { error = ex.Message });
         }
     }
+
+    [HttpPost("project/{projectId:int}/mark-invoiced")]
+    public async Task<IActionResult> MarkProjectEntriesAsInvoiced(int projectId)
+    {
+        await _timeEntryService.MarkProjectEntriesAsInvoicedAsync(projectId);
+        return NoContent();
+    }
 }
 
-/// <summary>
-/// DTO for creating a time entry via API
-/// </summary>
 public class CreateTimeEntryDto
 {
     public DateTime StartTime { get; set; }
@@ -221,9 +231,6 @@ public class CreateTimeEntryDto
     public Guid? TeamMemberId { get; set; }
 }
 
-/// <summary>
-/// DTO for updating a time entry via API
-/// </summary>
 public class UpdateTimeEntryDto
 {
     public DateTime StartTime { get; set; }

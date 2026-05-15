@@ -15,6 +15,7 @@ public interface IHostApiClient
     Task<List<CustomerDto>> GetAllCustomersAsync();
     Task<List<NavItemDto>> GetNavigationAsync();
     Task<List<TeamMemberDto>> GetTeamMembersAsync();
+    Task<TeamMemberDto?> GetTeamMemberAsync(Guid id);
     Task<ProjectHoursResponseDto?> GetProjectHoursAsync(int projectId);
     Task<List<ActaProjectDto>> GetActaProjectsAsync();
     Task<ActaProjectDto?> GetActaProjectAsync(int externalId);
@@ -22,4 +23,5 @@ public interface IHostApiClient
     Task<ProjectInvoicesResponseDto?> GetProjectInvoicesAsync(int projectId);
     Task<string> GenerateCustomerNumberAsync();
     Task<CustomerDto> CreateCustomerAsync(CreateCustomerRequest request);
+    Task<List<MitarbeiterRolleDto>> GetMitarbeiterRollenAsync();
 }

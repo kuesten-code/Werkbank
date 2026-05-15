@@ -137,6 +137,9 @@ services:
       - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=kuestencode_dev;Username=postgres;Password=dev_password
       - ServiceUrls__Host=http://host:8080
       - ServiceUrls__Self=http://acta:8084
+      - ServiceUrls__Rapport=http://rapport:8082
+      - ServiceUrls__Recepta=http://recepta:8085
+      - ServiceUrls__Faktura=http://faktura:8081
       - APPLY_MIGRATIONS=true
     volumes:
       - ./data/keys:/app/data/keys

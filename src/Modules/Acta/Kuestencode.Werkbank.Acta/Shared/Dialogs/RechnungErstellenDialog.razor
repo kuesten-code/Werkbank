@@ -1,0 +1,81 @@
+@using Kuestencode.Werkbank.Acta.Domain.Dtos
+
+<MudDialog>
+    <TitleContent>
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+            <MudIcon Icon="@Icons.Material.Filled.Receipt" Color="Color.Primary" />
+            <MudText Typo="Typo.h6">Rechnung erstellen</MudText>
+        </MudStack>
+    </TitleContent>
+    <DialogContent>
+        <MudText Typo="Typo.body2" Class="mb-3">
+            Folgende Positionen werden als Faktura-Entwurf angelegt:
+        </MudText>
+        <MudSimpleTable Dense="true">
+            <thead>
+                <tr>
+                    <th>Pos.</th>
+                    <th>Bezeichnung</th>
+                    <th style="text-align:right">Menge</th>
+                    <th>Einheit</th>
+                    <th style="text-align:right">Einzelpreis</th>
+                    <th style="text-align:right">Gesamt</th>
+                </tr>
+            </thead>
+            <tbody>
+                @{
+                    int pos = 1;
+                    var arbeitNetto = 0m;
+                }
+                @foreach (var p in Abrechnung.Positionen.Where(p => p.Stunden > 0 && p.Stundensatz > 0))
+                {
+                    arbeitNetto += p.Betrag;
+                    <tr>
+                        <td>@(pos++)</td>
+                        <td>@p.RolleName</td>
+                        <td style="text-align:right">@p.Stunden.ToString("N1", _culture)</td>
+                        <td>Stunden</td>
+                        <td style="text-align:right">@p.Stundensatz.ToString("N2", _culture) €</td>
+                        <td style="text-align:right">@p.Betrag.ToString("N2", _culture) €</td>
+                    </tr>
+                }
+                @if (Abrechnung.MaterialNetto > 0)
+                {
+                    <tr>
+                        <td>@(pos++)</td>
+                        <td>Materialkosten</td>
+                        <td style="text-align:right">1</td>
+                        <td></td>
+                        <td style="text-align:right">@Abrechnung.MaterialNetto.ToString("N2", _culture) €</td>
+                        <td style="text-align:right">@Abrechnung.MaterialNetto.ToString("N2", _culture) €</td>
+                    </tr>
+                }
+                <tr style="border-top: 1px solid rgba(0,0,0,0.12);">
+                    <td colspan="5"><strong>Netto</strong></td>
+                    <td style="text-align:right">
+                        <strong>@((arbeitNetto + (Abrechnung.MaterialNetto > 0 ? Abrechnung.MaterialNetto : 0)).ToString("N2", _culture)) €</strong>
+                    </td>
+                </tr>
+            </tbody>
+        </MudSimpleTable>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Abbrechen</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="Confirm">
+            Rechnung erstellen
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter]
+    public IMudDialogInstance Dialog { get; set; } = default!;
+
+    [Parameter]
+    public ProjektAbrechnung Abrechnung { get; set; } = null!;
+
+    private readonly System.Globalization.CultureInfo _culture = new("de-DE");
+
+    void Cancel() => Dialog.Cancel();
+    void Confirm() => Dialog.Close(DialogResult.Ok(true));
+}

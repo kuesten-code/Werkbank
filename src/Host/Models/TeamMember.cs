@@ -29,6 +29,10 @@ public class TeamMember
 
     // Auth
     public UserRole Role { get; set; } = UserRole.Mitarbeiter;
+
+    public int? MitarbeiterRolleId { get; set; }
+    public MitarbeiterRolle? MitarbeiterRolle { get; set; }
+
     public string? PasswordHash { get; set; }
 
     // Einladung

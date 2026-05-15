@@ -46,7 +46,9 @@ public class TimeEntryService
         int? customerId,
         string? description,
         Guid? teamMemberId = null,
-        string? teamMemberName = null)
+        string? teamMemberName = null,
+        int? mitarbeiterRolleId = null,
+        string? mitarbeiterRolleName = null)
     {
         ValidateManualEntryTimes(start, end);
         (start, end) = await ApplyManualRoundingAsync(start, end);
@@ -68,7 +70,9 @@ public class TimeEntryService
             ProjectId = projectId,
             ProjectName = resolvedProjectName,
             TeamMemberId = teamMemberId,
-            TeamMemberName = teamMemberName
+            TeamMemberName = teamMemberName,
+            MitarbeiterRolleId = mitarbeiterRolleId,
+            MitarbeiterRolleName = mitarbeiterRolleName
         };
 
         await _timeEntryRepository.AddAsync(entry);
@@ -355,6 +359,21 @@ public class TimeEntryService
             DateTimeKind.Local => value.ToUniversalTime(),
             _ => DateTime.SpecifyKind(value, DateTimeKind.Local).ToUniversalTime()
         };
+    }
+
+    public async Task MarkProjectEntriesAsInvoicedAsync(int projectId)
+    {
+        var entries = await GetEntriesAsync(null, null, null, new[] { projectId }, null);
+        var toMark = entries.Where(e => !e.IsInvoiced && e.EndTime.HasValue).ToList();
+        if (toMark.Count == 0) return;
+
+        var now = DateTime.UtcNow;
+        foreach (var entry in toMark)
+        {
+            entry.IsInvoiced = true;
+            entry.InvoicedAt = now;
+            await _timeEntryRepository.UpdateAsync(entry);
+        }
     }
 
     private async Task EnsureNoOverlapAsync(DateTime start, DateTime end, int? excludeId, Guid? teamMemberId)

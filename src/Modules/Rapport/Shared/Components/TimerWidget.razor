@@ -165,8 +165,9 @@
 
             var teamMemberId = await UserContextService.GetCurrentUserIdAsync();
             var teamMemberName = await UserContextService.GetCurrentUserNameAsync();
+            var rolle = await UserContextService.GetCurrentUserMitarbeiterRolleAsync();
 
-            _runningEntry = await TimerService.StartTimerAsync(projectId, customerId, _description, teamMemberId, teamMemberName);
+            _runningEntry = await TimerService.StartTimerAsync(projectId, customerId, _description, teamMemberId, teamMemberName, rolle.RolleId, rolle.RolleName);
             UpdateRunningDisplay();
             _description = null;
         }

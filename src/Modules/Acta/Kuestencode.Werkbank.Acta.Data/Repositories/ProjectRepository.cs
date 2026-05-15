@@ -4,56 +4,51 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Kuestencode.Werkbank.Acta.Data.Repositories;
 
-/// <summary>
-/// Repository-Implementierung für Projekte.
-/// </summary>
 public class ProjectRepository : IProjectRepository
 {
-    private readonly ActaDbContext _context;
+    private readonly IDbContextFactory<ActaDbContext> _contextFactory;
 
-    public ProjectRepository(ActaDbContext context)
+    public ProjectRepository(IDbContextFactory<ActaDbContext> contextFactory)
     {
-        _context = context;
+        _contextFactory = contextFactory;
     }
 
     public async Task<Project?> GetByIdAsync(Guid id)
     {
-        return await _context.Projects
+        await using var context = _contextFactory.CreateDbContext();
+        return await context.Projects
             .Include(p => p.Tasks.OrderBy(t => t.SortOrder))
             .FirstOrDefaultAsync(p => p.Id == id);
     }
 
     public async Task<Project?> GetByNumberAsync(string projectNumber)
     {
-        return await _context.Projects
+        await using var context = _contextFactory.CreateDbContext();
+        return await context.Projects
             .Include(p => p.Tasks.OrderBy(t => t.SortOrder))
             .FirstOrDefaultAsync(p => p.ProjectNumber == projectNumber);
     }
 
     public async Task<List<Project>> GetAllAsync(ProjectStatus? status = null, int? customerId = null)
     {
-        var query = _context.Projects
+        await using var context = _contextFactory.CreateDbContext();
+        var query = context.Projects
             .Include(p => p.Tasks.OrderBy(t => t.SortOrder))
             .AsQueryable();
 
         if (status.HasValue)
-        {
             query = query.Where(p => p.Status == status.Value);
-        }
 
         if (customerId.HasValue)
-        {
             query = query.Where(p => p.CustomerId == customerId.Value);
-        }
 
-        return await query
-            .OrderByDescending(p => p.CreatedAt)
-            .ToListAsync();
+        return await query.OrderByDescending(p => p.CreatedAt).ToListAsync();
     }
 
     public async Task<List<Project>> GetByCustomerAsync(int customerId)
     {
-        return await _context.Projects
+        await using var context = _contextFactory.CreateDbContext();
+        return await context.Projects
             .Include(p => p.Tasks.OrderBy(t => t.SortOrder))
             .Where(p => p.CustomerId == customerId)
             .OrderByDescending(p => p.CreatedAt)
@@ -62,7 +57,8 @@ public class ProjectRepository : IProjectRepository
 
     public async Task<List<Project>> GetByStatusAsync(ProjectStatus status)
     {
-        return await _context.Projects
+        await using var context = _contextFactory.CreateDbContext();
+        return await context.Projects
             .Include(p => p.Tasks.OrderBy(t => t.SortOrder))
             .Where(p => p.Status == status)
             .OrderByDescending(p => p.CreatedAt)
@@ -71,45 +67,46 @@ public class ProjectRepository : IProjectRepository
 
     public async Task AddAsync(Project project)
     {
-        await _context.Projects.AddAsync(project);
-        await _context.SaveChangesAsync();
+        await using var context = _contextFactory.CreateDbContext();
+        await context.Projects.AddAsync(project);
+        await context.SaveChangesAsync();
     }
 
     public async Task UpdateAsync(Project project)
     {
-        _context.Projects.Update(project);
-        await _context.SaveChangesAsync();
+        await using var context = _contextFactory.CreateDbContext();
+        context.Projects.Update(project);
+        await context.SaveChangesAsync();
     }
 
     public async Task DeleteAsync(Guid id)
     {
-        var project = await _context.Projects.FindAsync(id);
+        await using var context = _contextFactory.CreateDbContext();
+        var project = await context.Projects.FindAsync(id);
         if (project == null)
-        {
             throw new InvalidOperationException($"Projekt mit ID {id} nicht gefunden.");
-        }
 
         if (project.Status != ProjectStatus.Draft)
-        {
             throw new InvalidOperationException(
                 "Projekt kann nicht gelöscht werden. Nur Projekte im Status 'Draft' können gelöscht werden.");
-        }
 
-        _context.Projects.Remove(project);
-        await _context.SaveChangesAsync();
+        context.Projects.Remove(project);
+        await context.SaveChangesAsync();
     }
 
     public async Task<bool> ExistsNumberAsync(string projectNumber)
     {
-        return await _context.Projects.AnyAsync(p => p.ProjectNumber == projectNumber);
+        await using var context = _contextFactory.CreateDbContext();
+        return await context.Projects.AnyAsync(p => p.ProjectNumber == projectNumber);
     }
 
     public async Task<string> GenerateProjectNumberAsync()
     {
+        await using var context = _contextFactory.CreateDbContext();
         var year = DateTime.UtcNow.Year;
         var prefix = $"P-{year}-";
 
-        var lastNumber = await _context.Projects
+        var lastNumber = await context.Projects
             .Where(p => p.ProjectNumber.StartsWith(prefix))
             .OrderByDescending(p => p.ProjectNumber)
             .Select(p => p.ProjectNumber)
@@ -128,7 +125,8 @@ public class ProjectRepository : IProjectRepository
 
     public async Task<int> GetNextExternalIdAsync()
     {
-        var maxId = await _context.Projects
+        await using var context = _contextFactory.CreateDbContext();
+        var maxId = await context.Projects
             .Where(p => p.ExternalId.HasValue)
             .MaxAsync(p => (int?)p.ExternalId) ?? 0;
         return maxId + 1;

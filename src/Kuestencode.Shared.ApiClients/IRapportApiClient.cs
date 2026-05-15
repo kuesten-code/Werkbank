@@ -8,4 +8,6 @@ public interface IRapportApiClient
     Task<byte[]> GenerateTimesheetPdfAsync(TimesheetExportRequestDto request);
     Task<byte[]> GenerateTimesheetCsvAsync(TimesheetExportRequestDto request);
     Task<ProjectHoursResponseDto?> GetProjectHoursAsync(int projectId);
+    Task<ProjectHoursByTypeResponseDto?> GetProjectHoursByTypeAsync(int projectId);
+    Task MarkProjectTimeEntriesAsInvoicedAsync(int projectId);
 }
