@@ -170,7 +170,7 @@
                                     <tbody>
                                         @foreach (var rolle in _verfuegbareRollen)
                                         {
-                                            <tr>
+                                            <tr @key="@($"{rolle.Id}_{_stundensatzVersion}")">
                                                 <td style="width: 130px;"><strong>@rolle.Name</strong></td>
                                                 <td>
                                                     <MudTextField T="decimal?"
@@ -249,9 +249,11 @@
 
                     </MudGrid>
 
-                    @if (_rapportAvailable && _projektAbrechnung != null && _projektAbrechnung.BerechnetePositionen.Count > 0)
+                    @if (_projektAbrechnung != null && (_projektAbrechnung.BerechnetePositionen.Count > 0 || _projektAbrechnung.MaterialBerechnedNetto > 0))
                     {
                         var berechneteStunden = _projektAbrechnung.BerechnetePositionen.Sum(p => p.Stunden);
+                        var berechneteArbeit = _projektAbrechnung.BerechnetePositionen.Sum(p => p.Betrag);
+                        var berechneteGesamt = berechneteArbeit + _projektAbrechnung.MaterialBerechnedNetto;
                         <MudPaper Class="pa-4 mt-4" Elevation="1">
                             <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-3">
                                 <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Color="Color.Success" />
@@ -276,11 +278,20 @@
                                             <td style="text-align:right">@(pos.Stundensatz > 0 ? pos.Betrag.ToString("N2", _culture) + " €" : "–")</td>
                                         </tr>
                                     }
+                                    @if (_projektAbrechnung.MaterialBerechnedNetto > 0)
+                                    {
+                                        <tr>
+                                            <td>Materialkosten</td>
+                                            <td></td>
+                                            <td></td>
+                                            <td style="text-align:right">@_projektAbrechnung.MaterialBerechnedNetto.ToString("N2", _culture) €</td>
+                                        </tr>
+                                    }
                                     <tr style="border-top: 1px solid rgba(0,0,0,0.12);">
                                         <td><strong>Gesamt</strong></td>
-                                        <td style="text-align:right"><strong>@berechneteStunden.ToString("N1", _culture) h</strong></td>
+                                        <td style="text-align:right"><strong>@(berechneteStunden > 0 ? berechneteStunden.ToString("N1", _culture) + " h" : "")</strong></td>
                                         <td></td>
-                                        <td></td>
+                                        <td style="text-align:right"><strong>@berechneteGesamt.ToString("N2", _culture) €</strong></td>
                                     </tr>
                                 </tbody>
                             </MudSimpleTable>
@@ -585,6 +596,7 @@
     private Dictionary<int, decimal?> _stundensaetze = new();
     private List<MitarbeiterRolleDto> _verfuegbareRollen = new();
     private bool _isSavingStundensaetze;
+    private int _stundensatzVersion;
     private ProjektAbrechnung? _projektAbrechnung;
     private bool _isCreatingRechnung;
 
@@ -731,6 +743,9 @@
             if (_project.ExternalId.HasValue)
                 await StundensatzService.MarkProjectTimeEntriesAsInvoicedAsync(_project.ExternalId.Value);
 
+            if (hatMaterial)
+                await StundensatzService.UpdateMaterialBerechnedAsync(_project.Id, _projektAbrechnung.MaterialNetto, _projektAbrechnung.MaterialBrutto);
+
             NavigationManager.NavigateTo($"/faktura/invoices/details/{newInvoice.Id}", forceLoad: true);
         }
         catch (Exception ex)
@@ -763,9 +778,9 @@
                 await StundensatzService.UpsertStundensatzAsync(_project.Id, rolleId, rolleName, stundensatz.Value);
             }
 
-            // Werte aus DB neu laden damit Eingabefelder und Übersicht synchron sind
             var saetze = await StundensatzService.GetStundensaetzeAsync(_project.Id);
             _stundensaetze = saetze.ToDictionary(s => s.RolleId, s => s.Stundensatz);
+            _stundensatzVersion++;
 
             if (_rapportAvailable || _receptaAvailable)
                 _projektAbrechnung = await StundensatzService.GetProjektAbrechnungAsync(_project.Id);

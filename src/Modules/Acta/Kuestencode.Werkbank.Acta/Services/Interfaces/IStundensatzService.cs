@@ -8,4 +8,5 @@ public interface IStundensatzService
     Task UpsertStundensatzAsync(Guid projektId, int rolleId, string rolleName, decimal stundensatz);
     Task<ProjektAbrechnung> GetProjektAbrechnungAsync(Guid projektId);
     Task MarkProjectTimeEntriesAsInvoicedAsync(int externalProjectId);
+    Task UpdateMaterialBerechnedAsync(Guid projektId, decimal additionalNetto, decimal additionalBrutto);
 }
