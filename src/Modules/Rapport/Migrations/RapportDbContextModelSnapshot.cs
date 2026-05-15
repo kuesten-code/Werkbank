@@ -177,7 +177,15 @@ namespace Kuestencode.Rapport.Migrations
                     b.Property<DateTime?>("EndTime")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<DateTime?>("InvoicedAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<bool>("IsDeleted")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
+
+                    b.Property<bool>("IsInvoiced")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("boolean")
                         .HasDefaultValue(false);
@@ -186,6 +194,13 @@ namespace Kuestencode.Rapport.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("boolean")
                         .HasDefaultValue(false);
+
+                    b.Property<int?>("MitarbeiterRolleId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("MitarbeiterRolleName")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
 
                     b.Property<int?>("ProjectId")
                         .HasColumnType("integer");

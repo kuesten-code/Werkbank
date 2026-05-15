@@ -19,6 +19,7 @@ public class HostDbContext : DbContext
     public DbSet<Customer> Customers => Set<Customer>();
     public DbSet<TeamMember> TeamMembers => Set<TeamMember>();
     public DbSet<WerkbankSettings> WerkbankSettings => Set<WerkbankSettings>();
+    public DbSet<MitarbeiterRolle> MitarbeiterRollen => Set<MitarbeiterRolle>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -103,6 +104,23 @@ public class HostDbContext : DbContext
 
             entity.Property(e => e.UpdatedAt)
                 .HasDefaultValueSql("CURRENT_TIMESTAMP");
+        });
+
+        // MitarbeiterRolle Konfiguration
+        modelBuilder.Entity<MitarbeiterRolle>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Name).HasMaxLength(100).IsRequired();
+            entity.Property(e => e.SortOrder).HasDefaultValue(0);
+        });
+
+        // TeamMember FK zu MitarbeiterRolle
+        modelBuilder.Entity<TeamMember>(entity =>
+        {
+            entity.HasOne(m => m.MitarbeiterRolle)
+                .WithMany()
+                .HasForeignKey(m => m.MitarbeiterRolleId)
+                .OnDelete(DeleteBehavior.SetNull);
         });
 
         // WerkbankSettings Konfiguration

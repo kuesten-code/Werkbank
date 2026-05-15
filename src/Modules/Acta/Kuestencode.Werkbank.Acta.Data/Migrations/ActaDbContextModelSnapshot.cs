@@ -148,10 +148,55 @@ namespace Kuestencode.Werkbank.Acta.Data.Migrations
                     b.ToTable("Tasks", "acta");
                 });
 
+            modelBuilder.Entity("Kuestencode.Werkbank.Acta.Domain.Entities.ProjektStundensatz", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("ErstelltAm")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.Property<Guid>("ProjectId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("RolleId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("RolleName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<decimal>("Stundensatz")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("numeric(10,2)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProjectId", "RolleId")
+                        .IsUnique();
+
+                    b.ToTable("ProjektStundensaetze", "acta");
+                });
+
             modelBuilder.Entity("Kuestencode.Werkbank.Acta.Domain.Entities.ProjectTask", b =>
                 {
                     b.HasOne("Kuestencode.Werkbank.Acta.Domain.Entities.Project", "Project")
                         .WithMany("Tasks")
+                        .HasForeignKey("ProjectId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Project");
+                });
+
+            modelBuilder.Entity("Kuestencode.Werkbank.Acta.Domain.Entities.ProjektStundensatz", b =>
+                {
+                    b.HasOne("Kuestencode.Werkbank.Acta.Domain.Entities.Project", "Project")
+                        .WithMany()
                         .HasForeignKey("ProjectId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();

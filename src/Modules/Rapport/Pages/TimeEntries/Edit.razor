@@ -94,7 +94,7 @@ else
                                 Required="@(!_selectedProjectId.HasValue)"
                                 RequiredError="Kunde ist erforderlich" />
             </MudItem>
-            <MudItem xs="12">
+            <MudItem xs="12" md="6">
                 <MudTextField T="string" Label="Beschreibung" Variant="Variant.Outlined"
                               @bind-Value="_description" />
             </MudItem>
@@ -182,7 +182,6 @@ else
             }
 
             _description = _entry.Description;
-
             _selectedProjectId = _entry.ProjectId;
             await OnProjectSelected(_selectedProjectId);
 

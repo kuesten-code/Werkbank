@@ -66,10 +66,12 @@ modelBuilder.Entity<TimeEntry>(entity =>
             entity.Property(e => e.CustomerName).HasMaxLength(200);
             entity.Property(e => e.ProjectName).HasMaxLength(200);
             entity.Property(e => e.IsManual).HasDefaultValue(false);
+            entity.Property(e => e.IsInvoiced).HasDefaultValue(false);
             entity.Property(e => e.IsDeleted).HasDefaultValue(false);
             entity.Property(e => e.Status).IsRequired();
             entity.HasIndex(e => e.TeamMemberId);
             entity.Property(e => e.TeamMemberName).HasMaxLength(200);
+            entity.Property(e => e.MitarbeiterRolleName).HasMaxLength(100);
         });
 
         modelBuilder.Entity<TimeEntryAudit>(entity =>

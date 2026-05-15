@@ -1,7 +1,9 @@
 ﻿@page "/team-members/edit/{Id:guid}"
 @attribute [Authorize]
 @using Kuestencode.Werkbank.Host.Models
+@using Microsoft.EntityFrameworkCore
 @inject Kuestencode.Werkbank.Host.Services.ITeamMemberService TeamMemberService
+@inject Kuestencode.Werkbank.Host.Data.HostDbContext DbContext
 @inject Kuestencode.Werkbank.Host.Services.IInviteService InviteService
 @inject Kuestencode.Werkbank.Host.Services.IMobileTokenService MobileTokenService
 @inject NavigationManager NavigationManager
@@ -75,6 +77,17 @@
                             </MudSelect>
                         </MudItem>
                     }
+
+                    <MudItem xs="12">
+                        <MudSelect T="int?" Label="Abrechnungsrolle" @bind-Value="_member.MitarbeiterRolleId"
+                                   Placeholder="Keine Rolle zugewiesen">
+                            <MudSelectItem T="int?" Value="null">— Keine —</MudSelectItem>
+                            @foreach (var rolle in _rollen)
+                            {
+                                <MudSelectItem T="int?" Value="@((int?)rolle.Id)">@rolle.Name</MudSelectItem>
+                            }
+                        </MudSelect>
+                    </MudItem>
 
                     <MudItem xs="12">
                         <MudCheckBox @bind-Value="_member.IsActive" Label="Aktiv" />
@@ -221,9 +234,12 @@
     private string? _errorMessage;
     private TeamMember? _member;
     private string _mobileUrl = "";
+    private List<MitarbeiterRolle> _rollen = new();
 
     protected override async Task OnInitializedAsync()
     {
+        _rollen = await DbContext.MitarbeiterRollen
+            .OrderBy(r => r.SortOrder).ThenBy(r => r.Name).ToListAsync();
         await LoadMember();
     }
 

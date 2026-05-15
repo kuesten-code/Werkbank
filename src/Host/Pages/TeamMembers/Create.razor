@@ -1,8 +1,10 @@
 ﻿@page "/team-members/create"
 @attribute [Authorize]
 @using Kuestencode.Werkbank.Host.Models
+@using Microsoft.EntityFrameworkCore
 @inject Kuestencode.Werkbank.Host.Services.ITeamMemberService TeamMemberService
 @inject Kuestencode.Werkbank.Host.Services.IInviteService InviteService
+@inject Kuestencode.Werkbank.Host.Data.HostDbContext DbContext
 @inject NavigationManager NavigationManager
 @inject ISnackbar Snackbar
 
@@ -60,6 +62,17 @@
                 }
 
                 <MudItem xs="12">
+                    <MudSelect T="int?" Label="Abrechnungsrolle" @bind-Value="_member.MitarbeiterRolleId"
+                               Placeholder="Keine Rolle zugewiesen">
+                        <MudSelectItem T="int?" Value="null">— Keine —</MudSelectItem>
+                        @foreach (var rolle in _rollen)
+                        {
+                            <MudSelectItem T="int?" Value="@((int?)rolle.Id)">@rolle.Name</MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudItem>
+
+                <MudItem xs="12">
                     <MudCheckBox @bind-Value="_member.IsActive" Label="Aktiv" />
                 </MudItem>
 
@@ -102,6 +115,13 @@
     private bool _saving;
     private bool _sendInvite = true;
     private string? _errorMessage;
+    private List<MitarbeiterRolle> _rollen = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        _rollen = await DbContext.MitarbeiterRollen
+            .OrderBy(r => r.SortOrder).ThenBy(r => r.Name).ToListAsync();
+    }
 
     private async Task HandleSubmit()
     {

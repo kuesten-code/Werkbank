@@ -79,6 +79,7 @@ public record CreateInvoiceRequest
 public record CreateInvoiceItemRequest
 {
     public string Description { get; init; } = string.Empty;
+    public string? Unit { get; init; }
     public decimal Quantity { get; init; }
     public decimal UnitPrice { get; init; }
     public decimal VatRate { get; init; }

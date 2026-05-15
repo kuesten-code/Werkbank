@@ -7,4 +7,5 @@ public interface IUserContextService
     Task<string?> GetCurrentUserRoleAsync();
     Task<bool> IsAdminOrBueroAsync();
     Task<bool> IsAdminAsync();
+    Task<(int? RolleId, string? RolleName)> GetCurrentUserMitarbeiterRolleAsync();
 }

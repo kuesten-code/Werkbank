@@ -329,6 +329,29 @@ namespace Kuestencode.Werkbank.Host.Data.Migrations
                     b.ToTable("Customers", "host");
                 });
 
+            modelBuilder.Entity("Kuestencode.Werkbank.Host.Models.MitarbeiterRolle", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<int>("SortOrder")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0);
+
+                    b.HasKey("Id");
+
+                    b.ToTable("MitarbeiterRollen", "host");
+                });
+
             modelBuilder.Entity("Kuestencode.Werkbank.Host.Models.TeamMember", b =>
                 {
                     b.Property<Guid>("Id")
@@ -377,6 +400,9 @@ namespace Kuestencode.Werkbank.Host.Data.Migrations
                     b.Property<DateTime?>("LockoutUntil")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<int?>("MitarbeiterRolleId")
+                        .HasColumnType("integer");
+
                     b.Property<int>("MobilePinFailedAttempts")
                         .HasColumnType("integer");
 
@@ -417,6 +443,8 @@ namespace Kuestencode.Werkbank.Host.Data.Migrations
                     b.HasIndex("Email")
                         .IsUnique();
 
+                    b.HasIndex("MitarbeiterRolleId");
+
                     b.ToTable("TeamMembers", "host");
                 });
 
@@ -446,6 +474,16 @@ namespace Kuestencode.Werkbank.Host.Data.Migrations
                         .HasForeignKey("CompanyId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("Kuestencode.Werkbank.Host.Models.TeamMember", b =>
+                {
+                    b.HasOne("Kuestencode.Werkbank.Host.Models.MitarbeiterRolle", "MitarbeiterRolle")
+                        .WithMany()
+                        .HasForeignKey("MitarbeiterRolleId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("MitarbeiterRolle");
                 });
 
             modelBuilder.Entity("Kuestencode.Core.Models.Company", b =>

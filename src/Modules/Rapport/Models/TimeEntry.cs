@@ -74,11 +74,20 @@ public class TimeEntry : BaseEntity
     /// </summary>
     public Guid? TeamMemberId { get; set; }
 
+    public int? MitarbeiterRolleId { get; set; }
+
+    [MaxLength(100)]
+    public string? MitarbeiterRolleName { get; set; }
+
     /// <summary>
     /// Cached team member name for display.
     /// </summary>
     [MaxLength(200)]
     public string? TeamMemberName { get; set; }
+
+    public bool IsInvoiced { get; set; } = false;
+
+    public DateTime? InvoicedAt { get; set; }
 
     /// <summary>
     /// Marks the entry as deleted without removing it from the database.

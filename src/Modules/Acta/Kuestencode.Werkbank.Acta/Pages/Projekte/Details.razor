@@ -1,6 +1,7 @@
 @page "/projekte/{Id:guid}"
-@using Kuestencode.Werkbank.Acta.Domain.Enums
+@using Kuestencode.Werkbank.Acta.Domain.Dtos
 @using Kuestencode.Werkbank.Acta.Domain.Services
+@using Kuestencode.Shared.Contracts.Host
 @using Kuestencode.Werkbank.Acta.Shared.Components
 @using Kuestencode.Shared.ApiClients
 @using Kuestencode.Shared.Contracts.Rapport
@@ -14,6 +15,8 @@
 @inject IDialogService DialogService
 @inject IHostApiClient HostApiClient
 @inject ModuleAvailabilityService ModuleAvailability
+@inject Kuestencode.Werkbank.Acta.Services.IStundensatzService StundensatzService
+@inject IFakturaApiClient FakturaClient
 
 <PageTitle>Projekt Details - Küstencode Acta</PageTitle>
 
@@ -153,6 +156,41 @@
                                 </MudPaper>
                             </MudItem>
                         }
+
+                        <!-- Verrechnungssätze -->
+                        <MudItem xs="12" md="6">
+                            <MudText Typo="Typo.h6" GutterBottom="true">Verrechnungssätze</MudText>
+                            @if (_verfuegbareRollen.Count == 0)
+                            {
+                                <MudText Color="Color.Secondary" Typo="Typo.body2">Keine Abrechnungsrollen konfiguriert.</MudText>
+                            }
+                            else
+                            {
+                                <MudSimpleTable Dense="true">
+                                    <tbody>
+                                        @foreach (var rolle in _verfuegbareRollen)
+                                        {
+                                            <tr>
+                                                <td style="width: 130px;"><strong>@rolle.Name</strong></td>
+                                                <td>
+                                                    <MudTextField T="decimal?"
+                                                                  Value="@(_stundensaetze.TryGetValue(rolle.Id, out var sv) ? sv : null)"
+                                                                  ValueChanged="@(v => { if (v.HasValue) _stundensaetze[rolle.Id] = v; else _stundensaetze.Remove(rolle.Id); })"
+                                                                  Variant="Variant.Text" Adornment="Adornment.End"
+                                                                  AdornmentText="€/h" HideSpinButtons="true"
+                                                                  InputType="InputType.Number" />
+                                                </td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </MudSimpleTable>
+                            }
+                            <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small"
+                                       Class="mt-2" OnClick="SaveStundensaetzeAsync"
+                                       Disabled="@(_isSavingStundensaetze || _verfuegbareRollen.Count == 0)">
+                                Speichern
+                            </MudButton>
+                        </MudItem>
                     </MudGrid>
                 </MudTabPanel>
 
@@ -209,34 +247,145 @@
                             </MudPaper>
                         </MudItem>
 
-                        @if (_rapportAvailable)
-                        {
-                            <MudItem xs="12" md="4">
-                                <MudPaper Class="pa-4 d-flex flex-column align-center justify-center" Elevation="2" Style="height: 100%;">
-                                    <MudIcon Icon="@Icons.Material.Filled.AccessTime" Size="Size.Large" Color="Color.Info" />
-                                    <MudText Typo="Typo.h4" Class="mt-2">@(_projectHours?.TotalHours.ToString("N1", _culture) ?? "0") h</MudText>
-                                    <MudText Typo="Typo.body2">Aufwand intern</MudText>
-                                </MudPaper>
-                            </MudItem>
-                        }
-
-                        @if (_receptaAvailable)
-                        {
-                            <MudItem xs="12" md="4">
-                                <MudPaper Class="pa-4 d-flex flex-column align-center justify-center" Elevation="2" Style="height: 100%;">
-                                    <MudIcon Icon="@Icons.Material.Filled.ReceiptLong" Size="Size.Large" Color="Color.Warning" />
-                                    <MudText Typo="Typo.h4" Class="mt-2">@(_projectExpenses?.TotalNet.ToString("N0", _culture) ?? "0") €</MudText>
-                                    <MudText Typo="Typo.body2">Aufwand extern (netto)</MudText>
-                                    @if (_projectExpenses != null && _projectExpenses.DocumentCount > 0)
-                                    {
-                                        <MudText Typo="Typo.caption" Color="Color.Secondary">
-                                            @_projectExpenses.DocumentCount Beleg(e) – @_projectExpenses.TotalGross.ToString("N2", _culture) € brutto
-                                        </MudText>
-                                    }
-                                </MudPaper>
-                            </MudItem>
-                        }
                     </MudGrid>
+
+                    @if (_rapportAvailable && _projektAbrechnung != null && _projektAbrechnung.BerechnetePositionen.Count > 0)
+                    {
+                        var berechneteStunden = _projektAbrechnung.BerechnetePositionen.Sum(p => p.Stunden);
+                        <MudPaper Class="pa-4 mt-4" Elevation="1">
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-3">
+                                <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Color="Color.Success" />
+                                <MudText Typo="Typo.h6">Bereits berechnet</MudText>
+                            </MudStack>
+                            <MudSimpleTable Dense="true">
+                                <thead>
+                                    <tr>
+                                        <th></th>
+                                        <th style="text-align:right">Stunden</th>
+                                        <th style="text-align:right">Satz</th>
+                                        <th style="text-align:right">Betrag</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var pos in _projektAbrechnung.BerechnetePositionen)
+                                    {
+                                        <tr>
+                                            <td>@pos.RolleName</td>
+                                            <td style="text-align:right">@pos.Stunden.ToString("N1", _culture) h</td>
+                                            <td style="text-align:right">@(pos.Stundensatz > 0 ? pos.Stundensatz.ToString("N2", _culture) + " €" : "–")</td>
+                                            <td style="text-align:right">@(pos.Stundensatz > 0 ? pos.Betrag.ToString("N2", _culture) + " €" : "–")</td>
+                                        </tr>
+                                    }
+                                    <tr style="border-top: 1px solid rgba(0,0,0,0.12);">
+                                        <td><strong>Gesamt</strong></td>
+                                        <td style="text-align:right"><strong>@berechneteStunden.ToString("N1", _culture) h</strong></td>
+                                        <td></td>
+                                        <td></td>
+                                    </tr>
+                                </tbody>
+                            </MudSimpleTable>
+                        </MudPaper>
+                    }
+
+                    @if (_rapportAvailable && _projektAbrechnung != null && _projektAbrechnung.Positionen.Count > 0)
+                    {
+                        var arbeitNetto = _projektAbrechnung.Positionen.Sum(p => p.Betrag);
+                        var gesamtStunden = _projektAbrechnung.Positionen.Sum(p => p.Stunden);
+                        <MudPaper Class="pa-4 mt-4" Elevation="2">
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-3">
+                                <MudIcon Icon="@Icons.Material.Filled.AccessTime" Color="Color.Info" />
+                                <MudText Typo="Typo.h6">Offene Arbeitsstunden</MudText>
+                            </MudStack>
+                            <MudSimpleTable Dense="true">
+                                <thead>
+                                    <tr>
+                                        <th></th>
+                                        <th style="text-align:right">Stunden</th>
+                                        <th style="text-align:right">Satz</th>
+                                        <th style="text-align:right">Betrag</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var pos in _projektAbrechnung.Positionen)
+                                    {
+                                        <tr>
+                                            <td>@pos.RolleName</td>
+                                            <td style="text-align:right">@pos.Stunden.ToString("N1", _culture) h</td>
+                                            <td style="text-align:right">
+                                                @if (pos.Stundensatz > 0)
+                                                {
+                                                    <text>@pos.Stundensatz.ToString("N2", _culture) €</text>
+                                                }
+                                                else if (pos.Stunden > 0)
+                                                {
+                                                    <MudText Color="Color.Warning" Typo="Typo.caption">Kein Satz hinterlegt</MudText>
+                                                }
+                                                else
+                                                {
+                                                    <text>–</text>
+                                                }
+                                            </td>
+                                            <td style="text-align:right">
+                                                @if (pos.Stundensatz > 0)
+                                                {
+                                                    <text>@pos.Betrag.ToString("N2", _culture) €</text>
+                                                }
+                                                else
+                                                {
+                                                    <text>–</text>
+                                                }
+                                            </td>
+                                        </tr>
+                                    }
+                                    <tr style="border-top: 1px solid rgba(0,0,0,0.12);">
+                                        <td><strong>Gesamt</strong></td>
+                                        <td style="text-align:right"><strong>@gesamtStunden.ToString("N1", _culture) h</strong></td>
+                                        <td></td>
+                                        <td style="text-align:right"><strong>@arbeitNetto.ToString("N2", _culture) €</strong></td>
+                                    </tr>
+                                </tbody>
+                            </MudSimpleTable>
+                        </MudPaper>
+                    }
+
+                    @if (_receptaAvailable && _projektAbrechnung != null)
+                    {
+                        <MudPaper Class="pa-4 mt-3" Elevation="2">
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-2">
+                                <MudIcon Icon="@Icons.Material.Filled.ReceiptLong" Color="Color.Warning" />
+                                <MudText Typo="Typo.h6">Aufwand Material</MudText>
+                            </MudStack>
+                            <MudText Typo="Typo.body2">
+                                @(_projectExpenses?.DocumentCount ?? 0) Beleg(e)
+                                &nbsp;·&nbsp; @_projektAbrechnung.MaterialNetto.ToString("N2", _culture) € netto
+                                &nbsp;·&nbsp; @_projektAbrechnung.MaterialBrutto.ToString("N2", _culture) € brutto
+                            </MudText>
+                        </MudPaper>
+                    }
+
+                    @if ((_rapportAvailable || _receptaAvailable) && _projektAbrechnung != null)
+                    {
+                        <MudPaper Class="pa-4 mt-3" Elevation="2">
+                            <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                                <MudText Typo="Typo.h6">Abrechnungssumme (netto)</MudText>
+                                <MudText Typo="Typo.h5" Color="Color.Primary">
+                                    @_projektAbrechnung.GesamtNetto.ToString("N2", _culture) €
+                                </MudText>
+                            </MudStack>
+                        </MudPaper>
+                    }
+
+                    @if (_fakturaAvailable && _projektAbrechnung != null && _project.Status == ProjectStatus.Active)
+                    {
+                        <MudStack Row="true" Justify="Justify.FlexEnd" Class="mt-3">
+                            <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                                       StartIcon="@Icons.Material.Filled.Receipt"
+                                       Disabled="@_isCreatingRechnung"
+                                       OnClick="CreateRechnungAsync">
+                                Rechnung erstellen
+                            </MudButton>
+                        </MudStack>
+                    }
                 </MudTabPanel>
 
                 @* Tab 4: Belege (Recepta und/oder Faktura) *@
@@ -433,6 +582,11 @@
     private ProjectExpensesResponseDto? _projectExpenses;
     private bool _fakturaAvailable;
     private ProjectInvoicesResponseDto? _projectInvoices;
+    private Dictionary<int, decimal?> _stundensaetze = new();
+    private List<MitarbeiterRolleDto> _verfuegbareRollen = new();
+    private bool _isSavingStundensaetze;
+    private ProjektAbrechnung? _projektAbrechnung;
+    private bool _isCreatingRechnung;
 
     protected override async Task OnInitializedAsync()
     {
@@ -451,6 +605,14 @@
             if (_project != null && _customer == null)
             {
                 _customer = await CustomerService.GetByIdAsync(_project.CustomerId);
+            }
+
+            _verfuegbareRollen = await HostApiClient.GetMitarbeiterRollenAsync();
+
+            if (_project != null)
+            {
+                var saetze = await StundensatzService.GetStundensaetzeAsync(_project.Id);
+                _stundensaetze = saetze.ToDictionary(s => s.RolleId, s => s.Stundensatz);
             }
 
             await CheckModuleAvailabilityAsync();
@@ -477,6 +639,11 @@
                 {
                     _projectInvoices = await HostApiClient.GetProjectInvoicesAsync(_project.ExternalId.Value);
                 }
+
+                if (_rapportAvailable || _receptaAvailable)
+                {
+                    _projektAbrechnung = await StundensatzService.GetProjektAbrechnungAsync(_project.Id);
+                }
             }
         }
         catch (Exception ex)
@@ -489,6 +656,130 @@
         }
 
         StateHasChanged();
+    }
+
+    private async Task CreateRechnungAsync()
+    {
+        if (_project == null || _projektAbrechnung == null) return;
+
+        if (_customer == null)
+        {
+            Snackbar.Add("Das Projekt hat keinen Kunden. Bitte zuerst einen Kunden zuweisen.", Severity.Error);
+            return;
+        }
+
+        var hatMaterial = _projektAbrechnung.MaterialNetto > 0;
+        var abrechenbar = _projektAbrechnung.Positionen.Where(p => p.Stunden > 0 && p.Stundensatz > 0).ToList();
+
+        foreach (var pos in _projektAbrechnung.Positionen.Where(p => p.Stunden > 0 && p.Stundensatz == 0))
+            Snackbar.Add($"{pos.RolleName}-Stunden werden nicht abgerechnet – kein Stundensatz hinterlegt. Bitte in den Stammdaten ergänzen.", Severity.Warning);
+
+        if (!abrechenbar.Any() && !hatMaterial)
+        {
+            Snackbar.Add("Keine abrechenbaren Positionen vorhanden.", Severity.Warning);
+            return;
+        }
+
+        // Bestätigungsdialog
+        var parameters = new DialogParameters<Kuestencode.Werkbank.Acta.Shared.Dialogs.RechnungErstellenDialog>
+        {
+            { x => x.Abrechnung, _projektAbrechnung }
+        };
+        var dialog = await DialogService.ShowAsync<Kuestencode.Werkbank.Acta.Shared.Dialogs.RechnungErstellenDialog>(
+            "Rechnung erstellen", parameters, new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true });
+        var result = await dialog.Result;
+
+        if (result == null || result.Canceled) return;
+
+        _isCreatingRechnung = true;
+        try
+        {
+            var company = await HostApiClient.GetCompanyAsync();
+            var vatRate = company?.IsKleinunternehmer == true ? 0m : 19m;
+            var items = new List<CreateInvoiceItemRequest>();
+
+            foreach (var pos in abrechenbar)
+                items.Add(new CreateInvoiceItemRequest
+                {
+                    Description = pos.RolleName,
+                    Unit = "Stunden",
+                    Quantity = pos.Stunden,
+                    UnitPrice = pos.Stundensatz,
+                    VatRate = vatRate
+                });
+
+            if (hatMaterial)
+                items.Add(new CreateInvoiceItemRequest
+                {
+                    Description = "Materialkosten",
+                    Quantity = 1,
+                    UnitPrice = _projektAbrechnung.MaterialNetto,
+                    VatRate = vatRate
+                });
+
+            var request = new CreateInvoiceRequest
+            {
+                InvoiceDate = DateTime.SpecifyKind(DateTime.Today, DateTimeKind.Utc),
+                CustomerId = _customer.Id,
+                ProjectId = _project.ExternalId,
+                DiscountType = "None",
+                Items = items
+            };
+
+            var newInvoice = await FakturaClient.CreateInvoiceAsync(request);
+
+            if (_project.ExternalId.HasValue)
+                await StundensatzService.MarkProjectTimeEntriesAsInvoicedAsync(_project.ExternalId.Value);
+
+            NavigationManager.NavigateTo($"/faktura/invoices/details/{newInvoice.Id}", forceLoad: true);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Fehler beim Erstellen der Rechnung: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _isCreatingRechnung = false;
+        }
+    }
+
+    private async Task SaveStundensaetzeAsync()
+    {
+        if (_project == null) return;
+
+        if (_stundensaetze.Values.Any(v => v is not null and <= 0))
+        {
+            Snackbar.Add("Stundensatz muss größer als 0 sein.", Severity.Warning);
+            return;
+        }
+
+        _isSavingStundensaetze = true;
+        try
+        {
+            foreach (var (rolleId, stundensatz) in _stundensaetze)
+            {
+                if (!stundensatz.HasValue) continue;
+                var rolleName = _verfuegbareRollen.FirstOrDefault(r => r.Id == rolleId)?.Name ?? "Unbekannt";
+                await StundensatzService.UpsertStundensatzAsync(_project.Id, rolleId, rolleName, stundensatz.Value);
+            }
+
+            // Werte aus DB neu laden damit Eingabefelder und Übersicht synchron sind
+            var saetze = await StundensatzService.GetStundensaetzeAsync(_project.Id);
+            _stundensaetze = saetze.ToDictionary(s => s.RolleId, s => s.Stundensatz);
+
+            if (_rapportAvailable || _receptaAvailable)
+                _projektAbrechnung = await StundensatzService.GetProjektAbrechnungAsync(_project.Id);
+
+            Snackbar.Add("Verrechnungssätze gespeichert.", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Fehler beim Speichern: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _isSavingStundensaetze = false;
+        }
     }
 
     private async Task RefreshProjectAsync()
@@ -511,6 +802,8 @@
                 _projectExpenses = await HostApiClient.GetProjectExpensesAsync(DeterministicGuid(_project.ExternalId.Value));
             if (_fakturaAvailable && _projectInvoices == null)
                 _projectInvoices = await HostApiClient.GetProjectInvoicesAsync(_project.ExternalId.Value);
+            if ((_rapportAvailable || _receptaAvailable) && _projektAbrechnung == null)
+                _projektAbrechnung = await StundensatzService.GetProjektAbrechnungAsync(_project.Id);
         }
 
         StateHasChanged();

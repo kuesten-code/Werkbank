@@ -52,4 +52,24 @@ public class RapportApiClient : IRapportApiClient
             return null;
         }
     }
+
+    public async Task<ProjectHoursByTypeResponseDto?> GetProjectHoursByTypeAsync(int projectId)
+    {
+        try
+        {
+            var response = await _httpClient.GetAsync($"/api/dashboard/projects/{projectId}/hours/by-type").ConfigureAwait(false);
+            if (!response.IsSuccessStatusCode) return null;
+            return await response.Content.ReadFromJsonAsync<ProjectHoursByTypeResponseDto>().ConfigureAwait(false);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    public async Task MarkProjectTimeEntriesAsInvoicedAsync(int projectId)
+    {
+        var response = await _httpClient.PostAsync($"/api/rapport/entries/project/{projectId}/mark-invoiced", null).ConfigureAwait(false);
+        response.EnsureSuccessStatusCode();
+    }
 }

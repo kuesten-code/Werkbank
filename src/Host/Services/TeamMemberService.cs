@@ -19,7 +19,7 @@ public class TeamMemberService : ITeamMemberService
     {
         try
         {
-            var query = _context.TeamMembers.AsNoTracking();
+            var query = _context.TeamMembers.Include(m => m.MitarbeiterRolle).AsNoTracking();
             if (!includeInactive)
             {
                 query = query.Where(m => m.IsActive);
@@ -41,7 +41,7 @@ public class TeamMemberService : ITeamMemberService
     {
         try
         {
-            return await _context.TeamMembers.FirstOrDefaultAsync(m => m.Id == id).ConfigureAwait(false);
+            return await _context.TeamMembers.Include(m => m.MitarbeiterRolle).FirstOrDefaultAsync(m => m.Id == id).ConfigureAwait(false);
         }
         catch (Exception ex)
         {

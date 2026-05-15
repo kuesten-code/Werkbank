@@ -3,28 +3,27 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Kuestencode.Werkbank.Acta.Data.Repositories;
 
-/// <summary>
-/// Repository-Implementierung für Projektaufgaben.
-/// </summary>
 public class ProjectTaskRepository : IProjectTaskRepository
 {
-    private readonly ActaDbContext _context;
+    private readonly IDbContextFactory<ActaDbContext> _contextFactory;
 
-    public ProjectTaskRepository(ActaDbContext context)
+    public ProjectTaskRepository(IDbContextFactory<ActaDbContext> contextFactory)
     {
-        _context = context;
+        _contextFactory = contextFactory;
     }
 
     public async Task<ProjectTask?> GetByIdAsync(Guid id)
     {
-        return await _context.Tasks
+        await using var context = _contextFactory.CreateDbContext();
+        return await context.Tasks
             .Include(t => t.Project)
             .FirstOrDefaultAsync(t => t.Id == id);
     }
 
     public async Task<List<ProjectTask>> GetByProjectIdAsync(Guid projectId)
     {
-        return await _context.Tasks
+        await using var context = _contextFactory.CreateDbContext();
+        return await context.Tasks
             .Where(t => t.ProjectId == projectId)
             .OrderBy(t => t.SortOrder)
             .ToListAsync();
@@ -32,7 +31,8 @@ public class ProjectTaskRepository : IProjectTaskRepository
 
     public async Task<List<ProjectTask>> GetByAssignedUserIdAsync(Guid assignedUserId)
     {
-        return await _context.Tasks
+        await using var context = _contextFactory.CreateDbContext();
+        return await context.Tasks
             .Include(t => t.Project)
             .Where(t => t.AssignedUserId == assignedUserId)
             .OrderBy(t => t.Status)
@@ -43,37 +43,40 @@ public class ProjectTaskRepository : IProjectTaskRepository
 
     public async Task AddAsync(ProjectTask task)
     {
-        await _context.Tasks.AddAsync(task);
-        await _context.SaveChangesAsync();
+        await using var context = _contextFactory.CreateDbContext();
+        await context.Tasks.AddAsync(task);
+        await context.SaveChangesAsync();
     }
 
     public async Task UpdateAsync(ProjectTask task)
     {
-        _context.Tasks.Update(task);
-        await _context.SaveChangesAsync();
+        await using var context = _contextFactory.CreateDbContext();
+        context.Tasks.Update(task);
+        await context.SaveChangesAsync();
     }
 
     public async Task UpdateRangeAsync(IEnumerable<ProjectTask> tasks)
     {
-        _context.Tasks.UpdateRange(tasks);
-        await _context.SaveChangesAsync();
+        await using var context = _contextFactory.CreateDbContext();
+        context.Tasks.UpdateRange(tasks);
+        await context.SaveChangesAsync();
     }
 
     public async Task DeleteAsync(Guid id)
     {
-        var task = await _context.Tasks.FindAsync(id);
+        await using var context = _contextFactory.CreateDbContext();
+        var task = await context.Tasks.FindAsync(id);
         if (task == null)
-        {
             throw new InvalidOperationException($"Aufgabe mit ID {id} nicht gefunden.");
-        }
 
-        _context.Tasks.Remove(task);
-        await _context.SaveChangesAsync();
+        context.Tasks.Remove(task);
+        await context.SaveChangesAsync();
     }
 
     public async Task<int> GetNextSortOrderAsync(Guid projectId)
     {
-        var maxSortOrder = await _context.Tasks
+        await using var context = _contextFactory.CreateDbContext();
+        var maxSortOrder = await context.Tasks
             .Where(t => t.ProjectId == projectId)
             .MaxAsync(t => (int?)t.SortOrder) ?? 0;
 

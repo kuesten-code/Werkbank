@@ -59,7 +59,7 @@
                             Required="@(!_selectedProjectId.HasValue)"
                             RequiredError="Kunde ist erforderlich" />
         </MudItem>
-        <MudItem xs="12">
+        <MudItem xs="12" md="6">
             <MudTextField T="string" Label="Beschreibung" Variant="Variant.Outlined"
                           @bind-Value="_description" />
         </MudItem>
@@ -192,14 +192,22 @@
             Guid? teamMemberId = currentUserId;
             string? teamMemberName = currentUserName;
 
+            int? mitarbeiterRolleId;
+            string? mitarbeiterRolleName;
             if (_isAdminOrBuero && _selectedTeamMemberId.HasValue)
             {
                 teamMemberId = _selectedTeamMemberId;
+                var member = await TeamMemberCacheService.GetByIdAsync(_selectedTeamMemberId.Value);
                 if (teamMemberId != currentUserId)
-                {
-                    var member = await TeamMemberCacheService.GetByIdAsync(_selectedTeamMemberId.Value);
                     teamMemberName = member?.DisplayName ?? currentUserName;
-                }
+                mitarbeiterRolleId = member?.MitarbeiterRolleId;
+                mitarbeiterRolleName = member?.MitarbeiterRolleName;
+            }
+            else
+            {
+                var rolle = await UserContextService.GetCurrentUserMitarbeiterRolleAsync();
+                mitarbeiterRolleId = rolle.RolleId;
+                mitarbeiterRolleName = rolle.RolleName;
             }
 
             await TimeEntryService.CreateManualEntryAsync(
@@ -209,7 +217,9 @@
                 _selectedProjectId.HasValue ? null : _selectedCustomer?.Id,
                 _description,
                 teamMemberId,
-                teamMemberName);
+                teamMemberName,
+                mitarbeiterRolleId,
+                mitarbeiterRolleName);
 
             Snackbar.Add("Eintrag wurde gespeichert.", Severity.Success);
             NavigationManager.NavigateTo("/rapport/time-entries");
