@@ -16,10 +16,19 @@ public class AbrechnungsPosition
     public decimal Betrag => Stunden * Stundensatz;
 }
 
+public class BerechneterAufwandDto
+{
+    public string Belegnummer { get; set; } = "";
+    public string Lieferant { get; set; } = "";
+    public decimal Netto { get; set; }
+    public decimal Brutto { get; set; }
+}
+
 public class ProjektAbrechnung
 {
     public List<AbrechnungsPosition> Positionen { get; set; } = new();
     public List<AbrechnungsPosition> BerechnetePositionen { get; set; } = new();
+    public List<BerechneterAufwandDto> BerechneteAufwaende { get; set; } = new();
     public decimal MaterialNetto { get; set; }
     public decimal MaterialBrutto { get; set; }
     public decimal MaterialBerechnedNetto { get; set; }

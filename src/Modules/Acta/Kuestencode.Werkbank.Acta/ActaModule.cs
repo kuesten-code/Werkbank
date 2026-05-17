@@ -32,6 +32,7 @@ public static class ActaModule
         services.AddScoped<IProjectRepository, ProjectRepository>();
         services.AddScoped<IProjectTaskRepository, ProjectTaskRepository>();
         services.AddScoped<IProjektStundensatzRepository, ProjektStundensatzRepository>();
+        services.AddScoped<IProjektBerechneterAufwandRepository, ProjektBerechneterAufwandRepository>();
 
         // Register Domain Services
         services.AddScoped<ProjectStatusService>();

@@ -16,7 +16,7 @@ public class CachedProjectService : ICachedProjectService
 
     private const string ProjectsCacheKey = "acta_projects";
     private const string AvailabilityCacheKey = "acta_available";
-    private static readonly TimeSpan CacheDuration = TimeSpan.FromMinutes(5);
+    private static readonly TimeSpan CacheDuration = TimeSpan.FromMinutes(1);
 
     public CachedProjectService(
         IHostApiClient hostApiClient,

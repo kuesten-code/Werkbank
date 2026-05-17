@@ -9,17 +9,20 @@ public class StundensatzService : IStundensatzService
 {
     private readonly IProjektStundensatzRepository _repo;
     private readonly IProjectRepository _projectRepo;
+    private readonly IProjektBerechneterAufwandRepository _aufwandRepo;
     private readonly IRapportApiClient _rapportClient;
     private readonly IReceptaApiClient _receptaClient;
 
     public StundensatzService(
         IProjektStundensatzRepository repo,
         IProjectRepository projectRepo,
+        IProjektBerechneterAufwandRepository aufwandRepo,
         IRapportApiClient rapportClient,
         IReceptaApiClient receptaClient)
     {
         _repo = repo;
         _projectRepo = projectRepo;
+        _aufwandRepo = aufwandRepo;
         _rapportClient = rapportClient;
         _receptaClient = receptaClient;
     }
@@ -68,6 +71,26 @@ public class StundensatzService : IStundensatzService
         var satzLookup = saetze.ToDictionary(s => s.RolleId);
 
         var project = await _projectRepo.GetByIdAsync(projektId);
+
+        var berechneteAufwaende = await _aufwandRepo.GetByProjektIdAsync(projektId);
+        abrechnung.BerechneteAufwaende = berechneteAufwaende
+            .Select(a => new BerechneterAufwandDto
+            {
+                Belegnummer = a.Belegnummer,
+                Lieferant = a.Lieferant,
+                Netto = a.Netto,
+                Brutto = a.Brutto
+            })
+            .ToList();
+
+        // Fallback auf Project-Spalten für Daten die vor Einführung der Einzelbelege erfasst wurden
+        abrechnung.MaterialBerechnedNetto = berechneteAufwaende.Count > 0
+            ? berechneteAufwaende.Sum(a => a.Netto)
+            : project?.MaterialBerechnedNetto ?? 0;
+        abrechnung.MaterialBerechnedBrutto = berechneteAufwaende.Count > 0
+            ? berechneteAufwaende.Sum(a => a.Brutto)
+            : project?.MaterialBerechnedBrutto ?? 0;
+
         if (project?.ExternalId.HasValue == true)
         {
             try
@@ -118,9 +141,6 @@ public class StundensatzService : IStundensatzService
             });
         }
 
-        abrechnung.MaterialBerechnedNetto = project?.MaterialBerechnedNetto ?? 0;
-        abrechnung.MaterialBerechnedBrutto = project?.MaterialBerechnedBrutto ?? 0;
-
         try
         {
             var receptaId = project?.ExternalId.HasValue == true
@@ -146,12 +166,29 @@ public class StundensatzService : IStundensatzService
         await _rapportClient.MarkProjectTimeEntriesAsInvoicedAsync(externalProjectId);
     }
 
-    public async Task UpdateMaterialBerechnedAsync(Guid projektId, decimal additionalNetto, decimal additionalBrutto)
+    public async Task AddBerechneteAufwaendeAsync(Guid projektId, IEnumerable<BerechneterAufwandDto> aufwaende)
     {
+        var vorhandene = await _aufwandRepo.GetBelegnummernByProjektIdAsync(projektId);
+        var neu = aufwaende.Where(a => !vorhandene.Contains(a.Belegnummer)).ToList();
+        if (neu.Count == 0) return;
+
+        var now = DateTime.UtcNow;
+        var entities = neu.Select(a => new ProjektBerechneterAufwand
+        {
+            Id = Guid.NewGuid(),
+            ProjectId = projektId,
+            Belegnummer = a.Belegnummer,
+            Lieferant = a.Lieferant,
+            Netto = a.Netto,
+            Brutto = a.Brutto,
+            BerechnedAt = now
+        });
+        await _aufwandRepo.AddRangeAsync(entities);
+
         var project = await _projectRepo.GetByIdAsync(projektId);
         if (project == null) return;
-        project.MaterialBerechnedNetto += additionalNetto;
-        project.MaterialBerechnedBrutto += additionalBrutto;
+        project.MaterialBerechnedNetto += neu.Sum(a => a.Netto);
+        project.MaterialBerechnedBrutto += neu.Sum(a => a.Brutto);
         await _projectRepo.UpdateAsync(project);
     }
 
