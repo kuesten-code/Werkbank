@@ -168,16 +168,14 @@
                             {
                                 <MudSimpleTable Dense="true">
                                     <tbody>
-                                        @foreach (var rolle in _verfuegbareRollen)
+                                        @foreach (var eingabe in _stundensatzEingaben)
                                         {
-                                            <tr @key="@($"{rolle.Id}_{_stundensatzVersion}")">
-                                                <td style="width: 130px;"><strong>@rolle.Name</strong></td>
+                                            <tr @key="@eingabe.RolleId">
+                                                <td style="width: 130px;"><strong>@eingabe.RolleName</strong></td>
                                                 <td>
-                                                    <MudTextField T="decimal?"
-                                                                  Value="@(_stundensaetze.TryGetValue(rolle.Id, out var sv) ? sv : null)"
-                                                                  ValueChanged="@(v => { if (v.HasValue) _stundensaetze[rolle.Id] = v; else _stundensaetze.Remove(rolle.Id); })"
+                                                    <MudTextField T="string" @bind-Value="eingabe.WertText"
                                                                   Variant="Variant.Text" Adornment="Adornment.End"
-                                                                  AdornmentText="€/h" HideSpinButtons="true"
+                                                                  AdornmentText="€/h" Placeholder="0,00"
                                                                   InputType="InputType.Number" />
                                                 </td>
                                             </tr>
@@ -187,7 +185,7 @@
                             }
                             <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small"
                                        Class="mt-2" OnClick="SaveStundensaetzeAsync"
-                                       Disabled="@(_isSavingStundensaetze || _verfuegbareRollen.Count == 0)">
+                                       Disabled="@(_isSavingStundensaetze || _stundensatzEingaben.Count == 0)">
                                 Speichern
                             </MudButton>
                         </MudItem>
@@ -251,50 +249,88 @@
 
                     @if (_projektAbrechnung != null && (_projektAbrechnung.BerechnetePositionen.Count > 0 || _projektAbrechnung.MaterialBerechnedNetto > 0))
                     {
-                        var berechneteStunden = _projektAbrechnung.BerechnetePositionen.Sum(p => p.Stunden);
-                        var berechneteArbeit = _projektAbrechnung.BerechnetePositionen.Sum(p => p.Betrag);
-                        var berechneteGesamt = berechneteArbeit + _projektAbrechnung.MaterialBerechnedNetto;
                         <MudPaper Class="pa-4 mt-4" Elevation="1">
                             <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-3">
                                 <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Color="Color.Success" />
                                 <MudText Typo="Typo.h6">Bereits berechnet</MudText>
                             </MudStack>
-                            <MudSimpleTable Dense="true">
-                                <thead>
-                                    <tr>
-                                        <th></th>
-                                        <th style="text-align:right">Stunden</th>
-                                        <th style="text-align:right">Satz</th>
-                                        <th style="text-align:right">Betrag</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    @foreach (var pos in _projektAbrechnung.BerechnetePositionen)
-                                    {
+
+                            @if (_projektAbrechnung.BerechnetePositionen.Count > 0)
+                            {
+                                var berechneteStunden = _projektAbrechnung.BerechnetePositionen.Sum(p => p.Stunden);
+                                var berechneteArbeit = _projektAbrechnung.BerechnetePositionen.Sum(p => p.Betrag);
+                                <MudText Typo="Typo.subtitle2" Class="mb-1">Arbeitsstunden</MudText>
+                                <MudSimpleTable Dense="true" Class="mb-4">
+                                    <thead>
                                         <tr>
-                                            <td>@pos.RolleName</td>
-                                            <td style="text-align:right">@pos.Stunden.ToString("N1", _culture) h</td>
-                                            <td style="text-align:right">@(pos.Stundensatz > 0 ? pos.Stundensatz.ToString("N2", _culture) + " €" : "–")</td>
-                                            <td style="text-align:right">@(pos.Stundensatz > 0 ? pos.Betrag.ToString("N2", _culture) + " €" : "–")</td>
+                                            <th></th>
+                                            <th style="text-align:right">Stunden</th>
+                                            <th style="text-align:right">Satz</th>
+                                            <th style="text-align:right">Betrag</th>
                                         </tr>
-                                    }
-                                    @if (_projektAbrechnung.MaterialBerechnedNetto > 0)
-                                    {
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var pos in _projektAbrechnung.BerechnetePositionen)
+                                        {
+                                            <tr>
+                                                <td>@pos.RolleName</td>
+                                                <td style="text-align:right">@pos.Stunden.ToString("N1", _culture) h</td>
+                                                <td style="text-align:right">@(pos.Stundensatz > 0 ? pos.Stundensatz.ToString("N2", _culture) + " €" : "–")</td>
+                                                <td style="text-align:right">@(pos.Stundensatz > 0 ? pos.Betrag.ToString("N2", _culture) + " €" : "–")</td>
+                                            </tr>
+                                        }
+                                        <tr style="border-top: 1px solid rgba(0,0,0,0.12);">
+                                            <td><strong>Gesamt</strong></td>
+                                            <td style="text-align:right"><strong>@berechneteStunden.ToString("N1", _culture) h</strong></td>
+                                            <td></td>
+                                            <td style="text-align:right"><strong>@berechneteArbeit.ToString("N2", _culture) €</strong></td>
+                                        </tr>
+                                    </tbody>
+                                </MudSimpleTable>
+                            }
+
+                            @if (_projektAbrechnung.MaterialBerechnedNetto > 0)
+                            {
+                                <MudText Typo="Typo.subtitle2" Class="mb-1">Material und externe Aufwände</MudText>
+                                <MudSimpleTable Dense="true">
+                                    <thead>
                                         <tr>
-                                            <td>Materialkosten</td>
-                                            <td></td>
-                                            <td></td>
-                                            <td style="text-align:right">@_projektAbrechnung.MaterialBerechnedNetto.ToString("N2", _culture) €</td>
+                                            <th>Belegnr.</th>
+                                            <th>Lieferant</th>
+                                            <th style="text-align:right">Netto</th>
+                                            <th style="text-align:right">Brutto</th>
                                         </tr>
-                                    }
-                                    <tr style="border-top: 1px solid rgba(0,0,0,0.12);">
-                                        <td><strong>Gesamt</strong></td>
-                                        <td style="text-align:right"><strong>@(berechneteStunden > 0 ? berechneteStunden.ToString("N1", _culture) + " h" : "")</strong></td>
-                                        <td></td>
-                                        <td style="text-align:right"><strong>@berechneteGesamt.ToString("N2", _culture) €</strong></td>
-                                    </tr>
-                                </tbody>
-                            </MudSimpleTable>
+                                    </thead>
+                                    <tbody>
+                                        @if (_projektAbrechnung.BerechneteAufwaende.Count > 0)
+                                        {
+                                            @foreach (var aufwand in _projektAbrechnung.BerechneteAufwaende)
+                                            {
+                                                <tr>
+                                                    <td>@aufwand.Belegnummer</td>
+                                                    <td>@aufwand.Lieferant</td>
+                                                    <td style="text-align:right">@aufwand.Netto.ToString("N2", _culture) €</td>
+                                                    <td style="text-align:right">@aufwand.Brutto.ToString("N2", _culture) €</td>
+                                                </tr>
+                                            }
+                                            <tr style="border-top: 1px solid rgba(0,0,0,0.12);">
+                                                <td><strong>Gesamt</strong></td>
+                                                <td></td>
+                                                <td style="text-align:right"><strong>@_projektAbrechnung.MaterialBerechnedNetto.ToString("N2", _culture) €</strong></td>
+                                                <td style="text-align:right"><strong>@_projektAbrechnung.MaterialBerechnedBrutto.ToString("N2", _culture) €</strong></td>
+                                            </tr>
+                                        }
+                                        else
+                                        {
+                                            <tr>
+                                                <td colspan="2">Material und ext. Aufwände</td>
+                                                <td style="text-align:right">@_projektAbrechnung.MaterialBerechnedNetto.ToString("N2", _culture) €</td>
+                                                <td style="text-align:right">@_projektAbrechnung.MaterialBerechnedBrutto.ToString("N2", _culture) €</td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </MudSimpleTable>
+                            }
                         </MudPaper>
                     }
 
@@ -359,18 +395,42 @@
                         </MudPaper>
                     }
 
-                    @if (_receptaAvailable && _projektAbrechnung != null)
+                    @if (_receptaAvailable && _projektAbrechnung != null && _projektAbrechnung.MaterialNetto > 0 && _projectExpenses != null)
                     {
+                        var billed = _projektAbrechnung.BerechneteAufwaende.Select(a => a.Belegnummer).ToHashSet();
+                        var offeneDocs = _projectExpenses.Documents.Where(d => !billed.Contains(d.DocumentNumber)).ToList();
                         <MudPaper Class="pa-4 mt-3" Elevation="2">
                             <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-2">
                                 <MudIcon Icon="@Icons.Material.Filled.ReceiptLong" Color="Color.Warning" />
-                                <MudText Typo="Typo.h6">Aufwand Material</MudText>
+                                <MudText Typo="Typo.h6">Material und externe Aufwände</MudText>
                             </MudStack>
-                            <MudText Typo="Typo.body2">
-                                @(_projectExpenses?.DocumentCount ?? 0) Beleg(e)
-                                &nbsp;·&nbsp; @_projektAbrechnung.MaterialNetto.ToString("N2", _culture) € netto
-                                &nbsp;·&nbsp; @_projektAbrechnung.MaterialBrutto.ToString("N2", _culture) € brutto
-                            </MudText>
+                            <MudSimpleTable Dense="true">
+                                <thead>
+                                    <tr>
+                                        <th>Belegnr.</th>
+                                        <th>Lieferant</th>
+                                        <th style="text-align:right">Netto</th>
+                                        <th style="text-align:right">Brutto</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var doc in offeneDocs)
+                                    {
+                                        <tr>
+                                            <td>@doc.DocumentNumber</td>
+                                            <td>@doc.SupplierName</td>
+                                            <td style="text-align:right">@((doc.AllocatedNet ?? doc.AmountNet).ToString("N2", _culture)) €</td>
+                                            <td style="text-align:right">@((doc.AllocatedGross ?? doc.AmountGross).ToString("N2", _culture)) €</td>
+                                        </tr>
+                                    }
+                                    <tr style="border-top: 1px solid rgba(0,0,0,0.12);">
+                                        <td><strong>Gesamt</strong></td>
+                                        <td></td>
+                                        <td style="text-align:right"><strong>@_projektAbrechnung.MaterialNetto.ToString("N2", _culture) €</strong></td>
+                                        <td style="text-align:right"><strong>@_projektAbrechnung.MaterialBrutto.ToString("N2", _culture) €</strong></td>
+                                    </tr>
+                                </tbody>
+                            </MudSimpleTable>
                         </MudPaper>
                     }
 
@@ -593,10 +653,9 @@
     private ProjectExpensesResponseDto? _projectExpenses;
     private bool _fakturaAvailable;
     private ProjectInvoicesResponseDto? _projectInvoices;
-    private Dictionary<int, decimal?> _stundensaetze = new();
+    private List<StundensatzEingabe> _stundensatzEingaben = new();
     private List<MitarbeiterRolleDto> _verfuegbareRollen = new();
     private bool _isSavingStundensaetze;
-    private int _stundensatzVersion;
     private ProjektAbrechnung? _projektAbrechnung;
     private bool _isCreatingRechnung;
 
@@ -624,7 +683,12 @@
             if (_project != null)
             {
                 var saetze = await StundensatzService.GetStundensaetzeAsync(_project.Id);
-                _stundensaetze = saetze.ToDictionary(s => s.RolleId, s => s.Stundensatz);
+                _stundensatzEingaben = _verfuegbareRollen.Select(r => new StundensatzEingabe
+                {
+                    RolleId = r.Id,
+                    RolleName = r.Name,
+                    WertText = FormatStundensatz(saetze.FirstOrDefault(s => s.RolleId == r.Id)?.Stundensatz)
+                }).ToList();
             }
 
             await CheckModuleAvailabilityAsync();
@@ -723,7 +787,7 @@
             if (hatMaterial)
                 items.Add(new CreateInvoiceItemRequest
                 {
-                    Description = "Materialkosten",
+                    Description = "Material und externe Aufwände",
                     Quantity = 1,
                     UnitPrice = _projektAbrechnung.MaterialNetto,
                     VatRate = vatRate
@@ -743,8 +807,17 @@
             if (_project.ExternalId.HasValue)
                 await StundensatzService.MarkProjectTimeEntriesAsInvoicedAsync(_project.ExternalId.Value);
 
-            if (hatMaterial)
-                await StundensatzService.UpdateMaterialBerechnedAsync(_project.Id, _projektAbrechnung.MaterialNetto, _projektAbrechnung.MaterialBrutto);
+            if (hatMaterial && _projectExpenses?.Documents != null)
+            {
+                var aufwaende = _projectExpenses.Documents.Select(doc => new BerechneterAufwandDto
+                {
+                    Belegnummer = doc.DocumentNumber,
+                    Lieferant = doc.SupplierName,
+                    Netto = doc.AllocatedNet ?? doc.AmountNet,
+                    Brutto = doc.AllocatedGross ?? doc.AmountGross
+                });
+                await StundensatzService.AddBerechneteAufwaendeAsync(_project.Id, aufwaende);
+            }
 
             NavigationManager.NavigateTo($"/faktura/invoices/details/{newInvoice.Id}", forceLoad: true);
         }
@@ -762,25 +835,34 @@
     {
         if (_project == null) return;
 
-        if (_stundensaetze.Values.Any(v => v is not null and <= 0))
+        foreach (var eingabe in _stundensatzEingaben.Where(e => !string.IsNullOrWhiteSpace(e.WertText)))
         {
-            Snackbar.Add("Stundensatz muss größer als 0 sein.", Severity.Warning);
-            return;
+            var parsed = ParseStundensatz(eingabe.WertText);
+            if (parsed is null)
+            {
+                Snackbar.Add($"'{eingabe.WertText}' ist kein gültiger Stundensatz.", Severity.Warning);
+                return;
+            }
+            if (parsed <= 0)
+            {
+                Snackbar.Add("Stundensatz muss größer als 0 sein.", Severity.Warning);
+                return;
+            }
         }
 
         _isSavingStundensaetze = true;
         try
         {
-            foreach (var (rolleId, stundensatz) in _stundensaetze)
+            foreach (var eingabe in _stundensatzEingaben)
             {
-                if (!stundensatz.HasValue) continue;
-                var rolleName = _verfuegbareRollen.FirstOrDefault(r => r.Id == rolleId)?.Name ?? "Unbekannt";
-                await StundensatzService.UpsertStundensatzAsync(_project.Id, rolleId, rolleName, stundensatz.Value);
+                var wert = ParseStundensatz(eingabe.WertText);
+                if (wert is null or <= 0) continue;
+                await StundensatzService.UpsertStundensatzAsync(_project.Id, eingabe.RolleId, eingabe.RolleName, wert.Value);
             }
 
             var saetze = await StundensatzService.GetStundensaetzeAsync(_project.Id);
-            _stundensaetze = saetze.ToDictionary(s => s.RolleId, s => s.Stundensatz);
-            _stundensatzVersion++;
+            foreach (var eingabe in _stundensatzEingaben)
+                eingabe.WertText = FormatStundensatz(saetze.FirstOrDefault(s => s.RolleId == eingabe.RolleId)?.Stundensatz);
 
             if (_rapportAvailable || _receptaAvailable)
                 _projektAbrechnung = await StundensatzService.GetProjektAbrechnungAsync(_project.Id);
@@ -1000,5 +1082,23 @@
         bytes[4] = 0xAC;
         bytes[5] = 0x7A;
         return new Guid(bytes);
+    }
+
+    private static decimal? ParseStundensatz(string? input)
+    {
+        if (string.IsNullOrWhiteSpace(input)) return null;
+        var normalized = input.Trim().Replace(',', '.');
+        return decimal.TryParse(normalized, System.Globalization.NumberStyles.Any,
+            System.Globalization.CultureInfo.InvariantCulture, out var v) ? v : null;
+    }
+
+    private static string FormatStundensatz(decimal? value) =>
+        value?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "";
+
+    private sealed class StundensatzEingabe
+    {
+        public int RolleId { get; set; }
+        public string RolleName { get; set; } = "";
+        public string WertText { get; set; } = "";
     }
 }

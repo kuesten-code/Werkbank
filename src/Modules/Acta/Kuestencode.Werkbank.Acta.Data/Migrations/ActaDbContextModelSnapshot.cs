@@ -113,6 +113,44 @@ namespace Kuestencode.Werkbank.Acta.Data.Migrations
                     b.ToTable("Projects", "acta");
                 });
 
+            modelBuilder.Entity("Kuestencode.Werkbank.Acta.Domain.Entities.ProjektBerechneterAufwand", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Belegnummer")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<DateTime>("BerechnedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<decimal>("Brutto")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<string>("Lieferant")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<decimal>("Netto")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<Guid>("ProjectId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProjectId", "Belegnummer")
+                        .IsUnique();
+
+                    b.ToTable("ProjektBerechneteAufwaende", "acta");
+                });
+
             modelBuilder.Entity("Kuestencode.Werkbank.Acta.Domain.Entities.ProjectTask", b =>
                 {
                     b.Property<Guid>("Id")
@@ -198,6 +236,17 @@ namespace Kuestencode.Werkbank.Acta.Data.Migrations
                 {
                     b.HasOne("Kuestencode.Werkbank.Acta.Domain.Entities.Project", "Project")
                         .WithMany("Tasks")
+                        .HasForeignKey("ProjectId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Project");
+                });
+
+            modelBuilder.Entity("Kuestencode.Werkbank.Acta.Domain.Entities.ProjektBerechneterAufwand", b =>
+                {
+                    b.HasOne("Kuestencode.Werkbank.Acta.Domain.Entities.Project", "Project")
+                        .WithMany()
                         .HasForeignKey("ProjectId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
