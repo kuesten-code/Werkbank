@@ -1,0 +1,308 @@
+@* Multi-step dialog: import a supplier PDF quote and create an Angebot from it *@
+
+@inject ILieferantenangebotsImportService ImportService
+@inject NavigationManager NavigationManager
+@inject ISnackbar Snackbar
+
+<MudDialog Style="min-width: 520px; max-width: 700px">
+    <TitleContent>
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+            <MudIcon Icon="@Icons.Material.Filled.PictureAsPdf" Color="Color.Primary" />
+            <MudText Typo="Typo.h6">Aus Lieferantenangebot erstellen</MudText>
+        </MudStack>
+    </TitleContent>
+
+    <DialogContent>
+        <!-- Step indicator -->
+        <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-5" Spacing="0">
+            @for (var i = 1; i <= 4; i++)
+            {
+                var stepNum = i;
+                <MudAvatar Size="Size.Small"
+                           Color="@(stepNum < _step ? Color.Success : stepNum == _step ? Color.Primary : Color.Default)"
+                           Style="font-size: 0.75rem; min-width: 28px; height: 28px">
+                    @if (stepNum < _step)
+                    {
+                        <MudIcon Icon="@Icons.Material.Filled.Check" Size="Size.Small" />
+                    }
+                    else
+                    {
+                        @stepNum
+                    }
+                </MudAvatar>
+                @if (i < 4)
+                {
+                    <MudDivider Style="flex: 1; margin: 0 4px" />
+                }
+            }
+        </MudStack>
+
+        @if (_step == 1)
+        {
+            <MudText Typo="Typo.subtitle1" Class="mb-1"><strong>Schritt 1:</strong> PDF hochladen</MudText>
+            <MudText Class="mb-4" Typo="Typo.body2" Color="Color.Secondary">
+                Wählen Sie das Lieferantenangebot als PDF-Datei aus.
+            </MudText>
+
+            <MudFileUpload T="IBrowserFile" FilesChanged="OnFileSelected" Accept=".pdf" MaximumFileCount="1">
+                <ActivatorContent>
+                    <MudPaper Height="100px" Outlined="true" Class="d-flex flex-column align-center justify-center cursor-pointer pa-4"
+                              Style="border-style: dashed; border-color: var(--mud-palette-primary)">
+                        <MudIcon Icon="@Icons.Material.Filled.UploadFile" Size="Size.Large" Color="Color.Primary" />
+                        <MudText Typo="Typo.body2" Class="mt-1">PDF auswählen oder hier ablegen</MudText>
+                    </MudPaper>
+                </ActivatorContent>
+            </MudFileUpload>
+
+            @if (_selectedFile != null)
+            {
+                <MudAlert Severity="Severity.Success" Dense="true" Class="mt-3" Icon="@Icons.Material.Filled.CheckCircle">
+                    @_selectedFile.Name &nbsp;·&nbsp; @FormatFileSize(_selectedFile.Size)
+                </MudAlert>
+            }
+        }
+        @if (_step == 2)
+        {
+            <MudText Typo="Typo.subtitle1" Class="mb-1"><strong>Schritt 2:</strong> Aufschlag festlegen</MudText>
+            <MudText Class="mb-4" Typo="Typo.body2" Color="Color.Secondary">
+                Um wie viel Prozent sollen die Lieferantenpreise erhöht werden?
+            </MudText>
+
+            <MudNumericField T="decimal" @bind-Value="_aufschlagProzent" Label="Aufschlag"
+                Variant="Variant.Outlined" Min="0" Max="1000" HideSpinButtons="true"
+                Adornment="Adornment.End" AdornmentText="%" Culture="@_culture"
+                HelperText="@AufschlagBeispiel"
+                Style="max-width: 240px" />
+        }
+        @if (_step == 3)
+        {
+            <MudText Typo="Typo.subtitle1" Class="mb-1"><strong>Schritt 3:</strong> Endkunden auswählen</MudText>
+            <MudText Class="mb-4" Typo="Typo.body2" Color="Color.Secondary">
+                Für welchen Kunden soll das Angebot erstellt werden?
+            </MudText>
+
+            <KundenAuswahl @bind-SelectedCustomer="_selectedCustomer" Required="true" />
+        }
+        @if (_step == 4)
+        {
+            @if (_importing)
+            {
+                <MudStack AlignItems="AlignItems.Center" Justify="Justify.Center" Class="py-6" Spacing="3">
+                    <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Large" />
+                    <MudText>PDF wird analysiert und Angebot erstellt ...</MudText>
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">
+                        Dieser Vorgang kann je nach Dateigröße einige Sekunden dauern.
+                    </MudText>
+                </MudStack>
+            }
+            else if (_ergebnis == null)
+            {
+                <MudText Typo="Typo.subtitle1" Class="mb-3"><strong>Schritt 4:</strong> Bestätigen</MudText>
+                <MudList T="string" Dense="true" Class="pa-0">
+                    <MudListItem T="string" Icon="@Icons.Material.Filled.PictureAsPdf">
+                        <strong>PDF:</strong>&nbsp;@_selectedFile?.Name
+                    </MudListItem>
+                    <MudListItem T="string" Icon="@Icons.Material.Filled.Percent">
+                        <strong>Aufschlag:</strong>&nbsp;@_aufschlagProzent.ToString("0.##", _culture) %
+                    </MudListItem>
+                    <MudListItem T="string" Icon="@Icons.Material.Filled.Person">
+                        <strong>Kunde:</strong>&nbsp;@_selectedCustomer?.Name
+                    </MudListItem>
+                </MudList>
+                <MudAlert Severity="Severity.Info" Dense="true" Class="mt-3">
+                    Erkannte Positionen und Preise werden im Angebot vorausgefüllt.
+                    Sie können alles im Editor anpassen.
+                </MudAlert>
+            }
+            else if (_ergebnis.Erfolgreich)
+            {
+                <MudStack AlignItems="AlignItems.Center" Spacing="3" Class="py-2">
+                    <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Color="Color.Success" Style="font-size: 3.5rem" />
+                    <MudText Typo="Typo.h6">Angebot erstellt!</MudText>
+                    <MudText>
+                        Angebot <strong>@_ergebnis.Angebotsnummer</strong> wurde als Entwurf angelegt.
+                    </MudText>
+                    @if (_ergebnis.Warnungen.Count > 0)
+                    {
+                        <MudAlert Severity="Severity.Warning" Dense="true" Class="w-100">
+                            <MudText Typo="Typo.subtitle2" Class="mb-1">Hinweise:</MudText>
+                            @foreach (var w in _ergebnis.Warnungen)
+                            {
+                                <MudText Typo="Typo.body2">
+                                    @(w.Position.HasValue ? $"Pos. {w.Position}: " : "")@w.Meldung
+                                </MudText>
+                            }
+                        </MudAlert>
+                    }
+                </MudStack>
+            }
+            else
+            {
+                <MudAlert Severity="Severity.Error">
+                    <MudText Typo="Typo.subtitle2">Import fehlgeschlagen</MudText>
+                    <MudText Typo="Typo.body2" Class="mt-1">@_ergebnis.Fehler</MudText>
+                </MudAlert>
+            }
+        }
+    </DialogContent>
+
+    <DialogActions>
+        @if (!_importing && (_ergebnis == null || !_ergebnis.Erfolgreich))
+        {
+            <MudButton OnClick="Cancel" Variant="Variant.Text">Abbrechen</MudButton>
+        }
+
+        @if (_step > 1 && !_importing && _ergebnis == null)
+        {
+            <MudButton OnClick="PreviousStep" StartIcon="@Icons.Material.Filled.ArrowBack">Zurück</MudButton>
+        }
+
+        @if (_step < 4 && !_importing)
+        {
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="NextStep"
+                Disabled="@(!CanProceed())" EndIcon="@Icons.Material.Filled.ArrowForward">
+                Weiter
+            </MudButton>
+        }
+        else if (_step == 4 && !_importing && _ergebnis == null)
+        {
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="Importieren"
+                StartIcon="@Icons.Material.Filled.AutoFixHigh">
+                Angebot erstellen
+            </MudButton>
+        }
+        else if (_ergebnis?.Erfolgreich == true)
+        {
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="OpenAngebot"
+                StartIcon="@Icons.Material.Filled.Edit">
+                Im Editor öffnen
+            </MudButton>
+        }
+        else if (_ergebnis?.Erfolgreich == false)
+        {
+            <MudButton OnClick="Cancel">Schließen</MudButton>
+            <MudButton Variant="Variant.Filled" Color="Color.Warning" OnClick="Reset"
+                StartIcon="@Icons.Material.Filled.Refresh">
+                Erneut versuchen
+            </MudButton>
+        }
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter]
+    public IMudDialogInstance Dialog { get; set; } = default!;
+
+    private readonly CultureInfo _culture = new("de-DE");
+    private int _step = 1;
+    private bool _importing;
+
+    private IBrowserFile? _selectedFile;
+    private byte[]? _pdfBytes;
+    private decimal _aufschlagProzent = 10m;
+    private Customer? _selectedCustomer;
+    private AngebotImportErgebnis? _ergebnis;
+
+    private void OnFileSelected(IBrowserFile file)
+    {
+        _selectedFile = file;
+        _pdfBytes = null;
+    }
+
+    private bool CanProceed() => _step switch
+    {
+        1 => _selectedFile != null,
+        2 => _aufschlagProzent >= 0,
+        3 => _selectedCustomer != null,
+        _ => false
+    };
+
+    private async Task NextStep()
+    {
+        if (!CanProceed()) return;
+
+        // Read file into memory NOW, before MudFileUpload unmounts and invalidates the browser reference
+        if (_step == 1 && _selectedFile != null && _pdfBytes == null)
+        {
+            try
+            {
+                const long maxFileSize = 10 * 1024 * 1024;
+                await using var fileStream = _selectedFile.OpenReadStream(maxFileSize);
+                using var ms = new MemoryStream();
+                await fileStream.CopyToAsync(ms);
+                _pdfBytes = ms.ToArray();
+            }
+            catch (Exception ex)
+            {
+                _ergebnis = new AngebotImportErgebnis
+                {
+                    Erfolgreich = false,
+                    Fehler = $"Fehler beim Lesen der Datei: {ex.Message}"
+                };
+                _step = 4;
+                return;
+            }
+        }
+
+        _step++;
+    }
+
+    private void PreviousStep() => _step--;
+
+    private async Task Importieren()
+    {
+        if (_pdfBytes == null || _selectedFile == null || _selectedCustomer == null) return;
+
+        _importing = true;
+        StateHasChanged();
+
+        try
+        {
+            using var stream = new MemoryStream(_pdfBytes);
+
+            _ergebnis = await ImportService.ImportiereAsync(
+                stream,
+                _selectedFile.Name,
+                _aufschlagProzent,
+                _selectedCustomer.Id);
+        }
+        catch (Exception ex)
+        {
+            _ergebnis = new AngebotImportErgebnis
+            {
+                Erfolgreich = false,
+                Fehler = $"Interner Fehler: {ex.Message}"
+            };
+        }
+        finally
+        {
+            _importing = false;
+        }
+    }
+
+    private void OpenAngebot()
+    {
+        Dialog.Close(DialogResult.Ok(_ergebnis!.AngebotId));
+        NavigationManager.NavigateTo($"/offerte/angebote/{_ergebnis.AngebotId}/bearbeiten");
+    }
+
+    private void Reset()
+    {
+        _step = 1;
+        _ergebnis = null;
+        _selectedFile = null;
+        _pdfBytes = null;
+    }
+
+    private void Cancel() => Dialog.Cancel();
+
+    private string AufschlagBeispiel =>
+        (100m * (1 + _aufschlagProzent / 100)).ToString("C2", _culture);
+
+    private static string FormatFileSize(long bytes)
+    {
+        if (bytes < 1024) return $"{bytes} B";
+        if (bytes < 1024 * 1024) return $"{bytes / 1024} KB";
+        return $"{bytes / (1024.0 * 1024):F1} MB";
+    }
+}

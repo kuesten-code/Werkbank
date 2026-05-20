@@ -54,6 +54,9 @@ public static class OfferteModule
         // Register Ablauf Service (für automatische Prüfung abgelaufener Angebote)
         services.AddScoped<IAngebotAblaufService, AngebotAblaufService>();
 
+        // Register PDF-Import Service
+        services.AddScoped<ILieferantenangebotsImportService, LieferantenangebotsImportService>();
+
         return services;
     }
 

@@ -18,10 +18,16 @@
             <MudTextField @bind-Value="_searchString" Placeholder="Angebot oder Kunde suchen"
                          Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search"
                          IconSize="Size.Medium" Class="mt-0" Immediate="true" Style="max-width: 400px;" />
-            <MudButton Variant="Variant.Filled" Color="Color.Primary"
-                      StartIcon="@Icons.Material.Filled.Add" OnClick="CreateAngebot">
-                Neues Angebot
-            </MudButton>
+            <MudStack Row="true" Spacing="2">
+                <MudButton Variant="Variant.Outlined" Color="Color.Secondary"
+                          StartIcon="@Icons.Material.Filled.PictureAsPdf" OnClick="ImportFromPdf">
+                    Aus Lieferantenangebot
+                </MudButton>
+                <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                          StartIcon="@Icons.Material.Filled.Add" OnClick="CreateAngebot">
+                    Neues Angebot
+                </MudButton>
+            </MudStack>
         </MudStack>
 
         <MudTabs Elevation="0" Rounded="true" ApplyEffectsToContainer="true" Class="mb-4 filter-tabs"
@@ -222,6 +228,15 @@
     private void CreateAngebot()
     {
         NavigationManager.NavigateTo("/offerte/angebote/neu");
+    }
+
+    private async Task ImportFromPdf()
+    {
+        var dialog = await DialogService.ShowAsync<Shared.Dialogs.LieferantenimportDialog>(
+            string.Empty,
+            new DialogOptions { CloseOnEscapeKey = true, CloseButton = true });
+
+        await dialog.Result;
     }
 
     private void ViewAngebot(Guid id)

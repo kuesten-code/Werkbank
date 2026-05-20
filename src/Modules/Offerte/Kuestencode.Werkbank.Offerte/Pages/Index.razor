@@ -1,13 +1,14 @@
 @page "/"
 @page "/offerte"
 @inject IAngebotRepository AngebotRepository
+@inject ICustomerService CustomerService
 @inject NavigationManager NavigationManager
+@inject IDialogService DialogService
 
 <PageTitle>Offerte - Übersicht</PageTitle>
 
 <MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4">
     <MudText Typo="Typo.h4" GutterBottom="true">Offerte Übersicht</MudText>
-    
 
     @if (_loading)
     {
@@ -77,19 +78,59 @@
             </MudItem>
         </MudGrid>
 
-        <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-6"
-                  StartIcon="@Icons.Material.Filled.Add"
-                  OnClick="@(() => NavigationManager.NavigateTo("/offerte/angebote/neu"))">
-            Neues Angebot erstellen
-        </MudButton>
+        <MudStack Row="true" Spacing="2" Class="mt-6">
+            <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                      StartIcon="@Icons.Material.Filled.Add"
+                      OnClick="@(() => NavigationManager.NavigateTo("/offerte/angebote/neu"))">
+                Neues Angebot erstellen
+            </MudButton>
+            <MudButton Variant="Variant.Outlined" Color="Color.Secondary"
+                      StartIcon="@Icons.Material.Filled.PictureAsPdf"
+                      OnClick="ImportFromPdf">
+                Aus Lieferantenangebot
+            </MudButton>
+            <MudButton Variant="Variant.Outlined" Color="Color.Primary"
+                      StartIcon="@Icons.Material.Filled.List"
+                      OnClick="@(() => NavigationManager.NavigateTo("/offerte/angebote"))">
+                Alle Angebote
+            </MudButton>
+        </MudStack>
 
-        <MudButton Variant="Variant.Outlined" Color="Color.Primary" Class="mt-6 ml-2"
-                  StartIcon="@Icons.Material.Filled.List"
-                  OnClick="@(() => NavigationManager.NavigateTo("/offerte/angebote"))">
-            Alle Angebote
-        </MudButton>
+        @if (_recentAngebote.Count > 0)
+        {
+            <MudText Typo="Typo.h6" Class="mt-8 mb-3">Zuletzt bearbeitet</MudText>
+            <MudPaper Elevation="1" Class="pa-0">
+                <MudList T="string" Dense="true">
+                    @foreach (var a in _recentAngebote)
+                    {
+                        <MudListItem T="string" OnClick="@(() => NavigationManager.NavigateTo($"/offerte/angebote/{a.Id}"))" Style="cursor: pointer">
+                            <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Style="width:100%">
+                                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                                    <AngebotStatusBadge Status="@a.Status" />
+                                    <MudText Typo="Typo.body2">
+                                        <strong>@a.Angebotsnummer</strong> &nbsp;·&nbsp; @GetKundenName(a.KundeId)
+                                    </MudText>
+                                </MudStack>
+                                <MudText Typo="Typo.caption" Color="Color.Secondary" Style="white-space: nowrap; margin-left: 16px;">
+                                    @FormatTime(a.UpdatedAt)
+                                </MudText>
+                            </MudStack>
+                        </MudListItem>
+                    }
+                </MudList>
+            </MudPaper>
+        }
     }
 </MudContainer>
+
+<style>
+    .cursor-pointer {
+        cursor: pointer;
+    }
+    .cursor-pointer:hover {
+        background-color: rgba(0, 0, 0, 0.04);
+    }
+</style>
 
 @code {
     private bool _loading = true;
@@ -99,6 +140,9 @@
     private int _abgelehntCount;
     private int _abgelaufenCount;
     private int _totalCount;
+
+    private List<Angebot> _recentAngebote = new();
+    private Dictionary<int, string> _kundenNamen = new();
 
     protected override async Task OnInitializedAsync()
     {
@@ -110,6 +154,8 @@
         try
         {
             var angebote = await AngebotRepository.GetAllAsync();
+            var kunden = await CustomerService.GetAllAsync();
+            _kundenNamen = kunden.ToDictionary(k => k.Id, k => k.Name);
 
             _entwurfCount = angebote.Count(a => a.Status == AngebotStatus.Entwurf);
             _versendetCount = angebote.Count(a => a.Status == AngebotStatus.Versendet);
@@ -117,11 +163,31 @@
             _abgelehntCount = angebote.Count(a => a.Status == AngebotStatus.Abgelehnt);
             _abgelaufenCount = angebote.Count(a => a.Status == AngebotStatus.Abgelaufen);
             _totalCount = angebote.Count;
+
+            _recentAngebote = angebote
+                .OrderByDescending(a => a.UpdatedAt)
+                .Take(15)
+                .ToList();
         }
         finally
         {
             _loading = false;
         }
+    }
+
+    private string GetKundenName(int kundeId) =>
+        _kundenNamen.TryGetValue(kundeId, out var name) ? name : $"Kunde #{kundeId}";
+
+    private static string FormatTime(DateTime utc)
+    {
+        var local = utc.ToLocalTime();
+        var diff = DateTime.Now - local;
+
+        if (diff.TotalMinutes < 1) return "gerade eben";
+        if (diff.TotalMinutes < 60) return $"vor {(int)diff.TotalMinutes} Min.";
+        if (diff.TotalHours < 24) return $"vor {(int)diff.TotalHours} Std.";
+        if (diff.TotalDays < 7) return $"vor {(int)diff.TotalDays} Tag(en)";
+        return local.ToString("dd.MM.yyyy HH:mm");
     }
 
     private void NavigateToAngebote(string? statusFilter)
@@ -130,5 +196,14 @@
             ? "/offerte/angebote"
             : $"/offerte/angebote?status={statusFilter}";
         NavigationManager.NavigateTo(url);
+    }
+
+    private async Task ImportFromPdf()
+    {
+        var dialog = await DialogService.ShowAsync<Shared.Dialogs.LieferantenimportDialog>(
+            string.Empty,
+            new DialogOptions { CloseOnEscapeKey = true, CloseButton = true });
+
+        await dialog.Result;
     }
 }
