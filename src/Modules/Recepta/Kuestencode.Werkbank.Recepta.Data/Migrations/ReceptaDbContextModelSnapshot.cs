@@ -174,6 +174,10 @@ namespace Kuestencode.Werkbank.Recepta.Data.Migrations
                         .HasColumnType("boolean")
                         .HasDefaultValue(false);
 
+                    b.Property<decimal?>("SkontoAmountOverride")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
                     b.Property<int?>("SkontoDays")
                         .HasColumnType("integer");
 

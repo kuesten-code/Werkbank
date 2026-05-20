@@ -260,6 +260,13 @@
                                             Min="1"
                                             Clearable="true"
                                             Style="flex: 1;" />
+                            <MudNumericField @bind-Value="_model.SkontoAmountOverride" T="decimal?"
+                                            Label="Skontobetrag (fix)"
+                                            Variant="Variant.Outlined"
+                                            Adornment="Adornment.End" AdornmentText="€"
+                                            Format="N2" Culture="@_culture" Min="0m"
+                                            Clearable="true"
+                                            Style="flex: 1;" />
                         </MudStack>
 
                         @* Beträge *@
@@ -906,6 +913,7 @@
                 AmountGross = _model.AmountGross,
                 SkontoPercent = _model.SkontoPercent,
                 SkontoDays = _model.SkontoDays,
+                SkontoAmountOverride = _model.SkontoAmountOverride,
                 Category = _model.Category,
                 OcrRawText = _model.OcrRawText,
                 Notes = _model.Notes
@@ -1049,6 +1057,7 @@
         public decimal AmountGross => AmountNet + AmountTax;
         public decimal? SkontoPercent { get; set; }
         public int? SkontoDays { get; set; }
+        public decimal? SkontoAmountOverride { get; set; }
         public DocumentCategory Category { get; set; } = DocumentCategory.Other;
         public string? OcrRawText { get; set; }
         public string? Notes { get; set; }

@@ -132,6 +132,7 @@ public class DocumentService : IDocumentService
             AmountGross = dto.AmountGross,
             SkontoPercent = dto.SkontoPercent,
             SkontoDays = dto.SkontoDays,
+            SkontoAmountOverride = dto.SkontoAmountOverride,
             Category = dto.Category,
             Status = DocumentStatus.Draft,
             OcrRawText = dto.OcrRawText,
@@ -326,6 +327,7 @@ public class DocumentService : IDocumentService
         document.AmountGross = dto.AmountGross;
         document.SkontoPercent = dto.SkontoPercent;
         document.SkontoDays = dto.SkontoDays;
+        document.SkontoAmountOverride = dto.SkontoAmountOverride;
         document.Category = dto.Category;
         document.Notes = dto.Notes;
 
@@ -549,6 +551,7 @@ public class DocumentService : IDocumentService
             AmountGross = document.AmountGross,
             SkontoPercent = document.SkontoPercent,
             SkontoDays = document.SkontoDays,
+            SkontoAmountOverride = document.SkontoAmountOverride,
             SkontoApplied = document.SkontoApplied,
             SkontoAmount = document.SkontoAmount,
             SkontoDeadline = document.SkontoDeadline,

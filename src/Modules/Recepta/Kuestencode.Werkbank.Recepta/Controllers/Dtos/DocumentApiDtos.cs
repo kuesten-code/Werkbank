@@ -26,6 +26,7 @@ public class DocumentDto
     public decimal AmountGross { get; set; }
     public decimal? SkontoPercent { get; set; }
     public int? SkontoDays { get; set; }
+    public decimal? SkontoAmountOverride { get; set; }
     public bool SkontoApplied { get; set; }
     public decimal? SkontoAmount { get; set; }
     public DateOnly? SkontoDeadline { get; set; }
