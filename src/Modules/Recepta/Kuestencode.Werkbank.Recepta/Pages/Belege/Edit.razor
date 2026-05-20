@@ -2,8 +2,10 @@
 @using Kuestencode.Werkbank.Recepta.Controllers.Dtos
 @using Kuestencode.Werkbank.Recepta.Domain.Dtos
 @using Kuestencode.Werkbank.Recepta.Domain.Enums
+@using Kuestencode.Werkbank.Recepta.Services.Interfaces
 @using Kuestencode.Shared.Contracts.Acta
 @inject IDocumentService DocumentService
+@inject IDocumentPaymentService PaymentService
 @inject IDocumentFileService FileService
 @inject ISupplierService SupplierService
 @inject ICachedProjectService ProjectCache
@@ -323,7 +325,7 @@
                                                 Clearable="@_isDraft"
                                                 ReadOnly="@(!_isDraft)" />
                             </MudItem>
-                            @if (_model.SkontoPercent.HasValue && _model.SkontoDays.HasValue)
+                            @if (_model.SkontoDays.HasValue)
                             {
                                 <MudItem xs="6" sm="3">
                                     <MudTextField Value="@SkontoDeadlineDisplay"
@@ -331,17 +333,20 @@
                                                  Variant="Variant.Outlined"
                                                  ReadOnly="true" T="string" />
                                 </MudItem>
-                                <MudItem xs="6" sm="3">
-                                    <MudNumericField Value="@SkontoAmountDisplay"
-                                                    Label="Skontobetrag"
-                                                    Variant="Variant.Outlined"
-                                                    Adornment="Adornment.End" AdornmentText="€"
-                                                    Format="N2" Culture="@_culture"
-                                                    ReadOnly="true" T="decimal" />
-                                </MudItem>
                             }
+                            <MudItem xs="6" sm="3">
+                                <MudNumericField @bind-Value="_model.SkontoAmountOverride" T="decimal?"
+                                                Label="Skontobetrag"
+                                                Placeholder="@(_model.SkontoPercent.HasValue ? SkontoAmountDisplay.ToString("N2", _culture) : null)"
+                                                Variant="Variant.Outlined"
+                                                Adornment="Adornment.End" AdornmentText="€"
+                                                Format="N2" Culture="@_culture" Min="0m"
+                                                Clearable="@_isDraft"
+                                                ReadOnly="@(!_isDraft)"
+                                                HelperText="@(_model.SkontoAmountOverride.HasValue ? "Manuell" : "Berechnet")" />
+                            </MudItem>
                         </MudGrid>
-                        @if (_model.SkontoPercent.HasValue && _model.SkontoDays.HasValue && !_isDraft)
+                        @if ((_model.SkontoPercent.HasValue || _model.SkontoAmountOverride.HasValue) && _model.SkontoDays.HasValue && !_isDraft)
                         {
                             <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mt-2">
                                 <MudSwitch T="bool" Value="_document!.SkontoApplied"
@@ -636,9 +641,10 @@
     }
 
     private decimal SkontoAmountDisplay =>
-        _model.SkontoPercent.HasValue
+        _model.SkontoAmountOverride
+        ?? (_model.SkontoPercent.HasValue
             ? Math.Round(_model.AmountGross * _model.SkontoPercent.Value / 100, 2)
-            : 0m;
+            : 0m);
 
     // Dateien
     private List<DocumentFileDto> _files = new();
@@ -729,6 +735,7 @@
                 AmountNet0 = _document.AmountNet0,
                 SkontoPercent = _document.SkontoPercent,
                 SkontoDays = _document.SkontoDays,
+                SkontoAmountOverride = _document.SkontoAmountOverride,
                 Category = Enum.TryParse<DocumentCategory>(_document.Category, out var cat) ? cat : DocumentCategory.Other,
                 Notes = _document.Notes
             };
@@ -1038,6 +1045,7 @@
                     AmountGross = _model.AmountGross,
                     SkontoPercent = _model.SkontoPercent,
                     SkontoDays = _model.SkontoDays,
+                    SkontoAmountOverride = _model.SkontoAmountOverride,
                     Category = _model.Category,
                     Notes = _model.Notes
                 };
@@ -1065,6 +1073,7 @@
                     AmountGross = _model.AmountGross,
                     SkontoPercent = _model.SkontoPercent,
                     SkontoDays = _model.SkontoDays,
+                    SkontoAmountOverride = _model.SkontoAmountOverride,
                     Category = _model.Category,
                     Notes = _model.Notes
                 };
@@ -1117,10 +1126,34 @@
 
     private async Task MarkAsPaid()
     {
+        var hasSkonto = _document!.SkontoAmount.HasValue && _document.SkontoDays.HasValue;
+        var withinDeadline = hasSkonto && _document.SkontoDeadline.HasValue
+            && DateOnly.FromDateTime(DateTime.Today) <= _document.SkontoDeadline.Value;
+
+        var parameters = new DialogParameters
+        {
+            { nameof(Kuestencode.Werkbank.Recepta.Shared.Dialogs.MarkAsPaidDialog.HasSkonto), hasSkonto },
+            { nameof(Kuestencode.Werkbank.Recepta.Shared.Dialogs.MarkAsPaidDialog.SkontoWithinDeadline), withinDeadline },
+            { nameof(Kuestencode.Werkbank.Recepta.Shared.Dialogs.MarkAsPaidDialog.SkontoAmount), _document.SkontoAmount }
+        };
+
+        var dialog = await DialogService.ShowAsync<Kuestencode.Werkbank.Recepta.Shared.Dialogs.MarkAsPaidDialog>("Als bezahlt markieren", parameters);
+        var result = await dialog.Result;
+        if (result is null || result.Canceled) return;
+
+        var data = (Kuestencode.Werkbank.Recepta.Shared.Dialogs.MarkAsPaidDialog.MarkAsPaidResult)result.Data!;
+
         _statusChanging = true;
         try
         {
-            await DocumentService.ChangeStatusAsync(Id!.Value, DocumentStatus.Paid);
+            if (data.SkontoApplied)
+                await DocumentService.SetSkontoAppliedAsync(Id!.Value, true);
+
+            var betrag = data.SkontoApplied && _document!.SkontoAmount.HasValue
+                ? _document.AmountGross - _document.SkontoAmount.Value
+                : _document!.AmountGross;
+
+            await PaymentService.ZahlungErfassenAsync(Id!.Value, betrag, data.PaymentDate, null);
             Snackbar.Add("Beleg als bezahlt markiert.", Severity.Success);
             _document = await DocumentService.GetByIdAsync(Id!.Value);
         }
@@ -1307,6 +1340,7 @@
         public decimal AmountGross => AmountNet + AmountTax;
         public decimal? SkontoPercent { get; set; }
         public int? SkontoDays { get; set; }
+        public decimal? SkontoAmountOverride { get; set; }
         public DocumentCategory Category { get; set; } = DocumentCategory.Other;
         public string? Notes { get; set; }
     }

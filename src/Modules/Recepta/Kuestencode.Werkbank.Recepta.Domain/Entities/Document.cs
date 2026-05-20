@@ -136,6 +136,12 @@ public class Document
     public bool SkontoApplied { get; set; }
 
     /// <summary>
+    /// Manuell eingegebener Skontobetrag. Überschreibt die Prozent-Berechnung wenn gesetzt.
+    /// </summary>
+    [Column(TypeName = "decimal(18,2)")]
+    public decimal? SkontoAmountOverride { get; set; }
+
+    /// <summary>
     /// Optionale Notizen.
     /// </summary>
     [MaxLength(2000)]
@@ -183,10 +189,10 @@ public class Document
         : null;
 
     /// <summary>
-    /// Absoluter Skontobetrag (AmountGross × SkontoPercent / 100). Null wenn kein Skonto hinterlegt.
+    /// Absoluter Skontobetrag. Nutzt SkontoAmountOverride wenn gesetzt, sonst AmountGross × SkontoPercent / 100.
+    /// Null wenn weder Override noch Prozentsatz hinterlegt.
     /// </summary>
     [NotMapped]
-    public decimal? SkontoAmount => SkontoPercent.HasValue
-        ? Math.Round(AmountGross * SkontoPercent.Value / 100, 2)
-        : null;
+    public decimal? SkontoAmount => SkontoAmountOverride
+        ?? (SkontoPercent.HasValue ? Math.Round(AmountGross * SkontoPercent.Value / 100, 2) : null);
 }

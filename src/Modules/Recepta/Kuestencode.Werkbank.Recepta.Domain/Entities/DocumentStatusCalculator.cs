@@ -4,9 +4,10 @@ namespace Kuestencode.Werkbank.Recepta.Domain.Entities;
 
 public static class DocumentStatusCalculator
 {
-    public static DocumentStatus Calculate(decimal amountGross, decimal totalPaid)
+    public static DocumentStatus Calculate(decimal amountGross, decimal totalPaid, decimal skontoAmount = 0m)
     {
-        if (amountGross > 0 && totalPaid >= amountGross) return DocumentStatus.Paid;
+        var threshold = amountGross - skontoAmount;
+        if (amountGross > 0 && totalPaid >= threshold) return DocumentStatus.Paid;
         if (totalPaid > 0) return DocumentStatus.PartiallyPaid;
         return DocumentStatus.Booked;
     }

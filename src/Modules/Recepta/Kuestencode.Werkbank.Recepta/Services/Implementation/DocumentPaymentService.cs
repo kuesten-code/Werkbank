@@ -87,7 +87,8 @@ public class DocumentPaymentService : IDocumentPaymentService
         if (document == null) return;
         if (document.Status is DocumentStatus.Draft) return;
 
-        var newStatus = DocumentStatusCalculator.Calculate(document.AmountGross, totalPaid);
+        var skontoAmount = document.SkontoApplied ? (document.SkontoAmount ?? 0m) : 0m;
+        var newStatus = DocumentStatusCalculator.Calculate(document.AmountGross, totalPaid, skontoAmount);
         document.Status = newStatus;
 
         if (newStatus == DocumentStatus.Paid)
