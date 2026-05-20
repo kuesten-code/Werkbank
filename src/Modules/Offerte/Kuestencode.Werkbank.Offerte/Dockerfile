@@ -29,8 +29,14 @@ FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS final
 WORKDIR /app
 EXPOSE 8083
 
-# Timezone
-RUN apt-get update && apt-get install -y --no-install-recommends tzdata && rm -rf /var/lib/apt/lists/*
+# Runtime dependencies: timezone + PDF extraction (pdftotext) + OCR fallback (tesseract)
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        tzdata \
+        poppler-utils \
+        tesseract-ocr \
+        tesseract-ocr-deu \
+    && rm -rf /var/lib/apt/lists/*
 ENV TZ=Europe/Berlin
 
 # Surface build metadata for observability
