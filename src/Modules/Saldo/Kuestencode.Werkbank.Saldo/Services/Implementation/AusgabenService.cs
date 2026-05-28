@@ -53,8 +53,9 @@ public class AusgabenService : IAusgabenService
             for (var n = 0; n < docPayments.Count; n++)
             {
                 var payment = docPayments[n];
-                var ratio = payment.AmountGross > 0
-                    ? payment.PaymentAmount / payment.AmountGross
+                var sign = payment.AmountGross >= 0 ? 1m : -1m;
+                var ratio = payment.AmountGross != 0
+                    ? Math.Abs(payment.PaymentAmount) / Math.Abs(payment.AmountGross)
                     : 1m;
                 var quelleId = isPartial
                     ? $"{payment.DocumentNumber}/{n + 1}"
@@ -67,20 +68,20 @@ public class AusgabenService : IAusgabenService
 
                 buchungen.Add(new BuchungDto
                 {
-                    Id = payment.PaymentId,
+                    Id = payment.DocumentId,
                     Quelle = "Recepta",
                     QuelleId = quelleId,
                     BelegDatum = payment.InvoiceDate,
                     ZahlungsDatum = payment.PaymentDate,
                     Beschreibung = payment.SupplierName,
-                    Netto = payment.AmountNet * ratio,
-                    Ust = payment.AmountTax * ratio,
-                    Brutto = payment.AmountGross * ratio,
+                    Netto = payment.AmountNet * ratio * sign,
+                    Ust = payment.AmountTax * ratio * sign,
+                    Brutto = payment.AmountGross * ratio * sign,
                     UstSatz = payment.TaxRate,
                     Kategorie = payment.Category,
                     KontoNummer = konto?.KontoNummer ?? mapping?.KontoNummer ?? fallbackKonto,
                     KontoBezeichnung = konto?.KontoBezeichnung ?? payment.Category,
-                    Typ = BuchungsTyp.Ausgabe
+                    Typ = sign > 0 ? BuchungsTyp.Ausgabe : BuchungsTyp.Einnahme
                 });
             }
         }
@@ -93,7 +94,7 @@ public class AusgabenService : IAusgabenService
         var payments = await _receptaData.GetPaymentsAsync(von, bis);
         return payments.Sum(p =>
         {
-            var ratio = p.AmountGross > 0 ? p.PaymentAmount / p.AmountGross : 1m;
+            var ratio = p.AmountGross != 0 ? p.PaymentAmount / p.AmountGross : 1m;
             return p.AmountNet * ratio;
         });
     }
@@ -105,7 +106,7 @@ public class AusgabenService : IAusgabenService
             .GroupBy(p => p.Category)
             .ToDictionary(g => g.Key, g => g.Sum(p =>
             {
-                var ratio = p.AmountGross > 0 ? p.PaymentAmount / p.AmountGross : 1m;
+                var ratio = p.AmountGross != 0 ? p.PaymentAmount / p.AmountGross : 1m;
                 return p.AmountNet * ratio;
             }));
     }

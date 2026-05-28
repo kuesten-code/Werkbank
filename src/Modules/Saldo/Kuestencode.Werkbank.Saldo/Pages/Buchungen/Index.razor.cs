@@ -90,7 +90,7 @@ public partial class Index
 
         var url = b.Quelle == "Faktura"
             ? $"/faktura/invoices/{b.Id}"
-            : $"/recepta/belege/{b.Id}";
+            : $"/recepta/belege/{b.Id}/details";
 
         NavigationManager.NavigateTo(url);
     }

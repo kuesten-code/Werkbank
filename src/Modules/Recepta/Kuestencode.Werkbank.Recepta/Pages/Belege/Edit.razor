@@ -643,7 +643,7 @@
     private decimal SkontoAmountDisplay =>
         _model.SkontoAmountOverride
         ?? (_model.SkontoPercent.HasValue
-            ? Math.Round(_model.AmountGross * _model.SkontoPercent.Value / 100, 2)
+            ? Math.Round(Math.Abs(_model.AmountGross) * _model.SkontoPercent.Value / 100, 2)
             : 0m);
 
     // Dateien
@@ -1150,7 +1150,9 @@
                 await DocumentService.SetSkontoAppliedAsync(Id!.Value, true);
 
             var betrag = data.SkontoApplied && _document!.SkontoAmount.HasValue
-                ? _document.AmountGross - _document.SkontoAmount.Value
+                ? (_document.AmountGross >= 0
+                    ? _document.AmountGross - _document.SkontoAmount.Value
+                    : _document.AmountGross + _document.SkontoAmount.Value)
                 : _document!.AmountGross;
 
             await PaymentService.ZahlungErfassenAsync(Id!.Value, betrag, data.PaymentDate, null);
