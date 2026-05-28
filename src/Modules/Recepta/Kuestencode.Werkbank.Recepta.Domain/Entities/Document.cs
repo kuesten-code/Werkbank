@@ -194,5 +194,5 @@ public class Document
     /// </summary>
     [NotMapped]
     public decimal? SkontoAmount => SkontoAmountOverride
-        ?? (SkontoPercent.HasValue ? Math.Round(AmountGross * SkontoPercent.Value / 100, 2) : null);
+        ?? (SkontoPercent.HasValue ? Math.Round(Math.Abs(AmountGross) * SkontoPercent.Value / 100, 2) : null);
 }
