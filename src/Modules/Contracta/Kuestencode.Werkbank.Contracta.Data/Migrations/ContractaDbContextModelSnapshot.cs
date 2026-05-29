@@ -47,8 +47,8 @@ namespace Kuestencode.Werkbank.Contracta.Data.Migrations
                 b.Property<int>("Intervall")
                     .HasColumnType("integer");
 
-                b.Property<Guid>("KundeId")
-                    .HasColumnType("uuid");
+                b.Property<int>("KundeId")
+                    .HasColumnType("integer");
 
                 b.Property<DateTime?>("LetzteAbrechnung")
                     .HasColumnType("timestamp with time zone");
@@ -70,6 +70,15 @@ namespace Kuestencode.Werkbank.Contracta.Data.Migrations
                     .HasColumnType("text");
 
                 b.HasKey("Id");
+
+                b.HasIndex("KundeId");
+
+                b.HasIndex("NaechsteAbrechnung");
+
+                b.HasIndex("Status");
+
+                b.HasIndex("Vertragsnummer")
+                    .IsUnique();
 
                 b.ToTable("Wartungsvertraege", "contracta");
             });
@@ -109,6 +118,35 @@ namespace Kuestencode.Werkbank.Contracta.Data.Migrations
                 b.ToTable("Vertragspositionen", "contracta");
             });
 
+            modelBuilder.Entity("Kuestencode.Werkbank.Contracta.Domain.Entities.Abrechnungshistorie", b =>
+            {
+                b.Property<Guid>("Id")
+                    .ValueGeneratedOnAdd()
+                    .HasColumnType("uuid");
+
+                b.Property<Guid>("WartungsvertragId")
+                    .HasColumnType("uuid");
+
+                b.Property<DateTime>("Abrechnungsdatum")
+                    .HasColumnType("timestamp with time zone");
+
+                b.Property<int?>("RechnungId")
+                    .HasColumnType("integer");
+
+                b.Property<string>("Rechnungsnummer")
+                    .HasColumnType("text");
+
+                b.Property<decimal>("Betrag")
+                    .HasPrecision(18, 2)
+                    .HasColumnType("numeric(18,2)");
+
+                b.HasKey("Id");
+
+                b.HasIndex("WartungsvertragId");
+
+                b.ToTable("Abrechnungshistorie", "contracta");
+            });
+
             modelBuilder.Entity("Kuestencode.Werkbank.Contracta.Domain.Entities.Vertragsposition", b =>
             {
                 b.HasOne("Kuestencode.Werkbank.Contracta.Domain.Entities.Wartungsvertrag", null)
@@ -118,9 +156,19 @@ namespace Kuestencode.Werkbank.Contracta.Data.Migrations
                     .IsRequired();
             });
 
+            modelBuilder.Entity("Kuestencode.Werkbank.Contracta.Domain.Entities.Abrechnungshistorie", b =>
+            {
+                b.HasOne("Kuestencode.Werkbank.Contracta.Domain.Entities.Wartungsvertrag", null)
+                    .WithMany("Historien")
+                    .HasForeignKey("WartungsvertragId")
+                    .OnDelete(DeleteBehavior.Cascade)
+                    .IsRequired();
+            });
+
             modelBuilder.Entity("Kuestencode.Werkbank.Contracta.Domain.Entities.Wartungsvertrag", b =>
             {
                 b.Navigation("Positionen");
+                b.Navigation("Historien");
             });
 #pragma warning restore 612, 618
         }

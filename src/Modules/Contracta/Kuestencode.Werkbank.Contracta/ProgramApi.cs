@@ -73,6 +73,14 @@ public class ProgramApi
         })
         .AddHttpMessageHandler<Kuestencode.Shared.UI.Handlers.AuthTokenDelegatingHandler>();
 
+        builder.Services.AddHttpClient<IFakturaApiClient, FakturaApiClient>(client =>
+        {
+            var fakturaUrl = builder.Configuration.GetValue<string>("ServiceUrls:Faktura") ?? "http://localhost:8081";
+            client.BaseAddress = new Uri(fakturaUrl);
+            client.Timeout = TimeSpan.FromSeconds(30);
+        })
+        .AddHttpMessageHandler<Kuestencode.Shared.UI.Handlers.AuthTokenDelegatingHandler>();
+
         builder.Services.AddTransient<ModuleAvailabilityService>();
 
         builder.Services.AddScoped<ICompanyService, ApiCompanyService>();
