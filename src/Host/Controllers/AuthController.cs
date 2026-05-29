@@ -254,7 +254,7 @@ public class AuthController : ControllerBase
         Response.Cookies.Append("werkbank_auth_cookie", token, new CookieOptions
         {
             HttpOnly = true,
-            Secure = false,
+            Secure = true,
             SameSite = SameSiteMode.Lax,
             Path = "/",
             Expires = rememberMe

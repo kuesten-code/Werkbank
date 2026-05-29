@@ -49,6 +49,10 @@ public class ProgramApi
 
         // Add Controllers for API
         builder.Services.AddControllers();
+        builder.Services.Configure<Microsoft.AspNetCore.Http.Features.FormOptions>(options =>
+        {
+            options.MultipartBodyLengthLimit = 52_428_800; // 50 MB
+        });
         builder.Services.AddEndpointsApiExplorer();
         builder.Services.AddSwaggerGen(options =>
         {
