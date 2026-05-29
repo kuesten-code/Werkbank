@@ -140,6 +140,16 @@ public class HostNavigationService : IHostNavigationService
             AllowedRoles = new List<UserRole> { UserRole.Admin }
         });
 
+        // Sicherheit - alle eingeloggten Benutzer (MFA-Einrichtung für sich selbst)
+        settingsByCategory[NavSettingsCategory.Allgemein].Add(new NavItemDto
+        {
+            Label = "Sicherheit (MFA)",
+            Href = "/settings/security",
+            Icon = "",
+            Type = NavItemType.Link,
+            AllowedRoles = new List<UserRole> { UserRole.Admin, UserRole.Buero, UserRole.Mitarbeiter }
+        });
+
         // Add Host email settings to "Versand" - nur Admin
         settingsByCategory[NavSettingsCategory.Versand].Add(new NavItemDto
         {

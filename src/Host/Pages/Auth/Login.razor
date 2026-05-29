@@ -145,13 +145,20 @@
 
         try
         {
-            var resultJson = await JSRuntime.InvokeAsync<string>("werkbankAuth.login", _model.Email, _model.Password);
+            var resultJson = await JSRuntime.InvokeAsync<string>("werkbankAuth.login", _model.Email, _model.Password, _model.RememberMe);
             using var envelope = JsonDocument.Parse(resultJson);
             var payloadRaw = envelope.RootElement.GetProperty("payload").GetString() ?? "{}";
             using var payload = JsonDocument.Parse(payloadRaw);
 
             if (envelope.RootElement.GetProperty("ok").GetBoolean())
             {
+                if (payload.RootElement.TryGetProperty("requiresMfa", out var mfaFlag) && mfaFlag.GetBoolean())
+                {
+                    var mfaToken = payload.RootElement.GetProperty("mfaToken").GetString() ?? "";
+                    NavigationManager.NavigateTo($"/login/mfa?token={Uri.EscapeDataString(mfaToken)}&returnUrl={Uri.EscapeDataString(_returnUrl ?? "/")}");
+                    return;
+                }
+
                 if (payload.RootElement.TryGetProperty("token", out var tokenElement))
                 {
                     var token = tokenElement.GetString();

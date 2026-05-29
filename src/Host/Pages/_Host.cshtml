@@ -36,12 +36,27 @@
     <script src="_content/MudBlazor/MudBlazor.min.js"></script>
     <script>
         window.werkbankAuth = {
-            login: async function (email, password) {
+            login: async function (email, password, rememberMe) {
                 const response = await fetch('/api/auth/login', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     credentials: 'include',
-                    body: JSON.stringify({ email, password })
+                    body: JSON.stringify({ email, password, rememberMe: !!rememberMe })
+                });
+
+                const raw = await response.text();
+                return JSON.stringify({
+                    ok: response.ok,
+                    status: response.status,
+                    payload: raw
+                });
+            },
+            loginMfa: async function (mfaToken, code, isRecoveryCode) {
+                const response = await fetch('/api/auth/login/mfa', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ mfaToken, code, isRecoveryCode: !!isRecoveryCode })
                 });
 
                 const raw = await response.text();

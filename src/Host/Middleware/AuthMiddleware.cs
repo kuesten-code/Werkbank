@@ -166,6 +166,8 @@ public class AuthMiddleware
             path.StartsWith("/invite/", StringComparison.OrdinalIgnoreCase) ||
             path.StartsWith("/reset/", StringComparison.OrdinalIgnoreCase) ||
             path.Equals("/login", StringComparison.OrdinalIgnoreCase) ||
+            path.Equals("/login/mfa", StringComparison.OrdinalIgnoreCase) ||
+            path.StartsWith("/api/auth/login/mfa", StringComparison.OrdinalIgnoreCase) ||
             path.Equals("/forgot-password", StringComparison.OrdinalIgnoreCase))
         {
             return true;

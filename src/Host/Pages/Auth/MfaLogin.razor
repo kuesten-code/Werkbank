@@ -1,0 +1,192 @@
+@page "/login/mfa"
+@using Kuestencode.Werkbank.Host.Auth
+@using System.Text.Json
+@layout EmptyLayout
+@inject WerkbankAuthStateProvider AuthStateProvider
+@inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
+
+<PageTitle>Zwei-Faktor-Authentifizierung - Küstencode Werkbank</PageTitle>
+
+<link rel="stylesheet" href="/css/auth.css?v=2" />
+
+<div class="auth-container">
+    <MudPaper Elevation="4" Class="auth-card pa-6">
+        <MudStack AlignItems="AlignItems.Center" Spacing="2" Class="mb-4">
+            <MudImage Src="/company/logos/logo_no_name.png" Alt="Küstencode Werkbank Logo" Width="100" Class="mb-1" />
+            <MudText Typo="Typo.h4" Color="Color.Primary">Küstencode Werkbank</MudText>
+            <MudText Typo="Typo.h6">Zwei-Faktor-Authentifizierung</MudText>
+        </MudStack>
+
+        @if (!string.IsNullOrEmpty(_errorMessage))
+        {
+            <MudAlert Severity="Severity.Error" Class="mb-4">@_errorMessage</MudAlert>
+        }
+
+        @if (string.IsNullOrEmpty(_mfaToken))
+        {
+            <MudAlert Severity="Severity.Warning" Class="mb-4">
+                Ungültiger oder abgelaufener Anmelde-Link. Bitte erneut anmelden.
+            </MudAlert>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true"
+                      OnClick="@(() => NavigationManager.NavigateTo("/login"))">
+                Zurück zur Anmeldung
+            </MudButton>
+        }
+        else if (!_useRecoveryCode)
+        {
+            <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">
+                Gib den 6-stelligen Code aus deiner Authenticator-App ein.
+            </MudText>
+
+            <form @onsubmit="HandleVerify" @onsubmit:preventDefault>
+                <MudTextField Label="Authentifizierungscode"
+                             @bind-Value="_code"
+                             InputType="InputType.Text"
+                             Variant="Variant.Outlined"
+                             Placeholder="123456"
+                             MaxLength="6"
+                             Disabled="@_loading"
+                             Class="mb-3" />
+
+                <MudButton ButtonType="ButtonType.Submit"
+                          Variant="Variant.Filled"
+                          Color="Color.Primary"
+                          FullWidth="true"
+                          Size="Size.Large"
+                          Disabled="@_loading"
+                          Class="mb-3">
+                    @if (_loading)
+                    {
+                        <MudProgressCircular Class="me-2" Size="Size.Small" Indeterminate="true" />
+                        <span>Verifizierung...</span>
+                    }
+                    else
+                    {
+                        <span>Bestätigen</span>
+                    }
+                </MudButton>
+            </form>
+
+            <MudText Align="Align.Center">
+                <MudLink Typo="Typo.body2" Color="Color.Secondary"
+                        @onclick="@(() => { _useRecoveryCode = true; _code = ""; _errorMessage = null; })"
+                        Style="cursor:pointer">
+                    Wiederherstellungscode verwenden
+                </MudLink>
+            </MudText>
+        }
+        else
+        {
+            <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">
+                Gib einen deiner Wiederherstellungscodes ein. Der Code wird nach der Verwendung ungültig.
+            </MudText>
+
+            <form @onsubmit="HandleVerify" @onsubmit:preventDefault>
+                <MudTextField Label="Wiederherstellungscode"
+                             @bind-Value="_code"
+                             InputType="InputType.Text"
+                             Variant="Variant.Outlined"
+                             Placeholder="XXXXXX-XXXXXX"
+                             Disabled="@_loading"
+                             Class="mb-3" />
+
+                <MudButton ButtonType="ButtonType.Submit"
+                          Variant="Variant.Filled"
+                          Color="Color.Primary"
+                          FullWidth="true"
+                          Size="Size.Large"
+                          Disabled="@_loading"
+                          Class="mb-3">
+                    @if (_loading)
+                    {
+                        <MudProgressCircular Class="me-2" Size="Size.Small" Indeterminate="true" />
+                        <span>Verifizierung...</span>
+                    }
+                    else
+                    {
+                        <span>Anmelden</span>
+                    }
+                </MudButton>
+            </form>
+
+            <MudText Align="Align.Center">
+                <MudLink Typo="Typo.body2" Color="Color.Secondary"
+                        @onclick="@(() => { _useRecoveryCode = false; _code = ""; _errorMessage = null; })"
+                        Style="cursor:pointer">
+                    Authenticator-Code verwenden
+                </MudLink>
+            </MudText>
+        }
+    </MudPaper>
+</div>
+
+@code {
+    private string? _mfaToken;
+    private string _code = string.Empty;
+    private bool _loading;
+    private string? _errorMessage;
+    private bool _useRecoveryCode;
+    private string _returnUrl = "/";
+
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "token")]
+    public string? Token { get; set; }
+
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "returnUrl")]
+    public string? ReturnUrl { get; set; }
+
+    protected override void OnInitialized()
+    {
+        _mfaToken = Token;
+        _returnUrl = ReturnUrl ?? "/";
+    }
+
+    private async Task HandleVerify()
+    {
+        if (string.IsNullOrWhiteSpace(_code))
+        {
+            _errorMessage = "Bitte Code eingeben.";
+            return;
+        }
+
+        _loading = true;
+        _errorMessage = null;
+
+        try
+        {
+            var resultJson = await JSRuntime.InvokeAsync<string>("werkbankAuth.loginMfa",
+                _mfaToken, _code.Trim(), _useRecoveryCode);
+
+            using var envelope = JsonDocument.Parse(resultJson);
+            var payloadRaw = envelope.RootElement.GetProperty("payload").GetString() ?? "{}";
+            using var payload = JsonDocument.Parse(payloadRaw);
+
+            if (envelope.RootElement.GetProperty("ok").GetBoolean())
+            {
+                if (payload.RootElement.TryGetProperty("token", out var tokenElement))
+                {
+                    var jwtToken = tokenElement.GetString();
+                    if (!string.IsNullOrWhiteSpace(jwtToken))
+                        await AuthStateProvider.LoginAsync(jwtToken);
+                }
+
+                NavigationManager.NavigateTo(_returnUrl, forceLoad: true);
+                return;
+            }
+
+            _errorMessage = payload.RootElement.TryGetProperty("error", out var err)
+                ? err.GetString() ?? "Verifizierung fehlgeschlagen."
+                : "Verifizierung fehlgeschlagen.";
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Fehler: {ex.Message}";
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+}

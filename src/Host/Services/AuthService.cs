@@ -92,6 +92,17 @@ public class AuthService : IAuthService
         member.LockoutUntil = null;
         await _context.SaveChangesAsync();
 
+        if (member.MfaEnabled)
+        {
+            _logger.LogInformation("MFA erforderlich für {Email}", email);
+            return new AuthResult
+            {
+                Success = true,
+                RequiresMfa = true,
+                MfaToken = GenerateMfaToken(member)
+            };
+        }
+
         var token = GenerateToken(member);
 
         _logger.LogInformation("Erfolgreicher Login für {Email}", email);
@@ -136,6 +147,29 @@ public class AuthService : IAuthService
             audience: issuer,
             claims: claims,
             expires: DateTime.UtcNow.AddDays(expiresInDays),
+            signingCredentials: credentials);
+
+        return new JwtSecurityTokenHandler().WriteToken(token);
+    }
+
+    public string GenerateMfaToken(TeamMember member)
+    {
+        var secret = GetOrGenerateJwtSecret();
+        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secret));
+        var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+        var issuer = _configuration["Jwt:Issuer"] ?? "KuestencodeWerkbank";
+
+        var claims = new[]
+        {
+            new Claim(ClaimTypes.NameIdentifier, member.Id.ToString()),
+            new Claim("mfa_pending", "true")
+        };
+
+        var token = new JwtSecurityToken(
+            issuer: issuer,
+            audience: issuer,
+            claims: claims,
+            expires: DateTime.UtcNow.AddMinutes(5),
             signingCredentials: credentials);
 
         return new JwtSecurityTokenHandler().WriteToken(token);
