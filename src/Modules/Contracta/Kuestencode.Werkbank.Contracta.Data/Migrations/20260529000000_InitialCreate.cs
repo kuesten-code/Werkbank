@@ -15,7 +15,7 @@ namespace Kuestencode.Werkbank.Contracta.Data.Migrations
                     ""Id""                  uuid                        NOT NULL,
                     ""Vertragsnummer""      text                        NOT NULL,
                     ""Bezeichnung""         text                        NOT NULL,
-                    ""KundeId""             uuid                        NOT NULL,
+                    ""KundeId""             integer                     NOT NULL,
                     ""Startdatum""          timestamp with time zone    NOT NULL,
                     ""Enddatum""            timestamp with time zone,
                     ""Intervall""           integer                     NOT NULL DEFAULT 0,
@@ -28,6 +28,18 @@ namespace Kuestencode.Werkbank.Contracta.Data.Migrations
                     ""GeaendertAm""         timestamp with time zone,
                     CONSTRAINT ""PK_Wartungsvertraege"" PRIMARY KEY (""Id"")
                 );
+
+                CREATE UNIQUE INDEX IF NOT EXISTS ""IX_Wartungsvertraege_Vertragsnummer""
+                    ON contracta.""Wartungsvertraege"" (""Vertragsnummer"");
+
+                CREATE INDEX IF NOT EXISTS ""IX_Wartungsvertraege_KundeId""
+                    ON contracta.""Wartungsvertraege"" (""KundeId"");
+
+                CREATE INDEX IF NOT EXISTS ""IX_Wartungsvertraege_Status""
+                    ON contracta.""Wartungsvertraege"" (""Status"");
+
+                CREATE INDEX IF NOT EXISTS ""IX_Wartungsvertraege_NaechsteAbrechnung""
+                    ON contracta.""Wartungsvertraege"" (""NaechsteAbrechnung"");
 
                 CREATE TABLE IF NOT EXISTS contracta.""Vertragspositionen"" (
                     ""Id""                  uuid            NOT NULL,
@@ -46,12 +58,30 @@ namespace Kuestencode.Werkbank.Contracta.Data.Migrations
 
                 CREATE INDEX IF NOT EXISTS ""IX_Vertragspositionen_WartungsvertragId""
                     ON contracta.""Vertragspositionen"" (""WartungsvertragId"");
+
+                CREATE TABLE IF NOT EXISTS contracta.""Abrechnungshistorie"" (
+                    ""Id""                  uuid                        NOT NULL,
+                    ""WartungsvertragId""   uuid                        NOT NULL,
+                    ""Abrechnungsdatum""    timestamp with time zone    NOT NULL,
+                    ""RechnungId""          integer,
+                    ""Rechnungsnummer""     text,
+                    ""Betrag""              numeric(18,2)               NOT NULL,
+                    CONSTRAINT ""PK_Abrechnungshistorie"" PRIMARY KEY (""Id""),
+                    CONSTRAINT ""FK_Abrechnungshistorie_Wartungsvertraege_WartungsvertragId""
+                        FOREIGN KEY (""WartungsvertragId"")
+                        REFERENCES contracta.""Wartungsvertraege"" (""Id"")
+                        ON DELETE CASCADE
+                );
+
+                CREATE INDEX IF NOT EXISTS ""IX_Abrechnungshistorie_WartungsvertragId""
+                    ON contracta.""Abrechnungshistorie"" (""WartungsvertragId"");
             ");
         }
 
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.Sql(@"
+                DROP TABLE IF EXISTS contracta.""Abrechnungshistorie"";
                 DROP TABLE IF EXISTS contracta.""Vertragspositionen"";
                 DROP TABLE IF EXISTS contracta.""Wartungsvertraege"";
             ");
