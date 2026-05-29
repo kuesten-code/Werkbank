@@ -1,6 +1,7 @@
 @page "/belege"
 @page "/recepta/belege"
 @using Kuestencode.Werkbank.Recepta.Controllers.Dtos
+@using Kuestencode.Werkbank.Recepta.Services.Interfaces
 @using Kuestencode.Shared.Contracts.Acta
 @inject IDocumentService DocumentService
 @inject ISupplierService SupplierService
@@ -8,6 +9,7 @@
 @inject NavigationManager NavigationManager
 @inject ISnackbar Snackbar
 @inject IDialogService DialogService
+@inject IDocumentPaymentService PaymentService
 
 <PageTitle>Belege - Küstencode Recepta</PageTitle>
 
@@ -189,6 +191,14 @@
                                       Color="Color.Info" Size="Size.Small"
                                       OnClick="@(() => ViewDocument(context.Id))" />
                     </MudTooltip>
+                    @if (context.Status is "Booked")
+                    {
+                        <MudTooltip Text="Als bezahlt markieren">
+                            <MudIconButton Icon="@Icons.Material.Filled.Paid"
+                                          Color="Color.Success" Size="Size.Small"
+                                          OnClick="@(() => MarkAsPaidFromList(context))" />
+                        </MudTooltip>
+                    }
                     @if (context.Status == "Draft")
                     {
                         <MudTooltip Text="Bearbeiten">
@@ -542,6 +552,48 @@
             {
                 Snackbar.Add($"Fehler beim Löschen: {ex.Message}", Severity.Error);
             }
+        }
+    }
+
+    private async Task MarkAsPaidFromList(DocumentDto document)
+    {
+        var hasSkonto = document.SkontoAmount.HasValue && document.SkontoDays.HasValue;
+        var withinDeadline = hasSkonto && document.SkontoDeadline.HasValue
+            && DateOnly.FromDateTime(DateTime.Today) <= document.SkontoDeadline.Value;
+
+        var parameters = new DialogParameters
+        {
+            { nameof(Kuestencode.Werkbank.Recepta.Shared.Dialogs.MarkAsPaidDialog.HasSkonto), hasSkonto },
+            { nameof(Kuestencode.Werkbank.Recepta.Shared.Dialogs.MarkAsPaidDialog.SkontoWithinDeadline), withinDeadline },
+            { nameof(Kuestencode.Werkbank.Recepta.Shared.Dialogs.MarkAsPaidDialog.SkontoAmount), document.SkontoAmount }
+        };
+
+        var dialog = await DialogService.ShowAsync<Kuestencode.Werkbank.Recepta.Shared.Dialogs.MarkAsPaidDialog>(
+            "Als bezahlt markieren", parameters);
+        var result = await dialog.Result;
+        if (result is null || result.Canceled) return;
+
+        var data = (Kuestencode.Werkbank.Recepta.Shared.Dialogs.MarkAsPaidDialog.MarkAsPaidResult)result.Data!;
+
+        try
+        {
+            if (data.SkontoApplied)
+                await DocumentService.SetSkontoAppliedAsync(document.Id, true);
+
+            var betrag = data.SkontoApplied && document.SkontoAmount.HasValue
+                ? (document.AmountGross >= 0
+                    ? document.AmountGross - document.SkontoAmount.Value
+                    : document.AmountGross + document.SkontoAmount.Value)
+                : document.AmountGross;
+
+            await PaymentService.ZahlungErfassenAsync(document.Id, betrag, data.PaymentDate, null);
+            Snackbar.Add($"Beleg '{document.DocumentNumber}' als bezahlt markiert.", Severity.Success);
+            await LoadDocumentsAsync();
+            await LoadCountsAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Fehler: {ex.Message}", Severity.Error);
         }
     }
 
