@@ -58,7 +58,7 @@ namespace Kuestencode.Werkbank.Contracta.Data.Migrations
                 b.Property<DateTime?>("NaechsteAbrechnung")
                     .HasColumnType("timestamp with time zone");
 
-                b.Property<string?>("Notizen")
+                b.Property<string>("Notizen")
                     .HasColumnType("text");
 
                 b.Property<DateTime>("Startdatum")
