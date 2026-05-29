@@ -10,4 +10,6 @@ public class AuthResult
     public TeamMember? User { get; set; }
     public int? RemainingAttempts { get; set; }
     public int? LockedForMinutes { get; set; }
+    public bool RequiresMfa { get; set; }
+    public string? MfaToken { get; set; }
 }

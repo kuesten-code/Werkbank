@@ -49,6 +49,11 @@ public class TeamMember
     public DateTime? LockoutUntil { get; set; }
     public bool IsLockedByAdmin { get; set; } = false;
 
+    // TOTP MFA
+    public string? TotpSecret { get; set; }
+    public bool MfaEnabled { get; set; } = false;
+    public string? MfaRecoveryCodes { get; set; }
+
     // Mobiler Schnellzugang (für Mitarbeiter-Zeiterfassung)
     [MaxLength(20)]
     public string? MobileToken { get; set; }                    // z.B. "a8f3x9k2m4"

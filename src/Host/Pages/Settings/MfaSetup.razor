@@ -1,0 +1,282 @@
+@page "/settings/security"
+@attribute [Authorize]
+@using System.Security.Claims
+@using Kuestencode.Werkbank.Host.Data
+@using Kuestencode.Werkbank.Host.Models
+@using Kuestencode.Werkbank.Host.Services
+@using Microsoft.EntityFrameworkCore
+@inject AuthenticationStateProvider AuthStateProvider
+@inject HostDbContext DbContext
+@inject ITotpService TotpService
+@inject IPasswordService PasswordService
+@inject IConfiguration Configuration
+@inject ISnackbar Snackbar
+@inject IJSRuntime JS
+
+<PageTitle>Einstellungen | Sicherheit - Küstencode Werkbank</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Small" Class="mt-4">
+    <MudPaper Elevation="2" Class="pa-4">
+        <MudText Typo="Typo.h4" GutterBottom="true">Einstellungen | Sicherheit</MudText>
+        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">
+            Verwalte die Zwei-Faktor-Authentifizierung für deinen Account.
+        </MudText>
+
+        @if (_loading)
+        {
+            <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+        }
+        else if (_member == null)
+        {
+            <MudAlert Severity="Severity.Error">Benutzer nicht gefunden.</MudAlert>
+        }
+        else if (_member.MfaEnabled)
+        {
+            <MudAlert Severity="Severity.Success" Class="mb-4">
+                <strong>MFA ist aktiv.</strong> Dein Account ist durch einen Authenticator-Code geschützt.
+            </MudAlert>
+
+            @if (_showDisableForm)
+            {
+                <MudText Typo="Typo.body2" Class="mb-3">
+                    Zur Bestätigung gib dein Passwort ein:
+                </MudText>
+                <MudTextField Label="Passwort"
+                             @bind-Value="_disablePassword"
+                             InputType="InputType.Password"
+                             Variant="Variant.Outlined"
+                             Class="mb-3" />
+
+                @if (!string.IsNullOrEmpty(_errorMessage))
+                {
+                    <MudAlert Severity="Severity.Error" Class="mb-3">@_errorMessage</MudAlert>
+                }
+
+                <MudStack Row="true" Spacing="2">
+                    <MudButton Variant="Variant.Filled" Color="Color.Error"
+                              OnClick="HandleDisable" Disabled="@_saving">
+                        MFA deaktivieren
+                    </MudButton>
+                    <MudButton Variant="Variant.Outlined"
+                              OnClick="@(() => { _showDisableForm = false; _errorMessage = null; })">
+                        Abbrechen
+                    </MudButton>
+                </MudStack>
+            }
+            else
+            {
+                <MudButton Variant="Variant.Outlined" Color="Color.Error"
+                          OnClick="@(() => _showDisableForm = true)">
+                    MFA deaktivieren
+                </MudButton>
+            }
+        }
+        else
+        {
+            <MudAlert Severity="Severity.Info" Class="mb-4">
+                MFA ist deaktiviert. Aktiviere die Zwei-Faktor-Authentifizierung für mehr Sicherheit.
+            </MudAlert>
+
+            @if (_setupSecret == null)
+            {
+                <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                          OnClick="HandleStartSetup">
+                    MFA einrichten
+                </MudButton>
+            }
+            else
+            {
+                <MudText Typo="Typo.subtitle1" Class="mb-2"><strong>Schritt 1:</strong> QR-Code scannen</MudText>
+                <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">
+                    Öffne deine Authenticator-App (Google Authenticator, Authy o.ä.) und scanne den QR-Code.
+                </MudText>
+
+                <div class="d-flex justify-center mb-3">
+                    @((MarkupString)_qrCodeSvg!)
+                </div>
+
+                <MudExpansionPanels Class="mb-4">
+                    <MudExpansionPanel Text="Code manuell eingeben">
+                        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-1">
+                            Schlüssel (Base32):
+                        </MudText>
+                        <MudText Typo="Typo.body1" Style="font-family: monospace; word-break: break-all;">
+                            @_setupSecret
+                        </MudText>
+                    </MudExpansionPanel>
+                </MudExpansionPanels>
+
+                <MudText Typo="Typo.subtitle1" Class="mb-2"><strong>Schritt 2:</strong> Code bestätigen</MudText>
+                <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">
+                    Gib den 6-stelligen Code aus der App ein, um die Einrichtung abzuschließen.
+                </MudText>
+
+                <MudTextField Label="Authentifizierungscode"
+                             @bind-Value="_verifyCode"
+                             InputType="InputType.Text"
+                             Variant="Variant.Outlined"
+                             Placeholder="123456"
+                             MaxLength="6"
+                             Class="mb-3" />
+
+                @if (!string.IsNullOrEmpty(_errorMessage))
+                {
+                    <MudAlert Severity="Severity.Error" Class="mb-3">@_errorMessage</MudAlert>
+                }
+
+                <MudStack Row="true" Spacing="2">
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                              OnClick="HandleEnable"
+                              Disabled="@_saving">
+                        @if (_saving)
+                        {
+                            <MudProgressCircular Class="me-2" Size="Size.Small" Indeterminate="true" />
+                            <span>Aktiviere...</span>
+                        }
+                        else
+                        {
+                            <span>MFA aktivieren</span>
+                        }
+                    </MudButton>
+                    <MudButton Variant="Variant.Outlined"
+                              OnClick="@(() => { _setupSecret = null; _qrCodeSvg = null; _errorMessage = null; })">
+                        Abbrechen
+                    </MudButton>
+                </MudStack>
+            }
+        }
+
+        @if (_recoveryCodes != null)
+        {
+            <MudDivider Class="my-6" />
+            <MudAlert Severity="Severity.Warning" Class="mb-3">
+                <strong>Wichtig:</strong> Speichere diese Wiederherstellungscodes sicher. Sie werden nur einmal angezeigt.
+                Jeder Code kann einmalig zum Anmelden verwendet werden, falls du keinen Zugriff auf die Authenticator-App hast.
+            </MudAlert>
+            <MudText Typo="Typo.subtitle1" Class="mb-2">Wiederherstellungscodes</MudText>
+            <MudPaper Outlined="true" Class="pa-3 mb-3">
+                @foreach (var recoveryCode in _recoveryCodes)
+                {
+                    <MudText Typo="Typo.body1" Style="font-family: monospace;">@recoveryCode</MudText>
+                }
+            </MudPaper>
+            <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.ContentCopy"
+                      OnClick="CopyRecoveryCodes">
+                Codes kopieren
+            </MudButton>
+        }
+    </MudPaper>
+</MudContainer>
+
+@code {
+    private bool _loading = true;
+    private bool _saving;
+    private TeamMember? _member;
+    private string? _setupSecret;
+    private string? _qrCodeSvg;
+    private string _verifyCode = string.Empty;
+    private bool _showDisableForm;
+    private string _disablePassword = string.Empty;
+    private string? _errorMessage;
+    private string[]? _recoveryCodes;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _loading = true;
+        try
+        {
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            var userId = authState.User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (Guid.TryParse(userId, out var id))
+                _member = await DbContext.TeamMembers.FirstOrDefaultAsync(m => m.Id == id && m.IsActive);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private void HandleStartSetup()
+    {
+        var issuer = Configuration["Jwt:Issuer"] ?? "KuestencodeWerkbank";
+        _setupSecret = TotpService.GenerateSecret();
+        _qrCodeSvg = TotpService.GetQrCodeSvg(_setupSecret, _member!.Email ?? _member.DisplayName, issuer);
+        _errorMessage = null;
+        _verifyCode = string.Empty;
+    }
+
+    private async Task HandleEnable()
+    {
+        if (string.IsNullOrWhiteSpace(_verifyCode))
+        {
+            _errorMessage = "Bitte Code aus der Authenticator-App eingeben.";
+            return;
+        }
+
+        _saving = true;
+        _errorMessage = null;
+        try
+        {
+            if (!TotpService.VerifyCode(_setupSecret!, _verifyCode.Trim()))
+            {
+                _errorMessage = "Ungültiger Code. Bitte erneut versuchen.";
+                return;
+            }
+
+            var recoveryCodes = TotpService.GenerateRecoveryCodes();
+            var hashedCodes = recoveryCodes
+                .Select(c => TotpService.HashRecoveryCode(c))
+                .ToList();
+
+            _member!.TotpSecret = _setupSecret;
+            _member.MfaEnabled = true;
+            _member.MfaRecoveryCodes = System.Text.Json.JsonSerializer.Serialize(hashedCodes);
+            await DbContext.SaveChangesAsync();
+
+            _recoveryCodes = recoveryCodes;
+            _setupSecret = null;
+            _qrCodeSvg = null;
+            _verifyCode = string.Empty;
+            Snackbar.Add("MFA erfolgreich aktiviert.", Severity.Success);
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private async Task HandleDisable()
+    {
+        _saving = true;
+        _errorMessage = null;
+        try
+        {
+            if (string.IsNullOrEmpty(_member!.PasswordHash) ||
+                !PasswordService.VerifyPassword(_member.PasswordHash, _disablePassword))
+            {
+                _errorMessage = "Falsches Passwort.";
+                return;
+            }
+
+            _member.TotpSecret = null;
+            _member.MfaEnabled = false;
+            _member.MfaRecoveryCodes = null;
+            await DbContext.SaveChangesAsync();
+
+            _showDisableForm = false;
+            _disablePassword = string.Empty;
+            Snackbar.Add("MFA deaktiviert.", Severity.Info);
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private async Task CopyRecoveryCodes()
+    {
+        if (_recoveryCodes == null) return;
+        await JS.InvokeVoidAsync("navigator.clipboard.writeText", string.Join("\n", _recoveryCodes));
+        Snackbar.Add("Codes in die Zwischenablage kopiert.", Severity.Success);
+    }
+}

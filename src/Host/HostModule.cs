@@ -41,6 +41,7 @@ public static class HostModule
         services.AddSingleton<IJwtTokenService, JwtTokenService>();
         services.AddScoped<IMobileTokenService, MobileTokenService>();
         services.AddScoped<IMobileRapportService, MobileRapportService>();
+        services.AddScoped<ITotpService, TotpService>();
 
         // HTTP Clients
         services.AddHttpClient();

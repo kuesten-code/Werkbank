@@ -400,6 +400,12 @@ namespace Kuestencode.Werkbank.Host.Data.Migrations
                     b.Property<DateTime?>("LockoutUntil")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<bool>("MfaEnabled")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("MfaRecoveryCodes")
+                        .HasColumnType("text");
+
                     b.Property<int?>("MitarbeiterRolleId")
                         .HasColumnType("integer");
 
@@ -432,6 +438,9 @@ namespace Kuestencode.Werkbank.Host.Data.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("integer")
                         .HasDefaultValue(2);
+
+                    b.Property<string>("TotpSecret")
+                        .HasColumnType("text");
 
                     b.Property<DateTime>("UpdatedAt")
                         .ValueGeneratedOnAdd()
