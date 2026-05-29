@@ -1,0 +1,245 @@
+@page "/vertraege"
+@inject IWartungsvertragRepository Repository
+@inject ICustomerService CustomerService
+@inject NavigationManager NavigationManager
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+
+<PageTitle>Wartungsverträge - Küstencode Contracta</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4">
+    <MudText Typo="Typo.h4" GutterBottom="true">Wartungsverträge</MudText>
+
+    <MudPaper Class="pa-4 mt-4">
+        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-4">
+            <MudTextField @bind-Value="_searchString" Placeholder="Vertrag oder Kunde suchen"
+                         Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search"
+                         IconSize="Size.Medium" Class="mt-0" Immediate="true" Style="max-width: 400px;" />
+            <MudStack Row="true" Spacing="2">
+                <MudButton Variant="Variant.Outlined" Color="Color.Warning"
+                          StartIcon="@Icons.Material.Filled.Schedule"
+                          OnClick="@(() => NavigationManager.NavigateTo("/contracta/vertraege/faellig"))">
+                    Fällige anzeigen
+                    @if (_faelligCount > 0)
+                    {
+                        <MudBadge Content="@_faelligCount" Color="Color.Error" Overlap="true" Class="ms-2" />
+                    }
+                </MudButton>
+                <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                          StartIcon="@Icons.Material.Filled.Add"
+                          OnClick="@(() => NavigationManager.NavigateTo("/contracta/vertraege/neu"))">
+                    Neuer Vertrag
+                </MudButton>
+            </MudStack>
+        </MudStack>
+
+        <MudTabs Elevation="0" Rounded="true" ApplyEffectsToContainer="true" Class="mb-4"
+                @bind-ActivePanelIndex="_activeTabIndex" @bind-ActivePanelIndex:after="OnTabChanged">
+            <MudTabPanel Text="Alle" Icon="@Icons.Material.Filled.List" />
+            <MudTabPanel Text="Entwurf" Icon="@Icons.Material.Filled.Edit"
+                         BadgeData="@_entwurfCount" BadgeColor="Color.Default" />
+            <MudTabPanel Text="Aktiv" Icon="@Icons.Material.Filled.CheckCircle"
+                         BadgeData="@_aktivCount" BadgeColor="Color.Success" />
+            <MudTabPanel Text="Pausiert" Icon="@Icons.Material.Filled.Pause"
+                         BadgeData="@_pausiertCount" BadgeColor="Color.Warning" />
+            <MudTabPanel Text="Beendet" Icon="@Icons.Material.Filled.Cancel"
+                         BadgeData="@_beendetCount" BadgeColor="Color.Error" />
+        </MudTabs>
+
+        <MudTable Items="@_filtered" Hover="true" Breakpoint="Breakpoint.Sm"
+                 Loading="@_loading" LoadingProgressColor="Color.Info" RowsPerPage="10">
+            <HeaderContent>
+                <MudTh>Nummer</MudTh>
+                <MudTh>Kunde</MudTh>
+                <MudTh>Bezeichnung</MudTh>
+                <MudTh>Intervall</MudTh>
+                <MudTh>Status</MudTh>
+                <MudTh>Nächste Abrechnung</MudTh>
+                <MudTh Style="text-align: right">Betrag (brutto)</MudTh>
+                <MudTh Style="text-align: right">Aktionen</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd DataLabel="Nummer">@context.Vertragsnummer</MudTd>
+                <MudTd DataLabel="Kunde">@GetKundenName(context.KundeId)</MudTd>
+                <MudTd DataLabel="Bezeichnung">@context.Bezeichnung</MudTd>
+                <MudTd DataLabel="Intervall">
+                    <IntervallAnzeige Intervall="@context.Intervall" CustomTage="@context.CustomIntervallTage" />
+                </MudTd>
+                <MudTd DataLabel="Status">
+                    <VertragStatusBadge Status="@context.Status" />
+                </MudTd>
+                <MudTd DataLabel="Nächste Abrechnung">
+                    @if (context.NaechsteAbrechnung.HasValue)
+                    {
+                        var naechste = context.NaechsteAbrechnung.Value;
+                        var istFaellig = context.Status == VertragStatus.Aktiv && naechste <= DateTime.UtcNow;
+                        <MudText Color="@(istFaellig ? Color.Error : Color.Default)">
+                            @naechste.ToLocalTime().ToString("dd.MM.yyyy")
+                        </MudText>
+                    }
+                    else
+                    {
+                        <MudText Color="Color.Secondary">-</MudText>
+                    }
+                </MudTd>
+                <MudTd DataLabel="Betrag" Style="text-align: right">
+                    @BerechneBrutto(context).ToString("C2", _culture)
+                </MudTd>
+                <MudTd DataLabel="Aktionen" Style="text-align: right">
+                    <MudIconButton Icon="@Icons.Material.Filled.Visibility"
+                                  Color="Color.Info" Size="Size.Small"
+                                  OnClick="@(() => NavigationManager.NavigateTo($"/contracta/vertraege/{context.Id}"))"
+                                  Title="Anzeigen" />
+                    @if (context.Status != VertragStatus.Beendet)
+                    {
+                        <MudIconButton Icon="@Icons.Material.Filled.Edit"
+                                      Color="Color.Primary" Size="Size.Small"
+                                      OnClick="@(() => NavigationManager.NavigateTo($"/contracta/vertraege/{context.Id}/bearbeiten"))"
+                                      Title="Bearbeiten" />
+                    }
+                    @if (context.Status == VertragStatus.Entwurf)
+                    {
+                        <MudIconButton Icon="@Icons.Material.Filled.Delete"
+                                      Color="Color.Error" Size="Size.Small"
+                                      OnClick="@(() => DeleteVertrag(context))"
+                                      Title="Löschen" />
+                    }
+                </MudTd>
+            </RowTemplate>
+            <NoRecordsContent>
+                <MudText Typo="Typo.body1" Align="Align.Center" Class="pa-4">
+                    @if (_loading)
+                    {
+                        <text>Lade Verträge...</text>
+                    }
+                    else
+                    {
+                        <text>Keine Verträge vorhanden.</text>
+                    }
+                </MudText>
+            </NoRecordsContent>
+            <PagerContent>
+                <MudTablePager PageSizeOptions="new int[] { 10, 25, 50, 100 }" />
+            </PagerContent>
+        </MudTable>
+    </MudPaper>
+</MudContainer>
+
+@code {
+    private readonly CultureInfo _culture = new CultureInfo("de-DE");
+    private bool _loading = true;
+    private string _searchString = string.Empty;
+    private int _activeTabIndex = 0;
+
+    private List<Wartungsvertrag> _vertraege = new();
+    private Dictionary<int, string> _kundenNamen = new();
+
+    private int _entwurfCount;
+    private int _aktivCount;
+    private int _pausiertCount;
+    private int _beendetCount;
+    private int _faelligCount;
+
+    private IEnumerable<Wartungsvertrag> _filtered => GetFiltered();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDataAsync();
+    }
+
+    private async Task LoadDataAsync()
+    {
+        _loading = true;
+        try
+        {
+            _vertraege = await Repository.GetAllAsync();
+            var kunden = await CustomerService.GetAllAsync();
+            _kundenNamen = kunden.ToDictionary(k => k.Id, k => k.Name);
+            UpdateCounts();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Fehler beim Laden: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private void UpdateCounts()
+    {
+        _entwurfCount = _vertraege.Count(v => v.Status == VertragStatus.Entwurf);
+        _aktivCount = _vertraege.Count(v => v.Status == VertragStatus.Aktiv);
+        _pausiertCount = _vertraege.Count(v => v.Status == VertragStatus.Pausiert);
+        _beendetCount = _vertraege.Count(v => v.Status == VertragStatus.Beendet);
+        _faelligCount = _vertraege.Count(v =>
+            v.Status == VertragStatus.Aktiv &&
+            v.NaechsteAbrechnung.HasValue &&
+            v.NaechsteAbrechnung.Value <= DateTime.UtcNow);
+    }
+
+    private IEnumerable<Wartungsvertrag> GetFiltered()
+    {
+        var filtered = _vertraege.AsEnumerable();
+
+        filtered = _activeTabIndex switch
+        {
+            1 => filtered.Where(v => v.Status == VertragStatus.Entwurf),
+            2 => filtered.Where(v => v.Status == VertragStatus.Aktiv),
+            3 => filtered.Where(v => v.Status == VertragStatus.Pausiert),
+            4 => filtered.Where(v => v.Status == VertragStatus.Beendet),
+            _ => filtered
+        };
+
+        if (!string.IsNullOrWhiteSpace(_searchString))
+        {
+            var search = _searchString.ToLowerInvariant();
+            filtered = filtered.Where(v =>
+                v.Vertragsnummer.ToLowerInvariant().Contains(search) ||
+                v.Bezeichnung.ToLowerInvariant().Contains(search) ||
+                GetKundenName(v.KundeId).ToLowerInvariant().Contains(search));
+        }
+
+        return filtered.OrderByDescending(v => v.ErstelltAm);
+    }
+
+    private string GetKundenName(int kundeId) =>
+        _kundenNamen.TryGetValue(kundeId, out var name) ? name : $"Kunde #{kundeId}";
+
+    private decimal BerechneBrutto(Wartungsvertrag v) =>
+        v.Positionen.Sum(p => p.Positionssumme * (1 + p.Steuersatz / 100));
+
+    private async Task OnTabChanged()
+    {
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task DeleteVertrag(Wartungsvertrag vertrag)
+    {
+        var parameters = new DialogParameters<Kuestencode.Werkbank.Contracta.Shared.Dialogs.ConfirmDialog>
+        {
+            { x => x.Title, "Vertrag löschen" },
+            { x => x.ContentText, $"Möchten Sie den Vertrag {vertrag.Vertragsnummer} wirklich löschen?" },
+            { x => x.ButtonText, "Löschen" },
+            { x => x.Color, Color.Error }
+        };
+
+        var dialog = await DialogService.ShowAsync<Kuestencode.Werkbank.Contracta.Shared.Dialogs.ConfirmDialog>("Löschen", parameters);
+        var result = await dialog.Result;
+
+        if (result != null && !result.Canceled)
+        {
+            try
+            {
+                await Repository.DeleteAsync(vertrag.Id);
+                Snackbar.Add($"Vertrag {vertrag.Vertragsnummer} wurde gelöscht.", Severity.Success);
+                await LoadDataAsync();
+            }
+            catch (Exception ex)
+            {
+                Snackbar.Add($"Fehler beim Löschen: {ex.Message}", Severity.Error);
+            }
+        }
+    }
+}

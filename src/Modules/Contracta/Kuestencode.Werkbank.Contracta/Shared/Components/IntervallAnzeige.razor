@@ -1,0 +1,16 @@
+<span>@GetText(Intervall, CustomTage)</span>
+
+@code {
+    [Parameter] public Abrechnungsintervall Intervall { get; set; }
+    [Parameter] public int? CustomTage { get; set; }
+
+    private static string GetText(Abrechnungsintervall intervall, int? customTage) => intervall switch
+    {
+        Abrechnungsintervall.Monatlich => "Monatlich",
+        Abrechnungsintervall.Quartalsweise => "Quartalsweise",
+        Abrechnungsintervall.Halbjaehrlich => "Halbjährlich",
+        Abrechnungsintervall.Jaehrlich => "Jährlich",
+        Abrechnungsintervall.Custom => $"Alle {customTage ?? 30} Tage",
+        _ => intervall.ToString()
+    };
+}

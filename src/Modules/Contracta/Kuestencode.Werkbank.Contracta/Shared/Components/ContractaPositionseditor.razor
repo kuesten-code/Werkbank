@@ -1,0 +1,142 @@
+<MudSimpleTable Dense="true" Hover="true" Bordered="true" Elevation="0">
+    <thead>
+        <tr>
+            <th style="width: 60px">Pos.</th>
+            <th>Beschreibung</th>
+            <th style="width: 100px; text-align: right">Menge</th>
+            <th style="width: 130px; text-align: right">Einzelpreis</th>
+            <th style="width: 80px; text-align: right">MwSt</th>
+            <th style="width: 120px; text-align: right">Gesamt</th>
+            <th style="width: 100px"></th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var position in Positionen.OrderBy(p => p.Position))
+        {
+            <tr>
+                <td>@position.Position</td>
+                <td>
+                    <MudTextField @bind-Value="position.Text" Margin="Margin.Dense"
+                                 Variant="Variant.Outlined" Required="true"
+                                 Lines="2" AutoGrow="true" Disabled="@Readonly"
+                                 OnBlur="@(() => OnPositionChanged.InvokeAsync())" />
+                </td>
+                <td style="text-align: right">
+                    <MudNumericField @bind-Value="position.Menge" Margin="Margin.Dense"
+                                    Variant="Variant.Outlined" Min="0.001m" Step="1m"
+                                    Format="N3" HideSpinButtons="true" Disabled="@Readonly"
+                                    OnBlur="@(() => OnPositionChanged.InvokeAsync())" />
+                </td>
+                <td style="text-align: right">
+                    <MudNumericField @bind-Value="position.Einzelpreis" Margin="Margin.Dense"
+                                    Variant="Variant.Outlined" Min="0.00m" Step="1m"
+                                    Format="C2" HideSpinButtons="true" Culture="@_culture" Disabled="@Readonly"
+                                    OnBlur="@(() => OnPositionChanged.InvokeAsync())" />
+                </td>
+                <td style="text-align: right">
+                    <MudSelect T="decimal" @bind-Value="position.Steuersatz"
+                               @bind-Value:after="@(() => OnPositionChanged.InvokeAsync())"
+                               Margin="Margin.Dense" Variant="Variant.Outlined"
+                               Disabled="@Readonly" Dense="true">
+                        <MudSelectItem Value="0m">0%</MudSelectItem>
+                        <MudSelectItem Value="7m">7%</MudSelectItem>
+                        <MudSelectItem Value="19m">19%</MudSelectItem>
+                    </MudSelect>
+                </td>
+                <td style="text-align: right">
+                    <MudText Typo="Typo.body2">@position.Positionssumme.ToString("C2", _culture)</MudText>
+                </td>
+                <td>
+                    @if (!Readonly)
+                    {
+                        <MudStack Row="true" Spacing="0">
+                            <MudIconButton Icon="@Icons.Material.Filled.ArrowUpward" Size="Size.Small"
+                                          OnClick="@(() => MoveUp(position))"
+                                          Disabled="@(position.Position <= 1)" />
+                            <MudIconButton Icon="@Icons.Material.Filled.ArrowDownward" Size="Size.Small"
+                                          OnClick="@(() => MoveDown(position))"
+                                          Disabled="@(position.Position >= Positionen.Count)" />
+                            <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small"
+                                          Color="Color.Error"
+                                          OnClick="@(() => Remove(position))"
+                                          Disabled="@(Positionen.Count <= 1)" />
+                        </MudStack>
+                    }
+                </td>
+            </tr>
+        }
+    </tbody>
+</MudSimpleTable>
+
+@if (!Readonly)
+{
+    <MudStack Row="true" Class="mt-2">
+        <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small"
+                  StartIcon="@Icons.Material.Filled.Add" OnClick="Add">
+            Position hinzufügen
+        </MudButton>
+    </MudStack>
+}
+
+@code {
+    private readonly CultureInfo _culture = new CultureInfo("de-DE");
+
+    [Parameter] public List<Vertragsposition> Positionen { get; set; } = new();
+    [Parameter] public EventCallback<List<Vertragsposition>> PositionenChanged { get; set; }
+    [Parameter] public EventCallback OnPositionChanged { get; set; }
+    [Parameter] public bool Readonly { get; set; } = false;
+
+    private async Task Add()
+    {
+        Positionen.Add(new Vertragsposition
+        {
+            Id = Guid.NewGuid(),
+            Position = Positionen.Count + 1,
+            Menge = 1,
+            Einzelpreis = 0,
+            Steuersatz = 19m
+        });
+        await PositionenChanged.InvokeAsync(Positionen);
+        await OnPositionChanged.InvokeAsync();
+    }
+
+    private async Task Remove(Vertragsposition position)
+    {
+        Positionen.Remove(position);
+        Reorder();
+        await PositionenChanged.InvokeAsync(Positionen);
+        await OnPositionChanged.InvokeAsync();
+    }
+
+    private async Task MoveUp(Vertragsposition position)
+    {
+        var index = Positionen.IndexOf(position);
+        if (index > 0)
+        {
+            Positionen.RemoveAt(index);
+            Positionen.Insert(index - 1, position);
+            Reorder();
+            await PositionenChanged.InvokeAsync(Positionen);
+            await OnPositionChanged.InvokeAsync();
+        }
+    }
+
+    private async Task MoveDown(Vertragsposition position)
+    {
+        var index = Positionen.IndexOf(position);
+        if (index < Positionen.Count - 1)
+        {
+            Positionen.RemoveAt(index);
+            Positionen.Insert(index + 1, position);
+            Reorder();
+            await PositionenChanged.InvokeAsync(Positionen);
+            await OnPositionChanged.InvokeAsync();
+        }
+    }
+
+    private void Reorder()
+    {
+        for (int i = 0; i < Positionen.Count; i++)
+            Positionen[i].Position = i + 1;
+    }
+}

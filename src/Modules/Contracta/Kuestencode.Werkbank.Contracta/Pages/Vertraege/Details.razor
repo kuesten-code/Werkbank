@@ -1,0 +1,464 @@
+@page "/vertraege/{Id:guid}"
+@inject IWartungsvertragRepository Repository
+@inject ICustomerService CustomerService
+@inject IRechnungserstellungService RechnungserstellungService
+@inject VertragStatusService StatusService
+@inject NavigationManager NavigationManager
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+
+<PageTitle>Vertrag Details - Küstencode Contracta</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="mt-4">
+    @if (_loading)
+    {
+        <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+    }
+    else if (_vertrag == null)
+    {
+        <MudAlert Severity="Severity.Error">Wartungsvertrag nicht gefunden.</MudAlert>
+    }
+    else
+    {
+        <MudPaper Class="pa-4">
+            <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-4">
+                <MudText Typo="Typo.h4">@_vertrag.Vertragsnummer</MudText>
+                <VertragStatusBadge Status="@_vertrag.Status" Size="Size.Large" />
+            </MudStack>
+
+            <MudGrid>
+                <MudItem xs="12" md="6">
+                    <MudText Typo="Typo.h6" GutterBottom="true">Vertragsdaten</MudText>
+                    <MudSimpleTable Dense="true">
+                        <tbody>
+                            <tr>
+                                <td><strong>Vertragsnummer:</strong></td>
+                                <td><strong>@_vertrag.Vertragsnummer</strong></td>
+                            </tr>
+                            <tr>
+                                <td><strong>Bezeichnung:</strong></td>
+                                <td>@_vertrag.Bezeichnung</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Intervall:</strong></td>
+                                <td><IntervallAnzeige Intervall="@_vertrag.Intervall" CustomTage="@_vertrag.CustomIntervallTage" /></td>
+                            </tr>
+                            <tr>
+                                <td><strong>Startdatum:</strong></td>
+                                <td>@_vertrag.Startdatum.ToLocalTime().ToString("dd.MM.yyyy")</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Enddatum:</strong></td>
+                                <td>@(_vertrag.Enddatum.HasValue ? _vertrag.Enddatum.Value.ToLocalTime().ToString("dd.MM.yyyy") : "Unbefristet")</td>
+                            </tr>
+                            @if (_vertrag.LetzteAbrechnung.HasValue)
+                            {
+                                <tr>
+                                    <td><strong>Letzte Abrechnung:</strong></td>
+                                    <td>@_vertrag.LetzteAbrechnung.Value.ToLocalTime().ToString("dd.MM.yyyy")</td>
+                                </tr>
+                            }
+                            @if (_vertrag.NaechsteAbrechnung.HasValue)
+                            {
+                                <tr>
+                                    <td><strong>Nächste Abrechnung:</strong></td>
+                                    <td>
+                                        @{
+                                            var naechste = _vertrag.NaechsteAbrechnung.Value;
+                                            var istFaellig = _vertrag.Status == VertragStatus.Aktiv && naechste <= DateTime.UtcNow;
+                                        }
+                                        <MudText Color="@(istFaellig ? Color.Error : Color.Default)" Inline="true">
+                                            @naechste.ToLocalTime().ToString("dd.MM.yyyy")
+                                            @if (istFaellig)
+                                            {
+                                                <text> (fällig)</text>
+                                            }
+                                        </MudText>
+                                    </td>
+                                </tr>
+                            }
+                            <tr>
+                                <td><strong>Erstellt am:</strong></td>
+                                <td>@_vertrag.ErstelltAm.ToLocalTime().ToString("dd.MM.yyyy")</td>
+                            </tr>
+                        </tbody>
+                    </MudSimpleTable>
+                </MudItem>
+
+                <MudItem xs="12" md="6">
+                    <MudText Typo="Typo.h6" GutterBottom="true">Kunde</MudText>
+                    @if (_customer != null)
+                    {
+                        <MudText Typo="Typo.body1"><strong>@_customer.Name</strong></MudText>
+                        <MudText Typo="Typo.body2">@_customer.CustomerNumber</MudText>
+                        <MudText Typo="Typo.body2">@_customer.Address</MudText>
+                        <MudText Typo="Typo.body2">@_customer.PostalCode @_customer.City</MudText>
+                        @if (!string.IsNullOrEmpty(_customer.Email))
+                        {
+                            <MudText Typo="Typo.body2">@_customer.Email</MudText>
+                        }
+                    }
+
+                    @if (!string.IsNullOrWhiteSpace(_vertrag.Notizen))
+                    {
+                        <MudDivider Class="my-2" />
+                        <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-1">Notizen:</MudText>
+                        <MudText Typo="Typo.body2" Style="white-space: pre-line;">@_vertrag.Notizen</MudText>
+                    }
+                </MudItem>
+
+                <MudItem xs="12" Class="mt-4">
+                    <MudText Typo="Typo.h6" GutterBottom="true">Positionen</MudText>
+                    <ContractaPositionseditor Positionen="@_vertrag.Positionen" Readonly="true" />
+                </MudItem>
+
+                <MudItem xs="12" Class="mt-4">
+                    <ContractaSummenblock Netto="@_netto" Mwst="@_mwst" Brutto="@_brutto"
+                                         MwstSaetze="@_mwstSaetze" />
+                </MudItem>
+
+                <MudItem xs="12" Class="mt-4">
+                    <MudText Typo="Typo.h6" GutterBottom="true">Abrechnungshistorie</MudText>
+                    <AbrechnungshistorieTabelle Historien="@_vertrag.Historien" />
+                </MudItem>
+
+                <MudItem xs="12" Class="mt-6">
+                    <MudStack Row="true" Justify="Justify.SpaceBetween" Wrap="Wrap.Wrap">
+                        <MudButton Variant="Variant.Filled" Color="Color.Default"
+                                  StartIcon="@Icons.Material.Filled.ArrowBack"
+                                  OnClick="@(() => NavigationManager.NavigateTo("/contracta/vertraege"))">
+                            Zurück
+                        </MudButton>
+
+                        <MudStack Row="true" Spacing="2" Wrap="Wrap.Wrap">
+                            @switch (_vertrag.Status)
+                            {
+                                case VertragStatus.Entwurf:
+                                    <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                                              StartIcon="@Icons.Material.Filled.Edit"
+                                              OnClick="Bearbeiten">
+                                        Bearbeiten
+                                    </MudButton>
+                                    <MudButton Variant="Variant.Filled" Color="Color.Success"
+                                              StartIcon="@Icons.Material.Filled.PlayArrow"
+                                              OnClick="Aktivieren">
+                                        Aktivieren
+                                    </MudButton>
+                                    <MudButton Variant="Variant.Outlined" Color="Color.Error"
+                                              StartIcon="@Icons.Material.Filled.Delete"
+                                              OnClick="Loeschen">
+                                        Löschen
+                                    </MudButton>
+                                    break;
+
+                                case VertragStatus.Aktiv:
+                                    <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                                              StartIcon="@Icons.Material.Filled.Edit"
+                                              OnClick="Bearbeiten">
+                                        Bearbeiten
+                                    </MudButton>
+                                    @if (RechnungserstellungService.IstVerfuegbar)
+                                    {
+                                        <MudButton Variant="Variant.Filled" Color="Color.Info"
+                                                  StartIcon="@Icons.Material.Filled.Receipt"
+                                                  Disabled="@_erstelltRechnung"
+                                                  OnClick="RechnungErstellen">
+                                            @if (_erstelltRechnung)
+                                            {
+                                                <MudProgressCircular Class="ms-n1" Size="Size.Small" Indeterminate="true" />
+                                                <MudText Class="ms-2">Erstelle...</MudText>
+                                            }
+                                            else
+                                            {
+                                                <MudText>Rechnung erstellen</MudText>
+                                            }
+                                        </MudButton>
+                                    }
+                                    <MudButton Variant="Variant.Outlined" Color="Color.Warning"
+                                              StartIcon="@Icons.Material.Filled.Pause"
+                                              OnClick="Pausieren">
+                                        Pausieren
+                                    </MudButton>
+                                    <MudButton Variant="Variant.Outlined" Color="Color.Error"
+                                              StartIcon="@Icons.Material.Filled.Stop"
+                                              OnClick="Beenden">
+                                        Beenden
+                                    </MudButton>
+                                    break;
+
+                                case VertragStatus.Pausiert:
+                                    <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                                              StartIcon="@Icons.Material.Filled.Edit"
+                                              OnClick="Bearbeiten">
+                                        Bearbeiten
+                                    </MudButton>
+                                    <MudButton Variant="Variant.Filled" Color="Color.Success"
+                                              StartIcon="@Icons.Material.Filled.PlayArrow"
+                                              OnClick="Reaktivieren">
+                                        Reaktivieren
+                                    </MudButton>
+                                    <MudButton Variant="Variant.Outlined" Color="Color.Error"
+                                              StartIcon="@Icons.Material.Filled.Stop"
+                                              OnClick="Beenden">
+                                        Beenden
+                                    </MudButton>
+                                    break;
+
+                                case VertragStatus.Beendet:
+                                    break;
+                            }
+                        </MudStack>
+                    </MudStack>
+                </MudItem>
+            </MudGrid>
+        </MudPaper>
+    }
+</MudContainer>
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+
+    private readonly CultureInfo _culture = new CultureInfo("de-DE");
+    private bool _loading = true;
+    private bool _erstelltRechnung = false;
+    private Wartungsvertrag? _vertrag;
+    private Customer? _customer;
+
+    private decimal _netto;
+    private decimal _mwst;
+    private decimal _brutto;
+    private List<ContractaSummenblock.MwstZeile>? _mwstSaetze;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDataAsync();
+    }
+
+    private async Task LoadDataAsync()
+    {
+        _loading = true;
+        try
+        {
+            _vertrag = await Repository.GetByIdAsync(Id);
+            if (_vertrag != null)
+            {
+                _customer = await CustomerService.GetByIdAsync(_vertrag.KundeId);
+                BerechneSteuern();
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Fehler beim Laden: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private void BerechneSteuern()
+    {
+        if (_vertrag == null) return;
+
+        _netto = _vertrag.Positionen.Sum(p => p.Positionssumme);
+
+        var groups = _vertrag.Positionen
+            .GroupBy(p => p.Steuersatz)
+            .Select(g => new ContractaSummenblock.MwstZeile(g.Key, Math.Round(g.Sum(p => p.Positionssumme) * g.Key / 100, 2)))
+            .Where(m => m.Betrag > 0)
+            .OrderBy(m => m.Satz)
+            .ToList();
+
+        _mwstSaetze = groups.Count > 1 ? groups : null;
+        _mwst = groups.Sum(m => m.Betrag);
+        _brutto = _netto + _mwst;
+    }
+
+    private void Bearbeiten()
+    {
+        NavigationManager.NavigateTo($"/contracta/vertraege/{Id}/bearbeiten");
+    }
+
+    private async Task Aktivieren()
+    {
+        if (_vertrag == null) return;
+
+        var parameters = new DialogParameters<Kuestencode.Werkbank.Contracta.Shared.Dialogs.ConfirmDialog>
+        {
+            { x => x.Title, "Vertrag aktivieren" },
+            { x => x.ContentText, $"Vertrag {_vertrag.Vertragsnummer} aktivieren?" },
+            { x => x.ButtonText, "Aktivieren" },
+            { x => x.Color, Color.Success }
+        };
+
+        var dialog = await DialogService.ShowAsync<Kuestencode.Werkbank.Contracta.Shared.Dialogs.ConfirmDialog>("Aktivieren", parameters);
+        var result = await dialog.Result;
+
+        if (result != null && !result.Canceled)
+        {
+            try
+            {
+                StatusService.Aktivieren(_vertrag);
+                await Repository.UpdateAsync(_vertrag);
+                Snackbar.Add("Vertrag wurde aktiviert.", Severity.Success);
+                await LoadDataAsync();
+            }
+            catch (Exception ex)
+            {
+                Snackbar.Add($"Fehler: {ex.Message}", Severity.Error);
+            }
+        }
+    }
+
+    private async Task Pausieren()
+    {
+        if (_vertrag == null) return;
+
+        var parameters = new DialogParameters<Kuestencode.Werkbank.Contracta.Shared.Dialogs.ConfirmDialog>
+        {
+            { x => x.Title, "Vertrag pausieren" },
+            { x => x.ContentText, $"Vertrag {_vertrag.Vertragsnummer} pausieren? Während der Pause werden keine Rechnungen erstellt." },
+            { x => x.ButtonText, "Pausieren" },
+            { x => x.Color, Color.Warning }
+        };
+
+        var dialog = await DialogService.ShowAsync<Kuestencode.Werkbank.Contracta.Shared.Dialogs.ConfirmDialog>("Pausieren", parameters);
+        var result = await dialog.Result;
+
+        if (result != null && !result.Canceled)
+        {
+            try
+            {
+                StatusService.Pausieren(_vertrag);
+                await Repository.UpdateAsync(_vertrag);
+                Snackbar.Add("Vertrag wurde pausiert.", Severity.Success);
+                await LoadDataAsync();
+            }
+            catch (Exception ex)
+            {
+                Snackbar.Add($"Fehler: {ex.Message}", Severity.Error);
+            }
+        }
+    }
+
+    private async Task Reaktivieren()
+    {
+        if (_vertrag == null) return;
+
+        var parameters = new DialogParameters<Kuestencode.Werkbank.Contracta.Shared.Dialogs.ConfirmDialog>
+        {
+            { x => x.Title, "Vertrag reaktivieren" },
+            { x => x.ContentText, $"Vertrag {_vertrag.Vertragsnummer} wieder aktivieren?" },
+            { x => x.ButtonText, "Reaktivieren" },
+            { x => x.Color, Color.Success }
+        };
+
+        var dialog = await DialogService.ShowAsync<Kuestencode.Werkbank.Contracta.Shared.Dialogs.ConfirmDialog>("Reaktivieren", parameters);
+        var result = await dialog.Result;
+
+        if (result != null && !result.Canceled)
+        {
+            try
+            {
+                StatusService.Reaktivieren(_vertrag);
+                await Repository.UpdateAsync(_vertrag);
+                Snackbar.Add("Vertrag wurde reaktiviert.", Severity.Success);
+                await LoadDataAsync();
+            }
+            catch (Exception ex)
+            {
+                Snackbar.Add($"Fehler: {ex.Message}", Severity.Error);
+            }
+        }
+    }
+
+    private async Task Beenden()
+    {
+        if (_vertrag == null) return;
+
+        var parameters = new DialogParameters<Kuestencode.Werkbank.Contracta.Shared.Dialogs.ConfirmDialog>
+        {
+            { x => x.Title, "Vertrag beenden" },
+            { x => x.ContentText, $"Vertrag {_vertrag.Vertragsnummer} beenden? Dies kann nicht rückgängig gemacht werden." },
+            { x => x.ButtonText, "Beenden" },
+            { x => x.Color, Color.Error }
+        };
+
+        var dialog = await DialogService.ShowAsync<Kuestencode.Werkbank.Contracta.Shared.Dialogs.ConfirmDialog>("Beenden", parameters);
+        var result = await dialog.Result;
+
+        if (result != null && !result.Canceled)
+        {
+            try
+            {
+                StatusService.Beenden(_vertrag);
+                await Repository.UpdateAsync(_vertrag);
+                Snackbar.Add("Vertrag wurde beendet.", Severity.Success);
+                await LoadDataAsync();
+            }
+            catch (Exception ex)
+            {
+                Snackbar.Add($"Fehler: {ex.Message}", Severity.Error);
+            }
+        }
+    }
+
+    private async Task Loeschen()
+    {
+        if (_vertrag == null) return;
+
+        var parameters = new DialogParameters<Kuestencode.Werkbank.Contracta.Shared.Dialogs.ConfirmDialog>
+        {
+            { x => x.Title, "Vertrag löschen" },
+            { x => x.ContentText, $"Möchten Sie den Vertrag {_vertrag.Vertragsnummer} wirklich löschen?" },
+            { x => x.ButtonText, "Löschen" },
+            { x => x.Color, Color.Error }
+        };
+
+        var dialog = await DialogService.ShowAsync<Kuestencode.Werkbank.Contracta.Shared.Dialogs.ConfirmDialog>("Löschen", parameters);
+        var result = await dialog.Result;
+
+        if (result != null && !result.Canceled)
+        {
+            try
+            {
+                await Repository.DeleteAsync(_vertrag.Id);
+                Snackbar.Add($"Vertrag {_vertrag.Vertragsnummer} wurde gelöscht.", Severity.Success);
+                NavigationManager.NavigateTo("/contracta/vertraege");
+            }
+            catch (Exception ex)
+            {
+                Snackbar.Add($"Fehler: {ex.Message}", Severity.Error);
+            }
+        }
+    }
+
+    private async Task RechnungErstellen()
+    {
+        if (_vertrag == null) return;
+
+        _erstelltRechnung = true;
+        try
+        {
+            var ergebnis = await RechnungserstellungService.ErstelleRechnungAsync(_vertrag.Id);
+
+            if (ergebnis.Erfolgreich)
+            {
+                Snackbar.Add($"Rechnung {ergebnis.Rechnungsnummer} erstellt.", Severity.Success);
+                await LoadDataAsync();
+            }
+            else
+            {
+                Snackbar.Add($"Fehler: {ergebnis.Fehler}", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Fehler: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _erstelltRechnung = false;
+        }
+    }
+}
