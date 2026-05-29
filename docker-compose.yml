@@ -38,6 +38,7 @@ services:
       - ServiceUrls__Acta=http://acta:8084
       - ServiceUrls__Recepta=http://recepta:8085
       - ServiceUrls__Saldo=http://saldo:8086
+      - ServiceUrls__Contracta=http://contracta:8087
       - APPLY_MIGRATIONS=true
     volumes:
       - ./data/keys:/app/data/keys
@@ -194,6 +195,32 @@ services:
       - ServiceUrls__Self=http://saldo:8086
       - ServiceUrls__Faktura=http://faktura:8081
       - ServiceUrls__Recepta=http://recepta:8085
+      - APPLY_MIGRATIONS=true
+    volumes:
+      - ./data/keys:/app/data/keys
+    depends_on:
+      postgres:
+        condition: service_healthy
+      host:
+        condition: service_started
+    restart: unless-stopped
+    networks:
+      - kuestencode_network_dev
+
+  contracta:
+    build:
+      context: .
+      dockerfile: src/Modules/Contracta/Kuestencode.Werkbank.Contracta/Dockerfile
+    container_name: kuestencode_contracta_dev
+    ports:
+      - "8087:8087"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:8087
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=kuestencode_dev;Username=postgres;Password=dev_password
+      - ServiceUrls__Host=http://host:8080
+      - ServiceUrls__Self=http://contracta:8087
+      - ServiceUrls__Faktura=http://faktura:8081
       - APPLY_MIGRATIONS=true
     volumes:
       - ./data/keys:/app/data/keys
