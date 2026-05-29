@@ -1,0 +1,45 @@
+<MudPaper Elevation="2" Class="pa-4" Style="max-width: 400px; margin-left: auto;">
+    <MudText Typo="Typo.h6" GutterBottom="true">Summen</MudText>
+    <MudStack Spacing="2">
+        <MudStack Row="true" Justify="Justify.SpaceBetween">
+            <MudText>Nettosumme:</MudText>
+            <MudText>@Netto.ToString("C2", _culture)</MudText>
+        </MudStack>
+
+        @if (MwstSaetze != null && MwstSaetze.Any())
+        {
+            @foreach (var mwst in MwstSaetze)
+            {
+                <MudStack Row="true" Justify="Justify.SpaceBetween">
+                    <MudText>MwSt (@mwst.Satz.ToString("0.##")%):</MudText>
+                    <MudText>@mwst.Betrag.ToString("C2", _culture)</MudText>
+                </MudStack>
+            }
+        }
+        else
+        {
+            <MudStack Row="true" Justify="Justify.SpaceBetween">
+                <MudText>MwSt:</MudText>
+                <MudText>@Mwst.ToString("C2", _culture)</MudText>
+            </MudStack>
+        }
+
+        <MudDivider />
+
+        <MudStack Row="true" Justify="Justify.SpaceBetween">
+            <MudText Typo="Typo.subtitle1"><strong>Bruttosumme:</strong></MudText>
+            <MudText Typo="Typo.subtitle1"><strong>@Brutto.ToString("C2", _culture)</strong></MudText>
+        </MudStack>
+    </MudStack>
+</MudPaper>
+
+@code {
+    private readonly CultureInfo _culture = new CultureInfo("de-DE");
+
+    [Parameter] public decimal Netto { get; set; }
+    [Parameter] public decimal Mwst { get; set; }
+    [Parameter] public decimal Brutto { get; set; }
+    [Parameter] public List<MwstZeile>? MwstSaetze { get; set; }
+
+    public record MwstZeile(decimal Satz, decimal Betrag);
+}

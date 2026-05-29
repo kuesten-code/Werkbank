@@ -1,0 +1,252 @@
+@page "/vertraege/faellig"
+@inject IFaelligkeitsService FaelligkeitsService
+@inject IRechnungserstellungService RechnungserstellungService
+@inject ICustomerService CustomerService
+@inject NavigationManager NavigationManager
+@inject ISnackbar Snackbar
+
+<PageTitle>Fällige Abrechnungen - Küstencode Contracta</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4">
+    <MudText Typo="Typo.h4" GutterBottom="true">Fällige Abrechnungen</MudText>
+
+    @if (!RechnungserstellungService.IstVerfuegbar)
+    {
+        <MudAlert Severity="Severity.Warning" Class="mb-4">
+            Faktura-Modul nicht aktiv. Rechnungen können nicht automatisch erstellt werden.
+        </MudAlert>
+    }
+
+    <MudPaper Class="pa-4 mt-4">
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3" Class="mb-4" Wrap="Wrap.Wrap">
+            <MudDatePicker Label="Stichtag" @bind-Date="_stichtag"
+                          DateFormat="dd.MM.yyyy" Variant="Variant.Outlined"
+                          Style="max-width: 200px;" />
+            <MudButton Variant="Variant.Outlined" Color="Color.Secondary"
+                      OnClick="LoadDataAsync">
+                Aktualisieren
+            </MudButton>
+        </MudStack>
+
+        @if (_loading)
+        {
+            <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+        }
+        else if (_vertraege.Count == 0)
+        {
+            <MudAlert Severity="Severity.Success" Dense="true">
+                Keine fälligen Abrechnungen für den gewählten Stichtag.
+            </MudAlert>
+        }
+        else
+        {
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-3" Wrap="Wrap.Wrap">
+                <MudText Typo="Typo.body2" Color="Color.Secondary">
+                    @_selected.Count von @_vertraege.Count Verträgen ausgewählt
+                </MudText>
+                <MudButton Variant="Variant.Text" Size="Size.Small"
+                          OnClick="AlleAuswaehlen">Alle auswählen</MudButton>
+                <MudButton Variant="Variant.Text" Size="Size.Small"
+                          OnClick="KeineAuswaehlen">Keine</MudButton>
+                <MudSpacer />
+                <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                          StartIcon="@Icons.Material.Filled.Receipt"
+                          Disabled="@(!RechnungserstellungService.IstVerfuegbar || _selected.Count == 0 || _erstelling)"
+                          OnClick="RechnungenErstellen">
+                    @if (_erstelling)
+                    {
+                        <MudProgressCircular Class="ms-n1" Size="Size.Small" Indeterminate="true" />
+                        <MudText Class="ms-2">Erstelle Rechnungen...</MudText>
+                    }
+                    else
+                    {
+                        <MudText>Rechnungen erstellen (@_selected.Count)</MudText>
+                    }
+                </MudButton>
+            </MudStack>
+
+            <MudSimpleTable Dense="true" Hover="true" Bordered="true" Elevation="0">
+                <thead>
+                    <tr>
+                        <th style="width: 50px">
+                            <MudCheckBox T="bool" Value="@AllSelected"
+                                        ValueChanged="@(v => { if (v) AlleAuswaehlen(); else KeineAuswaehlen(); })"
+                                        Color="Color.Primary" />
+                        </th>
+                        <th>Vertragsnummer</th>
+                        <th>Kunde</th>
+                        <th>Bezeichnung</th>
+                        <th>Fällig seit</th>
+                        <th style="text-align: right">Betrag (brutto)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var v in _vertraege)
+                    {
+                        <tr>
+                            <td>
+                                <MudCheckBox T="bool" Value="@_selected.Contains(v.Id)"
+                                            ValueChanged="@(val => ToggleSelection(v.Id, val))"
+                                            Color="Color.Primary" />
+                            </td>
+                            <td>
+                                <MudLink Href="@($"/contracta/vertraege/{v.Id}")">
+                                    @v.Vertragsnummer
+                                </MudLink>
+                            </td>
+                            <td>@GetKundenName(v.KundeId)</td>
+                            <td>@v.Bezeichnung</td>
+                            <td>
+                                @if (v.NaechsteAbrechnung.HasValue)
+                                {
+                                    var tage = (int)((_stichtag ?? DateTime.Today) - v.NaechsteAbrechnung.Value.ToLocalTime().Date).TotalDays;
+                                    <MudText Color="@(tage > 7 ? Color.Error : Color.Warning)">
+                                        @v.NaechsteAbrechnung.Value.ToLocalTime().ToString("dd.MM.yyyy")
+                                        @if (tage > 0)
+                                        {
+                                            <text> (@tage Tage)</text>
+                                        }
+                                    </MudText>
+                                }
+                                else
+                                {
+                                    <text>-</text>
+                                }
+                            </td>
+                            <td style="text-align: right">@BerechneBrutto(v).ToString("C2", _culture)</td>
+                        </tr>
+                    }
+                </tbody>
+            </MudSimpleTable>
+        }
+
+        @if (_ergebnisse.Count > 0)
+        {
+            <MudDivider Class="my-4" />
+            <MudText Typo="Typo.h6" Class="mb-3">Ergebnis der Rechnungserstellung</MudText>
+
+            @foreach (var ergebnis in _ergebnisse)
+            {
+                @if (ergebnis.Erfolgreich)
+                {
+                    <MudAlert Severity="Severity.Success" Dense="true" Class="mb-2">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                            <MudText>Rechnung @ergebnis.Rechnungsnummer erstellt.</MudText>
+                            @if (ergebnis.RechnungId.HasValue)
+                            {
+                                <MudLink Href="@($"/faktura/invoices/{ergebnis.RechnungId}")">
+                                    In Faktura öffnen
+                                </MudLink>
+                            }
+                        </MudStack>
+                    </MudAlert>
+                }
+                else
+                {
+                    <MudAlert Severity="Severity.Error" Dense="true" Class="mb-2">
+                        Fehler: @ergebnis.Fehler
+                    </MudAlert>
+                }
+            }
+        }
+    </MudPaper>
+</MudContainer>
+
+@code {
+    private readonly CultureInfo _culture = new CultureInfo("de-DE");
+    private bool _loading = false;
+    private bool _erstelling = false;
+
+    private DateTime? _stichtag = DateTime.Today;
+    private List<Wartungsvertrag> _vertraege = new();
+    private HashSet<Guid> _selected = new();
+    private Dictionary<int, string> _kundenNamen = new();
+    private List<RechnungserstellungErgebnis> _ergebnisse = new();
+
+    private bool AllSelected => _vertraege.Count > 0 && _selected.Count == _vertraege.Count;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDataAsync();
+    }
+
+    private async Task LoadDataAsync()
+    {
+        _loading = true;
+        _ergebnisse.Clear();
+        _selected.Clear();
+
+        try
+        {
+            var stichtag = _stichtag.HasValue
+                ? DateTime.SpecifyKind(_stichtag.Value, DateTimeKind.Utc)
+                : DateTime.UtcNow;
+
+            _vertraege = await FaelligkeitsService.GetFaelligeVertraegeAsync(stichtag);
+
+            var kunden = await CustomerService.GetAllAsync();
+            _kundenNamen = kunden.ToDictionary(k => k.Id, k => k.Name);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Fehler beim Laden: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private void AlleAuswaehlen()
+    {
+        _selected = _vertraege.Select(v => v.Id).ToHashSet();
+    }
+
+    private void KeineAuswaehlen()
+    {
+        _selected.Clear();
+    }
+
+    private void ToggleSelection(Guid id, bool selected)
+    {
+        if (selected) _selected.Add(id);
+        else _selected.Remove(id);
+    }
+
+    private async Task RechnungenErstellen()
+    {
+        if (_selected.Count == 0) return;
+
+        _erstelling = true;
+        _ergebnisse.Clear();
+
+        try
+        {
+            _ergebnisse = await RechnungserstellungService.ErstelleRechnungenAsync(_selected.ToList());
+
+            var erfolgreich = _ergebnisse.Count(e => e.Erfolgreich);
+            var fehlgeschlagen = _ergebnisse.Count(e => !e.Erfolgreich);
+
+            if (erfolgreich > 0)
+                Snackbar.Add($"{erfolgreich} Rechnung(en) erfolgreich erstellt.", Severity.Success);
+            if (fehlgeschlagen > 0)
+                Snackbar.Add($"{fehlgeschlagen} Rechnung(en) fehlgeschlagen.", Severity.Warning);
+
+            await LoadDataAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Fehler: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _erstelling = false;
+        }
+    }
+
+    private string GetKundenName(int kundeId) =>
+        _kundenNamen.TryGetValue(kundeId, out var name) ? name : $"Kunde #{kundeId}";
+
+    private decimal BerechneBrutto(Wartungsvertrag v) =>
+        v.Positionen.Sum(p => p.Positionssumme * (1 + p.Steuersatz / 100));
+}

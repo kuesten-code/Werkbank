@@ -1,0 +1,32 @@
+@if (!Historien.Any())
+{
+    <MudText Typo="Typo.body2" Color="Color.Secondary">Noch keine Abrechnungen vorhanden.</MudText>
+}
+else
+{
+    <MudSimpleTable Dense="true" Hover="true" Bordered="true" Elevation="0">
+        <thead>
+            <tr>
+                <th>Datum</th>
+                <th>Rechnungsnummer</th>
+                <th style="text-align: right">Betrag</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var h in Historien.OrderByDescending(h => h.Abrechnungsdatum))
+            {
+                <tr>
+                    <td>@h.Abrechnungsdatum.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</td>
+                    <td>@(h.Rechnungsnummer ?? "-")</td>
+                    <td style="text-align: right">@h.Betrag.ToString("C2", _culture)</td>
+                </tr>
+            }
+        </tbody>
+    </MudSimpleTable>
+}
+
+@code {
+    private readonly CultureInfo _culture = new CultureInfo("de-DE");
+
+    [Parameter] public List<Abrechnungshistorie> Historien { get; set; } = new();
+}

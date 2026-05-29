@@ -1,0 +1,252 @@
+@page "/vertraege/{Id:guid}/bearbeiten"
+@inject IWartungsvertragRepository Repository
+@inject ICustomerService CustomerService
+@inject WartungsvertragValidator Validator
+@inject NavigationManager NavigationManager
+@inject ISnackbar Snackbar
+
+<PageTitle>Vertrag bearbeiten - Küstencode Contracta</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="mt-4">
+    @if (_loading)
+    {
+        <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+    }
+    else if (_vertrag == null)
+    {
+        <MudAlert Severity="Severity.Error">Wartungsvertrag nicht gefunden.</MudAlert>
+    }
+    else
+    {
+        <MudPaper Class="pa-4">
+            <MudText Typo="Typo.h4" GutterBottom="true">
+                Vertrag bearbeiten — @_vertrag.Vertragsnummer
+            </MudText>
+
+            @if (!string.IsNullOrEmpty(_errorMessage))
+            {
+                <MudAlert Severity="Severity.Error" Class="my-4">@_errorMessage</MudAlert>
+            }
+
+            <EditForm Model="@_vertrag">
+                <DataAnnotationsValidator />
+
+                <MudText Typo="Typo.h6" Class="mt-4 mb-2">Kopfdaten</MudText>
+                <MudGrid>
+                    <MudItem xs="12" sm="4">
+                        <MudTextField Label="Vertragsnummer" Value="@_vertrag.Vertragsnummer"
+                                     ReadOnly="true" Variant="Variant.Outlined" />
+                    </MudItem>
+                    <MudItem xs="12" sm="8">
+                        <MudTextField Label="Bezeichnung" @bind-Value="_vertrag.Bezeichnung"
+                                     Variant="Variant.Outlined" Required="true" />
+                    </MudItem>
+                    <MudItem xs="12">
+                        <KundenAuswahl @bind-SelectedCustomer="_selectedCustomer" Required="true" />
+                    </MudItem>
+                    <MudItem xs="12">
+                        <MudTextField Label="Notizen (optional)" @bind-Value="_vertrag.Notizen"
+                                     Variant="Variant.Outlined" Lines="3" />
+                    </MudItem>
+                </MudGrid>
+
+                <MudText Typo="Typo.h6" Class="mt-6 mb-2">Laufzeit</MudText>
+                <MudGrid>
+                    <MudItem xs="12" sm="4">
+                        <MudDatePicker Label="Startdatum" @bind-Date="_startdatum"
+                                      DateFormat="dd.MM.yyyy" Required="true"
+                                      Variant="Variant.Outlined" />
+                    </MudItem>
+                    <MudItem xs="12" sm="4">
+                        <MudCheckBox T="bool" @bind-Value="_unbefristet"
+                                     @bind-Value:after="OnUnbefristetChanged"
+                                     Color="Color.Primary" Label="Unbefristet" Class="mt-2" />
+                    </MudItem>
+                    @if (!_unbefristet)
+                    {
+                        <MudItem xs="12" sm="4">
+                            <MudDatePicker Label="Enddatum" @bind-Date="_enddatum"
+                                          DateFormat="dd.MM.yyyy" Variant="Variant.Outlined" />
+                        </MudItem>
+                    }
+                </MudGrid>
+
+                <MudText Typo="Typo.h6" Class="mt-6 mb-2">Abrechnungsintervall</MudText>
+                <MudGrid>
+                    <MudItem xs="12" sm="6">
+                        <MudSelect T="Abrechnungsintervall" @bind-Value="_vertrag.Intervall"
+                                   Label="Intervall" Variant="Variant.Outlined">
+                            <MudSelectItem Value="Abrechnungsintervall.Monatlich">Monatlich</MudSelectItem>
+                            <MudSelectItem Value="Abrechnungsintervall.Quartalsweise">Quartalsweise</MudSelectItem>
+                            <MudSelectItem Value="Abrechnungsintervall.Halbjaehrlich">Halbjährlich</MudSelectItem>
+                            <MudSelectItem Value="Abrechnungsintervall.Jaehrlich">Jährlich</MudSelectItem>
+                            <MudSelectItem Value="Abrechnungsintervall.Custom">Benutzerdefiniert</MudSelectItem>
+                        </MudSelect>
+                    </MudItem>
+                    @if (_vertrag.Intervall == Abrechnungsintervall.Custom)
+                    {
+                        <MudItem xs="12" sm="3">
+                            <MudNumericField T="int?" @bind-Value="_vertrag.CustomIntervallTage"
+                                            Label="Anzahl Tage" Variant="Variant.Outlined"
+                                            Min="1" HideSpinButtons="true" />
+                        </MudItem>
+                    }
+                </MudGrid>
+
+                <MudText Typo="Typo.h6" Class="mt-6 mb-2">Positionen</MudText>
+                <ContractaPositionseditor @bind-Positionen="_positionen"
+                                          OnPositionChanged="RecalculateTotals" />
+
+                <div class="mt-6">
+                    <ContractaSummenblock Netto="@_netto" Mwst="@_mwst" Brutto="@_brutto"
+                                          MwstSaetze="@_mwstSaetze" />
+                </div>
+
+                <MudStack Row="true" Justify="Justify.FlexEnd" Class="mt-6 gap-2">
+                    <MudButton Variant="Variant.Filled" Color="Color.Default"
+                              OnClick="@(() => NavigationManager.NavigateTo($"/contracta/vertraege/{Id}"))">
+                        Abbrechen
+                    </MudButton>
+
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                              Disabled="@_saving" OnClick="Speichern">
+                        @if (_saving)
+                        {
+                            <MudProgressCircular Class="ms-n1" Size="Size.Small" Indeterminate="true" />
+                            <MudText Class="ms-2">Speichert...</MudText>
+                        }
+                        else
+                        {
+                            <MudText>Speichern</MudText>
+                        }
+                    </MudButton>
+                </MudStack>
+            </EditForm>
+        </MudPaper>
+    }
+</MudContainer>
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+
+    private readonly CultureInfo _culture = new CultureInfo("de-DE");
+    private bool _loading = true;
+    private bool _saving = false;
+    private string _errorMessage = string.Empty;
+
+    private Wartungsvertrag? _vertrag;
+    private List<Vertragsposition> _positionen = new();
+    private Customer? _selectedCustomer;
+    private DateTime? _startdatum;
+    private DateTime? _enddatum;
+    private bool _unbefristet;
+
+    private decimal _netto;
+    private decimal _mwst;
+    private decimal _brutto;
+    private List<ContractaSummenblock.MwstZeile>? _mwstSaetze;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _vertrag = await Repository.GetByIdAsync(Id);
+            if (_vertrag != null)
+            {
+                _positionen = _vertrag.Positionen.ToList();
+                _startdatum = _vertrag.Startdatum.ToLocalTime();
+                _unbefristet = !_vertrag.Enddatum.HasValue;
+                _enddatum = _vertrag.Enddatum?.ToLocalTime();
+                _selectedCustomer = await CustomerService.GetByIdAsync(_vertrag.KundeId);
+                RecalculateTotals();
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Fehler beim Laden: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private void OnUnbefristetChanged()
+    {
+        if (_unbefristet) _enddatum = null;
+    }
+
+    private void RecalculateTotals()
+    {
+        _netto = _positionen.Sum(p => p.Positionssumme);
+
+        var groups = _positionen
+            .GroupBy(p => p.Steuersatz)
+            .Select(g => new ContractaSummenblock.MwstZeile(g.Key, Math.Round(g.Sum(p => p.Positionssumme) * g.Key / 100, 2)))
+            .Where(m => m.Betrag > 0)
+            .OrderBy(m => m.Satz)
+            .ToList();
+
+        _mwstSaetze = groups.Count > 1 ? groups : null;
+        _mwst = groups.Sum(m => m.Betrag);
+        _brutto = _netto + _mwst;
+    }
+
+    private bool ValidateForm()
+    {
+        _errorMessage = string.Empty;
+
+        if (_vertrag == null) return false;
+
+        if (_selectedCustomer == null)
+        {
+            _errorMessage = "Bitte wählen Sie einen Kunden aus.";
+            return false;
+        }
+
+        if (!_startdatum.HasValue)
+        {
+            _errorMessage = "Bitte geben Sie ein Startdatum an.";
+            return false;
+        }
+
+        _vertrag.KundeId = _selectedCustomer.Id;
+        _vertrag.Startdatum = DateTime.SpecifyKind(_startdatum.Value, DateTimeKind.Utc);
+        _vertrag.Enddatum = _unbefristet || !_enddatum.HasValue
+            ? null
+            : DateTime.SpecifyKind(_enddatum.Value, DateTimeKind.Utc);
+        _vertrag.Positionen = _positionen;
+
+        var fehler = Validator.Validiere(_vertrag);
+        if (fehler.Count > 0)
+        {
+            _errorMessage = string.Join(", ", fehler);
+            return false;
+        }
+
+        return true;
+    }
+
+    private async Task Speichern()
+    {
+        if (!ValidateForm()) return;
+
+        _saving = true;
+        _errorMessage = string.Empty;
+
+        try
+        {
+            await Repository.UpdateAsync(_vertrag!);
+            Snackbar.Add($"Vertrag {_vertrag!.Vertragsnummer} wurde gespeichert.", Severity.Success);
+            NavigationManager.NavigateTo($"/contracta/vertraege/{Id}");
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Fehler beim Speichern: {ex.Message}";
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+}

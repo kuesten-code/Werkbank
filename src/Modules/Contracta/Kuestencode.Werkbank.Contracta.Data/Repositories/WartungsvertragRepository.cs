@@ -80,7 +80,44 @@ public class WartungsvertragRepository : IWartungsvertragRepository
     public async Task UpdateAsync(Wartungsvertrag vertrag)
     {
         await using var context = _contextFactory.CreateDbContext();
-        context.Wartungsvertraege.Update(vertrag);
+
+        var existing = await context.Wartungsvertraege
+            .Include(v => v.Positionen)
+            .Include(v => v.Historien)
+            .FirstOrDefaultAsync(v => v.Id == vertrag.Id);
+
+        if (existing == null) return;
+
+        context.Entry(existing).CurrentValues.SetValues(vertrag);
+
+        var toDelete = existing.Positionen
+            .Where(ep => !vertrag.Positionen.Any(p => p.Id == ep.Id))
+            .ToList();
+        context.RemoveRange(toDelete);
+
+        foreach (var pos in vertrag.Positionen)
+        {
+            var existingPos = existing.Positionen.FirstOrDefault(p => p.Id == pos.Id);
+            if (existingPos == null)
+            {
+                pos.WartungsvertragId = vertrag.Id;
+                existing.Positionen.Add(pos);
+            }
+            else
+            {
+                context.Entry(existingPos).CurrentValues.SetValues(pos);
+            }
+        }
+
+        foreach (var hist in vertrag.Historien)
+        {
+            if (!existing.Historien.Any(h => h.Id == hist.Id))
+            {
+                hist.WartungsvertragId = vertrag.Id;
+                existing.Historien.Add(hist);
+            }
+        }
+
         await context.SaveChangesAsync();
     }
 

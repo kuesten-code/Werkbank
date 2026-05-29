@@ -1,0 +1,26 @@
+<MudChip T="string" Size="@Size" Color="@GetColor(Status)">
+    @GetText(Status)
+</MudChip>
+
+@code {
+    [Parameter] public VertragStatus Status { get; set; }
+    [Parameter] public Size Size { get; set; } = Size.Small;
+
+    private Color GetColor(VertragStatus status) => status switch
+    {
+        VertragStatus.Entwurf => Color.Default,
+        VertragStatus.Aktiv => Color.Success,
+        VertragStatus.Pausiert => Color.Warning,
+        VertragStatus.Beendet => Color.Error,
+        _ => Color.Default
+    };
+
+    private string GetText(VertragStatus status) => status switch
+    {
+        VertragStatus.Entwurf => "Entwurf",
+        VertragStatus.Aktiv => "Aktiv",
+        VertragStatus.Pausiert => "Pausiert",
+        VertragStatus.Beendet => "Beendet",
+        _ => status.ToString()
+    };
+}
