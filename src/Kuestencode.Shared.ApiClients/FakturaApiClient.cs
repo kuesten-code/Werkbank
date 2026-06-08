@@ -28,6 +28,13 @@ public class FakturaApiClient : IFakturaApiClient
         return await response.Content.ReadFromJsonAsync<InvoiceDto>();
     }
 
+    public async Task<string> GenerateInvoiceNumberAsync()
+    {
+        var response = await _httpClient.GetAsync("/api/invoice/next-number");
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadAsStringAsync();
+    }
+
     public async Task<InvoiceDto> CreateInvoiceAsync(CreateInvoiceRequest request)
     {
         var response = await _httpClient.PostAsJsonAsync("/api/invoice", request);

@@ -42,7 +42,8 @@ public class RechnungserstellungService : IRechnungserstellungService
 
         try
         {
-            var request = MapToRequest(vertrag);
+            var invoiceNumber = await _fakturaApiClient.GenerateInvoiceNumberAsync();
+            var request = MapToRequest(vertrag, invoiceNumber);
             var rechnung = await _fakturaApiClient.CreateInvoiceAsync(request);
 
             vertrag.LetzteAbrechnung = DateTime.UtcNow;
@@ -80,9 +81,10 @@ public class RechnungserstellungService : IRechnungserstellungService
         return ergebnisse;
     }
 
-    private static CreateInvoiceRequest MapToRequest(Wartungsvertrag vertrag) =>
+    private static CreateInvoiceRequest MapToRequest(Wartungsvertrag vertrag, string invoiceNumber) =>
         new()
         {
+            InvoiceNumber = invoiceNumber,
             InvoiceDate = DateTime.UtcNow,
             CustomerId = vertrag.KundeId,
             Notes = string.IsNullOrWhiteSpace(vertrag.Notizen)

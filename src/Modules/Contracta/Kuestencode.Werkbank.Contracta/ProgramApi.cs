@@ -172,14 +172,14 @@ public class ProgramApi
                 new NavItemDto
                 {
                     Label = "Contracta",
-                    Href = "/contracta",
+                    Href = "/contracta/vertraege",
                     Icon = "/contracta/company/logos/Contracta_Logo.png",
                     Type = NavItemType.Link,
                     AllowedRoles = new List<UserRole> { UserRole.Buero, UserRole.Admin }
                 },
                 new NavItemDto
                 {
-                    Label = "Wartungsverträge",
+                    Label = "Verträge",
                     Href = "/contracta/vertraege",
                     Icon = "",
                     Type = NavItemType.Link,

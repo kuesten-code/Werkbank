@@ -89,20 +89,20 @@
                     <MudIconButton Icon="@Icons.Material.Filled.Visibility"
                                   Color="Color.Info" Size="Size.Small"
                                   OnClick="@(() => NavigationManager.NavigateTo($"/contracta/vertraege/{context.Id}"))"
-                                  Title="Anzeigen" />
+                                  Tooltip="Anzeigen" />
                     @if (context.Status != VertragStatus.Beendet)
                     {
                         <MudIconButton Icon="@Icons.Material.Filled.Edit"
                                       Color="Color.Primary" Size="Size.Small"
                                       OnClick="@(() => NavigationManager.NavigateTo($"/contracta/vertraege/{context.Id}/bearbeiten"))"
-                                      Title="Bearbeiten" />
+                                      Tooltip="Bearbeiten" />
                     }
                     @if (context.Status == VertragStatus.Entwurf)
                     {
                         <MudIconButton Icon="@Icons.Material.Filled.Delete"
                                       Color="Color.Error" Size="Size.Small"
                                       OnClick="@(() => DeleteVertrag(context))"
-                                      Title="Löschen" />
+                                      Tooltip="Löschen" />
                     }
                 </MudTd>
             </RowTemplate>
