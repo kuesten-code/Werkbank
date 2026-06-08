@@ -100,8 +100,19 @@ public class TimeEntry : BaseEntity
     public DateTime? DeletedAt { get; set; }
 
     /// <summary>
-    /// Computed duration of the entry.
+    /// Break duration in minutes (subtracted from gross duration to get net working time).
+    /// </summary>
+    public int BreakMinutes { get; set; } = 0;
+
+    /// <summary>
+    /// Gross duration (start to end, including breaks).
     /// </summary>
     [NotMapped]
     public TimeSpan Duration => (EndTime ?? DateTime.UtcNow) - StartTime;
+
+    /// <summary>
+    /// Net working duration after subtracting breaks.
+    /// </summary>
+    [NotMapped]
+    public TimeSpan NetDuration => Duration - TimeSpan.FromMinutes(BreakMinutes);
 }

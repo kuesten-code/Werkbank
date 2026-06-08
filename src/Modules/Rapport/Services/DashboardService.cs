@@ -115,11 +115,10 @@ public class DashboardService
                 result[entry.CustomerId] = dto;
             }
 
-            var duration = (entry.EndTime ?? now) - entry.StartTime;
-            if (roundingMinutes > 0)
-            {
-                duration = roundingService.RoundDuration(duration, roundingMinutes);
-            }
+            var gross = (entry.EndTime ?? now) - entry.StartTime;
+            var net = gross - TimeSpan.FromMinutes(entry.BreakMinutes);
+            if (net < TimeSpan.Zero) net = TimeSpan.Zero;
+            var duration = roundingMinutes > 0 ? roundingService.RoundDuration(net, roundingMinutes) : net;
             var hours = (decimal)duration.TotalHours;
             dto.TotalHours += hours;
 

@@ -114,7 +114,7 @@
         {
             <MudTd DataLabel="Projekt">@(string.IsNullOrWhiteSpace(context.ProjectName) ? "—" : context.ProjectName)</MudTd>
         }
-        <MudTd DataLabel="Dauer">@FormatDuration(context.Duration)</MudTd>
+        <MudTd DataLabel="Dauer">@FormatDuration(context.NetDuration)</MudTd>
         @if (_isAdminOrBuero)
         {
             <MudTd DataLabel="Mitarbeiter">@(context.TeamMemberName ?? "—")</MudTd>

@@ -10,6 +10,7 @@ public class TeamMemberDto
     public string? Email { get; set; }
     public string? Role { get; set; }
     public bool IsActive { get; set; }
+    public bool IsOffline { get; set; }
     public int? MitarbeiterRolleId { get; set; }
     public string? MitarbeiterRolleName { get; set; }
 }

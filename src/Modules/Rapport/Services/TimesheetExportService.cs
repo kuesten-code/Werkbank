@@ -110,11 +110,13 @@ public class TimesheetExportService
 
             foreach (var entry in group.OrderBy(e => e.StartTime))
             {
-                var duration = (entry.EndTime ?? now) - entry.StartTime;
+                var grossDuration = (entry.EndTime ?? now) - entry.StartTime;
+                var netDuration = grossDuration - TimeSpan.FromMinutes(entry.BreakMinutes);
+                if (netDuration < TimeSpan.Zero) netDuration = TimeSpan.Zero;
                 var startInBerlin = RapportTimeZone.UtcToBerlin(entry.StartTime);
                 if (settings.RoundingMinutes > 0)
                 {
-                    duration = _roundingService.RoundDuration(duration, settings.RoundingMinutes);
+                    netDuration = _roundingService.RoundDuration(netDuration, settings.RoundingMinutes);
                 }
                 groupDto.Entries.Add(new TimesheetEntryDto
                 {
@@ -122,11 +124,12 @@ public class TimesheetExportService
                     StartTime = entry.StartTime,
                     EndTime = entry.EndTime,
                     Description = string.IsNullOrWhiteSpace(entry.Description) ? "" : entry.Description.Trim(),
-                    Duration = duration
+                    Duration = netDuration,
+                    BreakMinutes = entry.BreakMinutes
                 });
 
-                groupDto.SubtotalHours += (decimal)duration.TotalHours;
-                dto.TotalHours += (decimal)duration.TotalHours;
+                groupDto.SubtotalHours += (decimal)netDuration.TotalHours;
+                dto.TotalHours += (decimal)netDuration.TotalHours;
             }
 
             dto.Groups.Add(groupDto);
