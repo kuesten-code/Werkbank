@@ -92,7 +92,8 @@ var rapportServiceUrl = builder.Configuration.GetValue<string>("ServiceUrls:Rapp
 var offerteServiceUrl = builder.Configuration.GetValue<string>("ServiceUrls:Offerte") ?? "http://localhost:8083";
 var actaServiceUrl    = builder.Configuration.GetValue<string>("ServiceUrls:Acta")    ?? "http://localhost:8084";
 var receptaServiceUrl = builder.Configuration.GetValue<string>("ServiceUrls:Recepta") ?? "http://localhost:8085";
-var saldoServiceUrl   = builder.Configuration.GetValue<string>("ServiceUrls:Saldo")   ?? "http://localhost:8086";
+var saldoServiceUrl     = builder.Configuration.GetValue<string>("ServiceUrls:Saldo")     ?? "http://localhost:8086";
+var contractaServiceUrl = builder.Configuration.GetValue<string>("ServiceUrls:Contracta") ?? "http://localhost:8087";
 builder.Services.AddReverseProxy()
     .LoadFromMemory(
         routes: new[]
@@ -213,6 +214,33 @@ builder.Services.AddReverseProxy()
                 {
                     Path = "/_saldo/{**catch-all}"
                 }
+            },
+            new Yarp.ReverseProxy.Configuration.RouteConfig
+            {
+                RouteId = "contracta-root-route",
+                ClusterId = "contracta-cluster",
+                Match = new Yarp.ReverseProxy.Configuration.RouteMatch
+                {
+                    Path = "/contracta"
+                }
+            },
+            new Yarp.ReverseProxy.Configuration.RouteConfig
+            {
+                RouteId = "contracta-route",
+                ClusterId = "contracta-cluster",
+                Match = new Yarp.ReverseProxy.Configuration.RouteMatch
+                {
+                    Path = "/contracta/{**catch-all}"
+                }
+            },
+            new Yarp.ReverseProxy.Configuration.RouteConfig
+            {
+                RouteId = "contracta-blazor-route",
+                ClusterId = "contracta-cluster",
+                Match = new Yarp.ReverseProxy.Configuration.RouteMatch
+                {
+                    Path = "/_contracta/{**catch-all}"
+                }
             }
         },
         clusters: new[]
@@ -263,6 +291,14 @@ builder.Services.AddReverseProxy()
                 Destinations = new Dictionary<string, Yarp.ReverseProxy.Configuration.DestinationConfig>
                 {
                     { "saldo", new Yarp.ReverseProxy.Configuration.DestinationConfig { Address = saldoServiceUrl } }
+                }
+            },
+            new Yarp.ReverseProxy.Configuration.ClusterConfig
+            {
+                ClusterId = "contracta-cluster",
+                Destinations = new Dictionary<string, Yarp.ReverseProxy.Configuration.DestinationConfig>
+                {
+                    { "contracta", new Yarp.ReverseProxy.Configuration.DestinationConfig { Address = contractaServiceUrl } }
                 }
             }
         });

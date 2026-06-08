@@ -101,7 +101,7 @@ public class WartungsvertragRepository : IWartungsvertragRepository
             if (existingPos == null)
             {
                 pos.WartungsvertragId = vertrag.Id;
-                existing.Positionen.Add(pos);
+                context.Vertragspositionen.Add(pos);
             }
             else
             {
@@ -114,7 +114,7 @@ public class WartungsvertragRepository : IWartungsvertragRepository
             if (!existing.Historien.Any(h => h.Id == hist.Id))
             {
                 hist.WartungsvertragId = vertrag.Id;
-                existing.Historien.Add(hist);
+                context.Abrechnungshistorie.Add(hist);
             }
         }
 

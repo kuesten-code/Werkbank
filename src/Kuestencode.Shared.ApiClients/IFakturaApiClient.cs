@@ -6,6 +6,7 @@ public interface IFakturaApiClient
 {
     Task<List<InvoiceDto>> GetAllInvoicesAsync(InvoiceFilterDto? filter = null);
     Task<InvoiceDto?> GetInvoiceAsync(int id);
+    Task<string> GenerateInvoiceNumberAsync();
     Task<InvoiceDto> CreateInvoiceAsync(CreateInvoiceRequest request);
     Task UpdateInvoiceAsync(int id, UpdateInvoiceRequest request);
     Task DeleteInvoiceAsync(int id);

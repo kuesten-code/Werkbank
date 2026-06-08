@@ -37,6 +37,13 @@ public class InvoiceController : ControllerBase
         _logger = logger;
     }
 
+    [HttpGet("next-number")]
+    public async Task<ActionResult<string>> GetNextInvoiceNumber()
+    {
+        var number = await _invoiceService.GenerateInvoiceNumberAsync();
+        return Ok(number);
+    }
+
     [HttpGet]
     public async Task<ActionResult<List<InvoiceDto>>> GetAll(
         [FromQuery] string? status = null,
@@ -151,6 +158,7 @@ public class InvoiceController : ControllerBase
         {
             var invoice = new Invoice
             {
+                InvoiceNumber = request.InvoiceNumber ?? string.Empty,
                 InvoiceDate = DateTime.SpecifyKind(request.InvoiceDate, DateTimeKind.Utc),
                 ServicePeriodStart = request.ServicePeriodStart.HasValue ? DateTime.SpecifyKind(request.ServicePeriodStart.Value, DateTimeKind.Utc) : null,
                 ServicePeriodEnd = request.ServicePeriodEnd.HasValue ? DateTime.SpecifyKind(request.ServicePeriodEnd.Value, DateTimeKind.Utc) : null,

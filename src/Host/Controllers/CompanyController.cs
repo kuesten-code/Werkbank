@@ -12,7 +12,6 @@ namespace Kuestencode.Werkbank.Host.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-[RequireRole(UserRole.Admin)]
 public class CompanyController : ControllerBase
 {
     private readonly ICompanyService _companyService;
@@ -33,6 +32,7 @@ public class CompanyController : ControllerBase
     }
 
     [HttpPut]
+    [RequireRole(UserRole.Admin)]
     public async Task<IActionResult> UpdateCompany([FromBody] UpdateCompanyRequest request)
     {
         var company = await _companyService.GetCompanyAsync();

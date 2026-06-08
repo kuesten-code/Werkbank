@@ -63,6 +63,7 @@ public record DownPaymentDto
 
 public record CreateInvoiceRequest
 {
+    public string? InvoiceNumber { get; init; }
     public DateTime InvoiceDate { get; init; }
     public DateTime? ServicePeriodStart { get; init; }
     public DateTime? ServicePeriodEnd { get; init; }
