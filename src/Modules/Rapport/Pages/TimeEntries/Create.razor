@@ -1,4 +1,4 @@
-﻿@using Kuestencode.Rapport.Services
+@using Kuestencode.Rapport.Services
 @using System.ComponentModel.DataAnnotations
 @using Kuestencode.Shared.Contracts.Host
 @page "/time-entries/create"
@@ -32,15 +32,26 @@
                           Value="@(_endTime.HasValue ? _endTime.Value.ToString(@"hh\:mm") : "")"
                           ValueChanged="@((string v) => { _endTime = TimeSpan.TryParse(v, out var t) ? t : null; UpdateDuration(); })" />
         </MudItem>
+        <MudItem xs="12" md="3">
+            <MudNumericField T="int" Label="Pause (min)" Variant="Variant.Outlined" Min="0"
+                             Value="_breakMinutes"
+                             ValueChanged="@((int v) => { _breakMinutes = v; UpdateDuration(); })" />
+        </MudItem>
+        <MudItem xs="12" md="3" Class="d-flex align-center">
+            <MudText Typo="Typo.subtitle2">Netto-Dauer: @_durationDisplay</MudText>
+        </MudItem>
         @if (_isAdminOrBuero)
         {
-            <MudItem xs="12" md="6">
-                <MudSelect T="Guid?" Label="Mitarbeiter" @bind-Value="_selectedTeamMemberId" Variant="Variant.Outlined">
+            <MudItem xs="12" md="6" Class="d-flex align-end gap-2">
+                <MudSelect T="Guid?" Label="Mitarbeiter" @bind-Value="_selectedTeamMemberId" Variant="Variant.Outlined" Style="flex: 1">
                     @foreach (var member in _teamMembers)
                     {
                         <MudSelectItem T="Guid?" Value="@member.Id">@member.DisplayName</MudSelectItem>
                     }
                 </MudSelect>
+                <MudTooltip Text="Mitarbeiterliste aktualisieren">
+                    <MudIconButton Icon="@Icons.Material.Filled.Refresh" OnClick="RefreshTeamMembersAsync" />
+                </MudTooltip>
             </MudItem>
         }
         <MudItem xs="12" md="6">
@@ -63,12 +74,12 @@
             <MudTextField T="string" Label="Beschreibung" Variant="Variant.Outlined"
                           @bind-Value="_description" />
         </MudItem>
-        <MudItem xs="12">
-            <MudText Typo="Typo.subtitle2">Dauer: @_durationDisplay</MudText>
-        </MudItem>
-        <MudItem xs="12" Class="d-flex gap-2">
-            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveAsync">
+        <MudItem xs="12" Class="d-flex gap-2 flex-wrap">
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="@(() => SaveAsync(false))">
                 Speichern
+            </MudButton>
+            <MudButton Variant="Variant.Filled" Color="Color.Secondary" OnClick="@(() => SaveAsync(true))">
+                Speichern &amp; Weiteren hinzufügen
             </MudButton>
             <MudButton Variant="Variant.Text" OnClick="Cancel">Abbrechen</MudButton>
         </MudItem>
@@ -79,6 +90,7 @@
     private DateTime? _date = DateTime.Today;
     private TimeSpan? _startTime;
     private TimeSpan? _endTime;
+    private int _breakMinutes;
     private string? _description;
     private List<Customer> _customers = new();
     private List<IProject> _projects = new();
@@ -122,6 +134,26 @@
         _selectedTeamMemberId = currentUserId;
     }
 
+    private async Task RefreshTeamMembersAsync()
+    {
+        TeamMemberCacheService.InvalidateCache();
+        var currentUserId = await UserContextService.GetCurrentUserIdAsync();
+        var currentUserName = await UserContextService.GetCurrentUserNameAsync();
+        _teamMembers = await TeamMemberCacheService.GetActiveTeamMembersAsync();
+        if (currentUserId.HasValue && _teamMembers.All(m => m.Id != currentUserId.Value))
+        {
+            _teamMembers.Insert(0, new TeamMemberDto
+            {
+                Id = currentUserId.Value,
+                DisplayName = string.IsNullOrWhiteSpace(currentUserName) ? "Aktueller Benutzer" : currentUserName,
+                Email = string.Empty,
+                Role = string.Empty,
+                IsActive = true
+            });
+        }
+        StateHasChanged();
+    }
+
     private Task OnProjectSelected(int? projectId)
     {
         _selectedProjectId = projectId;
@@ -163,7 +195,7 @@
         StateHasChanged();
     }
 
-    private async Task SaveAsync()
+    private async Task SaveAsync(bool continueAdding)
     {
         if (_date == null || _startTime == null || _endTime == null)
         {
@@ -181,8 +213,6 @@
         var endLocal = _date.Value.Date + _endTime.Value;
         var startUtc = RapportTimeZone.BerlinToUtc(startLocal);
         var endUtc = RapportTimeZone.BerlinToUtc(endLocal);
-
-        _durationDisplay = FormatDuration(endLocal - startLocal);
 
         try
         {
@@ -219,10 +249,25 @@
                 teamMemberId,
                 teamMemberName,
                 mitarbeiterRolleId,
-                mitarbeiterRolleName);
+                mitarbeiterRolleName,
+                _breakMinutes);
 
             Snackbar.Add("Eintrag wurde gespeichert.", Severity.Success);
-            NavigationManager.NavigateTo("/rapport/time-entries");
+
+            if (continueAdding)
+            {
+                // Nächsten Eintrag vorausfüllen: Startzeit = bisherige Endzeit, Rest leer
+                _startTime = _endTime;
+                _endTime = null;
+                _breakMinutes = 0;
+                _description = null;
+                UpdateDuration();
+                StateHasChanged();
+            }
+            else
+            {
+                NavigationManager.NavigateTo("/rapport/time-entries");
+            }
         }
         catch (ValidationException ex)
         {
@@ -253,14 +298,15 @@
 
     private void UpdateDuration()
     {
-        if (_date == null || _startTime == null || _endTime == null)
+        if (_startTime == null || _endTime == null)
         {
             _durationDisplay = "00:00:00";
             return;
         }
 
-        var duration = _endTime.Value - _startTime.Value;
-        _durationDisplay = duration <= TimeSpan.Zero ? "00:00:00" : FormatDuration(duration);
+        var gross = _endTime.Value - _startTime.Value;
+        var net = gross - TimeSpan.FromMinutes(_breakMinutes);
+        _durationDisplay = net <= TimeSpan.Zero ? "00:00:00" : FormatDuration(net);
     }
 
     private static string FormatDuration(TimeSpan duration)
@@ -269,6 +315,5 @@
         return $"{totalHours:00}:{duration.Minutes:00}:{duration.Seconds:00}";
     }
 }
-
 
 

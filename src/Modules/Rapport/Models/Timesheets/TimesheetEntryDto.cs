@@ -10,4 +10,5 @@ public class TimesheetEntryDto
     public TimeSpan Duration { get; set; }
     public DateTime StartTime { get; set; }
     public DateTime? EndTime { get; set; }
+    public int BreakMinutes { get; set; }
 }

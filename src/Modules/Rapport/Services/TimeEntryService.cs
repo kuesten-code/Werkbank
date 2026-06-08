@@ -48,9 +48,10 @@ public class TimeEntryService
         Guid? teamMemberId = null,
         string? teamMemberName = null,
         int? mitarbeiterRolleId = null,
-        string? mitarbeiterRolleName = null)
+        string? mitarbeiterRolleName = null,
+        int breakMinutes = 0)
     {
-        ValidateManualEntryTimes(start, end);
+        ValidateManualEntryTimes(start, end, breakMinutes);
         (start, end) = await ApplyManualRoundingAsync(start, end);
 
         var (resolvedCustomerId, resolvedCustomerName, resolvedProjectName) =
@@ -72,7 +73,8 @@ public class TimeEntryService
             TeamMemberId = teamMemberId,
             TeamMemberName = teamMemberName,
             MitarbeiterRolleId = mitarbeiterRolleId,
-            MitarbeiterRolleName = mitarbeiterRolleName
+            MitarbeiterRolleName = mitarbeiterRolleName,
+            BreakMinutes = breakMinutes
         };
 
         await _timeEntryRepository.AddAsync(entry);
@@ -93,9 +95,10 @@ public class TimeEntryService
         int? customerId,
         string? description,
         Guid? teamMemberId = null,
-        string? teamMemberName = null)
+        string? teamMemberName = null,
+        int breakMinutes = 0)
     {
-        ValidateManualEntryTimes(start, end);
+        ValidateManualEntryTimes(start, end, breakMinutes);
         (start, end) = await ApplyManualRoundingAsync(start, end);
 
         var entry = await _timeEntryRepository.GetByIdAsync(id);
@@ -127,6 +130,7 @@ public class TimeEntryService
         if (entry.Description != description) changes["Description"] = (entry.Description, description);
         if (teamMemberId.HasValue && entry.TeamMemberId != teamMemberId) changes["TeamMemberId"] = (entry.TeamMemberId, teamMemberId);
         if (teamMemberId.HasValue && entry.TeamMemberName != teamMemberName) changes["TeamMemberName"] = (entry.TeamMemberName, teamMemberName);
+        if (entry.BreakMinutes != breakMinutes) changes["BreakMinutes"] = (entry.BreakMinutes, breakMinutes);
 
         entry.StartTime = start;
         entry.EndTime = end;
@@ -135,6 +139,7 @@ public class TimeEntryService
         entry.CustomerName = resolvedCustomerName;
         entry.ProjectId = projectId;
         entry.ProjectName = resolvedProjectName;
+        entry.BreakMinutes = breakMinutes;
 
         if (teamMemberId.HasValue)
         {
@@ -278,7 +283,7 @@ public class TimeEntryService
         return (DateTime.UtcNow - entry.StartTime) < EditWindow;
     }
 
-    private static void ValidateManualEntryTimes(DateTime start, DateTime end)
+    private static void ValidateManualEntryTimes(DateTime start, DateTime end, int breakMinutes = 0)
     {
         if (start >= end)
         {
@@ -289,6 +294,16 @@ public class TimeEntryService
         if (start > now)
         {
             throw new ValidationException("Start time cannot be in the future.");
+        }
+
+        if (breakMinutes < 0)
+        {
+            throw new ValidationException("Break duration cannot be negative.");
+        }
+
+        if (breakMinutes > 0 && TimeSpan.FromMinutes(breakMinutes) >= end - start)
+        {
+            throw new ValidationException("Break duration must be shorter than the total entry duration.");
         }
     }
 

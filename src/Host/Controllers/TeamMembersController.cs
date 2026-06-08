@@ -84,6 +84,7 @@ public class TeamMembersController : ControllerBase
         Email = member.Email,
         Role = member.Role.ToString(),
         IsActive = member.IsActive,
+        IsOffline = member.IsOffline,
         MitarbeiterRolleId = member.MitarbeiterRolleId,
         MitarbeiterRolleName = member.MitarbeiterRolle?.Name
     };

@@ -93,7 +93,8 @@ public class TimeEntryRepository : Repository<TimeEntry>
             .ToListAsync();
 
         return entries
-            .Select(e => (e.EndTime ?? now) - e.StartTime)
+            .Select(e => (e.EndTime ?? now) - e.StartTime - TimeSpan.FromMinutes(e.BreakMinutes))
+            .Select(ts => ts < TimeSpan.Zero ? TimeSpan.Zero : ts)
             .Sum(ts => ts.TotalHours);
     }
 

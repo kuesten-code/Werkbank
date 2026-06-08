@@ -23,7 +23,9 @@ public class TeamMemberCacheService
         try
         {
             var members = await _hostApiClient.GetTeamMembersAsync();
-            var active = members.Where(m => m.IsActive).ToList();
+            // Offline-Mitarbeiter immer einschließen – sie haben keinen Systemzugang
+            // und werden vom Admin manuell erfasst, unabhängig vom IsActive-Status.
+            var active = members.Where(m => m.IsActive || m.IsOffline).ToList();
             if (active.Count > 0)
             {
                 _cachedMembers = active;
@@ -41,5 +43,11 @@ public class TeamMemberCacheService
     {
         var members = await GetActiveTeamMembersAsync();
         return members.FirstOrDefault(m => m.Id == id);
+    }
+
+    public void InvalidateCache()
+    {
+        _cachedMembers = null;
+        _lastFetch = DateTime.MinValue;
     }
 }
