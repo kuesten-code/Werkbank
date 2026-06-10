@@ -70,7 +70,7 @@ public class DashboardService
             var fromUtc = ToUtc(from);
             var toUtc = ToUtc(to);
 
-            query = query.Where(e => e.StartTime >= fromUtc && e.StartTime <= toUtc);
+            query = query.Where(e => !e.IsDeleted && e.StartTime >= fromUtc && e.StartTime <= toUtc);
 
             if (customerIds != null && customerIds.Any())
             {

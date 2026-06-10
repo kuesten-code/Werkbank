@@ -39,11 +39,10 @@ public class DashboardController : ControllerBase
 
         foreach (var entry in entries)
         {
-            var duration = (entry.EndTime ?? now) - entry.StartTime;
-            if (roundingMinutes > 0)
-            {
-                duration = _roundingService.RoundDuration(duration, roundingMinutes);
-            }
+            var gross = (entry.EndTime ?? now) - entry.StartTime;
+            var net = gross - TimeSpan.FromMinutes(entry.BreakMinutes);
+            if (net < TimeSpan.Zero) net = TimeSpan.Zero;
+            var duration = roundingMinutes > 0 ? _roundingService.RoundDuration(net, roundingMinutes) : net;
             totalHours += (decimal)duration.TotalHours;
         }
 
@@ -72,9 +71,10 @@ public class DashboardController : ControllerBase
 
         foreach (var entry in entries)
         {
-            var duration = (entry.EndTime ?? now) - entry.StartTime;
-            if (roundingMinutes > 0)
-                duration = _roundingService.RoundDuration(duration, roundingMinutes);
+            var gross = (entry.EndTime ?? now) - entry.StartTime;
+            var net = gross - TimeSpan.FromMinutes(entry.BreakMinutes);
+            if (net < TimeSpan.Zero) net = TimeSpan.Zero;
+            var duration = roundingMinutes > 0 ? _roundingService.RoundDuration(net, roundingMinutes) : net;
 
             var stunden = (decimal)duration.TotalHours;
             var rolleId = entry.MitarbeiterRolleId ?? 0;

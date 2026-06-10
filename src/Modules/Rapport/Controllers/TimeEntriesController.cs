@@ -174,7 +174,8 @@ public class TimeEntriesController : ControllerBase
                 dto.CustomerId,
                 dto.Description,
                 entry.TeamMemberId,
-                entry.TeamMemberName);
+                entry.TeamMemberName,
+                dto.BreakMinutes);
 
             return Ok(updated);
         }
@@ -238,4 +239,5 @@ public class UpdateTimeEntryDto
     public int? ProjectId { get; set; }
     public int? CustomerId { get; set; }
     public string? Description { get; set; }
+    public int BreakMinutes { get; set; }
 }
