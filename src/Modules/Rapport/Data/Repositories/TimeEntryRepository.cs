@@ -114,7 +114,7 @@ public class TimeEntryRepository : Repository<TimeEntry>
     public async Task<List<TimeEntry>> GetOverlappingEntriesAsync(DateTime start, DateTime end, int? excludeId = null, Guid? teamMemberId = null)
     {
         await using var context = await _contextFactory.CreateDbContextAsync();
-        var query = context.Set<TimeEntry>().Where(e => e.StartTime < end && (e.EndTime ?? DateTime.UtcNow) > start);
+        var query = context.Set<TimeEntry>().Where(e => !e.IsDeleted && e.StartTime < end && (e.EndTime ?? DateTime.UtcNow) > start);
         if (excludeId.HasValue)
         {
             query = query.Where(e => e.Id != excludeId.Value);

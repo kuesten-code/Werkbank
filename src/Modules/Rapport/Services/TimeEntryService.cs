@@ -206,6 +206,8 @@ public class TimeEntryService
             DateTime? fromUtc = from.HasValue ? ToUtc(from.Value) : null;
             DateTime? toUtc = to.HasValue ? ToUtc(to.Value) : null;
 
+            query = query.Where(e => !e.IsDeleted);
+
             if (fromUtc.HasValue)
             {
                 query = query.Where(e => e.StartTime >= fromUtc.Value);
