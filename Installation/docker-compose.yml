@@ -119,6 +119,7 @@
       - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=kuestencode_werkbank;Username=postgres;Password=${POSTGRES_PASSWORD}
       - ServiceUrls__Host=http://host:8080
       - ServiceUrls__Self=http://acta:8084
+      - ServiceUrls__Rapport=http://rapport:8082
       - APPLY_MIGRATIONS=true
     restart: unless-stopped
     depends_on:

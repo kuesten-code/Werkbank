@@ -146,9 +146,18 @@ public class EuerService : IEuerService
                 ? konten.FirstOrDefault(k => k.KontoNummer == mapping.KontoNummer)
                 : null;
 
-            var amountNet = group.Sum(d => d.AmountNet);
-            var amountTax = group.Sum(d => d.AmountTax);
-            var amountGross = group.Sum(d => d.AmountGross);
+            var amountNet = group.Sum(d =>
+                d.SkontoApplied && d.SkontoAmount.HasValue && d.AmountGross != 0
+                    ? Math.Round(d.AmountNet * (d.AmountGross - d.SkontoAmount.Value) / d.AmountGross, 2)
+                    : d.AmountNet);
+            var amountTax = group.Sum(d =>
+                d.SkontoApplied && d.SkontoAmount.HasValue && d.AmountGross != 0
+                    ? Math.Round(d.AmountTax * (d.AmountGross - d.SkontoAmount.Value) / d.AmountGross, 2)
+                    : d.AmountTax);
+            var amountGross = group.Sum(d =>
+                d.SkontoApplied && d.SkontoAmount.HasValue
+                    ? d.AmountGross - d.SkontoAmount.Value
+                    : d.AmountGross);
 
             positionen.Add(new EuerPositionDto
             {
