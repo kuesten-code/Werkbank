@@ -6,21 +6,24 @@ on:
       - main
   workflow_dispatch:
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
 jobs:
   prepare:
     name: Prepare build matrix
     runs-on: ubuntu-latest
     outputs:
-      matrix: ${{ steps.set-matrix.outputs.matrix }}
+      build_matrix: ${{ steps.set-matrix.outputs.build_matrix }}
+      merge_matrix: ${{ steps.set-matrix.outputs.merge_matrix }}
       has_modules: ${{ steps.set-matrix.outputs.has_modules }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Read VERSION file and create matrix
+      - name: Read VERSION file and create matrices
         id: set-matrix
         run: |
-          # Define module configurations
           declare -A DOCKERFILES
           DOCKERFILES[host]="src/Host/Dockerfile"
           DOCKERFILES[faktura]="src/Modules/Faktura/Dockerfile"
@@ -30,66 +33,112 @@ jobs:
           DOCKERFILES[recepta]="src/Modules/Recepta/Kuestencode.Werkbank.Recepta/Dockerfile"
           DOCKERFILES[saldo]="src/Modules/Saldo/Kuestencode.Werkbank.Saldo/Dockerfile"
 
-          declare -A IMAGE_NAMES
-          IMAGE_NAMES[host]="host"
-          IMAGE_NAMES[faktura]="faktura"
-          IMAGE_NAMES[rapport]="rapport"
-          IMAGE_NAMES[offerte]="offerte"
-          IMAGE_NAMES[acta]="acta"
-          IMAGE_NAMES[recepta]="recepta"
-          IMAGE_NAMES[saldo]="saldo"
-
-          # Read VERSION file and build matrix
-          MATRIX_JSON='{"include":['
-          FIRST=true
+          BUILD_MATRIX='{"include":['
+          MERGE_MATRIX='{"include":['
+          BUILD_FIRST=true
+          MERGE_FIRST=true
 
           while IFS='=' read -r module version || [ -n "$module" ]; do
-            # Skip empty lines and comments
             [[ -z "$module" || "$module" =~ ^# ]] && continue
-            # Trim whitespace
             module=$(echo "$module" | xargs)
             version=$(echo "$version" | xargs)
-            # Skip if no version
             [[ -z "$version" ]] && continue
 
-            # Check if module is known
             if [[ -n "${DOCKERFILES[$module]}" ]]; then
-              if [ "$FIRST" = true ]; then
-                FIRST=false
-              else
-                MATRIX_JSON+=','
-              fi
-              MATRIX_JSON+="{\"module\":\"$module\",\"version\":\"$version\",\"dockerfile\":\"${DOCKERFILES[$module]}\",\"image-name\":\"${IMAGE_NAMES[$module]}\"}"
+              dockerfile="${DOCKERFILES[$module]}"
+
+              for platform in "linux/amd64" "linux/arm64"; do
+                arch="${platform##*/}"
+                [ "$BUILD_FIRST" = true ] && BUILD_FIRST=false || BUILD_MATRIX+=','
+                BUILD_MATRIX+="{\"module\":\"$module\",\"version\":\"$version\",\"dockerfile\":\"$dockerfile\",\"platform\":\"$platform\",\"arch\":\"$arch\"}"
+              done
+
+              [ "$MERGE_FIRST" = true ] && MERGE_FIRST=false || MERGE_MATRIX+=','
+              MERGE_MATRIX+="{\"module\":\"$module\",\"version\":\"$version\"}"
+
               echo "Found module: $module with version $version"
             fi
           done < VERSION
 
-          MATRIX_JSON+=']}'
+          BUILD_MATRIX+=']}'
+          MERGE_MATRIX+=']}'
 
-          echo "matrix=$MATRIX_JSON" >> $GITHUB_OUTPUT
+          echo "build_matrix=$BUILD_MATRIX" >> $GITHUB_OUTPUT
+          echo "merge_matrix=$MERGE_MATRIX" >> $GITHUB_OUTPUT
 
-          # Check if we have any modules to build
-          if [ "$FIRST" = true ]; then
+          if [ "$MERGE_FIRST" = true ]; then
             echo "has_modules=false" >> $GITHUB_OUTPUT
-            echo "No modules to build"
           else
             echo "has_modules=true" >> $GITHUB_OUTPUT
-            echo "Matrix: $MATRIX_JSON"
           fi
 
-  build-and-push:
-    name: Build ${{ matrix.module }} v${{ matrix.version }}
+  build:
+    name: Build ${{ matrix.module }} (${{ matrix.arch }}) v${{ matrix.version }}
     runs-on: ubuntu-latest
     needs: prepare
     if: needs.prepare.outputs.has_modules == 'true'
-
     strategy:
       fail-fast: false
-      matrix: ${{ fromJson(needs.prepare.outputs.matrix) }}
-
+      matrix: ${{ fromJson(needs.prepare.outputs.build_matrix) }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push by digest
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          platforms: ${{ matrix.platform }}
+          push: true
+          outputs: type=image,name=${{ secrets.DOCKERHUB_USERNAME }}/${{ matrix.module }},push-by-digest=true,name-canonical=true
+          build-args: |
+            DOCKER_IMAGE_TAG=${{ matrix.version }}
+          cache-from: type=gha,scope=${{ matrix.module }}-${{ matrix.arch }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.module }}-${{ matrix.arch }}
+
+      - name: Export digest
+        run: |
+          mkdir -p /tmp/digests
+          digest="${{ steps.build.outputs.digest }}"
+          touch "/tmp/digests/${digest#sha256:}"
+
+      - name: Upload digest
+        uses: actions/upload-artifact@v4
+        with:
+          name: digest-${{ matrix.module }}-${{ matrix.arch }}
+          path: /tmp/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  merge:
+    name: Merge ${{ matrix.module }} v${{ matrix.version }}
+    runs-on: ubuntu-latest
+    needs: [prepare, build]
+    if: needs.prepare.outputs.has_modules == 'true'
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.prepare.outputs.merge_matrix) }}
+    steps:
+      - name: Download digests
+        uses: actions/download-artifact@v4
+        with:
+          pattern: digest-${{ matrix.module }}-*
+          merge-multiple: true
+          path: /tmp/digests
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -104,21 +153,18 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ secrets.DOCKERHUB_USERNAME }}/${{ matrix.image-name }}
+          images: ${{ secrets.DOCKERHUB_USERNAME }}/${{ matrix.module }}
           tags: |
             type=raw,value=${{ matrix.version }}
             type=raw,value=latest
 
-      - name: Build and push Docker image
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: ${{ matrix.dockerfile }}
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          build-args: |
-            DOCKER_IMAGE_TAG=${{ matrix.version }}
-          cache-from: type=gha,scope=${{ matrix.module }}
-          cache-to: type=gha,mode=max,scope=${{ matrix.module }}
+      - name: Create multi-arch manifest and push
+        working-directory: /tmp/digests
+        run: |
+          docker buildx imagetools create \
+            $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
+            $(printf '${{ secrets.DOCKERHUB_USERNAME }}/${{ matrix.module }}@sha256:%s ' *)
+
+      - name: Inspect image
+        run: |
+          docker buildx imagetools inspect ${{ secrets.DOCKERHUB_USERNAME }}/${{ matrix.module }}:${{ matrix.version }}
