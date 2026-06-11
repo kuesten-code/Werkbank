@@ -386,6 +386,8 @@ public class DocumentsController : ControllerBase
                 Category = x.Document.Category.ToString(),
                 Status = x.Document.Status.ToString(),
                 HasBeenAttached = x.Document.HasBeenAttached,
+                SkontoApplied = x.Document.SkontoApplied,
+                SkontoAmount = x.Document.SkontoAmount,
                 AllocatedNet = x.Allocation.AllocatedNet,
                 AllocatedGross = x.Allocation.AllocatedGross
             }).ToList();
@@ -423,6 +425,8 @@ public class DocumentsController : ControllerBase
                 Category = x.Document.Category.ToString(),
                 Status = x.Document.Status.ToString(),
                 HasBeenAttached = x.Document.HasBeenAttached,
+                SkontoApplied = x.Document.SkontoApplied,
+                SkontoAmount = x.Document.SkontoAmount,
                 AllocatedNet = x.Allocation.AllocatedNet,
                 AllocatedGross = x.Allocation.AllocatedGross
             }).ToList()

@@ -264,6 +264,19 @@
                                 <td><strong>Brutto</strong></td>
                                 <td><strong>@_document.AmountGross.ToString("N2", _culture) €</strong></td>
                             </tr>
+                            @if (_document.SkontoApplied && _document.SkontoAmount.HasValue)
+                            {
+                                <tr>
+                                    <td><strong>Skonto (angewendet)</strong></td>
+                                    <td style="color: var(--mud-palette-success-text);">
+                                        -@_document.SkontoAmount.Value.ToString("N2", _culture) €
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Effektiv bezahlt</strong></td>
+                                    <td><strong>@((_document.AmountGross - _document.SkontoAmount.Value).ToString("N2", _culture)) €</strong></td>
+                                </tr>
+                            }
                         </tbody>
                     </MudSimpleTable>
 

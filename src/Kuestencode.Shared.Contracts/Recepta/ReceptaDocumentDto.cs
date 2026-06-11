@@ -19,6 +19,9 @@ public class ReceptaDocumentDto
     public string Status { get; set; } = string.Empty;
     public bool HasBeenAttached { get; set; }
 
+    public bool SkontoApplied { get; set; }
+    public decimal? SkontoAmount { get; set; }
+
     /// <summary>
     /// Projektseitiger Anteil (Netto), wenn der Beleg auf mehrere Projekte aufgeteilt wurde.
     /// Null wenn kein Split vorliegt (= voller Betrag gehört diesem Projekt).
