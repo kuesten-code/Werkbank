@@ -134,7 +134,8 @@ public class TimeEntriesController : ControllerBase
                 teamMemberId,
                 teamMemberName,
                 member?.MitarbeiterRolleId,
-                member?.MitarbeiterRolleName);
+                member?.MitarbeiterRolleName,
+                dto.BreakMinutes);
 
             return CreatedAtAction(nameof(GetEntry), new { id = entry.Id }, entry);
         }
@@ -230,6 +231,7 @@ public class CreateTimeEntryDto
     public int? CustomerId { get; set; }
     public string? Description { get; set; }
     public Guid? TeamMemberId { get; set; }
+    public int BreakMinutes { get; set; }
 }
 
 public class UpdateTimeEntryDto

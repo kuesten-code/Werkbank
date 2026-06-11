@@ -1,9 +1,7 @@
-﻿version: "3.9"
-
-services:
+﻿services:
   postgres:
     image: postgres:16
-    container_name: kuestencode_postgres
+    container_name: kuestencode_werkbank_postgres
     environment:
       POSTGRES_DB: kuestencode_werkbank
       POSTGRES_USER: postgres
@@ -17,11 +15,13 @@ services:
       timeout: 5s
       retries: 5
     networks:
-      - kuestencode_network
+      - kuestencode_werkbank_network
 
   host:
     image: kuestencode/host:latest
-    container_name: kuestencode_host
+    container_name: kuestencode_werkbank_host
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
     ports:
       - "${HOST_PORT:-8080}:8080"
     environment:
@@ -43,11 +43,13 @@ services:
         condition: service_healthy
     restart: unless-stopped
     networks:
-      - kuestencode_network
-      
+      - kuestencode_werkbank_network
+
   faktura:
     image: kuestencode/faktura:latest
-    container_name: kuestencode_faktura
+    container_name: kuestencode_werkbank_faktura
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:8081
@@ -62,11 +64,13 @@ services:
       postgres:
         condition: service_healthy
     networks:
-      - kuestencode_network
+      - kuestencode_werkbank_network
 
   rapport:
     image: kuestencode/rapport:latest
-    container_name: kuestencode_rapport
+    container_name: kuestencode_werkbank_rapport
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:8082
@@ -81,11 +85,13 @@ services:
       host:
         condition: service_started
     networks:
-      - kuestencode_network
+      - kuestencode_werkbank_network
 
   offerte:
     image: kuestencode/offerte:latest
-    container_name: kuestencode_offerte
+    container_name: kuestencode_werkbank_offerte
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:8083
@@ -100,11 +106,13 @@ services:
       host:
         condition: service_started
     networks:
-      - kuestencode_network
+      - kuestencode_werkbank_network
 
   acta:
     image: kuestencode/acta:latest
-    container_name: kuestencode_acta
+    container_name: kuestencode_werkbank_acta
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:8084
@@ -119,11 +127,13 @@ services:
       host:
         condition: service_started
     networks:
-      - kuestencode_network
+      - kuestencode_werkbank_network
 
   recepta:
     image: kuestencode/recepta:latest
-    container_name: kuestencode_recepta
+    container_name: kuestencode_werkbank_recepta
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:8085
@@ -140,11 +150,13 @@ services:
       host:
         condition: service_started
     networks:
-      - kuestencode_network
+      - kuestencode_werkbank_network
 
   saldo:
     image: kuestencode/saldo:latest
-    container_name: kuestencode_saldo
+    container_name: kuestencode_werkbank_saldo
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:8086
@@ -163,8 +175,24 @@ services:
       recepta:
         condition: service_started
     networks:
-      - kuestencode_network
+      - kuestencode_werkbank_network
+
+  watchtower:
+    image: containrrr/watchtower
+    container_name: kuestencode_werkbank_watchtower
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - DOCKER_API_VERSION=1.43
+      - REPO_USER=kuestencode
+      - REPO_PASS=${DOCKER_PAT}
+      - WATCHTOWER_POLL_INTERVAL=300        # alle 5 Minuten prüfen
+      - WATCHTOWER_CLEANUP=true             # alte Images entfernen
+      - WATCHTOWER_INCLUDE_STOPPED=false
+      - WATCHTOWER_LABEL_ENABLE=true        # nur Container mit Label updaten
+    command: --interval 300
 
 networks:
-  kuestencode_network:
+  kuestencode_werkbank_network:
     driver: bridge
