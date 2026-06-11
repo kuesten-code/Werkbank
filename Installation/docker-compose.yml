@@ -185,7 +185,7 @@
       - /var/run/docker.sock:/var/run/docker.sock
     environment:
       - DOCKER_API_VERSION=1.43
-      - REPO_USER=kuestencode
+      - REPO_USER=${DOCKER_USER}
       - REPO_PASS=${DOCKER_PAT}
       - WATCHTOWER_POLL_INTERVAL=300        # alle 5 Minuten prüfen
       - WATCHTOWER_CLEANUP=true             # alte Images entfernen
