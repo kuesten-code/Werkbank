@@ -2,9 +2,10 @@
 @using Kuestencode.Werkbank.Acta.Domain.Enums
 @using Kuestencode.Werkbank.Acta.Shared.Components
 @using Kuestencode.Werkbank.Acta.Shared.Dialogs
+@using Kuestencode.Shared.UI.Pages
+@inherits TabbedListPageBase
 @inject Kuestencode.Werkbank.Acta.Services.IProjectService ProjectService
 @inject CoreInterfaces.ICustomerService CustomerService
-@inject NavigationManager NavigationManager
 @inject ISnackbar Snackbar
 @inject IDialogService DialogService
 
@@ -135,12 +136,11 @@
 </style>
 
 @code {
-    [SupplyParameterFromQuery(Name = "status")]
-    public string? StatusFilter { get; set; }
+    protected override string PageRoute => "/acta/projekte";
+    protected override string?[] TabStatusKeys => [null, "draft", "active", "paused", "completed", "archived"];
 
     private bool _loading = true;
     private string _searchString = string.Empty;
-    private int _activeTabIndex = 0;
     private int? _selectedCustomerId;
 
     private List<Project> _projects = new();
@@ -157,16 +157,6 @@
 
     protected override async Task OnInitializedAsync()
     {
-        _activeTabIndex = StatusFilter?.ToLowerInvariant() switch
-        {
-            "draft" => 1,
-            "active" => 2,
-            "paused" => 3,
-            "completed" => 4,
-            "archived" => 5,
-            _ => 0
-        };
-
         await LoadDataAsync();
     }
 
@@ -250,10 +240,7 @@
         _ => Color.Default
     };
 
-    private async Task OnTabChanged()
-    {
-        await InvokeAsync(StateHasChanged);
-    }
+    protected override Task OnTabChanged() => base.OnTabChanged();
 
     private async Task OnCustomerFilterChanged(int? customerId)
     {
@@ -268,7 +255,7 @@
 
     private void ViewProject(Guid id)
     {
-        NavigationManager.NavigateTo($"/acta/projekte/{id}");
+        NavigationManager.NavigateTo(WithFromParam($"/acta/projekte/{id}"));
     }
 
     private void EditProject(Guid id)

@@ -480,6 +480,7 @@
     private string? _zahlungNotiz;
     private bool _zahlungSaving = false;
 
+    private string? _fromFilter;
     private DocumentDto? _document;
     private List<DocumentFileDto> _files = new();
     private Guid? _selectedFileId;
@@ -491,6 +492,10 @@
 
     protected override async Task OnInitializedAsync()
     {
+        var queryParams = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(new Uri(NavigationManager.Uri).Query);
+        if (queryParams.TryGetValue("from", out var from))
+            _fromFilter = from.ToString();
+
         _loading = true;
 
         try
@@ -674,7 +679,7 @@
 
     private void GoBack()
     {
-        NavigationManager.NavigateTo("/recepta/belege");
+        NavigationManager.NavigateTo(Kuestencode.Shared.UI.Pages.TabbedListPageBase.BackUrl("/recepta/belege", _fromFilter));
     }
 
     private void OpenZahlungModal()

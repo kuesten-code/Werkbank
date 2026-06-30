@@ -5,7 +5,6 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Forms;
-using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.JSInterop;
 using MudBlazor;
 using Kuestencode.Core.Enums;
@@ -14,15 +13,18 @@ using Kuestencode.Faktura.Models;
 using Kuestencode.Faktura.Services;
 using Kuestencode.Faktura.Shared;
 using Kuestencode.Faktura.Shared.Components;
+using Kuestencode.Shared.UI.Pages;
 
 namespace Kuestencode.Faktura.Pages.Invoices;
 
-public partial class List
+public partial class List : TabbedListPageBase
 {
+    protected override string PageRoute => "/faktura/invoices";
+    protected override string?[] TabStatusKeys => [null, "draft", "sent", "paid", "partiallypaid", "overdue"];
+
     private List<Invoice> _invoices = new();
     private string _searchString = string.Empty;
     private bool _loading = true;
-    private int _activeTabIndex = 0;
     private int _draftCount, _sentCount, _paidCount, _partiallyPaidCount, _overdueCount;
     private System.Globalization.CultureInfo _culture = new System.Globalization.CultureInfo("de-DE");
 
@@ -59,37 +61,6 @@ public partial class List
     protected override async Task OnInitializedAsync()
     {
         await LoadInvoices();
-        ApplyQueryParameters();
-    }
-
-    private void ApplyQueryParameters()
-    {
-        var uri = new Uri(NavigationManager.Uri);
-        var queryParams = QueryHelpers.ParseQuery(uri.Query);
-
-        // Check for status parameter
-        if (queryParams.TryGetValue("status", out var statusParam))
-        {
-            var status = statusParam.ToString().ToLower();
-            _activeTabIndex = status switch
-            {
-                "draft" => 1,
-                "sent" => 2,
-                "partiallypaid" => 4,
-                "overdue" => 5,
-                _ => 0
-            };
-        }
-
-        // Check for range parameter (for paid invoices in current month)
-        if (queryParams.TryGetValue("range", out var rangeParam))
-        {
-            var range = rangeParam.ToString().ToLower();
-            if (range == "thismonth")
-            {
-                _activeTabIndex = 3; // Paid tab
-            }
-        }
     }
 
     private async Task LoadInvoices()
@@ -119,11 +90,7 @@ public partial class List
         _overdueCount = _invoices.Count(i => i.Status == InvoiceStatus.Overdue);
     }
 
-    private Task OnTabChanged()
-    {
-        StateHasChanged();
-        return Task.CompletedTask;
-    }
+    protected override Task OnTabChanged() => base.OnTabChanged();
 
     private void CreateInvoice()
     {
@@ -132,7 +99,7 @@ public partial class List
 
     private void ViewInvoice(int id)
     {
-        NavigationManager.NavigateTo($"/faktura/invoices/details/{id}");
+        NavigationManager.NavigateTo(WithFromParam($"/faktura/invoices/details/{id}"));
     }
 
     private void EditInvoice(int id)

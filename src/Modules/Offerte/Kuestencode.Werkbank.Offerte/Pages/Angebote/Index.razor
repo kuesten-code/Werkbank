@@ -1,12 +1,11 @@
 @page "/angebote"
+@using Kuestencode.Shared.UI.Pages
+@inherits TabbedListPageBase
 @inject IAngebotRepository AngebotRepository
 @inject ICustomerService CustomerService
 @inject IAngebotAblaufService AblaufService
-@inject NavigationManager NavigationManager
 @inject ISnackbar Snackbar
 @inject IDialogService DialogService
-
-@* Query parameter for initial status filter *@
 
 <PageTitle>Angebote - Küstencode Offerte</PageTitle>
 
@@ -118,13 +117,12 @@
 </MudContainer>
 
 @code {
-    [SupplyParameterFromQuery(Name = "status")]
-    public string? StatusFilter { get; set; }
+    protected override string PageRoute => "/offerte/angebote";
+    protected override string?[] TabStatusKeys => [null, "entwurf", "versendet", "angenommen", "abgelehnt", "abgelaufen"];
 
     private readonly CultureInfo _culture = new CultureInfo("de-DE");
     private bool _loading = true;
     private string _searchString = string.Empty;
-    private int _activeTabIndex = 0;
 
     private List<Angebot> _angebote = new();
     private Dictionary<int, string> _kundenNamen = new();
@@ -139,18 +137,6 @@
 
     protected override async Task OnInitializedAsync()
     {
-        // Set initial tab based on query parameter
-        _activeTabIndex = StatusFilter?.ToLowerInvariant() switch
-        {
-            "entwurf" => 1,
-            "versendet" => 2,
-            "angenommen" => 3,
-            "abgelehnt" => 4,
-            "abgelaufen" => 5,
-            _ => 0
-        };
-
-        // Prüfe und aktualisiere abgelaufene Angebote beim Laden der Seite
         await AblaufService.PruefeUndAktualiereAbgelaufeneAsync();
         await LoadDataAsync();
     }
@@ -220,10 +206,7 @@
         return _kundenNamen.TryGetValue(kundeId, out var name) ? name : $"Kunde #{kundeId}";
     }
 
-    private async Task OnTabChanged()
-    {
-        await InvokeAsync(StateHasChanged);
-    }
+    protected override Task OnTabChanged() => base.OnTabChanged();
 
     private void CreateAngebot()
     {
@@ -241,7 +224,7 @@
 
     private void ViewAngebot(Guid id)
     {
-        NavigationManager.NavigateTo($"/offerte/angebote/{id}");
+        NavigationManager.NavigateTo(WithFromParam($"/offerte/angebote/{id}"));
     }
 
     private void EditAngebot(Guid id)
