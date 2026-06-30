@@ -598,7 +598,7 @@
             <MudStack Row="true" Justify="Justify.SpaceBetween" Wrap="Wrap.Wrap">
                 <MudButton Variant="Variant.Filled" Color="Color.Default"
                           StartIcon="@Icons.Material.Filled.ArrowBack"
-                          OnClick="@(() => NavigationManager.NavigateTo("/acta/projekte"))">
+                          OnClick="@(() => NavigationManager.NavigateTo(Kuestencode.Shared.UI.Pages.TabbedListPageBase.BackUrl("/acta/projekte", _fromFilter)))">
                     Zurück zur Übersicht
                 </MudButton>
 
@@ -645,6 +645,7 @@
 
     private readonly System.Globalization.CultureInfo _culture = new("de-DE");
     private bool _loading = true;
+    private string? _fromFilter;
     private Project? _project;
     private Customer? _customer;
     private bool _rapportAvailable;
@@ -661,6 +662,10 @@
 
     protected override async Task OnInitializedAsync()
     {
+        var queryParams = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(new Uri(NavigationManager.Uri).Query);
+        if (queryParams.TryGetValue("from", out var from))
+            _fromFilter = from.ToString();
+
         await LoadDataAsync();
     }
 
@@ -1030,7 +1035,7 @@
             {
                 await ProjectService.DeleteAsync(_project.Id);
                 Snackbar.Add($"Projekt '{_project.Name}' wurde gelöscht.", Severity.Success);
-                NavigationManager.NavigateTo("/acta/projekte");
+                NavigationManager.NavigateTo(Kuestencode.Shared.UI.Pages.TabbedListPageBase.BackUrl("/acta/projekte", _fromFilter));
             }
             catch (Exception ex)
             {

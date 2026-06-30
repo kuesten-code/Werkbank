@@ -3,10 +3,11 @@
 @using Kuestencode.Werkbank.Recepta.Controllers.Dtos
 @using Kuestencode.Werkbank.Recepta.Services.Interfaces
 @using Kuestencode.Shared.Contracts.Acta
+@using Kuestencode.Shared.UI.Pages
+@inherits TabbedListPageBase
 @inject IDocumentService DocumentService
 @inject ISupplierService SupplierService
 @inject ICachedProjectService ProjectCache
-@inject NavigationManager NavigationManager
 @inject ISnackbar Snackbar
 @inject IDialogService DialogService
 @inject IDocumentPaymentService PaymentService
@@ -34,7 +35,7 @@
 
         <!-- Quick-Filter-Tabs -->
         <MudTabs Elevation="0" Rounded="true" ApplyEffectsToContainer="true" Class="mb-4"
-                 ActivePanelIndex="_activeTabIndex" ActivePanelIndexChanged="OnTabChanged">
+                 ActivePanelIndex="_activeTabIndex" ActivePanelIndexChanged="OnTabIndexChanged">
             <MudTabPanel Text="Alle" Icon="@Icons.Material.Filled.List" />
             <MudTabPanel Text="Entwurf" Icon="@Icons.Material.Filled.Edit"
                          BadgeData="@_draftCount" BadgeColor="Color.Default" />
@@ -263,15 +264,25 @@
 </style>
 
 @code {
-    [SupplyParameterFromQuery(Name = "status")]
-    public string? StatusQueryParam { get; set; }
+    protected override string PageRoute => "/recepta/belege";
+    protected override string?[] TabStatusKeys => [null, "draft", "booked", "paid", "partiallypaid", "overdue"];
 
-    [SupplyParameterFromQuery(Name = "overdue")]
-    public bool? OverdueQueryParam { get; set; }
+    protected override void SyncTabFromUrl()
+    {
+        base.SyncTabFromUrl();
+        (_statusFilter, _overdueFilter) = _activeTabIndex switch
+        {
+            1 => ("Draft", false),
+            2 => ("Booked", false),
+            3 => ("Paid", false),
+            4 => ("PartiallyPaid", false),
+            5 => ((string?)null, true),
+            _ => (null, false)
+        };
+    }
 
     private readonly CultureInfo _culture = new("de-DE");
     private bool _loading = true;
-    private int _activeTabIndex = 0;
 
     // Badge-Zählungen (ungefiltert)
     private int _draftCount, _bookedCount, _paidCount, _partiallyPaidCount, _overdueCount;
@@ -301,35 +312,6 @@
 
     protected override async Task OnInitializedAsync()
     {
-        if (!string.IsNullOrEmpty(StatusQueryParam))
-        {
-            _statusFilter = StatusQueryParam switch
-            {
-                "draft" => "Draft",
-                "booked" => "Booked",
-                "paid" => "Paid",
-                "partiallypaid" => "PartiallyPaid",
-                _ => null
-            };
-        }
-
-        if (OverdueQueryParam == true)
-        {
-            _overdueFilter = true;
-            _activeTabIndex = 5;
-        }
-        else if (!string.IsNullOrEmpty(_statusFilter))
-        {
-            _activeTabIndex = _statusFilter switch
-            {
-                "Draft" => 1,
-                "Booked" => 2,
-                "Paid" => 3,
-                "PartiallyPaid" => 4,
-                _ => 0
-            };
-        }
-
         await LoadReferenceDataAsync();
         await LoadDocumentsAsync();
         await LoadCountsAsync();
@@ -445,7 +427,7 @@
         catch { /* Zählungen sind nicht kritisch */ }
     }
 
-    private async Task OnTabChanged(int index)
+    private async Task OnTabIndexChanged(int index)
     {
         _activeTabIndex = index;
         (_statusFilter, _overdueFilter) = index switch
@@ -457,6 +439,7 @@
             5 => ((string?)null, true),
             _ => (null, false)
         };
+        SyncTabToUrl();
         await LoadDocumentsAsync();
     }
 
@@ -519,7 +502,7 @@
 
     private void ViewDocument(Guid id)
     {
-        NavigationManager.NavigateTo($"/recepta/belege/{id}/details");
+        NavigationManager.NavigateTo(WithFromParam($"/recepta/belege/{id}/details"));
     }
 
     private void EditDocument(Guid id)

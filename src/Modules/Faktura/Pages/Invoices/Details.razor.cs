@@ -25,6 +25,7 @@ public partial class Details
     private Invoice? _invoice;
     private Company? _company;
     private bool _loading = true;
+    private string? _fromFilter;
     private bool _downloading = false;
     private bool _isEmailConfigured = false;
     private System.Globalization.CultureInfo _culture = new System.Globalization.CultureInfo("de-DE");
@@ -38,6 +39,10 @@ public partial class Details
 
     protected override async Task OnInitializedAsync()
     {
+        var queryParams = QueryHelpers.ParseQuery(new Uri(NavigationManager.Uri).Query);
+        if (queryParams.TryGetValue("from", out var from))
+            _fromFilter = from.ToString();
+
         await LoadInvoice();
         await LoadCompany();
         await CheckEmailConfiguration();

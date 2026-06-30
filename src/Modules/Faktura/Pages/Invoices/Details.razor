@@ -381,7 +381,7 @@
                     <MudStack Row="true" Justify="Justify.SpaceBetween">
                         <MudButton Variant="Variant.Filled" Color="Color.Default"
                                   StartIcon="@Icons.Material.Filled.ArrowBack"
-                                  OnClick="@(() => NavigationManager.NavigateTo("/faktura/invoices"))">
+                                  OnClick="@(() => NavigationManager.NavigateTo(Kuestencode.Shared.UI.Pages.TabbedListPageBase.BackUrl("/faktura/invoices", _fromFilter)))">
                             Zurück zur Übersicht
                         </MudButton>
 
