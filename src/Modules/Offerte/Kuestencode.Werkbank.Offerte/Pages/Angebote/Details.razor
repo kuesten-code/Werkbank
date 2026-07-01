@@ -255,7 +255,7 @@
                     <MudStack Row="true" Justify="Justify.SpaceBetween" Wrap="Wrap.Wrap">
                         <MudButton Variant="Variant.Filled" Color="Color.Default"
                                   StartIcon="@Icons.Material.Filled.ArrowBack"
-                                  OnClick="@(() => NavigationManager.NavigateTo(Kuestencode.Shared.UI.Pages.TabbedListPageBase.BackUrl("/offerte/angebote", _fromFilter)))">
+                                  OnClick="@(() => NavigationManager.NavigateTo(Kuestencode.Shared.UI.Pages.TabbedListPageBase.BackUrl("/offerte/angebote", _fromFilter, _fromSearch)))">
                             Zurück zur Übersicht
                         </MudButton>
 
@@ -380,6 +380,7 @@
     private readonly CultureInfo _culture = new CultureInfo("de-DE");
     private bool _loading = true;
     private string? _fromFilter;
+    private string? _fromSearch;
     private Angebot? _angebot;
     private Customer? _customer;
     private bool _fakturaAvailable = false;
@@ -387,8 +388,8 @@
     protected override async Task OnInitializedAsync()
     {
         var queryParams = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(new Uri(NavigationManager.Uri).Query);
-        if (queryParams.TryGetValue("from", out var from))
-            _fromFilter = from.ToString();
+        if (queryParams.TryGetValue("from", out var from)) _fromFilter = from.ToString();
+        if (queryParams.TryGetValue("fromsearch", out var fromsearch)) _fromSearch = fromsearch.ToString();
 
         await LoadDataAsync();
     }
@@ -482,7 +483,7 @@
             {
                 await AngebotRepository.DeleteAsync(_angebot.Id);
                 Snackbar.Add($"Angebot {_angebot.Angebotsnummer} wurde gelöscht.", Severity.Success);
-                NavigationManager.NavigateTo(Kuestencode.Shared.UI.Pages.TabbedListPageBase.BackUrl("/offerte/angebote", _fromFilter));
+                NavigationManager.NavigateTo(Kuestencode.Shared.UI.Pages.TabbedListPageBase.BackUrl("/offerte/angebote", _fromFilter, _fromSearch));
             }
             catch (Exception ex)
             {

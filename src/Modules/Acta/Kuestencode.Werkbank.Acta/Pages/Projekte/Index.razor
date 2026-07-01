@@ -17,7 +17,8 @@
     <MudPaper Class="pa-4 mt-4">
         <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-4">
             <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
-                <MudTextField @bind-Value="_searchString" Placeholder="Projekt oder Kunde suchen"
+                <MudTextField @bind-Value="_searchString" @bind-Value:after="SyncTabToUrl"
+                             Placeholder="Projekt oder Kunde suchen"
                              Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search"
                              IconSize="Size.Medium" Class="mt-0" Immediate="true" Style="max-width: 300px;" />
                 <MudSelect T="int?" Label="Kunde" Value="_selectedCustomerId" ValueChanged="OnCustomerFilterChanged"
@@ -140,7 +141,6 @@
     protected override string?[] TabStatusKeys => [null, "draft", "active", "paused", "completed", "archived"];
 
     private bool _loading = true;
-    private string _searchString = string.Empty;
     private int? _selectedCustomerId;
 
     private List<Project> _projects = new();
