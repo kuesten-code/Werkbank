@@ -14,7 +14,8 @@
 
     <MudPaper Class="pa-4 mt-4">
         <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-4">
-            <MudTextField @bind-Value="_searchString" Placeholder="Angebot oder Kunde suchen"
+            <MudTextField @bind-Value="_searchString" @bind-Value:after="SyncTabToUrl"
+                         Placeholder="Angebot oder Kunde suchen"
                          Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search"
                          IconSize="Size.Medium" Class="mt-0" Immediate="true" Style="max-width: 400px;" />
             <MudStack Row="true" Spacing="2">
@@ -122,7 +123,6 @@
 
     private readonly CultureInfo _culture = new CultureInfo("de-DE");
     private bool _loading = true;
-    private string _searchString = string.Empty;
 
     private List<Angebot> _angebote = new();
     private Dictionary<int, string> _kundenNamen = new();

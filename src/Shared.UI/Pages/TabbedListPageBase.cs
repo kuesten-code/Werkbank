@@ -6,14 +6,15 @@ namespace Kuestencode.Shared.UI.Pages;
 
 /// <summary>
 /// Abstrakte Basisklasse für Übersichtsseiten mit Tab-basierter Statusfilterung.
-/// Synchronisiert den aktiven Tab bidirektional mit dem URL-Query-Parameter ?status=,
-/// sodass der aktive Filter bei Browser-Navigation (Vor/Zurück) erhalten bleibt.
+/// Synchronisiert aktiven Tab und Suchtext bidirektional mit URL-Query-Parametern
+/// ?status= und ?search=, sodass der aktive Filter bei Browser-Navigation erhalten bleibt.
 /// </summary>
 public abstract class TabbedListPageBase : ComponentBase, IDisposable
 {
     [Inject] protected NavigationManager NavigationManager { get; set; } = default!;
 
     protected int _activeTabIndex;
+    protected string _searchString = string.Empty;
 
     /// <summary>Route der Listenseite, z.B. "/faktura/invoices".</summary>
     protected abstract string PageRoute { get; }
@@ -53,14 +54,16 @@ public abstract class TabbedListPageBase : ComponentBase, IDisposable
         {
             _activeTabIndex = 0;
         }
+        _searchString = queryParams.TryGetValue("search", out var search) ? search.ToString() : string.Empty;
     }
 
     protected void SyncTabToUrl()
     {
         var currentPath = new Uri(NavigationManager.Uri).AbsolutePath;
-        var url = CurrentStatusKey != null
-            ? $"{currentPath}?status={CurrentStatusKey}"
-            : currentPath;
+        var parts = new List<string>();
+        if (CurrentStatusKey != null) parts.Add($"status={CurrentStatusKey}");
+        if (!string.IsNullOrEmpty(_searchString)) parts.Add($"search={Uri.EscapeDataString(_searchString)}");
+        var url = parts.Count > 0 ? $"{currentPath}?{string.Join("&", parts)}" : currentPath;
         NavigationManager.NavigateTo(url, replace: true);
     }
 
@@ -71,13 +74,23 @@ public abstract class TabbedListPageBase : ComponentBase, IDisposable
         return Task.CompletedTask;
     }
 
-    /// <summary>Fügt ?from= Parameter zur Detailseiten-URL hinzu.</summary>
-    protected string WithFromParam(string detailUrl) =>
-        CurrentStatusKey != null ? $"{detailUrl}?from={CurrentStatusKey}" : detailUrl;
+    /// <summary>Fügt ?from= und ?fromsearch= Parameter zur Detailseiten-URL hinzu.</summary>
+    protected string WithFromParam(string detailUrl)
+    {
+        var parts = new List<string>();
+        if (CurrentStatusKey != null) parts.Add($"from={CurrentStatusKey}");
+        if (!string.IsNullOrEmpty(_searchString)) parts.Add($"fromsearch={Uri.EscapeDataString(_searchString)}");
+        return parts.Count > 0 ? $"{detailUrl}?{string.Join("&", parts)}" : detailUrl;
+    }
 
-    /// <summary>Erzeugt die Zurück-URL unter Berücksichtigung des from-Parameters.</summary>
-    public static string BackUrl(string listRoute, string? fromFilter) =>
-        fromFilter != null ? $"{listRoute}?status={fromFilter}" : listRoute;
+    /// <summary>Erzeugt die Zurück-URL unter Berücksichtigung von Status- und Suchfilter.</summary>
+    public static string BackUrl(string listRoute, string? fromFilter, string? fromSearch = null)
+    {
+        var parts = new List<string>();
+        if (fromFilter != null) parts.Add($"status={fromFilter}");
+        if (!string.IsNullOrEmpty(fromSearch)) parts.Add($"search={Uri.EscapeDataString(fromSearch)}");
+        return parts.Count > 0 ? $"{listRoute}?{string.Join("&", parts)}" : listRoute;
+    }
 
     public virtual void Dispose()
     {

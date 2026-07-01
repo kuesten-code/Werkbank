@@ -23,7 +23,6 @@ public partial class List : TabbedListPageBase
     protected override string?[] TabStatusKeys => [null, "draft", "sent", "paid", "partiallypaid", "overdue"];
 
     private List<Invoice> _invoices = new();
-    private string _searchString = string.Empty;
     private bool _loading = true;
     private int _draftCount, _sentCount, _paidCount, _partiallyPaidCount, _overdueCount;
     private System.Globalization.CultureInfo _culture = new System.Globalization.CultureInfo("de-DE");

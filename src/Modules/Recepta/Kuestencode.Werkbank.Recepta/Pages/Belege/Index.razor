@@ -288,7 +288,6 @@
     private int _draftCount, _bookedCount, _paidCount, _partiallyPaidCount, _overdueCount;
 
     // Filter-State
-    private string _searchString = string.Empty;
     private string? _statusFilter;
     private bool _overdueFilter;
     private Guid? _supplierFilter;
@@ -410,6 +409,7 @@
     private async Task OnSearchChanged(string value)
     {
         _searchString = value;
+        SyncTabToUrl();
         await LoadDocumentsAsync();
     }
 

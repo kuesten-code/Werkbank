@@ -481,6 +481,7 @@
     private bool _zahlungSaving = false;
 
     private string? _fromFilter;
+    private string? _fromSearch;
     private DocumentDto? _document;
     private List<DocumentFileDto> _files = new();
     private Guid? _selectedFileId;
@@ -493,8 +494,8 @@
     protected override async Task OnInitializedAsync()
     {
         var queryParams = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(new Uri(NavigationManager.Uri).Query);
-        if (queryParams.TryGetValue("from", out var from))
-            _fromFilter = from.ToString();
+        if (queryParams.TryGetValue("from", out var from)) _fromFilter = from.ToString();
+        if (queryParams.TryGetValue("fromsearch", out var fromsearch)) _fromSearch = fromsearch.ToString();
 
         _loading = true;
 
@@ -679,7 +680,7 @@
 
     private void GoBack()
     {
-        NavigationManager.NavigateTo(Kuestencode.Shared.UI.Pages.TabbedListPageBase.BackUrl("/recepta/belege", _fromFilter));
+        NavigationManager.NavigateTo(Kuestencode.Shared.UI.Pages.TabbedListPageBase.BackUrl("/recepta/belege", _fromFilter, _fromSearch));
     }
 
     private void OpenZahlungModal()
