@@ -107,12 +107,12 @@
                     <MudText Typo="Typo.h6" GutterBottom="true">Dokumente</MudText>
 
                     @* Vorschau *@
-                    @if (_previewBase64 != null)
+                    @if (_selectedFileId != null)
                     {
                         @if (_previewContentType?.StartsWith("image/") == true)
                         {
                             <div style="max-height: 500px; overflow: auto; text-align: center;">
-                                <img src="data:@_previewContentType;base64,@_previewBase64"
+                                <img src="/api/recepta/files/@_selectedFileId"
                                      style="max-width: 100%; transform: scale(@_zoom); transform-origin: top center;"
                                      alt="Dokumentvorschau" />
                             </div>
@@ -121,7 +121,7 @@
                                  _previewFileName?.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase) == true)
                         {
                             <div style="height: 500px;">
-                                <embed src="data:application/pdf;base64,@_previewBase64"
+                                <embed src="/api/recepta/files/@_selectedFileId"
                                        type="application/pdf" width="100%" height="100%" />
                             </div>
                         }
@@ -486,7 +486,6 @@
     private DocumentDto? _document;
     private List<DocumentFileDto> _files = new();
     private Guid? _selectedFileId;
-    private string? _previewBase64;
     private string? _previewContentType;
     private string? _previewFileName;
     private double _zoom = 1.0;
@@ -522,7 +521,7 @@
         // damit die UI bereits gerendert ist und der Preview-Bereich existiert
         if (_files.Count > 0)
         {
-            await PreviewFile(_files[0]);
+            PreviewFile(_files[0]);
             StateHasChanged();
         }
     }
@@ -558,26 +557,15 @@
         catch { /* Projekt-Name ist optional */ }
     }
 
-    private async Task PreviewFile(DocumentFileDto file)
+    private void PreviewFile(DocumentFileDto file)
     {
-        try
-        {
-            _selectedFileId = file.Id;
-            var (stream, fileName, contentType) = await FileService.DownloadAsync(file.Id);
-            await using (stream)
-            {
-                using var ms = new MemoryStream();
-                await stream.CopyToAsync(ms);
-                _previewBase64 = Convert.ToBase64String(ms.ToArray());
-                _previewContentType = contentType;
-                _previewFileName = fileName;
-            }
-            _zoom = 1.0;
-        }
-        catch (Exception ex)
-        {
-            Snackbar.Add($"Vorschau fehlgeschlagen: {ex.Message}", Severity.Warning);
-        }
+        // Vorschau lädt die Datei direkt per URL statt als Base64 über den SignalR-Kanal —
+        // größere Dateien überschreiten sonst die Blazor-Server-Circuit-Nachrichtengröße
+        // und die Vorschau bleibt leer, ohne dass ein Fehler auftritt.
+        _selectedFileId = file.Id;
+        _previewContentType = file.ContentType;
+        _previewFileName = file.FileName;
+        _zoom = 1.0;
     }
 
     private void DownloadFile(DocumentFileDto file)
