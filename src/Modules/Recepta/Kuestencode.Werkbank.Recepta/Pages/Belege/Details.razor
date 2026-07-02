@@ -117,7 +117,8 @@
                                      alt="Dokumentvorschau" />
                             </div>
                         }
-                        else if (_previewContentType == "application/pdf")
+                        else if (_previewContentType == "application/pdf" ||
+                                 _previewFileName?.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase) == true)
                         {
                             <div style="height: 500px;">
                                 <embed src="data:application/pdf;base64,@_previewBase64"
@@ -487,6 +488,7 @@
     private Guid? _selectedFileId;
     private string? _previewBase64;
     private string? _previewContentType;
+    private string? _previewFileName;
     private double _zoom = 1.0;
 
     private string? _projectName;
@@ -561,13 +563,14 @@
         try
         {
             _selectedFileId = file.Id;
-            var (stream, _, contentType) = await FileService.DownloadAsync(file.Id);
+            var (stream, fileName, contentType) = await FileService.DownloadAsync(file.Id);
             await using (stream)
             {
                 using var ms = new MemoryStream();
                 await stream.CopyToAsync(ms);
                 _previewBase64 = Convert.ToBase64String(ms.ToArray());
                 _previewContentType = contentType;
+                _previewFileName = fileName;
             }
             _zoom = 1.0;
         }

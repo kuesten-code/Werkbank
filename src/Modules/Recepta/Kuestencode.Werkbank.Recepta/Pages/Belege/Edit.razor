@@ -107,7 +107,8 @@
                                      alt="Dokumentvorschau" />
                             </div>
                         }
-                        else if (_previewContentType == "application/pdf")
+                        else if (_previewContentType == "application/pdf" ||
+                                 _previewFileName?.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase) == true)
                         {
                             <div style="height: 500px;">
                                 <embed src="data:application/pdf;base64,@_previewBase64"
@@ -651,6 +652,7 @@
     private Guid? _selectedFileId;
     private string? _previewBase64;
     private string? _previewContentType;
+    private string? _previewFileName;
     private double _zoom = 1.0;
 
     // Referenzdaten
@@ -716,6 +718,7 @@
         _loading = true;
         _previewBase64 = null;
         _previewContentType = null;
+        _previewFileName = null;
         _selectedFileId = null;
         _files = new();
 
@@ -818,13 +821,14 @@
         try
         {
             _selectedFileId = file.Id;
-            var (stream, _, contentType) = await FileService.DownloadAsync(file.Id);
+            var (stream, fileName, contentType) = await FileService.DownloadAsync(file.Id);
             await using (stream)
             {
                 using var ms = new MemoryStream();
                 await stream.CopyToAsync(ms);
                 _previewBase64 = Convert.ToBase64String(ms.ToArray());
                 _previewContentType = contentType;
+                _previewFileName = fileName;
             }
             _zoom = 1.0;
         }
@@ -845,7 +849,13 @@
         if (_uploading) return;
 
         var allowedTypes = new[] { "application/pdf", "image/jpeg", "image/png", "image/jpg" };
-        if (!allowedTypes.Contains(file.ContentType.ToLowerInvariant()))
+        var contentType = file.ContentType.ToLowerInvariant();
+        // Browser melden PDF manchmal als leeren Content-Type
+        if (string.IsNullOrEmpty(contentType) && file.Name.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase))
+        {
+            contentType = "application/pdf";
+        }
+        if (!allowedTypes.Contains(contentType))
         {
             Snackbar.Add("Nur PDF, JPG oder PNG Dateien sind erlaubt.", Severity.Warning);
             return;
@@ -867,7 +877,7 @@
 
         try
         {
-            var uploadedFile = await FileService.UploadAsync(Id!.Value, ms, file.Name, file.ContentType);
+            var uploadedFile = await FileService.UploadAsync(Id!.Value, ms, file.Name, contentType);
             Snackbar.Add($"Datei '{file.Name}' hochgeladen.", Severity.Success);
 
             // Dateiliste aktualisieren und neue Datei als Vorschau setzen
@@ -916,6 +926,7 @@
                 {
                     _previewBase64 = null;
                     _previewContentType = null;
+                    _previewFileName = null;
                     _selectedFileId = null;
                 }
 

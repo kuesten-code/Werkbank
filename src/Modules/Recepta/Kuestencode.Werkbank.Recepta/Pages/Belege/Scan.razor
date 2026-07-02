@@ -540,10 +540,17 @@
 
         var allowedTypes = new[] { "application/pdf", "image/jpeg", "image/png", "image/jpg", "text/xml", "application/xml" };
         var contentType = file.ContentType.ToLowerInvariant();
-        // Browser melden XML manchmal als leeren Content-Type
-        if (string.IsNullOrEmpty(contentType) && file.Name.EndsWith(".xml", StringComparison.OrdinalIgnoreCase))
+        // Browser melden PDF/XML manchmal als leeren Content-Type
+        if (string.IsNullOrEmpty(contentType))
         {
-            contentType = "text/xml";
+            if (file.Name.EndsWith(".xml", StringComparison.OrdinalIgnoreCase))
+            {
+                contentType = "text/xml";
+            }
+            else if (file.Name.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase))
+            {
+                contentType = "application/pdf";
+            }
         }
         if (!allowedTypes.Contains(contentType))
         {
@@ -558,7 +565,7 @@
         }
 
         _uploadedFile = file;
-        _fileContentType = file.ContentType;
+        _fileContentType = contentType;
 
         // Datei SOFORT lesen, bevor StateHasChanged() das MudFileUpload aus dem DOM entfernt.
         await using var stream = file.OpenReadStream(maxAllowedSize: 20 * 1024 * 1024);
