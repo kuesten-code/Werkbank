@@ -55,9 +55,6 @@ public static class HostModule
         services.AddScoped<IEmailEngine, EmailEngine>();
         services.AddScoped<IPdfEngine, PdfEngine>();
 
-        // Auch das alte IEmailService für Abwärtskompatibilität
-        // (CoreEmailService aus Core wird nicht mehr benötigt, EmailEngine ersetzt ihn)
-
         return services;
     }
 

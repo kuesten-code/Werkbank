@@ -24,4 +24,6 @@ public interface IHostApiClient
     Task<string> GenerateCustomerNumberAsync();
     Task<CustomerDto> CreateCustomerAsync(CreateCustomerRequest request);
     Task<List<MitarbeiterRolleDto>> GetMitarbeiterRollenAsync();
+    Task<bool> SendEmailAsync(SendEmailRequest request);
+    Task<(bool Success, string? ErrorMessage)> TestEmailConnectionAsync();
 }

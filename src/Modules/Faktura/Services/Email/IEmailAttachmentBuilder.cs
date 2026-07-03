@@ -1,5 +1,5 @@
+using Kuestencode.Core.Interfaces;
 using Kuestencode.Faktura.Models;
-using MimeKit;
 
 namespace Kuestencode.Faktura.Services.Email;
 
@@ -9,10 +9,9 @@ namespace Kuestencode.Faktura.Services.Email;
 public interface IEmailAttachmentBuilder
 {
     /// <summary>
-    /// Adds invoice attachments to the body builder based on the specified format
+    /// Builds the invoice attachments for the specified format
     /// </summary>
-    Task AddInvoiceAttachmentsAsync(
-        BodyBuilder bodyBuilder,
+    Task<List<EmailAttachment>> BuildInvoiceAttachmentsAsync(
         int invoiceId,
         string invoiceNumber,
         EmailAttachmentFormat format);

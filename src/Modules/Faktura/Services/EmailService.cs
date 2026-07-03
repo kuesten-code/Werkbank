@@ -1,4 +1,5 @@
 using Kuestencode.Core.Enums;
+using Kuestencode.Core.Interfaces;
 using Kuestencode.Core.Models;
 using Kuestencode.Faktura.Data.Repositories;
 using Kuestencode.Faktura.Models;
@@ -15,20 +16,20 @@ public class EmailService : IEmailService
     private readonly IInvoiceRepository _invoiceRepository;
     private readonly IHostApiClient _hostApiClient;
     private readonly IEmailMessageBuilder _messageBuilder;
-    private readonly ISmtpClient _smtpClient;
+    private readonly IEmailEngine _emailEngine;
     private readonly ILogger<EmailService> _logger;
 
     public EmailService(
         IInvoiceRepository invoiceRepository,
         IHostApiClient hostApiClient,
         IEmailMessageBuilder messageBuilder,
-        ISmtpClient smtpClient,
+        IEmailEngine emailEngine,
         ILogger<EmailService> logger)
     {
         _invoiceRepository = invoiceRepository;
         _hostApiClient = hostApiClient;
         _messageBuilder = messageBuilder;
-        _smtpClient = smtpClient;
+        _emailEngine = emailEngine;
         _logger = logger;
     }
 
@@ -99,12 +100,20 @@ public class EmailService : IEmailService
                 customMessage,
                 format,
                 ccEmails,
-                bccEmails,
-                includeClosing);
+                bccEmails);
 
-            // Send email using SMTP client
-            _logger.LogInformation("EmailService: sending via SMTP (InvoiceId={InvoiceId})", invoiceId);
-            await _smtpClient.SendAsync(message, company);
+            // Send email via zentralen Host-Email-Service
+            _logger.LogInformation("EmailService: sending via Host-EmailEngine (InvoiceId={InvoiceId})", invoiceId);
+            await _emailEngine.SendEmailAsync(
+                message.RecipientEmail,
+                message.Subject,
+                message.ContentHtml,
+                message.ContentText,
+                message.Attachments,
+                message.CcEmails,
+                message.BccEmails,
+                message.Greeting,
+                includeClosing);
 
             // Update invoice with email tracking
             await UpdateInvoiceAfterSendAsync(invoice, recipientEmail, ccEmails, bccEmails);
@@ -144,8 +153,8 @@ public class EmailService : IEmailService
         await _invoiceRepository.UpdateAsync(invoice);
     }
 
-    public async Task<(bool success, string? errorMessage)> TestEmailConnectionAsync(Company company)
+    public async Task<(bool success, string? errorMessage)> TestEmailConnectionAsync()
     {
-        return await _smtpClient.TestConnectionAsync(company);
+        return await _emailEngine.TestConnectionAsync();
     }
 }

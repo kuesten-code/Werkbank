@@ -160,6 +160,16 @@ public class HostNavigationService : IHostNavigationService
             AllowedRoles = new List<UserRole> { UserRole.Admin }
         });
 
+        // Add Host email design settings to "Vorlagen" - nur Admin
+        settingsByCategory[NavSettingsCategory.Vorlagen].Add(new NavItemDto
+        {
+            Label = "E-Mail-Design",
+            Href = "/settings/email-design",
+            Icon = "",
+            Type = NavItemType.Link,
+            AllowedRoles = new List<UserRole> { UserRole.Admin }
+        });
+
         // Abrechnungsrollen - nur Admin
         settingsByCategory[NavSettingsCategory.Abrechnung].Add(new NavItemDto
         {

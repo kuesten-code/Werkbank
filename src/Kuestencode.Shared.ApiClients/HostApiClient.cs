@@ -205,4 +205,27 @@ public class HostApiClient : IHostApiClient
             return new();
         }
     }
+
+    public async Task<bool> SendEmailAsync(SendEmailRequest request)
+    {
+        var response = await _httpClient.PostAsJsonAsync("/api/email/send", request).ConfigureAwait(false);
+        response.EnsureSuccessStatusCode();
+        var result = await response.Content.ReadFromJsonAsync<SendEmailResultDto>().ConfigureAwait(false);
+        return result?.Success ?? false;
+    }
+
+    public async Task<(bool Success, string? ErrorMessage)> TestEmailConnectionAsync()
+    {
+        try
+        {
+            var response = await _httpClient.GetAsync("/api/email/test-connection").ConfigureAwait(false);
+            if (!response.IsSuccessStatusCode) return (false, $"HTTP {(int)response.StatusCode}");
+            var result = await response.Content.ReadFromJsonAsync<SendEmailResultDto>().ConfigureAwait(false);
+            return (result?.Success ?? false, result?.ErrorMessage);
+        }
+        catch (Exception ex)
+        {
+            return (false, ex.Message);
+        }
+    }
 }

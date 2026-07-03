@@ -1,11 +1,10 @@
 using Kuestencode.Core.Models;
 using Kuestencode.Faktura.Models;
-using MimeKit;
 
 namespace Kuestencode.Faktura.Services.Email;
 
 /// <summary>
-/// Builds complete email messages with templates and attachments
+/// Builds complete email messages with content and attachments
 /// </summary>
 public class EmailMessageBuilder : IEmailMessageBuilder
 {
@@ -20,70 +19,34 @@ public class EmailMessageBuilder : IEmailMessageBuilder
         _attachmentBuilder = attachmentBuilder;
     }
 
-    public async Task<MimeMessage> BuildInvoiceEmailAsync(
+    public async Task<EmailMessage> BuildInvoiceEmailAsync(
         Invoice invoice,
         Company company,
         string recipientEmail,
         string? customMessage,
         EmailAttachmentFormat format,
         string? ccEmails,
-        string? bccEmails,
-        bool includeClosing = true)
+        string? bccEmails)
     {
-        var message = new MimeMessage();
+        var senderName = !string.IsNullOrWhiteSpace(company.EmailSenderName)
+            ? company.EmailSenderName
+            : company.BusinessName ?? company.OwnerFullName;
 
-        // Set sender
-        message.From.Add(new MailboxAddress(
-            !string.IsNullOrWhiteSpace(company.EmailSenderName)
-                ? company.EmailSenderName
-                : company.BusinessName ?? company.OwnerFullName,
-            company.EmailSenderEmail ?? company.Email
-        ));
-
-        // Set recipient
-        message.To.Add(MailboxAddress.Parse(recipientEmail));
-
-        // Set subject
-        message.Subject = $"Ihre Rechnung {invoice.InvoiceNumber} - {message.From}";
-
-        // Add CC recipients
-        AddRecipients(message.Cc, ccEmails);
-
-        // Add BCC recipients
-        AddRecipients(message.Bcc, bccEmails);
-
-        // Build email body
-        var bodyBuilder = new BodyBuilder
-        {
-            HtmlBody = _templateRenderer.RenderHtmlBody(invoice, company, customMessage, includeClosing),
-            TextBody = _templateRenderer.RenderPlainTextBody(invoice, company, customMessage, includeClosing)
-        };
-
-        // Add attachments
-        await _attachmentBuilder.AddInvoiceAttachmentsAsync(
-            bodyBuilder,
+        var attachments = await _attachmentBuilder.BuildInvoiceAttachmentsAsync(
             invoice.Id,
             invoice.InvoiceNumber,
             format);
 
-        message.Body = bodyBuilder.ToMessageBody();
-
-        return message;
-    }
-
-    private void AddRecipients(InternetAddressList addressList, string? emailsString)
-    {
-        if (string.IsNullOrWhiteSpace(emailsString))
-            return;
-
-        var addresses = emailsString
-            .Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries)
-            .Select(e => e.Trim())
-            .Where(e => !string.IsNullOrWhiteSpace(e));
-
-        foreach (var address in addresses)
+        return new EmailMessage
         {
-            addressList.Add(MailboxAddress.Parse(address));
-        }
+            RecipientEmail = recipientEmail,
+            Subject = $"Ihre Rechnung {invoice.InvoiceNumber} - {senderName}",
+            ContentHtml = _templateRenderer.RenderContentHtml(invoice, company),
+            ContentText = _templateRenderer.RenderContentText(invoice, company),
+            CcEmails = ccEmails,
+            BccEmails = bccEmails,
+            Greeting = _templateRenderer.ResolveGreeting(invoice, customMessage),
+            Attachments = attachments
+        };
     }
 }

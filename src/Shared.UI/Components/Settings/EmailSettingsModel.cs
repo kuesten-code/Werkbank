@@ -12,4 +12,5 @@ public class EmailSettingsModel
     public string AccentColor { get; set; } = "#3FA796";
     public string? Greeting { get; set; }
     public string? Closing { get; set; }
+    public string? Signature { get; set; }
 }

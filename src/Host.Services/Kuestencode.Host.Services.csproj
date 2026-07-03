@@ -17,10 +17,6 @@
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
 
-    <!-- Email/SMTP Support -->
-    <PackageReference Include="MailKit" Version="4.17.0" />
-    <PackageReference Include="MimeKit" Version="4.17.0" />
-
     <!-- PDF Generation -->
     <PackageReference Include="QuestPDF" Version="2025.12.0" />
     <PackageReference Include="QRCoder" Version="1.7.0" />

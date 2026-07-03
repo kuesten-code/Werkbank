@@ -262,16 +262,6 @@ public class ProgramApi
                     Type = NavItemType.Link,
                     AllowedRoles = new List<UserRole> { UserRole.Buero, UserRole.Admin }
                 },
-                // Settings: E-Mail-Vorlage unter "Vorlagen" - nur Admin
-                new NavItemDto
-                {
-                    Label = "Faktura E-Mail",
-                    Href = "/faktura/settings/email-anpassung",
-                    Icon = "",
-                    Type = NavItemType.Settings,
-                    Category = NavSettingsCategory.Vorlagen,
-                    AllowedRoles = new List<UserRole> { UserRole.Admin }
-                },
                 // Settings: PDF-Anpassung unter "Dokumente" - nur Admin
                 new NavItemDto
                 {

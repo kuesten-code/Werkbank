@@ -1,5 +1,6 @@
 using Kuestencode.Core.Interfaces;
 using Kuestencode.Core.Models;
+using Kuestencode.Core.Services;
 using MailKit.Net.Smtp;
 using MailKit.Security;
 using MimeKit;
@@ -9,6 +10,8 @@ namespace Kuestencode.Werkbank.Host.Services.Email;
 
 /// <summary>
 /// Generische Email-Engine für plattformweiten E-Mail-Versand.
+/// Wickelt jeden Inhalt über <see cref="EmailTemplateRenderer"/> in das eine, firmenweite
+/// Layout — es gibt bewusst kein modul- oder layoutspezifisches Styling mehr.
 /// </summary>
 public class EmailEngine : IEmailEngine
 {
@@ -32,11 +35,13 @@ public class EmailEngine : IEmailEngine
     public async Task<bool> SendEmailAsync(
         string recipientEmail,
         string subject,
-        string htmlBody,
-        string? plainTextBody = null,
+        string contentHtml,
+        string? contentText = null,
         IEnumerable<EmailAttachment>? attachments = null,
         string? ccEmails = null,
-        string? bccEmails = null)
+        string? bccEmails = null,
+        string? greeting = null,
+        bool includeClosing = true)
     {
         try
         {
@@ -48,12 +53,15 @@ public class EmailEngine : IEmailEngine
                 return false;
             }
 
+            var htmlBody = EmailTemplateRenderer.WrapHtml(company, contentHtml, greeting, includeClosing);
+            var textBody = EmailTemplateRenderer.WrapText(company, contentText ?? StripHtml(contentHtml), greeting, includeClosing);
+
             var message = CreateMessage(
                 company,
                 recipientEmail,
                 subject,
                 htmlBody,
-                plainTextBody,
+                textBody,
                 attachments,
                 ccEmails,
                 bccEmails);

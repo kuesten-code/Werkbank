@@ -1,4 +1,3 @@
-using Kuestencode.Core.Models;
 using Kuestencode.Faktura.Models;
 
 namespace Kuestencode.Faktura.Services;
@@ -13,5 +12,5 @@ public interface IEmailService
         string? ccEmails = null,
         string? bccEmails = null,
         bool includeClosing = true);
-    Task<(bool success, string? errorMessage)> TestEmailConnectionAsync(Company company);
+    Task<(bool success, string? errorMessage)> TestEmailConnectionAsync();
 }

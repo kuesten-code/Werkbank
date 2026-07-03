@@ -102,7 +102,7 @@ public class ProgramApi
         // Add API-based implementations of Host services (Company, Customer, Email)
         builder.Services.AddScoped<ICompanyService, ApiCompanyService>();
         builder.Services.AddScoped<ICustomerService, ApiCustomerService>();
-        builder.Services.AddScoped<IEmailService, ApiEmailService>();
+        builder.Services.AddScoped<IEmailEngine, Kuestencode.Shared.ApiClients.RemoteEmailEngine>();
 
         // Add Offerte Services (includes DbContext, Repositories, etc.)
         builder.Services.AddOfferteModule(builder.Configuration);
@@ -217,16 +217,6 @@ public class ProgramApi
                     Icon = "",
                     Type = NavItemType.Link,
                     AllowedRoles = new List<UserRole> { UserRole.Buero, UserRole.Admin }
-                },
-                // Settings: E-Mail-Vorlage unter "Vorlagen" - nur Admin
-                new NavItemDto
-                {
-                    Label = "Offerte E-Mail",
-                    Href = "/offerte/settings/email-anpassung",
-                    Icon = "",
-                    Type = NavItemType.Settings,
-                    Category = NavSettingsCategory.Vorlagen,
-                    AllowedRoles = new List<UserRole> { UserRole.Admin }
                 },
                 // Settings: PDF-Anpassung unter "Dokumente" - nur Admin
                 new NavItemDto

@@ -1,7 +1,7 @@
+using Kuestencode.Core.Interfaces;
 using Kuestencode.Faktura.Data;
 using Kuestencode.Faktura.Models;
 using Microsoft.EntityFrameworkCore;
-using MimeKit;
 using System.Diagnostics;
 
 namespace Kuestencode.Faktura.Services.Email;
@@ -28,8 +28,7 @@ public class EmailAttachmentBuilder : IEmailAttachmentBuilder
         _logger = logger;
     }
 
-    public async Task AddInvoiceAttachmentsAsync(
-        BodyBuilder bodyBuilder,
+    public async Task<List<EmailAttachment>> BuildInvoiceAttachmentsAsync(
         int invoiceId,
         string invoiceNumber,
         EmailAttachmentFormat format)
@@ -39,23 +38,25 @@ public class EmailAttachmentBuilder : IEmailAttachmentBuilder
             invoiceId,
             format);
 
+        var attachments = new List<EmailAttachment>();
+
         switch (format)
         {
             case EmailAttachmentFormat.NormalPdf:
-                await AddNormalPdfAsync(bodyBuilder, invoiceId, invoiceNumber);
+                attachments.Add(await BuildNormalPdfAsync(invoiceId, invoiceNumber));
                 break;
 
             case EmailAttachmentFormat.ZugferdPdf:
-                await AddZugferdPdfAsync(bodyBuilder, invoiceId, invoiceNumber);
+                attachments.Add(await BuildZugferdPdfAsync(invoiceId, invoiceNumber));
                 break;
 
             case EmailAttachmentFormat.XRechnungXmlOnly:
-                await AddXRechnungXmlAsync(bodyBuilder, invoiceId, invoiceNumber);
+                attachments.Add(await BuildXRechnungXmlAsync(invoiceId, invoiceNumber));
                 break;
 
             case EmailAttachmentFormat.XRechnungXmlAndPdf:
-                await AddXRechnungXmlAsync(bodyBuilder, invoiceId, invoiceNumber);
-                await AddNormalPdfAsync(bodyBuilder, invoiceId, invoiceNumber);
+                attachments.Add(await BuildXRechnungXmlAsync(invoiceId, invoiceNumber));
+                attachments.Add(await BuildNormalPdfAsync(invoiceId, invoiceNumber));
                 break;
 
             default:
@@ -63,60 +64,71 @@ public class EmailAttachmentBuilder : IEmailAttachmentBuilder
         }
 
         _logger.LogInformation("EmailAttachmentBuilder: base attachments done (InvoiceId={InvoiceId})", invoiceId);
-        await AddCustomAttachmentsAsync(bodyBuilder, invoiceId);
+        attachments.AddRange(await BuildCustomAttachmentsAsync(invoiceId));
         _logger.LogInformation("EmailAttachmentBuilder: custom attachments done (InvoiceId={InvoiceId})", invoiceId);
+
+        return attachments;
     }
 
-    private async Task AddNormalPdfAsync(BodyBuilder bodyBuilder, int invoiceId, string invoiceNumber)
+    private async Task<EmailAttachment> BuildNormalPdfAsync(int invoiceId, string invoiceNumber)
     {
         var sw = Stopwatch.StartNew();
         _logger.LogInformation("EmailAttachmentBuilder: generating PDF (InvoiceId={InvoiceId})", invoiceId);
         var pdfBytes = await _pdfGenerator.GenerateInvoicePdfAsync(invoiceId);
-        bodyBuilder.Attachments.Add(
-            $"Rechnung_{invoiceNumber}.pdf",
-            pdfBytes,
-            new ContentType("application", "pdf"));
         _logger.LogInformation(
             "EmailAttachmentBuilder: PDF ready (InvoiceId={InvoiceId}, Size={Size}, Ms={Ms})",
             invoiceId,
             pdfBytes.Length,
             sw.ElapsedMilliseconds);
+
+        return new EmailAttachment
+        {
+            FileName = $"Rechnung_{invoiceNumber}.pdf",
+            Content = pdfBytes,
+            ContentType = "application/pdf"
+        };
     }
 
-    private async Task AddZugferdPdfAsync(BodyBuilder bodyBuilder, int invoiceId, string invoiceNumber)
+    private async Task<EmailAttachment> BuildZugferdPdfAsync(int invoiceId, string invoiceNumber)
     {
         var sw = Stopwatch.StartNew();
         _logger.LogInformation("EmailAttachmentBuilder: generating ZUGFeRD PDF (InvoiceId={InvoiceId})", invoiceId);
         var zugferdPdf = await _xRechnungService.GenerateZugferdPdfAsync(invoiceId);
-        bodyBuilder.Attachments.Add(
-            $"Rechnung_{invoiceNumber}_zugferd.pdf",
-            zugferdPdf,
-            new ContentType("application", "pdf"));
         _logger.LogInformation(
             "EmailAttachmentBuilder: ZUGFeRD PDF ready (InvoiceId={InvoiceId}, Size={Size}, Ms={Ms})",
             invoiceId,
             zugferdPdf.Length,
             sw.ElapsedMilliseconds);
+
+        return new EmailAttachment
+        {
+            FileName = $"Rechnung_{invoiceNumber}_zugferd.pdf",
+            Content = zugferdPdf,
+            ContentType = "application/pdf"
+        };
     }
 
-    private async Task AddXRechnungXmlAsync(BodyBuilder bodyBuilder, int invoiceId, string invoiceNumber)
+    private async Task<EmailAttachment> BuildXRechnungXmlAsync(int invoiceId, string invoiceNumber)
     {
         var sw = Stopwatch.StartNew();
         _logger.LogInformation("EmailAttachmentBuilder: generating XRechnung XML (InvoiceId={InvoiceId})", invoiceId);
         var xmlContent = await _xRechnungService.GenerateXRechnungXmlAsync(invoiceId);
         var xmlBytes = System.Text.Encoding.UTF8.GetBytes(xmlContent);
-        bodyBuilder.Attachments.Add(
-            $"Rechnung_{invoiceNumber}_xrechnung.xml",
-            xmlBytes,
-            new ContentType("application", "xml"));
         _logger.LogInformation(
             "EmailAttachmentBuilder: XRechnung XML ready (InvoiceId={InvoiceId}, Size={Size}, Ms={Ms})",
             invoiceId,
             xmlBytes.Length,
             sw.ElapsedMilliseconds);
+
+        return new EmailAttachment
+        {
+            FileName = $"Rechnung_{invoiceNumber}_xrechnung.xml",
+            Content = xmlBytes,
+            ContentType = "application/xml"
+        };
     }
 
-    private async Task AddCustomAttachmentsAsync(BodyBuilder bodyBuilder, int invoiceId)
+    private async Task<List<EmailAttachment>> BuildCustomAttachmentsAsync(int invoiceId)
     {
         _logger.LogInformation("EmailAttachmentBuilder: loading custom attachments (InvoiceId={InvoiceId})", invoiceId);
         var attachments = await _dbContext.InvoiceAttachments
@@ -124,30 +136,13 @@ public class EmailAttachmentBuilder : IEmailAttachmentBuilder
             .Where(a => a.InvoiceId == invoiceId)
             .ToListAsync();
 
-        foreach (var attachment in attachments)
-        {
-            var contentType = ParseContentType(attachment.ContentType);
-            bodyBuilder.Attachments.Add(
-                attachment.FileName,
-                attachment.Data,
-                contentType);
-        }
-    }
-
-    private static ContentType ParseContentType(string? contentType)
-    {
-        if (!string.IsNullOrWhiteSpace(contentType))
-        {
-            try
+        return attachments
+            .Select(a => new EmailAttachment
             {
-                return ContentType.Parse(contentType);
-            }
-            catch
-            {
-                // Fallback below.
-            }
-        }
-
-        return new ContentType("application", "octet-stream");
+                FileName = a.FileName,
+                Content = a.Data,
+                ContentType = string.IsNullOrWhiteSpace(a.ContentType) ? "application/octet-stream" : a.ContentType
+            })
+            .ToList();
     }
 }
