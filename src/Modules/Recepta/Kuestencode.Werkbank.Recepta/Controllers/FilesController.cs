@@ -86,11 +86,18 @@ public class FilesController : ControllerBase
     }
 
     [HttpGet("files/{fileId:guid}")]
-    public async Task<IActionResult> Download(Guid fileId)
+    public async Task<IActionResult> Download(Guid fileId, [FromQuery] bool inline = false)
     {
         try
         {
             var (stream, fileName, contentType) = await _fileService.DownloadAsync(fileId);
+
+            if (inline)
+            {
+                Response.Headers.ContentDisposition = $"inline; filename=\"{fileName}\"";
+                return File(stream, contentType);
+            }
+
             return File(stream, contentType, fileName);
         }
         catch (InvalidOperationException ex)
