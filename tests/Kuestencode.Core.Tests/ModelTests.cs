@@ -126,46 +126,6 @@ public class ModelTests
         address.Should().Be("Kundenstraße 5\n54321 Kundenort\nDeutschland");
     }
 
-    [Fact]
-    public void SmtpConfiguration_FromCompany_ReturnsNullWhenNotConfigured()
-    {
-        // Arrange
-        var company = new Company();
-
-        // Act
-        var config = SmtpConfiguration.FromCompany(company);
-
-        // Assert
-        config.Should().BeNull();
-    }
-
-    [Fact]
-    public void SmtpConfiguration_FromCompany_ReturnsConfigWhenComplete()
-    {
-        // Arrange
-        var company = new Company
-        {
-            SmtpHost = "smtp.example.com",
-            SmtpPort = 587,
-            SmtpUseSsl = true,
-            SmtpUsername = "user",
-            SmtpPassword = "pass",
-            EmailSenderEmail = "sender@example.com",
-            EmailSenderName = "Sender Name"
-        };
-
-        // Act
-        var config = SmtpConfiguration.FromCompany(company);
-
-        // Assert
-        config.Should().NotBeNull();
-        config!.Host.Should().Be("smtp.example.com");
-        config.Port.Should().Be(587);
-        config.UseSsl.Should().BeTrue();
-        config.SenderEmail.Should().Be("sender@example.com");
-        config.SenderName.Should().Be("Sender Name");
-    }
-
     [Theory]
     [InlineData(Country.Deutschland, "DE")]
     [InlineData(Country.Oesterreich, "AT")]

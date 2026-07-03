@@ -57,6 +57,7 @@ public static class RapportModule
         services.AddScoped<TimesheetPreviewService>();
         services.AddScoped<TimesheetCsvService>();
         services.AddScoped<TimesheetEmailService>();
+        services.AddScoped<IEmailEngine, Kuestencode.Shared.ApiClients.RemoteEmailEngine>();
 
         // Fallback project service
         services.TryAddScoped<IProjectService, MockProjectService>();

@@ -4,17 +4,25 @@ using Kuestencode.Faktura.Models;
 namespace Kuestencode.Faktura.Services.Email;
 
 /// <summary>
-/// Interface for rendering email templates
+/// Interface for rendering the invoice-specific content of an email.
+/// Layout/Farben/Anrede/Grußformel/Signatur werden zentral vom Host-EmailEngine ergänzt —
+/// dieser Renderer liefert nur noch den fachlichen Inhalt (Rechnungsdetails, Bankverbindung).
 /// </summary>
 public interface IEmailTemplateRenderer
 {
     /// <summary>
-    /// Renders an HTML email body for an invoice
+    /// Renders the HTML content fragment for an invoice (details table, bank info, PDF hint).
     /// </summary>
-    string RenderHtmlBody(Invoice invoice, Company company, string? customMessage, bool includeClosing = true);
+    string RenderContentHtml(Invoice invoice, Company company);
 
     /// <summary>
-    /// Renders a plain text email body for an invoice
+    /// Renders the plain text content fragment for an invoice.
     /// </summary>
-    string RenderPlainTextBody(Invoice invoice, Company company, string? customMessage, bool includeClosing = true);
+    string RenderContentText(Invoice invoice, Company company);
+
+    /// <summary>
+    /// Bestimmt die Anrede-Überschreibung: benutzerdefinierte Nachricht > kundenspezifische
+    /// Anrede > null (Host nutzt dann den Standardgruß aus den Firmeneinstellungen).
+    /// </summary>
+    string? ResolveGreeting(Invoice invoice, string? customMessage);
 }

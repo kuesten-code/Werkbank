@@ -14,7 +14,7 @@ public class OfferteVersandService : IOfferteVersandService
 {
     private readonly IAngebotRepository _repository;
     private readonly IOffertePdfService _pdfService;
-    private readonly IEmailService _emailService;
+    private readonly IEmailEngine _emailEngine;
     private readonly ICustomerService _customerService;
     private readonly ICompanyService _companyService;
     private readonly IOfferteSettingsService _settingsService;
@@ -25,7 +25,7 @@ public class OfferteVersandService : IOfferteVersandService
     public OfferteVersandService(
         IAngebotRepository repository,
         IOffertePdfService pdfService,
-        IEmailService emailService,
+        IEmailEngine emailEngine,
         ICustomerService customerService,
         ICompanyService companyService,
         IOfferteSettingsService settingsService,
@@ -35,7 +35,7 @@ public class OfferteVersandService : IOfferteVersandService
     {
         _repository = repository;
         _pdfService = pdfService;
-        _emailService = emailService;
+        _emailEngine = emailEngine;
         _customerService = customerService;
         _companyService = companyService;
         _settingsService = settingsService;
@@ -84,27 +84,11 @@ public class OfferteVersandService : IOfferteVersandService
         // PDF erzeugen
         var pdfBytes = _pdfService.Erstelle(angebot, kunde, firma, settings);
 
-        // E-Mail-Templates mit Layout-Unterstützung
         var firmenName = firma.BusinessName ?? firma.OwnerFullName;
         var emailBetreff = betreff ?? $"Angebot {angebot.Angebotsnummer} von {firmenName}";
-
-        // Wenn eine benutzerdefinierte Nachricht angegeben wurde, verwende sie;
-        // sonst rendere HTML und Plain-Text mit dem Template-Renderer
-        string htmlBody;
-        string plainTextBody;
-
-        if (!string.IsNullOrWhiteSpace(nachricht))
-        {
-            // Benutzerdefinierte Nachricht - verwende sie als Greeting im Template
-            htmlBody = _templateRenderer.RenderHtmlBody(angebot, kunde, firma, settings, nachricht, includeClosing);
-            plainTextBody = _templateRenderer.RenderPlainTextBody(angebot, kunde, firma, settings, nachricht, includeClosing);
-        }
-        else
-        {
-            // Standard-Template verwenden
-            htmlBody = _templateRenderer.RenderHtmlBody(angebot, kunde, firma, settings, null, includeClosing);
-            plainTextBody = _templateRenderer.RenderPlainTextBody(angebot, kunde, firma, settings, null, includeClosing);
-        }
+        var greeting = _templateRenderer.ResolveGreeting(kunde, nachricht);
+        var contentHtml = _templateRenderer.RenderContentHtml(angebot);
+        var contentText = _templateRenderer.RenderContentText(angebot);
 
         try
         {
@@ -116,14 +100,16 @@ public class OfferteVersandService : IOfferteVersandService
                 ContentType = "application/pdf"
             };
 
-            await _emailService.SendEmailAsync(
+            await _emailEngine.SendEmailAsync(
                 recipientEmail: email,
                 subject: emailBetreff,
-                htmlBody: htmlBody,
-                plainTextBody: plainTextBody,
+                contentHtml: contentHtml,
+                contentText: contentText,
                 attachments: new[] { attachment },
                 ccEmails: ccEmails,
-                bccEmails: bccEmails);
+                bccEmails: bccEmails,
+                greeting: greeting,
+                includeClosing: includeClosing);
 
             // Status aktualisieren
             _statusService.Versenden(angebot);
@@ -134,8 +120,8 @@ public class OfferteVersandService : IOfferteVersandService
             await _repository.UpdateAsync(angebot);
 
             _logger.LogInformation(
-                "Angebot {Angebotsnummer} erfolgreich versendet an {Email} mit Layout {Layout}",
-                angebot.Angebotsnummer, email, settings.EmailLayout);
+                "Angebot {Angebotsnummer} erfolgreich versendet an {Email}",
+                angebot.Angebotsnummer, email);
 
             return true;
         }

@@ -4,7 +4,7 @@
 <MudPaper Elevation="2" Class="pa-6">
     <MudText Typo="Typo.h4" GutterBottom="true">E-Mail-Anpassung</MudText>
     <MudText Typo="Typo.body1" Color="Color.Secondary" Class="mb-6">
-        Passen Sie das Erscheinungsbild Ihrer @Context.DocumentTypeName-E-Mails an.
+        Passen Sie das Erscheinungsbild @Context.EmailDescription an.
     </MudText>
 
     @if (Loading)
@@ -44,7 +44,7 @@
                         <MudText Typo="Typo.h6">Betont</MudText>
                     </MudRadio>
                     <MudText Typo="Typo.body2" Color="Color.Secondary" Class="ml-8">
-                        Farbiger Header und hervorgehobener Betrag, visuell stärker.
+                        Farbiger Header und hervorgehobener Inhaltsbereich, visuell stärker.
                     </MudText>
                 </MudCardContent>
             </MudCard>
@@ -141,6 +141,16 @@
                              HelperText="Max. 500 Zeichen"
                              Counter="500"
                              MaxLength="500" />
+            </MudItem>
+            <MudItem xs="12">
+                <MudTextField Label="Signatur"
+                             Value="@Settings.Signature"
+                             ValueChanged="@((string val) => OnSignatureChanged(val))"
+                             Lines="4"
+                             Placeholder="{{Firmenname}}"
+                             HelperText="Erscheint unter der Abschiedsformel, z.B. Name und Position. Max. 2000 Zeichen"
+                             Counter="2000"
+                             MaxLength="2000" />
             </MudItem>
         </MudGrid>
 
@@ -262,6 +272,12 @@
     private void OnClosingChanged(string value)
     {
         Settings.Closing = value;
+        NotifySettingsChanged();
+    }
+
+    private void OnSignatureChanged(string value)
+    {
+        Settings.Signature = value;
         NotifySettingsChanged();
     }
 

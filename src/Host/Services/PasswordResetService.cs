@@ -98,7 +98,6 @@ public class PasswordResetService : IPasswordResetService
         var link = $"{baseUrl.TrimEnd('/')}/reset/{token}";
 
         var htmlBody = $"""
-            <p>Hallo {member.DisplayName},</p>
             <p>du hast angefordert, dein Passwort zurückzusetzen.</p>
             <p>Klicke auf den folgenden Link:<br>
             <a href="{link}">{link}</a></p>
@@ -107,8 +106,6 @@ public class PasswordResetService : IPasswordResetService
             """;
 
         var plainBody = $"""
-            Hallo {member.DisplayName},
-
             du hast angefordert, dein Passwort zurückzusetzen.
 
             Klicke auf den folgenden Link:
@@ -123,7 +120,8 @@ public class PasswordResetService : IPasswordResetService
             member.Email!,
             "Passwort zurücksetzen – Küstencode Werkbank",
             htmlBody,
-            plainBody);
+            plainBody,
+            greeting: $"Hallo {member.DisplayName},");
 
         if (!success)
             _logger.LogWarning("Reset-E-Mail konnte nicht an {Email} gesendet werden", member.Email);

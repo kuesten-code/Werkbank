@@ -1,0 +1,58 @@
+@page "/settings/email-design"
+@attribute [Authorize]
+@using Kuestencode.Core.Services
+@using Kuestencode.Shared.Contracts.Navigation
+@using Kuestencode.Shared.UI.Components.Settings
+@inject ICompanyService CompanyService
+@inject IModuleRegistry ModuleRegistry
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+
+<PageTitle>Einstellungen | E-Mail-Design - Küstencode Werkbank</PageTitle>
+
+<RoleGuard AllowedRoles="@(new List<UserRole> { UserRole.Admin })" RedirectTo="/rapport">
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4">
+    @if (_loading)
+    {
+        <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+    }
+    else
+    {
+        <MudGrid>
+            <MudItem xs="12" md="6">
+                <EmailSettingsEditor Settings="@_model"
+                                     Context="@DocumentSettingsContext.Allgemein"
+                                     Loading="@_loading"
+                                     Saving="@_saving"
+                                     SettingsChanged="@OnSettingsChanged"
+                                     OnSave="@HandleSubmit"
+                                     OnReset="@ResetToDefaults" />
+            </MudItem>
+            <MudItem xs="12" md="6">
+                <MudPaper Elevation="2" Class="pa-4">
+                    <MudText Typo="Typo.h5" GutterBottom="true">Vorschau</MudText>
+                    @if (_previewTabs.Count == 0)
+                    {
+                        <MudAlert Severity="Severity.Info">Keine Module mit E-Mail-Vorschau aktiv.</MudAlert>
+                    }
+                    else
+                    {
+                        <MudTabs Elevation="0" Rounded="true" ApplyEffectsToContainer="true">
+                            @foreach (var tab in _previewTabs)
+                            {
+                                <MudTabPanel Text="@tab.Title">
+                                    <div class="email-preview-surface">
+                                        <div class="email-preview-frame">
+                                            @((MarkupString)tab.Html)
+                                        </div>
+                                    </div>
+                                </MudTabPanel>
+                            }
+                        </MudTabs>
+                    }
+                </MudPaper>
+            </MudItem>
+        </MudGrid>
+    }
+</MudContainer>
+</RoleGuard>

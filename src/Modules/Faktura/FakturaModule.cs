@@ -49,7 +49,7 @@ public static class FakturaModule
         // Register Email Services
         services.AddScoped<IEmailTemplateRenderer, HtmlEmailTemplateRenderer>();
         services.AddScoped<IEmailAttachmentBuilder, EmailAttachmentBuilder>();
-        services.AddScoped<ISmtpClient, SmtpClientWrapper>();
+        services.AddScoped<Kuestencode.Core.Interfaces.IEmailEngine, Kuestencode.Shared.ApiClients.RemoteEmailEngine>();
         services.AddScoped<IEmailMessageBuilder, EmailMessageBuilder>();
         services.AddScoped<Services.IEmailService, EmailService>();
 
@@ -63,9 +63,6 @@ public static class FakturaModule
         services.AddScoped<BetontLayoutRenderer>();
         services.AddScoped<IPdfGeneratorService, PdfGeneratorService>();
         services.AddScoped<IPdfMergeService, PdfMergeService>();
-
-        // Register Singleton Services
-        services.AddSingleton<PasswordEncryptionService>();
 
         // Register Background Services
         services.AddHostedService<InvoiceOverdueService>();

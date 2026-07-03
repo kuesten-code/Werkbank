@@ -9,16 +9,20 @@ namespace Kuestencode.Core.Interfaces;
 public interface IEmailEngine
 {
     /// <summary>
-    /// Sendet eine Email mit optionalen Anhängen.
+    /// Sendet eine Email mit optionalen Anhängen. <paramref name="contentHtml"/>/<paramref name="contentText"/>
+    /// sind reine Inhalts-Fragmente (kein vollständiges HTML-Dokument) — Host wickelt sie in das
+    /// einheitliche Firmen-Layout (Farben, Header, Anrede, Grußformel, Signatur, Footer) ein.
     /// </summary>
     Task<bool> SendEmailAsync(
         string recipientEmail,
         string subject,
-        string htmlBody,
-        string? plainTextBody = null,
+        string contentHtml,
+        string? contentText = null,
         IEnumerable<EmailAttachment>? attachments = null,
         string? ccEmails = null,
-        string? bccEmails = null);
+        string? bccEmails = null,
+        string? greeting = null,
+        bool includeClosing = true);
 
     /// <summary>
     /// Sendet eine template-basierte Email.
@@ -66,4 +70,25 @@ public interface IEmailTemplateProvider
     /// Rendert den Plain-Text-Body des Templates.
     /// </summary>
     string RenderPlainText<TContext>(TContext context, Company company);
+}
+
+/// <summary>
+/// Ein Email-Anhang.
+/// </summary>
+public class EmailAttachment
+{
+    /// <summary>
+    /// Der Dateiname des Anhangs.
+    /// </summary>
+    public string FileName { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Der binäre Inhalt des Anhangs.
+    /// </summary>
+    public byte[] Content { get; set; } = Array.Empty<byte>();
+
+    /// <summary>
+    /// Der MIME-Content-Type (z.B. "application/pdf", "text/xml").
+    /// </summary>
+    public string ContentType { get; set; } = "application/octet-stream";
 }

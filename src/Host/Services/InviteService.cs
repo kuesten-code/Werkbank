@@ -93,7 +93,6 @@ public class InviteService : IInviteService
         var link = $"{baseUrl.TrimEnd('/')}/invite/{token}";
 
         var htmlBody = $"""
-            <p>Hallo {member.DisplayName},</p>
             <p>du wurdest zur Küstencode Werkbank eingeladen.</p>
             <p>Klicke auf den folgenden Link, um dein Passwort zu setzen:<br>
             <a href="{link}">{link}</a></p>
@@ -102,8 +101,6 @@ public class InviteService : IInviteService
             """;
 
         var plainBody = $"""
-            Hallo {member.DisplayName},
-
             du wurdest zur Küstencode Werkbank eingeladen.
 
             Klicke auf den folgenden Link, um dein Passwort zu setzen:
@@ -118,7 +115,8 @@ public class InviteService : IInviteService
             member.Email!,
             "Einladung zur Küstencode Werkbank",
             htmlBody,
-            plainBody);
+            plainBody,
+            greeting: $"Hallo {member.DisplayName},");
 
         if (!success)
             _logger.LogWarning("Einladungs-E-Mail konnte nicht an {Email} gesendet werden", member.Email);

@@ -10,6 +10,12 @@ public class DocumentSettingsContext
     public required string DocumentTypeNamePlural { get; init; }
     public required string PageTitleSuffix { get; init; }
 
+    /// <summary>
+    /// Vollständige Beschreibung für den Einleitungssatz im Email-Einstellungs-Editor,
+    /// z.B. "Ihrer Rechnungs-E-Mails" oder generisch "Ihrer E-Mails".
+    /// </summary>
+    public required string EmailDescription { get; init; }
+
     // Platzhalter für E-Mail
     public required List<PlaceholderInfo> EmailPlaceholders { get; init; }
 
@@ -25,13 +31,12 @@ public class DocumentSettingsContext
         DocumentTypeName = "Rechnung",
         DocumentTypeNamePlural = "Rechnungen",
         PageTitleSuffix = "Küstencode Faktura",
+        EmailDescription = "Ihrer Rechnungs-E-Mails",
         NoticeFieldLabel = "Zahlungshinweis",
         NoticeFieldPlaceholder = "Bitte überweisen Sie den Betrag bis zum {{Faelligkeitsdatum}} auf unser Konto.",
         EmailPlaceholders = new List<PlaceholderInfo>
         {
-            new("{{Firmenname}}", "Ihr Firmenname"),
-            new("{{Rechnungsnummer}}", "Rechnungsnummer"),
-            new("{{Faelligkeitsdatum}}", "Fälligkeitsdatum")
+            new("{{Firmenname}}", "Ihr Firmenname")
         },
         PdfPlaceholders = new List<PlaceholderInfo>
         {
@@ -49,13 +54,12 @@ public class DocumentSettingsContext
         DocumentTypeName = "Angebot",
         DocumentTypeNamePlural = "Angebote",
         PageTitleSuffix = "Küstencode Offerte",
+        EmailDescription = "Ihrer Angebots-E-Mails",
         NoticeFieldLabel = "Gültigkeitshinweis",
         NoticeFieldPlaceholder = "Dieses Angebot ist gültig bis zum {{Gueltigkeitsdatum}}.",
         EmailPlaceholders = new List<PlaceholderInfo>
         {
-            new("{{Firmenname}}", "Ihr Firmenname"),
-            new("{{Angebotsnummer}}", "Angebotsnummer"),
-            new("{{Gueltigkeitsdatum}}", "Gültigkeitsdatum")
+            new("{{Firmenname}}", "Ihr Firmenname")
         },
         PdfPlaceholders = new List<PlaceholderInfo>
         {
@@ -73,13 +77,12 @@ public class DocumentSettingsContext
         DocumentTypeName = "Tätigkeitsnachweis",
         DocumentTypeNamePlural = "Tätigkeitsnachweise",
         PageTitleSuffix = "Küstencode Rapport",
+        EmailDescription = "Ihrer Tätigkeitsnachweis-E-Mails",
         NoticeFieldLabel = "Hinweistext",
         NoticeFieldPlaceholder = "Optionaler Hinweistext für den Tätigkeitsnachweis.",
         EmailPlaceholders = new List<PlaceholderInfo>
         {
-            new("{{Firmenname}}", "Ihr Firmenname"),
-            new("{{Kundenname}}", "Kundenname"),
-            new("{{Zeitraum}}", "Berichtszeitraum")
+            new("{{Firmenname}}", "Ihr Firmenname")
         },
         PdfPlaceholders = new List<PlaceholderInfo>
         {
@@ -88,6 +91,25 @@ public class DocumentSettingsContext
             new("{{Zeitraum}}", "Berichtszeitraum"),
             new("{{Gesamtstunden}}", "Summe der Stunden")
         }
+    };
+
+    /// <summary>
+    /// Generischer Kontext für die modulübergreifende Email-Design-Seite in Host —
+    /// gilt für alle E-Mail-Arten (Rechnung, Angebot, Tätigkeitsnachweis, ...) gleichermaßen.
+    /// </summary>
+    public static DocumentSettingsContext Allgemein => new()
+    {
+        DocumentTypeName = "Dokument",
+        DocumentTypeNamePlural = "Dokumente",
+        PageTitleSuffix = "Küstencode Werkbank",
+        EmailDescription = "Ihrer E-Mails",
+        NoticeFieldLabel = "Hinweistext",
+        NoticeFieldPlaceholder = "Optionaler Hinweistext.",
+        EmailPlaceholders = new List<PlaceholderInfo>
+        {
+            new("{{Firmenname}}", "Ihr Firmenname")
+        },
+        PdfPlaceholders = new List<PlaceholderInfo>()
     };
 }
 
