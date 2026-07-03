@@ -10,8 +10,8 @@
 
   <ItemGroup>
     <!-- Email/SMTP Support -->
-    <PackageReference Include="MailKit" Version="4.9.0" />
-    <PackageReference Include="MimeKit" Version="4.9.0" />
+    <PackageReference Include="MailKit" Version="4.17.0" />
+    <PackageReference Include="MimeKit" Version="4.17.0" />
 
     <!-- Data Annotations for Validation -->
     <PackageReference Include="System.ComponentModel.Annotations" Version="5.0.0" />

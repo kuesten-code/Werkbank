@@ -15,8 +15,8 @@
     <PackageReference Include="QuestPDF" Version="2025.12.0" />
 
     <!-- Email -->
-    <PackageReference Include="MailKit" Version="4.9.0" />
-    <PackageReference Include="MimeKit" Version="4.9.0" />
+    <PackageReference Include="MailKit" Version="4.17.0" />
+    <PackageReference Include="MimeKit" Version="4.17.0" />
 
     <!-- Data Protection -->
     <PackageReference Include="Microsoft.AspNetCore.DataProtection" Version="9.0.0" />

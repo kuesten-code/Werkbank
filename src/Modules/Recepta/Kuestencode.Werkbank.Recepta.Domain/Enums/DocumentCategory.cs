@@ -38,6 +38,9 @@ public enum DocumentCategory
     Insurance = 70,
     Fees = 71,
 
+    // Anlagevermögen / Maschinen
+    Machinery = 80,
+
     // Sonstiges
     Other = 99
 }

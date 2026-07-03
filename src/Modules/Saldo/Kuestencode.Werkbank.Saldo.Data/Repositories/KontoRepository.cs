@@ -21,6 +21,12 @@ public class KontoRepository : IKontoRepository
         return await query.OrderBy(k => k.KontoNummer).ToListAsync();
     }
 
+    public async Task<Konto?> GetByIdAsync(Guid id)
+    {
+        await using var ctx = await _factory.CreateDbContextAsync();
+        return await ctx.Konten.FirstOrDefaultAsync(k => k.Id == id);
+    }
+
     public async Task<Konto?> GetByNummerAsync(string kontenrahmen, string kontoNummer)
     {
         await using var ctx = await _factory.CreateDbContextAsync();
@@ -42,6 +48,22 @@ public class KontoRepository : IKontoRepository
         await using var ctx = await _factory.CreateDbContextAsync();
         await ctx.Konten.AddRangeAsync(konten);
         await ctx.SaveChangesAsync();
+    }
+
+    public async Task<Konto> AddAsync(Konto konto)
+    {
+        await using var ctx = await _factory.CreateDbContextAsync();
+        ctx.Konten.Add(konto);
+        await ctx.SaveChangesAsync();
+        return konto;
+    }
+
+    public async Task<Konto> UpdateAsync(Konto konto)
+    {
+        await using var ctx = await _factory.CreateDbContextAsync();
+        ctx.Konten.Update(konto);
+        await ctx.SaveChangesAsync();
+        return konto;
     }
 
     public async Task<bool> ExistsAsync(string kontenrahmen, string kontoNummer)

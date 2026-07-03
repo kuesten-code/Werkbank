@@ -68,6 +68,52 @@ public class SettingsController : ControllerBase
     }
 
     /// <summary>
+    /// Legt ein neues Konto im Kontenstamm an.
+    /// </summary>
+    [HttpPost("konten")]
+    public async Task<ActionResult<KontoDto>> CreateKonto([FromBody] CreateKontoDto dto)
+    {
+        try
+        {
+            var result = await _kontoService.CreateKontoAsync(dto);
+            return Ok(result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Fehler beim Anlegen des Kontos {KontoNummer}", dto.KontoNummer);
+            return StatusCode(500, "Fehler beim Anlegen des Kontos.");
+        }
+    }
+
+    /// <summary>
+    /// Aktualisiert Bezeichnung, Typ, USt-Satz und Aktiv-Status eines bestehenden Kontos.
+    /// Kontenrahmen und Kontonummer sind der fachliche Schlüssel und nicht änderbar.
+    /// </summary>
+    [HttpPut("konten/{id:guid}")]
+    public async Task<ActionResult<KontoDto>> UpdateKonto(Guid id, [FromBody] UpdateKontoDto dto)
+    {
+        try
+        {
+            var result = await _kontoService.UpdateKontoAsync(id, dto);
+            if (result == null) return NotFound();
+            return Ok(result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Fehler beim Aktualisieren des Kontos {Id}", id);
+            return StatusCode(500, "Fehler beim Aktualisieren des Kontos.");
+        }
+    }
+
+    /// <summary>
     /// Gibt das aktuelle Kategorie-Konto-Mapping zurück.
     /// Enthält Standard-Mappings, IsCustom=true markiert manuell überschriebene Einträge.
     /// </summary>

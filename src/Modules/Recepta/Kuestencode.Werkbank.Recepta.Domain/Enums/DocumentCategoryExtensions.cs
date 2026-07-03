@@ -21,6 +21,7 @@ public static class DocumentCategoryExtensions
         DocumentCategory.Phone => "Telefon & Internet",
         DocumentCategory.Insurance => "Versicherungen",
         DocumentCategory.Fees => "Beiträge & Gebühren",
+        DocumentCategory.Machinery => "Maschinen, Werkzeuge & Ersatzteile",
         DocumentCategory.Other => "Sonstige Kosten",
         _ => category.ToString()
     };
@@ -36,6 +37,7 @@ public static class DocumentCategoryExtensions
         DocumentCategory.Marketing => "Marketing",
         DocumentCategory.Office or DocumentCategory.Software or DocumentCategory.Phone => "Büro & IT",
         DocumentCategory.Insurance or DocumentCategory.Fees => "Versicherungen & Beiträge",
+        DocumentCategory.Machinery => "Maschinen & Werkzeuge",
         _ => "Sonstiges"
     };
 }

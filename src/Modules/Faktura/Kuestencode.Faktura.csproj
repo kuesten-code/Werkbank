@@ -22,8 +22,8 @@
     <PackageReference Include="itext7.bouncy-castle-adapter" Version="8.0.5" />
 
     <!-- Email -->
-    <PackageReference Include="MailKit" Version="4.9.0" />
-    <PackageReference Include="MimeKit" Version="4.9.0" />
+    <PackageReference Include="MailKit" Version="4.17.0" />
+    <PackageReference Include="MimeKit" Version="4.17.0" />
 
     <!-- Data Protection -->
     <PackageReference Include="Microsoft.AspNetCore.DataProtection" Version="9.0.0" />

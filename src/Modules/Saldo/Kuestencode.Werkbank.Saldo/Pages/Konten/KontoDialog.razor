@@ -1,0 +1,102 @@
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">@(IsEdit ? "Konto bearbeiten" : "Neues Konto")</MudText>
+    </TitleContent>
+
+    <DialogContent>
+        <MudStack Spacing="4">
+            <MudSelect T="string" @bind-Value="_kontenrahmen" Label="Kontenrahmen"
+                       Variant="Variant.Outlined" ReadOnly="@IsEdit">
+                <MudSelectItem T="string" Value="@("SKR03")">SKR03</MudSelectItem>
+                <MudSelectItem T="string" Value="@("SKR04")">SKR04</MudSelectItem>
+            </MudSelect>
+            <MudTextField @bind-Value="_kontoNummer" Label="Kontonummer"
+                          Variant="Variant.Outlined" ReadOnly="@IsEdit" />
+            <MudTextField @bind-Value="_kontoBezeichnung" Label="Bezeichnung" Variant="Variant.Outlined" />
+            <MudSelect T="KontoTyp" @bind-Value="_kontoTyp" Label="Typ" Variant="Variant.Outlined">
+                @foreach (var typ in Enum.GetValues<KontoTyp>())
+                {
+                    <MudSelectItem T="KontoTyp" Value="@typ">@typ</MudSelectItem>
+                }
+            </MudSelect>
+            <MudNumericField @bind-Value="_ustSatz" Label="USt-Satz (%)" Variant="Variant.Outlined"
+                              Min="0" Max="100" T="decimal?" />
+            @if (IsEdit)
+            {
+                <MudSwitch @bind-Value="_isActive" T="bool" Color="Color.Success" Label="Aktiv" />
+            }
+        </MudStack>
+    </DialogContent>
+
+    <DialogActions>
+        <MudButton OnClick="Cancel">Abbrechen</MudButton>
+        <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="Confirm"
+                   Disabled="@(string.IsNullOrWhiteSpace(_kontoNummer) || string.IsNullOrWhiteSpace(_kontoBezeichnung))">
+            Speichern
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter]
+    public IMudDialogInstance Dialog { get; set; } = default!;
+
+    [Parameter]
+    public KontoDto? ExistingKonto { get; set; }
+
+    [Parameter]
+    public string DefaultKontenrahmen { get; set; } = "SKR03";
+
+    private bool IsEdit => ExistingKonto != null;
+
+    private string _kontenrahmen = "SKR03";
+    private string _kontoNummer = string.Empty;
+    private string _kontoBezeichnung = string.Empty;
+    private KontoTyp _kontoTyp = KontoTyp.Ausgabe;
+    private decimal? _ustSatz;
+    private bool _isActive = true;
+
+    protected override void OnInitialized()
+    {
+        if (ExistingKonto != null)
+        {
+            _kontenrahmen = ExistingKonto.Kontenrahmen;
+            _kontoNummer = ExistingKonto.KontoNummer;
+            _kontoBezeichnung = ExistingKonto.KontoBezeichnung;
+            _kontoTyp = Enum.Parse<KontoTyp>(ExistingKonto.KontoTyp);
+            _ustSatz = ExistingKonto.UstSatz;
+            _isActive = ExistingKonto.IsActive;
+        }
+        else
+        {
+            _kontenrahmen = DefaultKontenrahmen;
+        }
+    }
+
+    void Cancel() => Dialog.Cancel();
+
+    void Confirm()
+    {
+        if (IsEdit)
+        {
+            Dialog.Close(DialogResult.Ok(new UpdateKontoDto
+            {
+                KontoBezeichnung = _kontoBezeichnung,
+                KontoTyp = _kontoTyp.ToString(),
+                UstSatz = _ustSatz,
+                IsActive = _isActive
+            }));
+        }
+        else
+        {
+            Dialog.Close(DialogResult.Ok(new CreateKontoDto
+            {
+                Kontenrahmen = _kontenrahmen,
+                KontoNummer = _kontoNummer,
+                KontoBezeichnung = _kontoBezeichnung,
+                KontoTyp = _kontoTyp.ToString(),
+                UstSatz = _ustSatz
+            }));
+        }
+    }
+}

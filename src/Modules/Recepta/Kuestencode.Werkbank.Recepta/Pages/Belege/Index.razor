@@ -86,6 +86,7 @@
                     <MudSelectItem T="string" Value="@("Phone")">Telefon & Internet</MudSelectItem>
                     <MudSelectItem T="string" Value="@("Insurance")">Versicherungen</MudSelectItem>
                     <MudSelectItem T="string" Value="@("Fees")">Beiträge & Gebühren</MudSelectItem>
+                    <MudSelectItem T="string" Value="@("Machinery")">Maschinen, Werkzeuge & Ersatzteile</MudSelectItem>
                     <MudSelectItem T="string" Value="@("Other")">Sonstige Kosten</MudSelectItem>
                 </MudSelect>
             </MudItem>
@@ -620,6 +621,7 @@
         "Phone" => "Telefon & Internet",
         "Insurance" => "Versicherungen",
         "Fees" => "Beiträge & Gebühren",
+        "Machinery" => "Maschinen, Werkzeuge & Ersatzteile",
         "Other" => "Sonstige Kosten",
         _ => category
     };
@@ -634,6 +636,7 @@
         "Marketing" => Color.Success,
         "Office" or "Software" or "Phone" => Color.Info,
         "Insurance" or "Fees" => Color.Error,
+        "Machinery" => Color.Dark,
         _ => Color.Default
     };
 
