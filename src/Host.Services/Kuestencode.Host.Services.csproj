@@ -18,8 +18,8 @@
     </PackageReference>
 
     <!-- Email/SMTP Support -->
-    <PackageReference Include="MailKit" Version="4.9.0" />
-    <PackageReference Include="MimeKit" Version="4.9.0" />
+    <PackageReference Include="MailKit" Version="4.17.0" />
+    <PackageReference Include="MimeKit" Version="4.17.0" />
 
     <!-- PDF Generation -->
     <PackageReference Include="QuestPDF" Version="2025.12.0" />

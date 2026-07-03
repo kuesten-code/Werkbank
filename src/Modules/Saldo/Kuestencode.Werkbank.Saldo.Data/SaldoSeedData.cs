@@ -75,6 +75,7 @@ public static class SaldoSeedData
         new Konto { Id = Guid.NewGuid(), Kontenrahmen = "SKR03", KontoNummer = "4360", KontoBezeichnung = "Versicherungen",                KontoTyp = KontoTyp.Ausgabe },
         new Konto { Id = Guid.NewGuid(), Kontenrahmen = "SKR03", KontoNummer = "4380", KontoBezeichnung = "Beiträge und Gebühren",         KontoTyp = KontoTyp.Ausgabe },
         new Konto { Id = Guid.NewGuid(), Kontenrahmen = "SKR03", KontoNummer = "4900", KontoBezeichnung = "Fremdleistungen",               KontoTyp = KontoTyp.Ausgabe },
+        new Konto { Id = Guid.NewGuid(), Kontenrahmen = "SKR03", KontoNummer = "4855", KontoBezeichnung = "Maschinen, Werkzeuge und Ersatzteile", KontoTyp = KontoTyp.Ausgabe, UstSatz = 19 },
         new Konto { Id = Guid.NewGuid(), Kontenrahmen = "SKR03", KontoNummer = "4950", KontoBezeichnung = "Sonstige Kosten",               KontoTyp = KontoTyp.Ausgabe },
     ];
 
@@ -101,6 +102,7 @@ public static class SaldoSeedData
         new Konto { Id = Guid.NewGuid(), Kontenrahmen = "SKR04", KontoNummer = "6400", KontoBezeichnung = "Versicherungen",               KontoTyp = KontoTyp.Ausgabe },
         new Konto { Id = Guid.NewGuid(), Kontenrahmen = "SKR04", KontoNummer = "6420", KontoBezeichnung = "Beiträge und Gebühren",        KontoTyp = KontoTyp.Ausgabe },
         new Konto { Id = Guid.NewGuid(), Kontenrahmen = "SKR04", KontoNummer = "6300", KontoBezeichnung = "Fremdleistungen",              KontoTyp = KontoTyp.Ausgabe },
+        new Konto { Id = Guid.NewGuid(), Kontenrahmen = "SKR04", KontoNummer = "6260", KontoBezeichnung = "Maschinen, Werkzeuge und Ersatzteile", KontoTyp = KontoTyp.Ausgabe, UstSatz = 19 },
         new Konto { Id = Guid.NewGuid(), Kontenrahmen = "SKR04", KontoNummer = "6830", KontoBezeichnung = "Sonstige Kosten",              KontoTyp = KontoTyp.Ausgabe },
     ];
 
@@ -140,6 +142,7 @@ public static class SaldoSeedData
         new KategorieKontoMapping { Id = Guid.NewGuid(), Kontenrahmen = "SKR03", ReceiptaKategorie = nameof(DocumentCategory.Phone),         KontoNummer = "4920" },
         new KategorieKontoMapping { Id = Guid.NewGuid(), Kontenrahmen = "SKR03", ReceiptaKategorie = nameof(DocumentCategory.Insurance),     KontoNummer = "4360" },
         new KategorieKontoMapping { Id = Guid.NewGuid(), Kontenrahmen = "SKR03", ReceiptaKategorie = nameof(DocumentCategory.Fees),          KontoNummer = "4380" },
+        new KategorieKontoMapping { Id = Guid.NewGuid(), Kontenrahmen = "SKR03", ReceiptaKategorie = nameof(DocumentCategory.Machinery),     KontoNummer = "4855" },
         new KategorieKontoMapping { Id = Guid.NewGuid(), Kontenrahmen = "SKR03", ReceiptaKategorie = nameof(DocumentCategory.Other),         KontoNummer = "4950" },
     ];
 
@@ -159,6 +162,7 @@ public static class SaldoSeedData
         new KategorieKontoMapping { Id = Guid.NewGuid(), Kontenrahmen = "SKR04", ReceiptaKategorie = nameof(DocumentCategory.Phone),         KontoNummer = "6805" },
         new KategorieKontoMapping { Id = Guid.NewGuid(), Kontenrahmen = "SKR04", ReceiptaKategorie = nameof(DocumentCategory.Insurance),     KontoNummer = "6400" },
         new KategorieKontoMapping { Id = Guid.NewGuid(), Kontenrahmen = "SKR04", ReceiptaKategorie = nameof(DocumentCategory.Fees),          KontoNummer = "6420" },
+        new KategorieKontoMapping { Id = Guid.NewGuid(), Kontenrahmen = "SKR04", ReceiptaKategorie = nameof(DocumentCategory.Machinery),     KontoNummer = "6260" },
         new KategorieKontoMapping { Id = Guid.NewGuid(), Kontenrahmen = "SKR04", ReceiptaKategorie = nameof(DocumentCategory.Other),         KontoNummer = "6830" },
     ];
 }

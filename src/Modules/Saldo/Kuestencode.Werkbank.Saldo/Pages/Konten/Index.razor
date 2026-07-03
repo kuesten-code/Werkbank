@@ -1,6 +1,7 @@
 @page "/konten"
 @inject IKontoService KontoService
 @inject ISnackbar Snackbar
+@inject IDialogService DialogService
 
 <PageTitle>Saldo - Konten & Mappings</PageTitle>
 
@@ -75,15 +76,25 @@
             }
             else
             {
+                <MudStack Row="true" Justify="Justify.FlexEnd" Class="mt-3">
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                               StartIcon="@Icons.Material.Filled.Add"
+                               OnClick="OpenCreateKontoDialog">
+                        Neues Konto
+                    </MudButton>
+                </MudStack>
                 <MudTable Items="_konten" Dense="true" Hover="true" Elevation="0" Class="mt-3">
                     <HeaderContent>
+                        <MudTh>Kontenrahmen</MudTh>
                         <MudTh>Nummer</MudTh>
                         <MudTh>Bezeichnung</MudTh>
                         <MudTh>Typ</MudTh>
                         <MudTh>USt-Satz</MudTh>
                         <MudTh>Aktiv</MudTh>
+                        <MudTh>Aktionen</MudTh>
                     </HeaderContent>
                     <RowTemplate>
+                        <MudTd>@context.Kontenrahmen</MudTd>
                         <MudTd>@context.KontoNummer</MudTd>
                         <MudTd>@context.KontoBezeichnung</MudTd>
                         <MudTd>@context.KontoTyp</MudTd>
@@ -91,6 +102,10 @@
                         <MudTd>
                             <MudIcon Icon="@(context.IsActive ? Icons.Material.Filled.CheckCircle : Icons.Material.Filled.Cancel)"
                                     Color="@(context.IsActive ? Color.Success : Color.Error)" Size="Size.Small" />
+                        </MudTd>
+                        <MudTd>
+                            <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary"
+                                          Size="Size.Small" OnClick="@(() => OpenEditKontoDialog(context))" />
                         </MudTd>
                     </RowTemplate>
                 </MudTable>
@@ -117,6 +132,47 @@
     {
         _konten = await KontoService.GetKontenAsync();
         _loadingKonten = false;
+    }
+
+    private async Task OpenCreateKontoDialog()
+    {
+        var parameters = new DialogParameters();
+        var dialog = await DialogService.ShowAsync<KontoDialog>("Neues Konto", parameters);
+        var result = await dialog.Result;
+        if (result is null || result.Canceled) return;
+
+        try
+        {
+            await KontoService.CreateKontoAsync((CreateKontoDto)result.Data!);
+            Snackbar.Add("Konto angelegt.", Severity.Success);
+            await LoadKontenAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Fehler: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task OpenEditKontoDialog(KontoDto konto)
+    {
+        var parameters = new DialogParameters
+        {
+            { nameof(KontoDialog.ExistingKonto), konto }
+        };
+        var dialog = await DialogService.ShowAsync<KontoDialog>("Konto bearbeiten", parameters);
+        var result = await dialog.Result;
+        if (result is null || result.Canceled) return;
+
+        try
+        {
+            await KontoService.UpdateKontoAsync(konto.Id, (UpdateKontoDto)result.Data!);
+            Snackbar.Add("Konto aktualisiert.", Severity.Success);
+            await LoadKontenAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Fehler: {ex.Message}", Severity.Error);
+        }
     }
 
     private async Task LoadMappingsAsync()

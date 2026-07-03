@@ -7,4 +7,6 @@ public interface IKontoService
     Task<List<KontoDto>> GetKontenAsync(string? kontenrahmen = null);
     Task<List<KategorieKontoMappingDto>> GetMappingsAsync(string? kontenrahmen = null);
     Task<KategorieKontoMappingDto?> UpdateMappingAsync(Guid id, UpdateKategorieKontoMappingDto dto);
+    Task<KontoDto> CreateKontoAsync(CreateKontoDto dto);
+    Task<KontoDto?> UpdateKontoAsync(Guid id, UpdateKontoDto dto);
 }

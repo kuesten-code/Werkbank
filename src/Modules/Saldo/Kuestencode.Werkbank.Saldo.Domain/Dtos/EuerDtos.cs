@@ -89,6 +89,30 @@ public class UpdateKategorieKontoMappingDto
 }
 
 /// <summary>
+/// DTO zum Anlegen eines neuen Kontos.
+/// </summary>
+public class CreateKontoDto
+{
+    public string Kontenrahmen { get; set; } = string.Empty;
+    public string KontoNummer { get; set; } = string.Empty;
+    public string KontoBezeichnung { get; set; } = string.Empty;
+    public string KontoTyp { get; set; } = string.Empty;
+    public decimal? UstSatz { get; set; }
+}
+
+/// <summary>
+/// DTO zum Bearbeiten eines bestehenden Kontos.
+/// Kontenrahmen/KontoNummer sind der fachliche Schlüssel und nicht änderbar.
+/// </summary>
+public class UpdateKontoDto
+{
+    public string KontoBezeichnung { get; set; } = string.Empty;
+    public string KontoTyp { get; set; } = string.Empty;
+    public decimal? UstSatz { get; set; }
+    public bool IsActive { get; set; }
+}
+
+/// <summary>
 /// DTO für Saldo-Einstellungen.
 /// </summary>
 public class SaldoSettingsDto
