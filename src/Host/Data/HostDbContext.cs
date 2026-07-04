@@ -121,6 +121,8 @@ public class HostDbContext : DbContext
                 .WithMany()
                 .HasForeignKey(m => m.MitarbeiterRolleId)
                 .OnDelete(DeleteBehavior.SetNull);
+
+            entity.Property(m => m.Kostensatz).HasPrecision(10, 2).HasDefaultValue(0m);
         });
 
         // WerkbankSettings Konfiguration

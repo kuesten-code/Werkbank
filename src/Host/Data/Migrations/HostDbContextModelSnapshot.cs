@@ -389,13 +389,19 @@ namespace Kuestencode.Werkbank.Host.Data.Migrations
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean");
 
-                    b.Property<bool>("IsOffline")
-                        .HasColumnType("boolean");
-
                     b.Property<bool>("IsLockedByAdmin")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("boolean")
                         .HasDefaultValue(false);
+
+                    b.Property<bool>("IsOffline")
+                        .HasColumnType("boolean");
+
+                    b.Property<decimal>("Kostensatz")
+                        .ValueGeneratedOnAdd()
+                        .HasPrecision(10, 2)
+                        .HasColumnType("numeric(10,2)")
+                        .HasDefaultValue(0m);
 
                     b.Property<DateTime?>("LockoutUntil")
                         .HasColumnType("timestamp with time zone");

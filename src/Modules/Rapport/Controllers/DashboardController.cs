@@ -102,4 +102,51 @@ public class DashboardController : ControllerBase
             InvoicedStundenByRolle = ToList(invoicedByRolle)
         });
     }
+
+    [HttpGet("projects/{projectId:int}/hours/by-member")]
+    public async Task<ActionResult<ProjectHoursByMemberResponseDto>> GetProjectHoursByMember(int projectId)
+    {
+        var entries = await _dashboardService.GetEntriesAsync(
+            DateTime.MinValue,
+            DateTime.UtcNow,
+            customerIds: null,
+            projectIds: new[] { projectId });
+
+        var settings = await _settingsService.GetSettingsAsync();
+        var roundingMinutes = settings.RoundingMinutes;
+        var now = DateTime.UtcNow;
+
+        var byMember = new Dictionary<Guid, (string Name, decimal Stunden)>();
+
+        foreach (var entry in entries)
+        {
+            var gross = (entry.EndTime ?? now) - entry.StartTime;
+            var net = gross - TimeSpan.FromMinutes(entry.BreakMinutes);
+            if (net < TimeSpan.Zero) net = TimeSpan.Zero;
+            var duration = roundingMinutes > 0 ? _roundingService.RoundDuration(net, roundingMinutes) : net;
+
+            var stunden = (decimal)duration.TotalHours;
+            var memberId = entry.TeamMemberId ?? Guid.Empty;
+            var memberName = entry.TeamMemberName ?? "Unbekannt";
+
+            if (byMember.TryGetValue(memberId, out var existing))
+                byMember[memberId] = (existing.Name, existing.Stunden + stunden);
+            else
+                byMember[memberId] = (memberName, stunden);
+        }
+
+        return Ok(new ProjectHoursByMemberResponseDto
+        {
+            ProjectId = projectId,
+            StundenByMitarbeiter = byMember
+                .Select(kvp => new ProjectHoursByMemberDto
+                {
+                    TeamMemberId = kvp.Key,
+                    TeamMemberName = kvp.Value.Name,
+                    Stunden = Math.Round(kvp.Value.Stunden, 2)
+                })
+                .OrderBy(m => m.TeamMemberName)
+                .ToList()
+        });
+    }
 }
