@@ -12,19 +12,22 @@ public class StundensatzService : IStundensatzService
     private readonly IProjektBerechneterAufwandRepository _aufwandRepo;
     private readonly IRapportApiClient _rapportClient;
     private readonly IReceptaApiClient _receptaClient;
+    private readonly IHostApiClient _hostClient;
 
     public StundensatzService(
         IProjektStundensatzRepository repo,
         IProjectRepository projectRepo,
         IProjektBerechneterAufwandRepository aufwandRepo,
         IRapportApiClient rapportClient,
-        IReceptaApiClient receptaClient)
+        IReceptaApiClient receptaClient,
+        IHostApiClient hostClient)
     {
         _repo = repo;
         _projectRepo = projectRepo;
         _aufwandRepo = aufwandRepo;
         _rapportClient = rapportClient;
         _receptaClient = receptaClient;
+        _hostClient = hostClient;
     }
 
     public async Task<List<StundensatzDto>> GetStundensaetzeAsync(Guid projektId)
@@ -139,6 +142,35 @@ public class StundensatzService : IStundensatzService
                 Stunden = 0,
                 Stundensatz = satz.Stundensatz
             });
+        }
+
+        // Arbeitszeitkosten personenscharf: geleistete Stunden je Mitarbeiter × dessen Kostensatz
+        if (project?.ExternalId.HasValue == true)
+        {
+            try
+            {
+                var mitarbeiterStunden = await _rapportClient.GetProjectHoursByMemberAsync(project.ExternalId.Value);
+                if (mitarbeiterStunden != null && mitarbeiterStunden.StundenByMitarbeiter.Count > 0)
+                {
+                    var kostensaetze = (await _hostClient.GetTeamMembersAsync())
+                        .ToDictionary(m => m.Id, m => m.Kostensatz);
+
+                    foreach (var eintrag in mitarbeiterStunden.StundenByMitarbeiter.Where(e => e.Stunden > 0))
+                    {
+                        abrechnung.Arbeitskosten.Add(new MitarbeiterKostenPosition
+                        {
+                            MitarbeiterId = eintrag.TeamMemberId,
+                            MitarbeiterName = eintrag.TeamMemberName,
+                            Stunden = eintrag.Stunden,
+                            Kostensatz = kostensaetze.TryGetValue(eintrag.TeamMemberId, out var satz) ? satz : 0m
+                        });
+                    }
+                }
+            }
+            catch
+            {
+                // Rapport/Host nicht erreichbar → Arbeitszeitkosten bleiben leer
+            }
         }
 
         try

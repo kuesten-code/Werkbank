@@ -134,6 +134,7 @@ public class TeamMemberService : ITeamMemberService
             existing.Email = member.IsOffline ? null : (string.IsNullOrWhiteSpace(member.Email) ? null : member.Email);
             existing.IsActive = member.IsActive;
             existing.Role = member.IsOffline ? UserRole.Mitarbeiter : member.Role;
+            existing.Kostensatz = member.Kostensatz;
             existing.IsLockedByAdmin = member.IsLockedByAdmin;
             existing.FailedLoginAttempts = member.FailedLoginAttempts;
             existing.LockoutUntil = member.LockoutUntil;

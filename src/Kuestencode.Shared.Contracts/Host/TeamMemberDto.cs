@@ -13,4 +13,5 @@ public class TeamMemberDto
     public bool IsOffline { get; set; }
     public int? MitarbeiterRolleId { get; set; }
     public string? MitarbeiterRolleName { get; set; }
+    public decimal Kostensatz { get; set; }
 }

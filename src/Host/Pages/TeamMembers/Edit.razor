@@ -90,6 +90,12 @@
                     </MudItem>
 
                     <MudItem xs="12">
+                        <MudNumericField T="decimal" Label="Kostensatz (€/h)" @bind-Value="_member.Kostensatz"
+                                         Min="0" Format="N2" HideSpinButtons="true"
+                                         HelperText="Interner Stundensatz für die Projektkalkulation (Lohn + Lohnnebenkosten)." />
+                    </MudItem>
+
+                    <MudItem xs="12">
                         <MudCheckBox @bind-Value="_member.IsActive" Label="Aktiv" />
                     </MudItem>
 

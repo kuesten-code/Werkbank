@@ -201,10 +201,12 @@
 
                 <!-- Tab 3: Übersicht (Placeholder) -->
                 <MudTabPanel Text="Übersicht" Icon="@Icons.Material.Filled.Dashboard">
-                    @if (_fakturaAvailable || _receptaAvailable)
+                    @if (_fakturaAvailable || _receptaAvailable || _rapportAvailable)
                     {
                         var einnahmen = _projectInvoices?.TotalNet ?? 0m;
-                        var ausgaben = _projectExpenses?.TotalNet ?? 0m;
+                        var material = _projectExpenses?.TotalNet ?? 0m;
+                        var arbeit = _projektAbrechnung?.ArbeitszeitkostenNetto ?? 0m;
+                        var ausgaben = material + arbeit;
                         var saldo = einnahmen - ausgaben;
                         <MudPaper Class="pa-3 mb-4" Elevation="1">
                             <MudGrid>
@@ -215,6 +217,16 @@
                                 <MudItem xs="12" sm="4" Class="d-flex flex-column align-center">
                                     <MudText Typo="Typo.caption" Color="Color.Secondary">Ausgaben (netto)</MudText>
                                     <MudText Typo="Typo.h6" Color="Color.Error">@ausgaben.ToString("N2", _culture) €</MudText>
+                                    @if (arbeit > 0 && material > 0)
+                                    {
+                                        <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                            Material @material.ToString("N2", _culture) € + Arbeit @arbeit.ToString("N2", _culture) €
+                                        </MudText>
+                                    }
+                                    else if (arbeit > 0)
+                                    {
+                                        <MudText Typo="Typo.caption" Color="Color.Secondary">davon Arbeit @arbeit.ToString("N2", _culture) €</MudText>
+                                    }
                                 </MudItem>
                                 <MudItem xs="12" sm="4" Class="d-flex flex-column align-center">
                                     <MudText Typo="Typo.caption" Color="Color.Secondary">Saldo (netto)</MudText>
@@ -389,6 +401,52 @@
                                         <td style="text-align:right"><strong>@gesamtStunden.ToString("N1", _culture) h</strong></td>
                                         <td></td>
                                         <td style="text-align:right"><strong>@arbeitNetto.ToString("N2", _culture) €</strong></td>
+                                    </tr>
+                                </tbody>
+                            </MudSimpleTable>
+                        </MudPaper>
+                    }
+
+                    @if (_rapportAvailable && _projektAbrechnung != null && _projektAbrechnung.Arbeitskosten.Count > 0)
+                    {
+                        <MudPaper Class="pa-4 mt-4" Elevation="2">
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-3">
+                                <MudIcon Icon="@Icons.Material.Filled.Payments" Color="Color.Error" />
+                                <MudText Typo="Typo.h6">Arbeitszeitkosten</MudText>
+                            </MudStack>
+                            <MudSimpleTable Dense="true">
+                                <thead>
+                                    <tr>
+                                        <th>Mitarbeiter</th>
+                                        <th style="text-align:right">Stunden</th>
+                                        <th style="text-align:right">Kostensatz</th>
+                                        <th style="text-align:right">Kosten</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var pos in _projektAbrechnung.Arbeitskosten)
+                                    {
+                                        <tr>
+                                            <td>@pos.MitarbeiterName</td>
+                                            <td style="text-align:right">@pos.Stunden.ToString("N1", _culture) h</td>
+                                            <td style="text-align:right">
+                                                @if (pos.Kostensatz > 0)
+                                                {
+                                                    <text>@pos.Kostensatz.ToString("N2", _culture) €</text>
+                                                }
+                                                else
+                                                {
+                                                    <MudText Color="Color.Warning" Typo="Typo.caption">Kein Kostensatz hinterlegt</MudText>
+                                                }
+                                            </td>
+                                            <td style="text-align:right">@pos.Betrag.ToString("N2", _culture) €</td>
+                                        </tr>
+                                    }
+                                    <tr style="border-top: 1px solid rgba(0,0,0,0.12);">
+                                        <td><strong>Gesamt</strong></td>
+                                        <td style="text-align:right"><strong>@_projektAbrechnung.Arbeitskosten.Sum(p => p.Stunden).ToString("N1", _culture) h</strong></td>
+                                        <td></td>
+                                        <td style="text-align:right"><strong>@_projektAbrechnung.ArbeitszeitkostenNetto.ToString("N2", _culture) €</strong></td>
                                     </tr>
                                 </tbody>
                             </MudSimpleTable>

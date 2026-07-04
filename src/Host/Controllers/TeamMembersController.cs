@@ -86,7 +86,8 @@ public class TeamMembersController : ControllerBase
         IsActive = member.IsActive,
         IsOffline = member.IsOffline,
         MitarbeiterRolleId = member.MitarbeiterRolleId,
-        MitarbeiterRolleName = member.MitarbeiterRolle?.Name
+        MitarbeiterRolleName = member.MitarbeiterRolle?.Name,
+        Kostensatz = member.Kostensatz
     };
 }
 

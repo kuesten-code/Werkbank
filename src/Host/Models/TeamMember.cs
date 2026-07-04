@@ -33,6 +33,12 @@ public class TeamMember
     public int? MitarbeiterRolleId { get; set; }
     public MitarbeiterRolle? MitarbeiterRolle { get; set; }
 
+    /// <summary>
+    /// Interner Kostensatz (€/h) für die Projektkalkulation (Lohn + Lohnnebenkosten).
+    /// Pro Mitarbeiter, da individuell verhandelt.
+    /// </summary>
+    public decimal Kostensatz { get; set; }
+
     public string? PasswordHash { get; set; }
 
     // Einladung

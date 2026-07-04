@@ -1,4 +1,5 @@
 using FluentAssertions;
+using Kuestencode.Core.Enums;
 using Kuestencode.Werkbank.Offerte.Data;
 using Kuestencode.Werkbank.Offerte.Domain.Entities;
 using Kuestencode.Werkbank.Offerte.Domain.Enums;

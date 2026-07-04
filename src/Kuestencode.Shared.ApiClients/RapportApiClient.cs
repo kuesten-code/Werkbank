@@ -67,6 +67,20 @@ public class RapportApiClient : IRapportApiClient
         }
     }
 
+    public async Task<ProjectHoursByMemberResponseDto?> GetProjectHoursByMemberAsync(int projectId)
+    {
+        try
+        {
+            var response = await _httpClient.GetAsync($"/api/dashboard/projects/{projectId}/hours/by-member").ConfigureAwait(false);
+            if (!response.IsSuccessStatusCode) return null;
+            return await response.Content.ReadFromJsonAsync<ProjectHoursByMemberResponseDto>().ConfigureAwait(false);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
     public async Task MarkProjectTimeEntriesAsInvoicedAsync(int projectId)
     {
         var response = await _httpClient.PostAsync($"/api/rapport/entries/project/{projectId}/mark-invoiced", null).ConfigureAwait(false);
