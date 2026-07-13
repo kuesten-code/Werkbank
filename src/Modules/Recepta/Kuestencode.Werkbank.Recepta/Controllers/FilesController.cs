@@ -2,6 +2,7 @@ using Kuestencode.Werkbank.Recepta.Domain.Dtos;
 using Kuestencode.Werkbank.Recepta.Services;
 using Kuestencode.Shared.Contracts.Recepta;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Net.Http.Headers;
 
 namespace Kuestencode.Werkbank.Recepta.Controllers;
 
@@ -94,7 +95,9 @@ public class FilesController : ControllerBase
 
             if (inline)
             {
-                Response.Headers.ContentDisposition = $"inline; filename=\"{fileName}\"";
+                var contentDisposition = new ContentDispositionHeaderValue("inline");
+                contentDisposition.SetHttpFileName(fileName);
+                Response.Headers.ContentDisposition = contentDisposition.ToString();
                 return File(stream, contentType);
             }
 
