@@ -37,6 +37,7 @@ public static class HostModule
         services.AddScoped<IPasswordResetService, PasswordResetService>();
         services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<IWerkbankSettingsService, WerkbankSettingsService>();
+        services.AddScoped<INumberFormatSettingsService, NumberFormatSettingsService>();
         services.AddScoped<ISetupService, SetupService>();
         services.AddSingleton<IJwtTokenService, JwtTokenService>();
         services.AddScoped<IMobileTokenService, MobileTokenService>();

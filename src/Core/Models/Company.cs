@@ -83,9 +83,6 @@ public class Company : BaseEntity, IValidatableObject
 
     public int DefaultPaymentTermDays { get; set; } = 14;
 
-    [MaxLength(10)]
-    public string? InvoiceNumberPrefix { get; set; }
-
     [MaxLength(1000)]
     public string? FooterText { get; set; }
 

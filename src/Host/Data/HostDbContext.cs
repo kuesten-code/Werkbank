@@ -16,6 +16,7 @@ public class HostDbContext : DbContext
 
     public DbSet<Company> Companies => Set<Company>();
     public DbSet<AdditionalBankAccount> AdditionalBankAccounts => Set<AdditionalBankAccount>();
+    public DbSet<NumberFormatSettings> NumberFormatSettings => Set<NumberFormatSettings>();
     public DbSet<Customer> Customers => Set<Customer>();
     public DbSet<TeamMember> TeamMembers => Set<TeamMember>();
     public DbSet<WerkbankSettings> WerkbankSettings => Set<WerkbankSettings>();
@@ -54,6 +55,12 @@ public class HostDbContext : DbContext
 
             entity.Property(e => e.PdfLayout)
                 .HasConversion<int>();
+        });
+
+        // NumberFormatSettings Konfiguration
+        modelBuilder.Entity<NumberFormatSettings>(entity =>
+        {
+            entity.HasKey(e => e.Id);
         });
 
         // Customer Konfiguration

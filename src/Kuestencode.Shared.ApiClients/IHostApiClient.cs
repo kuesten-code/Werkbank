@@ -11,6 +11,8 @@ public interface IHostApiClient
 {
     Task<CompanyDto?> GetCompanyAsync();
     Task UpdateCompanyAsync(UpdateCompanyRequest request);
+    Task<NumberFormatSettingsDto?> GetNumberFormatSettingsAsync();
+    Task UpdateNumberFormatSettingsAsync(UpdateNumberFormatSettingsRequest request);
     Task<CustomerDto?> GetCustomerAsync(int customerId);
     Task<List<CustomerDto>> GetAllCustomersAsync();
     Task<List<NavItemDto>> GetNavigationAsync();

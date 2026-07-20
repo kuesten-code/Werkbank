@@ -1,3 +1,4 @@
+using Kuestencode.Core.Services;
 using Kuestencode.Faktura.Models;
 using Kuestencode.Shared.ApiClients;
 using Microsoft.EntityFrameworkCore;
@@ -40,49 +41,16 @@ public class InvoiceRepository : Repository<Invoice>, IInvoiceRepository
 
     public async Task<string> GenerateInvoiceNumberAsync()
     {
-        // Hole das Rechnungsprefix aus den Firmenstammdaten via Host API
-        var company = await _hostApiClient.GetCompanyAsync();
-        var prefix = !string.IsNullOrWhiteSpace(company?.InvoiceNumberPrefix)
-            ? company.InvoiceNumberPrefix.Trim()
-            : string.Empty;
+        var settings = await _hostApiClient.GetNumberFormatSettingsAsync();
+        var format = !string.IsNullOrWhiteSpace(settings?.InvoiceFormat)
+            ? settings.InvoiceFormat.Trim()
+            : "YYYY-XXXX";
 
-        var currentYear = DateTime.Now.Year;
-        var yearPrefix = currentYear.ToString();
+        var existingNumbers = await _dbSet
+            .Select(i => i.InvoiceNumber)
+            .ToListAsync();
 
-        // Kombiniere Prefix, Jahr und Nummer (z.B. "KC-2025-0001" oder "2025-0001")
-        var searchPrefix = !string.IsNullOrEmpty(prefix)
-            ? $"{prefix}-{yearPrefix}"
-            : yearPrefix;
-
-        var lastInvoice = await _dbSet
-            .Where(i => i.InvoiceNumber.StartsWith(searchPrefix))
-            .OrderByDescending(i => i.InvoiceNumber)
-            .FirstOrDefaultAsync();
-
-        if (lastInvoice == null)
-        {
-            return !string.IsNullOrEmpty(prefix)
-                ? $"{prefix}-{yearPrefix}-0001"
-                : $"{yearPrefix}-0001";
-        }
-
-        // Extrahiere Nummer aus letzter Rechnungsnummer
-        // Format: "PREFIX-2025-0001" oder "2025-0001"
-        var parts = lastInvoice.InvoiceNumber.Split('-');
-        var numberPart = parts[^1]; // Letzter Teil ist immer die Nummer
-
-        if (int.TryParse(numberPart, out int lastNumber))
-        {
-            var nextNumber = lastNumber + 1;
-            return !string.IsNullOrEmpty(prefix)
-                ? $"{prefix}-{yearPrefix}-{nextNumber:D4}"
-                : $"{yearPrefix}-{nextNumber:D4}";
-        }
-
-        // Fallback wenn Parsing fehlschlägt
-        return !string.IsNullOrEmpty(prefix)
-            ? $"{prefix}-{yearPrefix}-0001"
-            : $"{yearPrefix}-0001";
+        return DocumentNumberFormatter.GenerateNext(format, DateTime.Now, existingNumbers);
     }
 
     public async Task<IEnumerable<Invoice>> GetByCustomerIdAsync(int customerId)

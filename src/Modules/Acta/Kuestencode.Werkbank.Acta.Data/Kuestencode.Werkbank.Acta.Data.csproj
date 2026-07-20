@@ -19,6 +19,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Kuestencode.Werkbank.Acta.Domain\Kuestencode.Werkbank.Acta.Domain.csproj" />
+    <ProjectReference Include="..\..\..\Kuestencode.Shared.ApiClients\Kuestencode.Shared.ApiClients.csproj" />
   </ItemGroup>
 
 </Project>

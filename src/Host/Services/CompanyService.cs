@@ -94,7 +94,6 @@ public class CompanyService : ICompanyService
         existing.Phone = company.Phone;
         existing.Website = company.Website;
         existing.DefaultPaymentTermDays = company.DefaultPaymentTermDays;
-        existing.InvoiceNumberPrefix = company.InvoiceNumberPrefix;
         existing.FooterText = company.FooterText;
         existing.LogoData = company.LogoData;
         existing.LogoContentType = company.LogoContentType;
@@ -136,6 +135,15 @@ public class CompanyService : ICompanyService
         // Detach all tracked AdditionalBankAccount entries so SaveChanges ignores them.
         foreach (var entry in _context.ChangeTracker.Entries<AdditionalBankAccount>().ToList())
             entry.State = EntityState.Detached;
+
+        // Detach() leaves the (now stale) instances sitting in the in-memory collection.
+        // Since the DbContext lives for the whole Blazor-Server circuit, a leftover instance
+        // here would collide with the next newly-added (still Id=0) entry on the following
+        // save and make EF Core throw "another instance with the same key value is already
+        // being tracked". Clear the collection and mark it unloaded so the next GetCompanyAsync
+        // repopulates it cleanly from the database.
+        existing.AdditionalBankAccounts.Clear();
+        _context.Entry(existing).Collection(c => c.AdditionalBankAccounts).IsLoaded = false;
 
         // Save Company entity only — additional bank accounts handled via raw SQL below
         // to avoid EF relationship fixup modifying the navigation collection mid-render.

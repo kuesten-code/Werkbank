@@ -1,3 +1,5 @@
+using Kuestencode.Core.Services;
+using Kuestencode.Shared.ApiClients;
 using Kuestencode.Werkbank.Recepta.Domain.Entities;
 using Kuestencode.Werkbank.Recepta.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
@@ -10,10 +12,12 @@ namespace Kuestencode.Werkbank.Recepta.Data.Repositories;
 public class DocumentRepository : IDocumentRepository
 {
     private readonly ReceptaDbContext _context;
+    private readonly IHostApiClient _hostApiClient;
 
-    public DocumentRepository(ReceptaDbContext context)
+    public DocumentRepository(ReceptaDbContext context, IHostApiClient hostApiClient)
     {
         _context = context;
+        _hostApiClient = hostApiClient;
     }
 
     public async Task<Document?> GetByIdAsync(Guid id)
@@ -122,23 +126,15 @@ public class DocumentRepository : IDocumentRepository
 
     public async Task<string> GenerateDocumentNumberAsync()
     {
-        var year = DateTime.UtcNow.Year;
-        var prefix = $"ER-{year}-";
+        var settings = await _hostApiClient.GetNumberFormatSettingsAsync();
+        var format = !string.IsNullOrWhiteSpace(settings?.IncomingInvoiceFormat)
+            ? settings.IncomingInvoiceFormat.Trim()
+            : "ER-YYYY-XXXX";
 
-        var lastNumber = await _context.Documents
-            .Where(d => d.DocumentNumber.StartsWith(prefix))
-            .OrderByDescending(d => d.DocumentNumber)
+        var existingNumbers = await _context.Documents
             .Select(d => d.DocumentNumber)
-            .FirstOrDefaultAsync();
+            .ToListAsync();
 
-        int nextNumber = 1;
-        if (lastNumber != null)
-        {
-            var numberPart = lastNumber[prefix.Length..];
-            if (int.TryParse(numberPart, out var num))
-                nextNumber = num + 1;
-        }
-
-        return $"{prefix}{nextNumber:D4}";
+        return DocumentNumberFormatter.GenerateNext(format, DateTime.Now, existingNumbers);
     }
 }
