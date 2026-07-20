@@ -1,0 +1,149 @@
+@page "/settings/nummernkreise"
+@attribute [Authorize]
+@using Kuestencode.Core.Models
+@using Kuestencode.Shared.Contracts.Navigation
+@inject Kuestencode.Werkbank.Host.Services.INumberFormatSettingsService SettingsService
+@inject IModuleRegistry ModuleRegistry
+@inject ISnackbar Snackbar
+
+<PageTitle>Einstellungen | Nummernkreise - Küstencode Werkbank</PageTitle>
+
+<RoleGuard AllowedRoles="@(new List<UserRole> { UserRole.Admin })" RedirectTo="/rapport">
+<MudContainer MaxWidth="MaxWidth.Medium" Class="mt-4">
+    <MudPaper Elevation="2" Class="pa-4">
+        <MudText Typo="Typo.h4" GutterBottom="true">Einstellungen | Nummernkreise</MudText>
+        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">
+            Format der automatisch vergebenen Belegnummern für alle Module.
+            Tokens: <code>YY</code>/<code>YYYY</code> = Jahr, ein Lauf aus <code>X</code> = laufende Nummer
+            (Anzahl X = Stellen mit führenden Nullen), alle übrigen Zeichen sind fixer Text.
+            Beispiel: <code>YY-XXXXX-RE</code> ergibt <code>26-00001-RE</code>.
+        </MudText>
+
+        @if (_loading)
+        {
+            <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+        }
+        else
+        {
+            @if (!string.IsNullOrEmpty(_errorMessage))
+            {
+                <MudAlert Severity="Severity.Error" Class="my-2">@_errorMessage</MudAlert>
+            }
+
+            @if (_activeModules.Count == 0)
+            {
+                <MudAlert Severity="Severity.Info" Class="mb-4">
+                    Es sind aktuell keine Module bei der Werkbank registriert.
+                </MudAlert>
+            }
+
+            <MudGrid>
+                @if (_activeModules.Contains("Faktura"))
+                {
+                    <MudItem xs="12" sm="6">
+                        <MudTextField Label="Rechnungen (Faktura)" @bind-Value="_settings.InvoiceFormat"
+                                     Placeholder="YYYY-XXXX"
+                                     HelperText="Ausgangsrechnungen" Required="true" />
+                    </MudItem>
+                }
+                @if (_activeModules.Contains("Offerte"))
+                {
+                    <MudItem xs="12" sm="6">
+                        <MudTextField Label="Angebote (Offerte)" @bind-Value="_settings.QuoteFormat"
+                                     Placeholder="ANG-YYYY-XXXXX"
+                                     HelperText="Angebotsnummern" Required="true" />
+                    </MudItem>
+                }
+                @if (_activeModules.Contains("Acta"))
+                {
+                    <MudItem xs="12" sm="6">
+                        <MudTextField Label="Projekte (Acta)" @bind-Value="_settings.ProjectFormat"
+                                     Placeholder="P-YYYY-XXXX"
+                                     HelperText="Projektnummern" Required="true" />
+                    </MudItem>
+                }
+                @if (_activeModules.Contains("Recepta"))
+                {
+                    <MudItem xs="12" sm="6">
+                        <MudTextField Label="Eingangsrechnungen (Recepta)" @bind-Value="_settings.IncomingInvoiceFormat"
+                                     Placeholder="ER-YYYY-XXXX"
+                                     HelperText="Interne Belegnummer für erfasste Eingangsrechnungen" Required="true" />
+                    </MudItem>
+                }
+            </MudGrid>
+
+            <MudStack Row="true" Justify="Justify.FlexEnd" Class="mt-6">
+                <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                          OnClick="HandleSubmit" Disabled="@_saving">
+                    @if (_saving)
+                    {
+                        <MudProgressCircular Class="ms-n1" Size="Size.Small" Indeterminate="true" />
+                        <MudText Class="ms-2">Speichern...</MudText>
+                    }
+                    else
+                    {
+                        <MudText>Speichern</MudText>
+                    }
+                </MudButton>
+            </MudStack>
+        }
+    </MudPaper>
+</MudContainer>
+</RoleGuard>
+
+@code {
+    private NumberFormatSettings _settings = new();
+    private HashSet<string> _activeModules = new(StringComparer.OrdinalIgnoreCase);
+    private bool _loading = true;
+    private bool _saving;
+    private string? _errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _activeModules = ModuleRegistry.GetAllModules()
+                .Select(m => m.ModuleName)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+            _settings = await SettingsService.GetSettingsAsync();
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Fehler beim Laden: {ex.Message}";
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task HandleSubmit()
+    {
+        _saving = true;
+        _errorMessage = null;
+
+        try
+        {
+            if ((_activeModules.Contains("Faktura") && string.IsNullOrWhiteSpace(_settings.InvoiceFormat)) ||
+                (_activeModules.Contains("Offerte") && string.IsNullOrWhiteSpace(_settings.QuoteFormat)) ||
+                (_activeModules.Contains("Acta") && string.IsNullOrWhiteSpace(_settings.ProjectFormat)) ||
+                (_activeModules.Contains("Recepta") && string.IsNullOrWhiteSpace(_settings.IncomingInvoiceFormat)))
+            {
+                _errorMessage = "Alle angezeigten Formate müssen ausgefüllt sein.";
+                return;
+            }
+
+            await SettingsService.UpdateSettingsAsync(_settings);
+            Snackbar.Add("Nummernkreise gespeichert", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Fehler beim Speichern: {ex.Message}";
+            Snackbar.Add("Fehler beim Speichern der Nummernkreise", Severity.Error);
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+}

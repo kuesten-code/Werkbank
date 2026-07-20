@@ -255,12 +255,6 @@
                                         For="@(() => _company.DefaultPaymentTermDays)"
                                         Min="1" Max="90" />
                     </MudItem>
-                    <MudItem xs="12" sm="6">
-                        <MudTextField Label="Rechnungsnummer-Präfix" @bind-Value="_company.InvoiceNumberPrefix"
-                                     For="@(() => _company.InvoiceNumberPrefix)"
-                                     Placeholder="RE-"
-                                     HelperText="Format wird automatisch: {Präfix}YYYY-NNN" />
-                    </MudItem>
                     <MudItem xs="12">
                         <MudTextField Label="Kleingedrucktes/Fußzeile" @bind-Value="_company.FooterText"
                                      For="@(() => _company.FooterText)"

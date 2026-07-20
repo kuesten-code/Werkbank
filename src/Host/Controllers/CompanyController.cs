@@ -55,7 +55,6 @@ public class CompanyController : ControllerBase
         company.Phone = request.Phone;
         company.Website = request.Website;
         company.DefaultPaymentTermDays = request.DefaultPaymentTermDays;
-        company.InvoiceNumberPrefix = request.InvoiceNumberPrefix;
         company.FooterText = request.FooterText;
         company.EndpointId = request.EndpointId;
         company.EndpointSchemeId = request.EndpointSchemeId;
@@ -130,7 +129,6 @@ public class CompanyController : ControllerBase
             Phone = company.Phone,
             Website = company.Website,
             DefaultPaymentTermDays = company.DefaultPaymentTermDays,
-            InvoiceNumberPrefix = company.InvoiceNumberPrefix,
             FooterText = company.FooterText,
             LogoData = company.LogoData,
             LogoContentType = company.LogoContentType,

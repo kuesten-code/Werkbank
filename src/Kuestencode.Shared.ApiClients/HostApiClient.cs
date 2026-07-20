@@ -37,6 +37,26 @@ public class HostApiClient : IHostApiClient
         response.EnsureSuccessStatusCode();
     }
 
+    public async Task<NumberFormatSettingsDto?> GetNumberFormatSettingsAsync()
+    {
+        try
+        {
+            var response = await _httpClient.GetAsync("/api/number-format-settings").ConfigureAwait(false);
+            if (!response.IsSuccessStatusCode) return null;
+            return await response.Content.ReadFromJsonAsync<NumberFormatSettingsDto>().ConfigureAwait(false);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    public async Task UpdateNumberFormatSettingsAsync(UpdateNumberFormatSettingsRequest request)
+    {
+        var response = await _httpClient.PutAsJsonAsync("/api/number-format-settings", request).ConfigureAwait(false);
+        response.EnsureSuccessStatusCode();
+    }
+
     public async Task<CustomerDto?> GetCustomerAsync(int customerId)
     {
         try

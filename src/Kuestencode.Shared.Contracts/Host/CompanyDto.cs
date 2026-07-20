@@ -21,7 +21,6 @@ public record CompanyDto
     public string? Phone { get; init; }
     public string? Website { get; init; }
     public int DefaultPaymentTermDays { get; init; }
-    public string? InvoiceNumberPrefix { get; init; }
     public string? FooterText { get; init; }
     public byte[]? LogoData { get; init; }
     public string? LogoContentType { get; init; }
@@ -103,7 +102,6 @@ public record UpdateCompanyRequest
     public string? Phone { get; init; }
     public string? Website { get; init; }
     public int DefaultPaymentTermDays { get; init; }
-    public string? InvoiceNumberPrefix { get; init; }
     public string? FooterText { get; init; }
     public string? EndpointId { get; init; }
     public string? EndpointSchemeId { get; init; }

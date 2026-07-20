@@ -1,3 +1,5 @@
+using Kuestencode.Core.Services;
+using Kuestencode.Shared.ApiClients;
 using Kuestencode.Werkbank.Acta.Domain.Entities;
 using Kuestencode.Werkbank.Acta.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
@@ -7,10 +9,12 @@ namespace Kuestencode.Werkbank.Acta.Data.Repositories;
 public class ProjectRepository : IProjectRepository
 {
     private readonly IDbContextFactory<ActaDbContext> _contextFactory;
+    private readonly IHostApiClient _hostApiClient;
 
-    public ProjectRepository(IDbContextFactory<ActaDbContext> contextFactory)
+    public ProjectRepository(IDbContextFactory<ActaDbContext> contextFactory, IHostApiClient hostApiClient)
     {
         _contextFactory = contextFactory;
+        _hostApiClient = hostApiClient;
     }
 
     public async Task<Project?> GetByIdAsync(Guid id)
@@ -103,24 +107,17 @@ public class ProjectRepository : IProjectRepository
     public async Task<string> GenerateProjectNumberAsync()
     {
         await using var context = _contextFactory.CreateDbContext();
-        var year = DateTime.UtcNow.Year;
-        var prefix = $"P-{year}-";
 
-        var lastNumber = await context.Projects
-            .Where(p => p.ProjectNumber.StartsWith(prefix))
-            .OrderByDescending(p => p.ProjectNumber)
+        var settings = await _hostApiClient.GetNumberFormatSettingsAsync();
+        var format = !string.IsNullOrWhiteSpace(settings?.ProjectFormat)
+            ? settings.ProjectFormat.Trim()
+            : "P-YYYY-XXXX";
+
+        var existingNumbers = await context.Projects
             .Select(p => p.ProjectNumber)
-            .FirstOrDefaultAsync();
+            .ToListAsync();
 
-        int nextNumber = 1;
-        if (lastNumber != null)
-        {
-            var numberPart = lastNumber[prefix.Length..];
-            if (int.TryParse(numberPart, out var num))
-                nextNumber = num + 1;
-        }
-
-        return $"{prefix}{nextNumber:D4}";
+        return DocumentNumberFormatter.GenerateNext(format, DateTime.Now, existingNumbers);
     }
 
     public async Task<int> GetNextExternalIdAsync()

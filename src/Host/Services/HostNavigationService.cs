@@ -140,6 +140,15 @@ public class HostNavigationService : IHostNavigationService
             AllowedRoles = new List<UserRole> { UserRole.Admin }
         });
 
+        settingsByCategory[NavSettingsCategory.Allgemein].Add(new NavItemDto
+        {
+            Label = "Nummernkreise",
+            Href = "/settings/nummernkreise",
+            Icon = "",
+            Type = NavItemType.Link,
+            AllowedRoles = new List<UserRole> { UserRole.Admin }
+        });
+
         // Sicherheit - alle eingeloggten Benutzer (MFA-Einrichtung für sich selbst)
         settingsByCategory[NavSettingsCategory.Allgemein].Add(new NavItemDto
         {

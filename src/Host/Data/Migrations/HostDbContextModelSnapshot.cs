@@ -163,10 +163,6 @@ namespace Kuestencode.Werkbank.Host.Data.Migrations
                         .HasMaxLength(1000)
                         .HasColumnType("character varying(1000)");
 
-                    b.Property<string>("InvoiceNumberPrefix")
-                        .HasMaxLength(10)
-                        .HasColumnType("character varying(10)");
-
                     b.Property<bool>("IsKleinunternehmer")
                         .HasColumnType("boolean");
 
@@ -255,6 +251,39 @@ namespace Kuestencode.Werkbank.Host.Data.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("Companies", "host");
+                });
+
+            modelBuilder.Entity("Kuestencode.Core.Models.NumberFormatSettings", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("IncomingInvoiceFormat")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("InvoiceFormat")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("ProjectFormat")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("QuoteFormat")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("NumberFormatSettings", "host");
                 });
 
             modelBuilder.Entity("Kuestencode.Core.Models.Customer", b =>

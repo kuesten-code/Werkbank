@@ -97,7 +97,6 @@ public class ApiCompanyService : ICompanyService
             EmailSenderName = dto.EmailSenderName,
             EmailSignature = dto.EmailSignature,
             DefaultPaymentTermDays = dto.DefaultPaymentTermDays,
-            InvoiceNumberPrefix = dto.InvoiceNumberPrefix,
             FooterText = dto.FooterText,
             LogoData = dto.LogoData,
             LogoContentType = dto.LogoContentType,
