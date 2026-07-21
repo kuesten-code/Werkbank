@@ -13,11 +13,13 @@ public class CompanyService : ICompanyService
 {
     private readonly HostDbContext _context;
     private readonly PasswordEncryptionService _passwordEncryption;
+    private readonly ILogger<CompanyService> _logger;
 
-    public CompanyService(HostDbContext context, PasswordEncryptionService passwordEncryption)
+    public CompanyService(HostDbContext context, PasswordEncryptionService passwordEncryption, ILogger<CompanyService> logger)
     {
         _context = context;
         _passwordEncryption = passwordEncryption;
+        _logger = logger;
     }
 
     public async Task<Company> GetCompanyAsync()
@@ -145,18 +147,27 @@ public class CompanyService : ICompanyService
         existing.AdditionalBankAccounts.Clear();
         _context.Entry(existing).Collection(c => c.AdditionalBankAccounts).IsLoaded = false;
 
-        // Save Company entity only — additional bank accounts handled via raw SQL below
-        // to avoid EF relationship fixup modifying the navigation collection mid-render.
-        await _context.SaveChangesAsync();
-
-        await _context.Database.ExecuteSqlAsync(
-            $"DELETE FROM host.\"AdditionalBankAccounts\" WHERE \"CompanyId\" = {existing.Id}");
-
-        for (int i = 0; i < newAccounts.Count; i++)
+        try
         {
-            var (bankName, iban, bic, accountHolder, sortOrder) = newAccounts[i];
+            // Save Company entity only — additional bank accounts handled via raw SQL below
+            // to avoid EF relationship fixup modifying the navigation collection mid-render.
+            await _context.SaveChangesAsync();
+
             await _context.Database.ExecuteSqlAsync(
-                $"INSERT INTO host.\"AdditionalBankAccounts\" (\"CompanyId\", \"BankName\", \"Iban\", \"Bic\", \"AccountHolder\", \"SortOrder\") VALUES ({existing.Id}, {bankName}, {iban}, {bic}, {accountHolder}, {sortOrder})");
+                $"DELETE FROM host.\"AdditionalBankAccounts\" WHERE \"CompanyId\" = {existing.Id}");
+
+            for (int i = 0; i < newAccounts.Count; i++)
+            {
+                var (bankName, iban, bic, accountHolder, sortOrder) = newAccounts[i];
+                await _context.Database.ExecuteSqlAsync(
+                    $"INSERT INTO host.\"AdditionalBankAccounts\" (\"CompanyId\", \"BankName\", \"Iban\", \"Bic\", \"AccountHolder\", \"SortOrder\") VALUES ({existing.Id}, {bankName}, {iban}, {bic}, {accountHolder}, {sortOrder})");
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Fehler beim Speichern der Firma/Bankverbindungen (CompanyId={CompanyId}, Bankverbindungen={Count})",
+                existing.Id, newAccounts.Count);
+            throw;
         }
 
         return existing;
