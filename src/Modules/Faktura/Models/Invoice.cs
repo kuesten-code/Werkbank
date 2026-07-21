@@ -68,6 +68,10 @@ public class Invoice
     [NotMapped]
     public Customer? Customer { get; set; }
 
+    // Projektname aus Acta - wird separat geladen
+    [NotMapped]
+    public string? ProjectName { get; set; }
+
     public List<InvoiceItem> Items { get; set; } = new();
     public List<DownPayment> DownPayments { get; set; } = new();
     public List<InvoiceAttachment> Attachments { get; set; } = new();

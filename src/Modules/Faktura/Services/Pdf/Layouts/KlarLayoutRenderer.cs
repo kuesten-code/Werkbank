@@ -106,6 +106,12 @@ public class KlarLayoutRenderer : BasePdfLayout
                         rightColumn.Item().Text($"{invoice.ServicePeriodStart.Value:dd.MM.yyyy} - {invoice.ServicePeriodEnd.Value:dd.MM.yyyy}")
                             .FontSize(9);
                     }
+
+                    if (!string.IsNullOrWhiteSpace(invoice.ProjectName))
+                    {
+                        rightColumn.Item().PaddingTop(3).Text($"Projekt: {invoice.ProjectName}")
+                            .FontSize(9);
+                    }
                 });
             });
 

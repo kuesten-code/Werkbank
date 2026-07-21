@@ -79,6 +79,10 @@ public class BetontLayoutRenderer : BasePdfLayout
                     {
                         leftCol.Item().Text($"Kundennr.: {invoice.Customer.CustomerNumber}").FontSize(10);
                     }
+                    if (!string.IsNullOrWhiteSpace(invoice.ProjectName))
+                    {
+                        leftCol.Item().Text($"Projekt: {invoice.ProjectName}").FontSize(10);
+                    }
                 });
 
                 row.RelativeItem().AlignRight().Column(rightCol =>

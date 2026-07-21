@@ -20,6 +20,7 @@ public class PdfGeneratorService : IPdfGeneratorService
 {
     private readonly FakturaDbContext _context;
     private readonly IHostApiClient _hostApiClient;
+    private readonly IActaApiClient _actaApiClient;
     private readonly IWebHostEnvironment _environment;
     private readonly IServiceProvider _serviceProvider;
     private readonly ILogger<PdfGeneratorService> _logger;
@@ -27,12 +28,14 @@ public class PdfGeneratorService : IPdfGeneratorService
     public PdfGeneratorService(
         FakturaDbContext context,
         IHostApiClient hostApiClient,
+        IActaApiClient actaApiClient,
         IWebHostEnvironment environment,
         IServiceProvider serviceProvider,
         ILogger<PdfGeneratorService> logger)
     {
         _context = context;
         _hostApiClient = hostApiClient;
+        _actaApiClient = actaApiClient;
         _environment = environment;
         _serviceProvider = serviceProvider;
         _logger = logger;
@@ -74,6 +77,19 @@ public class PdfGeneratorService : IPdfGeneratorService
                 Notes = customerDto.Notes,
                 Salutation = customerDto.Salutation
             };
+        }
+
+        if (invoice.ProjectId.HasValue)
+        {
+            try
+            {
+                var project = await _actaApiClient.GetProjectByExternalIdAsync(invoice.ProjectId.Value);
+                invoice.ProjectName = project?.Name;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "PdfGenerator: Projektname konnte nicht geladen werden (InvoiceId={InvoiceId}, ProjectId={ProjectId})", invoiceId, invoice.ProjectId);
+            }
         }
 
         _logger.LogInformation("PdfGenerator: loading company (InvoiceId={InvoiceId})", invoiceId);
