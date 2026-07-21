@@ -107,10 +107,16 @@ public class CompanyService : ICompanyService
         existing.SmtpPort = company.SmtpPort;
         existing.SmtpUseSsl = company.SmtpUseSsl;
         existing.SmtpUsername = company.SmtpUsername;
-        if (!string.IsNullOrWhiteSpace(company.SmtpPassword))
+
+        // Nur verschlüsseln, wenn tatsächlich ein NEUES Klartext-Passwort hereinkommt
+        // (die Einstellungsseiten geben bei unverändertem Passwort das bereits gespeicherte
+        // SmtpPassword unverändert zurück). Ein Decrypt+Encrypt-Roundtrip des unveränderten
+        // Ciphertexts war zuvor fehleranfällig: schlägt Decrypt fehl (z.B. abhanden gekommener
+        // DataProtection-Key), behandelt der Fallback den Ciphertext als Klartext und
+        // verschlüsselt ihn erneut — bei jedem Speichern ein Stück länger, bis die Spalte überläuft.
+        if (!string.IsNullOrWhiteSpace(company.SmtpPassword) && company.SmtpPassword != existing.SmtpPassword)
         {
-            var plaintext = _passwordEncryption.Decrypt(company.SmtpPassword);
-            existing.SmtpPassword = _passwordEncryption.Encrypt(plaintext);
+            existing.SmtpPassword = _passwordEncryption.Encrypt(company.SmtpPassword);
         }
         existing.EmailSenderEmail = company.EmailSenderEmail;
         existing.EmailSenderName = company.EmailSenderName;

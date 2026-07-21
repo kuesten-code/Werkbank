@@ -2,6 +2,7 @@
 @inject IJSRuntime JSRuntime
 @inject AuthenticationStateProvider AuthStateProvider
 @inject NavigationManager NavigationManager
+@inject IConfiguration Configuration
 @using Kuestencode.Werkbank.Host.Auth
 @using Kuestencode.Werkbank.Host.Services
 @implements IDisposable
@@ -34,6 +35,9 @@
     </MudAppBar>
     <MudDrawer @bind-Open="_drawerOpen" ClipMode="DrawerClipMode.Always" Elevation="2">
         <NavMenu />
+        <MudText Typo="Typo.caption" Class="pa-3" Style="opacity:0.6;">
+            Host v@_hostVersion
+        </MudText>
     </MudDrawer>
     <MudMainContent>
         <MudContainer MaxWidth="MaxWidth.Large" Class="my-4 pt-4">
@@ -48,6 +52,10 @@
     private bool _authEnabled = false;
     private MudBlazor.MudTheme _theme = KuestenCodeTheme.Theme;
     private MudThemeProvider? _themeProvider;
+    private string _hostVersion => Configuration["MODULE_VERSION"]
+        ?? Configuration["IMAGE_TAG"]
+        ?? Configuration["DOCKER_IMAGE_TAG"]
+        ?? "dev";
 
     protected override async Task OnInitializedAsync()
     {
