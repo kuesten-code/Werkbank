@@ -45,6 +45,9 @@ public partial class Create
     private string? _customerErrorText;
     private MudAutocomplete<Customer>? _customerAuto;
     private Invoice _invoice = new();
+    private string _invoiceNumberPrefix = string.Empty;
+    private string _invoiceNumberSuffix = string.Empty;
+    private string _invoiceNumberSequence = string.Empty;
     private Customer? _selectedCustomer;
     private Company? _company;
     private List<Customer> _customers = new();
@@ -93,7 +96,15 @@ public partial class Create
     {
         try
         {
+            var (prefix, suffix, _) = await InvoiceService.GetInvoiceNumberFormatPartsAsync();
+            _invoiceNumberPrefix = prefix;
+            _invoiceNumberSuffix = suffix;
+
             _invoice.InvoiceNumber = await InvoiceService.GenerateInvoiceNumberAsync();
+            _invoiceNumberSequence = _invoice.InvoiceNumber.Substring(
+                _invoiceNumberPrefix.Length,
+                _invoice.InvoiceNumber.Length - _invoiceNumberPrefix.Length - _invoiceNumberSuffix.Length);
+
             _customers = await CustomerService.GetAllAsync();
             _company = await CompanyService.GetCompanyAsync();
             var paymentDays = _company?.DefaultPaymentTermDays ?? 14;
@@ -257,6 +268,21 @@ public partial class Create
         _selectedCustomer = _customers.FirstOrDefault(c => c.Id == project.CustomerId);
 
         await LoadProjectReceiptsAsync();
+    }
+
+    private void UpdateInvoiceNumber()
+    {
+        _invoice.InvoiceNumber = _invoiceNumberPrefix + _invoiceNumberSequence + _invoiceNumberSuffix;
+    }
+
+    private string? ValidateInvoiceNumberSequence(string sequence)
+    {
+        if (string.IsNullOrWhiteSpace(sequence))
+        {
+            return "Laufende Nummer ist erforderlich";
+        }
+
+        return sequence.All(char.IsDigit) ? null : "Nur Ziffern erlaubt";
     }
 
     private async Task<IEnumerable<Customer>> SearchCustomers(string value, CancellationToken token)
@@ -503,6 +529,12 @@ public partial class Create
         _customerError = false;
         _customerErrorText = null;
         _errorMessage = null;
+
+        if (ValidateInvoiceNumberSequence(_invoiceNumberSequence) != null)
+        {
+            _errorMessage = "Rechnungsnummer: Laufende Nummer darf nur Ziffern enthalten.";
+            return false;
+        }
 
         // Regel: Kunde ist Pflicht
         if (_selectedCustomer == null)

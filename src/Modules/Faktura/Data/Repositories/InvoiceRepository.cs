@@ -41,16 +41,27 @@ public class InvoiceRepository : Repository<Invoice>, IInvoiceRepository
 
     public async Task<string> GenerateInvoiceNumberAsync()
     {
-        var settings = await _hostApiClient.GetNumberFormatSettingsAsync();
-        var format = !string.IsNullOrWhiteSpace(settings?.InvoiceFormat)
-            ? settings.InvoiceFormat.Trim()
-            : "YYYY-XXXX";
+        var format = await GetInvoiceNumberFormatAsync();
 
         var existingNumbers = await _dbSet
             .Select(i => i.InvoiceNumber)
             .ToListAsync();
 
         return DocumentNumberFormatter.GenerateNext(format, DateTime.Now, existingNumbers);
+    }
+
+    public async Task<(string Prefix, string Suffix, int SequenceLength)> GetInvoiceNumberFormatPartsAsync()
+    {
+        var format = await GetInvoiceNumberFormatAsync();
+        return DocumentNumberFormatter.SplitAroundSequence(format, DateTime.Now);
+    }
+
+    private async Task<string> GetInvoiceNumberFormatAsync()
+    {
+        var settings = await _hostApiClient.GetNumberFormatSettingsAsync();
+        return !string.IsNullOrWhiteSpace(settings?.InvoiceFormat)
+            ? settings.InvoiceFormat.Trim()
+            : "YYYY-XXXX";
     }
 
     public async Task<IEnumerable<Invoice>> GetByCustomerIdAsync(int customerId)

@@ -14,6 +14,7 @@ public interface IInvoiceService
     Task UpdateAsync(Invoice invoice);
     Task DeleteAsync(int id);
     Task<string> GenerateInvoiceNumberAsync();
+    Task<(string Prefix, string Suffix, int SequenceLength)> GetInvoiceNumberFormatPartsAsync();
     Task MarkAsPaidAsync(int id, DateTime paidDate);
     Task MarkAsPrintedAsync(int id);
     Task<decimal> CalculateTotalNetAsync(List<InvoiceItem> items);
@@ -187,6 +188,19 @@ public class InvoiceService : IInvoiceService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Fehler beim Generieren der Rechnungsnummer");
+            throw;
+        }
+    }
+
+    public async Task<(string Prefix, string Suffix, int SequenceLength)> GetInvoiceNumberFormatPartsAsync()
+    {
+        try
+        {
+            return await _invoiceRepository.GetInvoiceNumberFormatPartsAsync();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Fehler beim Ermitteln des Rechnungsnummer-Formats");
             throw;
         }
     }
