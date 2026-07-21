@@ -8,6 +8,7 @@
 @inject IPdfGeneratorService PdfGeneratorService
 @inject IXRechnungService XRechnungService
 @inject ICompanyService CompanyService
+@inject Kuestencode.Shared.ApiClients.IActaApiClient ActaApiClient
 @inject Kuestencode.Faktura.Services.IEmailService EmailService
 @inject NavigationManager NavigationManager
 @inject ISnackbar Snackbar
@@ -89,6 +90,13 @@
                                 <tr>
                                     <td><strong>Bezahlt am:</strong></td>
                                     <td>@_invoice.PaidDate.Value.ToString("dd.MM.yyyy")</td>
+                                </tr>
+                            }
+                            @if (!string.IsNullOrWhiteSpace(_invoice.ProjectName))
+                            {
+                                <tr>
+                                    <td><strong>Projekt:</strong></td>
+                                    <td>@_invoice.ProjectName</td>
                                 </tr>
                             }
                         </tbody>

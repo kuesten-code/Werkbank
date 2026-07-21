@@ -105,6 +105,7 @@ public partial class Details
         try
         {
             _invoice = await InvoiceService.GetByIdAsync(Id, includeCustomer: true, includeItems: true);
+            await LoadProjectNameAsync();
         }
         catch (Exception ex)
         {
@@ -113,6 +114,24 @@ public partial class Details
         finally
         {
             _loading = false;
+        }
+    }
+
+    private async Task LoadProjectNameAsync()
+    {
+        if (_invoice?.ProjectId == null)
+        {
+            return;
+        }
+
+        try
+        {
+            var project = await ActaApiClient.GetProjectByExternalIdAsync(_invoice.ProjectId.Value);
+            _invoice.ProjectName = project?.Name;
+        }
+        catch
+        {
+            // Acta-Modul evtl. nicht verfügbar - Projektname bleibt leer
         }
     }
 
