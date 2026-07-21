@@ -29,8 +29,20 @@
             <MudText Typo="Typo.h6" Class="mt-4 mb-2">Kopfdaten</MudText>
             <MudGrid>
                 <MudItem xs="12" sm="4">
-                    <MudTextField Label="Rechnungsnummer" @bind-Value="_invoice.InvoiceNumber"
-                                 For="@(() => _invoice.InvoiceNumber)" ReadOnly="true" />
+                    <MudStack Row="true" Spacing="1" AlignItems="AlignItems.End">
+                        @if (!string.IsNullOrEmpty(_invoiceNumberPrefix))
+                        {
+                            <MudTextField Label="Rechnungsnummer" Value="@_invoiceNumberPrefix" ReadOnly="true" Disabled="true" />
+                        }
+                        <MudTextField Label="@(string.IsNullOrEmpty(_invoiceNumberPrefix) ? "Rechnungsnummer" : "Lfd. Nr.")"
+                                     @bind-Value="_invoiceNumberSequence"
+                                     @bind-Value:after="UpdateInvoiceNumber"
+                                     Validation="@((Func<string, string?>)ValidateInvoiceNumberSequence)" />
+                        @if (!string.IsNullOrEmpty(_invoiceNumberSuffix))
+                        {
+                            <MudTextField Value="@_invoiceNumberSuffix" ReadOnly="true" Disabled="true" />
+                        }
+                    </MudStack>
                 </MudItem>
                 <MudItem xs="12" sm="4">
                     <MudDatePicker Label="Rechnungsdatum" @bind-Date="_invoiceDate"

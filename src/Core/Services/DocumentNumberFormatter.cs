@@ -35,6 +35,41 @@ public static class DocumentNumberFormatter
         return Render(format, referenceDate, lastNumber + 1, sequenceLength);
     }
 
+    /// <summary>
+    /// Zerlegt ein Format in den festen Teil vor dem X-Lauf (Prefix, inkl. gerendertem Jahr),
+    /// den festen Teil danach (Suffix) und die Breite des X-Laufs. Damit lässt sich in der UI
+    /// nur die laufende Nummer bearbeiten, ohne Präfix/Suffix/Jahreskürzel anzufassen.
+    /// </summary>
+    public static (string Prefix, string Suffix, int SequenceLength) SplitAroundSequence(string format, DateTime referenceDate)
+    {
+        var prefix = new StringBuilder();
+        var suffix = new StringBuilder();
+        var sequenceLength = 0;
+        var sequenceFound = false;
+        var i = 0;
+
+        while (i < format.Length)
+        {
+            var c = format[i];
+            var runLength = CountRun(format, i, c);
+
+            if (c is 'X' or 'x')
+            {
+                sequenceLength = runLength;
+                sequenceFound = true;
+            }
+            else
+            {
+                var rendered = c is 'Y' or 'y' ? YearDigits(referenceDate.Year, runLength) : new string(c, runLength);
+                (sequenceFound ? suffix : prefix).Append(rendered);
+            }
+
+            i += runLength;
+        }
+
+        return (prefix.ToString(), suffix.ToString(), sequenceLength);
+    }
+
     private static Regex BuildMatchRegex(string format, DateTime referenceDate, out int sequenceLength)
     {
         var pattern = new StringBuilder("^");
