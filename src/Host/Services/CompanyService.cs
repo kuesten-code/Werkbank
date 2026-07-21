@@ -165,8 +165,8 @@ public class CompanyService : ICompanyService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Fehler beim Speichern der Firma/Bankverbindungen (CompanyId={CompanyId}, Bankverbindungen={Count})",
-                existing.Id, newAccounts.Count);
+            _logger.LogError(ex, "Fehler beim Speichern der Firma/Bankverbindungen (CompanyId={CompanyId}, Bankverbindungen={Count}, Detail={Detail})",
+                existing.Id, newAccounts.Count, ExceptionHelper.Describe(ex));
             throw;
         }
 
