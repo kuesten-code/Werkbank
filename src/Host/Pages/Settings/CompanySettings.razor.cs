@@ -50,7 +50,9 @@ public partial class CompanySettings
         }
         catch (Exception ex)
         {
-            _errorMessage = $"Fehler beim Speichern: {ex.Message}";
+            Logger.LogError(ex, "Fehler beim Speichern der Firmendaten (CompanyId={CompanyId}, Bankverbindungen={Count})",
+                _company.Id, _company.AdditionalBankAccounts.Count);
+            _errorMessage = $"Fehler beim Speichern: {ex.InnerException?.Message ?? ex.Message}";
             Snackbar.Add("Fehler beim Speichern der Firmendaten", Severity.Error);
         }
         finally
