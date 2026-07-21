@@ -78,6 +78,8 @@ public class CompanyService : ICompanyService
             throw new InvalidOperationException("Firma nicht gefunden");
         }
 
+        ValidateFieldLengths(company);
+
         // Update all properties
         existing.OwnerFullName = company.OwnerFullName;
         existing.BusinessName = company.BusinessName;
@@ -171,6 +173,59 @@ public class CompanyService : ICompanyService
         }
 
         return existing;
+    }
+
+    /// <summary>
+    /// Prüft Feldlängen serverseitig, bevor gespeichert wird: der clientseitige
+    /// DataAnnotationsValidator validiert nur die auf der jeweils aktuellen Seite
+    /// sichtbaren Felder, während UpdateCompanyAsync immer den gesamten Company-Datensatz
+    /// zurückschreibt — ein zu langer Wert in einem hier nicht editierten Feld würde sonst
+    /// nur als kryptischer Postgres-Fehler ("value too long for type character varying(n)")
+    /// ohne Angabe der betroffenen Spalte auftauchen.
+    /// </summary>
+    private static void ValidateFieldLengths(Company company)
+    {
+        var fields = new (string Label, string? Value, int MaxLength)[]
+        {
+            ("Vollständiger Name", company.OwnerFullName, 200),
+            ("Geschäftsbezeichnung", company.BusinessName, 200),
+            ("Adresse", company.Address, 500),
+            ("PLZ", company.PostalCode, 10),
+            ("Stadt", company.City, 100),
+            ("Land", company.Country, 100),
+            ("Steuernummer", company.TaxNumber, 50),
+            ("USt-IdNr.", company.VatId, 50),
+            ("Bankname", company.BankName, 100),
+            ("IBAN", company.BankAccount, 50),
+            ("BIC", company.Bic, 11),
+            ("Kontoinhaber", company.AccountHolder, 200),
+            ("E-Mail", company.Email, 100),
+            ("Telefon", company.Phone, 50),
+            ("Website", company.Website, 200),
+            ("Kleingedrucktes/Fußzeile", company.FooterText, 1000),
+            ("SMTP-Host", company.SmtpHost, 200),
+            ("SMTP-Benutzername", company.SmtpUsername, 200),
+            ("Absender-E-Mail", company.EmailSenderEmail, 200),
+            ("Absender-Name", company.EmailSenderName, 200),
+            ("E-Mail-Signatur", company.EmailSignature, 2000),
+            ("E-Mail-Anrede", company.EmailGreeting, 500),
+            ("E-Mail-Grußformel", company.EmailClosing, 500),
+            ("PDF-Kopftext", company.PdfHeaderText, 500),
+            ("PDF-Fußzeile", company.PdfFooterText, 1000),
+            ("PDF-Zahlungshinweis", company.PdfPaymentNotice, 500),
+        };
+
+        var tooLong = fields
+            .Where(f => f.Value != null && f.Value.Length > f.MaxLength)
+            .Select(f => $"{f.Label} ({f.Value!.Length}/{f.MaxLength} Zeichen)")
+            .ToList();
+
+        if (tooLong.Count > 0)
+        {
+            throw new InvalidOperationException(
+                $"Folgende Felder überschreiten die maximal zulässige Länge: {string.Join(", ", tooLong)}. " +
+                "Bitte kürzen (auch auf anderen Einstellungsseiten wie E-Mail-Design oder PDF-Anpassung).");
+        }
     }
 
     public async Task<bool> HasCompanyDataAsync()
