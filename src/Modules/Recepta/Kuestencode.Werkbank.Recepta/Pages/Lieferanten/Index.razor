@@ -1,6 +1,7 @@
 @page "/lieferanten"
 @page "/recepta/lieferanten"
 @using Kuestencode.Werkbank.Recepta.Controllers.Dtos
+@using Kuestencode.Shared.UI.Pages
 @inject ISupplierService SupplierService
 @inject NavigationManager NavigationManager
 @inject ISnackbar Snackbar
@@ -25,13 +26,13 @@
 
         <MudTable Items="@_suppliers" Hover="true" Breakpoint="Breakpoint.Sm"
                  Loading="@_loading" LoadingProgressColor="Color.Info"
-                 RowsPerPage="10" SortLabel="Sortieren nach"
+                 RowsPerPage="25" SortLabel="Sortieren nach"
                  OnRowClick="@(args => EditSupplier(args.Item!.Id))" T="SupplierDto" RowClass="cursor-pointer">
             <HeaderContent>
-                <MudTh><MudTableSortLabel SortBy="new Func<SupplierDto, object>(x => x.SupplierNumber)">Lieferantennr.</MudTableSortLabel></MudTh>
-                <MudTh><MudTableSortLabel SortBy="new Func<SupplierDto, object>(x => x.Name)">Name</MudTableSortLabel></MudTh>
-                <MudTh><MudTableSortLabel SortBy="new Func<SupplierDto, object>(x => x.City ?? string.Empty)">Ort</MudTableSortLabel></MudTh>
-                <MudTh><MudTableSortLabel SortBy="new Func<SupplierDto, object>(x => x.DocumentCount)">Belege</MudTableSortLabel></MudTh>
+                <MudTh><MudTableSortLabel SortBy="new Func<SupplierDto, object>(x => x.SupplierNumber)" InitialDirection="@_sort.InitialDirectionFor("number")" SortDirectionChanged="@(d => _sort.Update("number", d))">Lieferantennr.</MudTableSortLabel></MudTh>
+                <MudTh><MudTableSortLabel SortBy="new Func<SupplierDto, object>(x => x.Name)" InitialDirection="@_sort.InitialDirectionFor("name")" SortDirectionChanged="@(d => _sort.Update("name", d))">Name</MudTableSortLabel></MudTh>
+                <MudTh><MudTableSortLabel SortBy="new Func<SupplierDto, object>(x => x.City ?? string.Empty)" InitialDirection="@_sort.InitialDirectionFor("city")" SortDirectionChanged="@(d => _sort.Update("city", d))">Ort</MudTableSortLabel></MudTh>
+                <MudTh><MudTableSortLabel SortBy="new Func<SupplierDto, object>(x => x.DocumentCount)" InitialDirection="@_sort.InitialDirectionFor("documents")" SortDirectionChanged="@(d => _sort.Update("documents", d))">Belege</MudTableSortLabel></MudTh>
                 <MudTh Style="text-align: right">Aktionen</MudTh>
             </HeaderContent>
             <RowTemplate>
@@ -84,9 +85,11 @@
     private bool _loading = true;
     private string _searchString = string.Empty;
     private List<SupplierDto> _suppliers = new();
+    private TableSortSync _sort = null!;
 
     protected override async Task OnInitializedAsync()
     {
+        _sort = new TableSortSync(NavigationManager);
         await LoadDataAsync();
     }
 

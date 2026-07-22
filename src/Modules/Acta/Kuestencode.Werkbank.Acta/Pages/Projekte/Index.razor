@@ -47,14 +47,14 @@
 
         <MudTable Items="@_filteredProjects" Hover="true" Breakpoint="Breakpoint.Sm"
                  Loading="@_loading" LoadingProgressColor="Color.Info"
-                 RowsPerPage="10" SortLabel="Sortieren nach"
+                 RowsPerPage="25" SortLabel="Sortieren nach"
                  OnRowClick="@(args => ViewProject(args.Item!.Id))" T="Project" RowClass="cursor-pointer">
             <HeaderContent>
-                <MudTh><MudTableSortLabel SortBy="new Func<Project, object>(x => x.ProjectNumber)">Projektnr.</MudTableSortLabel></MudTh>
-                <MudTh><MudTableSortLabel SortBy="new Func<Project, object>(x => x.Name)">Name</MudTableSortLabel></MudTh>
+                <MudTh><MudTableSortLabel SortBy="new Func<Project, object>(x => x.ProjectNumber)" InitialDirection="@_sort.InitialDirectionFor("number")" SortDirectionChanged="@(d => _sort.Update("number", d))">Projektnr.</MudTableSortLabel></MudTh>
+                <MudTh><MudTableSortLabel SortBy="new Func<Project, object>(x => x.Name)" InitialDirection="@_sort.InitialDirectionFor("name")" SortDirectionChanged="@(d => _sort.Update("name", d))">Name</MudTableSortLabel></MudTh>
                 <MudTh>Kunde</MudTh>
                 <MudTh>Status</MudTh>
-                <MudTh><MudTableSortLabel SortBy="new Func<Project, object>(x => x.TargetDate ?? DateOnly.MaxValue)">Zieldatum</MudTableSortLabel></MudTh>
+                <MudTh><MudTableSortLabel SortBy="new Func<Project, object>(x => x.TargetDate ?? DateOnly.MaxValue)" InitialDirection="@_sort.InitialDirectionFor("targetdate")" SortDirectionChanged="@(d => _sort.Update("targetdate", d))">Zieldatum</MudTableSortLabel></MudTh>
                 <MudTh>Fortschritt</MudTh>
                 <MudTh Style="text-align: right">Aktionen</MudTh>
             </HeaderContent>
@@ -142,6 +142,7 @@
 
     private bool _loading = true;
     private int? _selectedCustomerId;
+    private TableSortSync _sort = null!;
 
     private List<Project> _projects = new();
     private List<Kuestencode.Core.Models.Customer> _customers = new();
@@ -157,6 +158,7 @@
 
     protected override async Task OnInitializedAsync()
     {
+        _sort = new TableSortSync(NavigationManager);
         await LoadDataAsync();
     }
 

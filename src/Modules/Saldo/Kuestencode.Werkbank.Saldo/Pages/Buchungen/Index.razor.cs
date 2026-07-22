@@ -4,6 +4,7 @@ using MudBlazor;
 using Kuestencode.Werkbank.Saldo.Domain.Dtos;
 using Kuestencode.Werkbank.Saldo.Domain.Enums;
 using Kuestencode.Werkbank.Saldo.Services;
+using Kuestencode.Shared.UI.Pages;
 
 namespace Kuestencode.Werkbank.Saldo.Pages.Buchungen;
 
@@ -26,9 +27,11 @@ public partial class Index
     private string _suchtext = string.Empty;
     private string? _typFilter;
     private string? _kategorieFilter;
+    private TableSortSync _sort = null!;
 
     protected override async Task OnInitializedAsync()
     {
+        _sort = new TableSortSync(NavigationManager);
         await LoadAsync();
     }
 

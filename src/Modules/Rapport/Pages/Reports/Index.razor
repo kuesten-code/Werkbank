@@ -2,6 +2,8 @@
 @using System.Text
 @using Kuestencode.Rapport.Models.Reports
 @using Kuestencode.Rapport.Models.Timesheets
+@using Kuestencode.Shared.UI.Pages
+@inject NavigationManager NavigationManager
 @inject DashboardService DashboardService
 @inject SettingsService SettingsService
 @inject TimeRoundingService TimeRoundingService
@@ -119,11 +121,11 @@
         }
         else if (_grouping == "Customer")
         {
-            <MudTable Items="_customerRows" Hover="true">
+            <MudTable Items="_customerRows" Hover="true" SortLabel="Sortieren nach" T="CustomerSummaryRow">
                 <HeaderContent>
-                    <MudTh>Kunde</MudTh>
-                    <MudTh>Stunden</MudTh>
-                    <MudTh>Einträge</MudTh>
+                    <MudTh><MudTableSortLabel SortBy="new Func<CustomerSummaryRow, object>(x => x.CustomerName)" InitialDirection="@_customerSort.InitialDirectionFor("customer")" SortDirectionChanged="@(d => _customerSort.Update("customer", d))">Kunde</MudTableSortLabel></MudTh>
+                    <MudTh><MudTableSortLabel SortBy="new Func<CustomerSummaryRow, object>(x => x.Hours)" InitialDirection="@_customerSort.InitialDirectionFor("hours")" SortDirectionChanged="@(d => _customerSort.Update("hours", d))">Stunden</MudTableSortLabel></MudTh>
+                    <MudTh><MudTableSortLabel SortBy="new Func<CustomerSummaryRow, object>(x => x.EntryCount)" InitialDirection="@_customerSort.InitialDirectionFor("entries")" SortDirectionChanged="@(d => _customerSort.Update("entries", d))">Einträge</MudTableSortLabel></MudTh>
                 </HeaderContent>
                 <RowTemplate>
                     <MudTd>@context.CustomerName</MudTd>
@@ -134,11 +136,11 @@
         }
         else if (_grouping == "Project")
         {
-            <MudTable Items="_projectRows" Hover="true">
+            <MudTable Items="_projectRows" Hover="true" SortLabel="Sortieren nach" T="ProjectSummaryRow">
                 <HeaderContent>
-                    <MudTh>Projekt</MudTh>
-                    <MudTh>Kunde</MudTh>
-                    <MudTh>Stunden</MudTh>
+                    <MudTh><MudTableSortLabel SortBy="new Func<ProjectSummaryRow, object>(x => x.ProjectName)" InitialDirection="@_projectSort.InitialDirectionFor("project")" SortDirectionChanged="@(d => _projectSort.Update("project", d))">Projekt</MudTableSortLabel></MudTh>
+                    <MudTh><MudTableSortLabel SortBy="new Func<ProjectSummaryRow, object>(x => x.CustomerName)" InitialDirection="@_projectSort.InitialDirectionFor("customer")" SortDirectionChanged="@(d => _projectSort.Update("customer", d))">Kunde</MudTableSortLabel></MudTh>
+                    <MudTh><MudTableSortLabel SortBy="new Func<ProjectSummaryRow, object>(x => x.Hours)" InitialDirection="@_projectSort.InitialDirectionFor("hours")" SortDirectionChanged="@(d => _projectSort.Update("hours", d))">Stunden</MudTableSortLabel></MudTh>
                 </HeaderContent>
                 <RowTemplate>
                     <MudTd>@context.ProjectName</MudTd>
@@ -149,11 +151,11 @@
         }
         else if (_grouping == "Day")
         {
-            <MudTable Items="_dayRows" Hover="true">
+            <MudTable Items="_dayRows" Hover="true" SortLabel="Sortieren nach" T="DaySummaryRow">
                 <HeaderContent>
-                    <MudTh>Tag</MudTh>
-                    <MudTh>Stunden</MudTh>
-                    <MudTh>Kunden</MudTh>
+                    <MudTh><MudTableSortLabel SortBy="new Func<DaySummaryRow, object>(x => x.Day)" InitialDirection="@_daySort.InitialDirectionFor("day")" SortDirectionChanged="@(d => _daySort.Update("day", d))">Tag</MudTableSortLabel></MudTh>
+                    <MudTh><MudTableSortLabel SortBy="new Func<DaySummaryRow, object>(x => x.Hours)" InitialDirection="@_daySort.InitialDirectionFor("hours")" SortDirectionChanged="@(d => _daySort.Update("hours", d))">Stunden</MudTableSortLabel></MudTh>
+                    <MudTh><MudTableSortLabel SortBy="new Func<DaySummaryRow, object>(x => x.CustomerCount)" InitialDirection="@_daySort.InitialDirectionFor("customers")" SortDirectionChanged="@(d => _daySort.Update("customers", d))">Kunden</MudTableSortLabel></MudTh>
                 </HeaderContent>
                 <RowTemplate>
                     <MudTd>@context.Day.ToString("dd.MM.yyyy")</MudTd>
@@ -197,9 +199,16 @@
     private List<ProjectSummaryRow> _projectRows = new();
     private List<DaySummaryRow> _dayRows = new();
     private List<CustomerTreeNode> _customerTree = new();
+    private TableSortSync _customerSort = null!;
+    private TableSortSync _projectSort = null!;
+    private TableSortSync _daySort = null!;
 
     protected override async Task OnInitializedAsync()
     {
+        _customerSort = new TableSortSync(NavigationManager, "customer");
+        _projectSort = new TableSortSync(NavigationManager, "project");
+        _daySort = new TableSortSync(NavigationManager, "day");
+
         try
         {
             _settings = await SettingsService.GetSettingsAsync();

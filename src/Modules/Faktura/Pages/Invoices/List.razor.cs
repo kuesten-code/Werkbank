@@ -26,6 +26,7 @@ public partial class List : TabbedListPageBase
     private bool _loading = true;
     private int _draftCount, _sentCount, _paidCount, _partiallyPaidCount, _overdueCount;
     private System.Globalization.CultureInfo _culture = new System.Globalization.CultureInfo("de-DE");
+    private TableSortSync _sort = null!;
 
     private IEnumerable<Invoice> _filteredInvoices
     {
@@ -59,6 +60,7 @@ public partial class List : TabbedListPageBase
 
     protected override async Task OnInitializedAsync()
     {
+        _sort = new TableSortSync(NavigationManager);
         await LoadInvoices();
     }
 

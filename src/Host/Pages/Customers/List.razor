@@ -5,6 +5,7 @@
 @using Kuestencode.Shared.Contracts.Host
 @using Kuestencode.Shared.UI
 @using Kuestencode.Shared.UI.Components
+@using Kuestencode.Shared.UI.Pages
 @inject ICustomerService CustomerService
 @inject NavigationManager NavigationManager
 @inject IDialogService DialogService
@@ -29,12 +30,12 @@
 
         <MudTable Items="@_filteredCustomers" Hover="true" Breakpoint="Breakpoint.Sm"
                  Loading="@_loading" LoadingProgressColor="Color.Info"
-                 RowsPerPage="10">
+                 RowsPerPage="25" SortLabel="Sortieren nach" T="Customer">
             <HeaderContent>
-                <MudTh>Kundennummer</MudTh>
-                <MudTh>Name</MudTh>
-                <MudTh>Stadt</MudTh>
-                <MudTh>Email</MudTh>
+                <MudTh><MudTableSortLabel SortBy="new Func<Customer, object>(x => x.CustomerNumber)" InitialDirection="@_sort.InitialDirectionFor("number")" SortDirectionChanged="@(d => _sort.Update("number", d))">Kundennummer</MudTableSortLabel></MudTh>
+                <MudTh><MudTableSortLabel SortBy="new Func<Customer, object>(x => x.Name)" InitialDirection="@_sort.InitialDirectionFor("name")" SortDirectionChanged="@(d => _sort.Update("name", d))">Name</MudTableSortLabel></MudTh>
+                <MudTh><MudTableSortLabel SortBy="new Func<Customer, object>(x => x.City)" InitialDirection="@_sort.InitialDirectionFor("city")" SortDirectionChanged="@(d => _sort.Update("city", d))">Stadt</MudTableSortLabel></MudTh>
+                <MudTh><MudTableSortLabel SortBy="new Func<Customer, object>(x => x.Email ?? string.Empty)" InitialDirection="@_sort.InitialDirectionFor("email")" SortDirectionChanged="@(d => _sort.Update("email", d))">Email</MudTableSortLabel></MudTh>
                 <MudTh Style="text-align: right">Aktionen</MudTh>
             </HeaderContent>
             <RowTemplate>

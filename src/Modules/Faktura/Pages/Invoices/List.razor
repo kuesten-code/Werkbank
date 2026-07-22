@@ -37,13 +37,13 @@
 
         <MudTable Items="@_filteredInvoices" Hover="true" Breakpoint="Breakpoint.Sm"
                  Loading="@_loading" LoadingProgressColor="Color.Info"
-                 RowsPerPage="10">
+                 RowsPerPage="50" SortLabel="Sortieren nach" T="Invoice">
             <HeaderContent>
-                <MudTh>Rechnungsnr.</MudTh>
-                <MudTh>Datum</MudTh>
-                <MudTh>Kunde</MudTh>
-                <MudTh Style="text-align: right">Betrag</MudTh>
-                <MudTh>Status</MudTh>
+                <MudTh><MudTableSortLabel SortBy="new Func<Invoice, object>(x => x.InvoiceNumber)" InitialDirection="@_sort.InitialDirectionFor("number")" SortDirectionChanged="@(d => _sort.Update("number", d))">Rechnungsnr.</MudTableSortLabel></MudTh>
+                <MudTh><MudTableSortLabel SortBy="new Func<Invoice, object>(x => x.InvoiceDate)" InitialDirection="@_sort.InitialDirectionFor("date")" SortDirectionChanged="@(d => _sort.Update("date", d))">Datum</MudTableSortLabel></MudTh>
+                <MudTh><MudTableSortLabel SortBy="new Func<Invoice, object>(x => x.Customer?.Name ?? string.Empty)" InitialDirection="@_sort.InitialDirectionFor("customer")" SortDirectionChanged="@(d => _sort.Update("customer", d))">Kunde</MudTableSortLabel></MudTh>
+                <MudTh Style="text-align: right"><MudTableSortLabel SortBy="new Func<Invoice, object>(x => x.TotalGross)" InitialDirection="@_sort.InitialDirectionFor("amount")" SortDirectionChanged="@(d => _sort.Update("amount", d))">Betrag</MudTableSortLabel></MudTh>
+                <MudTh><MudTableSortLabel SortBy="new Func<Invoice, object>(x => x.Status)" InitialDirection="@_sort.InitialDirectionFor("status")" SortDirectionChanged="@(d => _sort.Update("status", d))">Status</MudTableSortLabel></MudTh>
                 <MudTh Style="text-align: right">Aktionen</MudTh>
             </HeaderContent>
             <RowTemplate>

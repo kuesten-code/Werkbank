@@ -1,7 +1,9 @@
 @page "/konten"
+@using Kuestencode.Shared.UI.Pages
 @inject IKontoService KontoService
 @inject ISnackbar Snackbar
 @inject IDialogService DialogService
+@inject NavigationManager NavigationManager
 
 <PageTitle>Saldo - Konten & Mappings</PageTitle>
 
@@ -19,12 +21,12 @@
                 <MudText Typo="Typo.body2" Class="mb-3 mt-3">
                     Ordnen Sie jeder Recepta-Kategorie das passende Buchungskonto zu.
                 </MudText>
-                <MudTable Items="_mappings" Dense="true" Hover="true" Elevation="0">
+                <MudTable Items="_mappings" Dense="true" Hover="true" Elevation="0" SortLabel="Sortieren nach" T="KategorieKontoMappingDto">
                     <HeaderContent>
-                        <MudTh>Kategorie</MudTh>
-                        <MudTh>Konto</MudTh>
-                        <MudTh>Kontobezeichnung</MudTh>
-                        <MudTh>Typ</MudTh>
+                        <MudTh><MudTableSortLabel SortBy="new Func<KategorieKontoMappingDto, object>(x => x.ReceiptaKategorie)" InitialDirection="@_mappingSort.InitialDirectionFor("kategorie")" SortDirectionChanged="@(d => _mappingSort.Update("kategorie", d))">Kategorie</MudTableSortLabel></MudTh>
+                        <MudTh><MudTableSortLabel SortBy="new Func<KategorieKontoMappingDto, object>(x => x.KontoNummer)" InitialDirection="@_mappingSort.InitialDirectionFor("konto")" SortDirectionChanged="@(d => _mappingSort.Update("konto", d))">Konto</MudTableSortLabel></MudTh>
+                        <MudTh><MudTableSortLabel SortBy="new Func<KategorieKontoMappingDto, object>(x => x.KontoBezeichnung)" InitialDirection="@_mappingSort.InitialDirectionFor("bezeichnung")" SortDirectionChanged="@(d => _mappingSort.Update("bezeichnung", d))">Kontobezeichnung</MudTableSortLabel></MudTh>
+                        <MudTh><MudTableSortLabel SortBy="new Func<KategorieKontoMappingDto, object>(x => x.IsCustom)" InitialDirection="@_mappingSort.InitialDirectionFor("typ")" SortDirectionChanged="@(d => _mappingSort.Update("typ", d))">Typ</MudTableSortLabel></MudTh>
                         <MudTh>Aktionen</MudTh>
                     </HeaderContent>
                     <RowTemplate>
@@ -83,14 +85,14 @@
                         Neues Konto
                     </MudButton>
                 </MudStack>
-                <MudTable Items="_konten" Dense="true" Hover="true" Elevation="0" Class="mt-3">
+                <MudTable Items="_konten" Dense="true" Hover="true" Elevation="0" Class="mt-3" SortLabel="Sortieren nach" T="KontoDto">
                     <HeaderContent>
-                        <MudTh>Kontenrahmen</MudTh>
-                        <MudTh>Nummer</MudTh>
-                        <MudTh>Bezeichnung</MudTh>
-                        <MudTh>Typ</MudTh>
-                        <MudTh>USt-Satz</MudTh>
-                        <MudTh>Aktiv</MudTh>
+                        <MudTh><MudTableSortLabel SortBy="new Func<KontoDto, object>(x => x.Kontenrahmen)" InitialDirection="@_kontoSort.InitialDirectionFor("kontenrahmen")" SortDirectionChanged="@(d => _kontoSort.Update("kontenrahmen", d))">Kontenrahmen</MudTableSortLabel></MudTh>
+                        <MudTh><MudTableSortLabel SortBy="new Func<KontoDto, object>(x => x.KontoNummer)" InitialDirection="@_kontoSort.InitialDirectionFor("nummer")" SortDirectionChanged="@(d => _kontoSort.Update("nummer", d))">Nummer</MudTableSortLabel></MudTh>
+                        <MudTh><MudTableSortLabel SortBy="new Func<KontoDto, object>(x => x.KontoBezeichnung)" InitialDirection="@_kontoSort.InitialDirectionFor("bezeichnung")" SortDirectionChanged="@(d => _kontoSort.Update("bezeichnung", d))">Bezeichnung</MudTableSortLabel></MudTh>
+                        <MudTh><MudTableSortLabel SortBy="new Func<KontoDto, object>(x => x.KontoTyp)" InitialDirection="@_kontoSort.InitialDirectionFor("typ")" SortDirectionChanged="@(d => _kontoSort.Update("typ", d))">Typ</MudTableSortLabel></MudTh>
+                        <MudTh><MudTableSortLabel SortBy="new Func<KontoDto, object>(x => x.UstSatz ?? -1)" InitialDirection="@_kontoSort.InitialDirectionFor("ust")" SortDirectionChanged="@(d => _kontoSort.Update("ust", d))">USt-Satz</MudTableSortLabel></MudTh>
+                        <MudTh><MudTableSortLabel SortBy="new Func<KontoDto, object>(x => x.IsActive)" InitialDirection="@_kontoSort.InitialDirectionFor("aktiv")" SortDirectionChanged="@(d => _kontoSort.Update("aktiv", d))">Aktiv</MudTableSortLabel></MudTh>
                         <MudTh>Aktionen</MudTh>
                     </HeaderContent>
                     <RowTemplate>
@@ -121,9 +123,13 @@
     private bool _loadingMappings = true;
     private Guid? _editingId;
     private string _editKontoNummer = string.Empty;
+    private TableSortSync _mappingSort = null!;
+    private TableSortSync _kontoSort = null!;
 
     protected override async Task OnInitializedAsync()
     {
+        _mappingSort = new TableSortSync(NavigationManager, "mapping");
+        _kontoSort = new TableSortSync(NavigationManager, "konto");
         await LoadKontenAsync();
         await LoadMappingsAsync();
     }

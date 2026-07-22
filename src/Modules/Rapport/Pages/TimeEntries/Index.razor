@@ -1,4 +1,5 @@
 ﻿@using Kuestencode.Shared.Contracts.Host
+@using Kuestencode.Shared.UI.Pages
 @using Kuestencode.Rapport.Services
 @page "/time-entries"
 @inject TimeEntryService TimeEntryService
@@ -71,26 +72,26 @@
     </MudGrid>
 </MudPaper>
 
-<MudTable Items="_entries" Hover="true" Dense="@_isMobile">
+<MudTable Items="_entries" Hover="true" Dense="@_isMobile" SortLabel="Sortieren nach" T="TimeEntry">
     <HeaderContent>
-        <MudTh>Datum</MudTh>
+        <MudTh><MudTableSortLabel SortBy="new Func<TimeEntry, object>(x => x.StartTime)" InitialDirection="@_sort.InitialDirectionFor("date")" SortDirectionChanged="@(d => _sort.Update("date", d))">Datum</MudTableSortLabel></MudTh>
         @if (!_isMobile)
         {
             <MudTh>Zeit</MudTh>
         }
-        <MudTh>Kunde</MudTh>
+        <MudTh><MudTableSortLabel SortBy="new Func<TimeEntry, object>(x => x.CustomerName ?? string.Empty)" InitialDirection="@_sort.InitialDirectionFor("customer")" SortDirectionChanged="@(d => _sort.Update("customer", d))">Kunde</MudTableSortLabel></MudTh>
         @if (!_isMobile)
         {
-            <MudTh>Projekt</MudTh>
+            <MudTh><MudTableSortLabel SortBy="new Func<TimeEntry, object>(x => x.ProjectName ?? string.Empty)" InitialDirection="@_sort.InitialDirectionFor("project")" SortDirectionChanged="@(d => _sort.Update("project", d))">Projekt</MudTableSortLabel></MudTh>
         }
-        <MudTh>Dauer</MudTh>
+        <MudTh><MudTableSortLabel SortBy="new Func<TimeEntry, object>(x => x.NetDuration)" InitialDirection="@_sort.InitialDirectionFor("duration")" SortDirectionChanged="@(d => _sort.Update("duration", d))">Dauer</MudTableSortLabel></MudTh>
         @if (_isAdminOrBuero)
         {
-            <MudTh>Mitarbeiter</MudTh>
+            <MudTh><MudTableSortLabel SortBy="new Func<TimeEntry, object>(x => x.TeamMemberName ?? string.Empty)" InitialDirection="@_sort.InitialDirectionFor("member")" SortDirectionChanged="@(d => _sort.Update("member", d))">Mitarbeiter</MudTableSortLabel></MudTh>
         }
         @if (!_isMobile)
         {
-            <MudTh>Typ</MudTh>
+            <MudTh><MudTableSortLabel SortBy="new Func<TimeEntry, object>(x => x.IsManual || x.Status == TimeEntryStatus.Manual)" InitialDirection="@_sort.InitialDirectionFor("typ")" SortDirectionChanged="@(d => _sort.Update("typ", d))">Typ</MudTableSortLabel></MudTh>
         }
         <MudTh>Aktionen</MudTh>
     </HeaderContent>
@@ -157,9 +158,11 @@
     private List<TeamMemberDto> _teamMembers = new();
     private Guid? _selectedTeamMemberId;
     private bool _isMobile;
+    private TableSortSync _sort = null!;
 
     protected override async Task OnInitializedAsync()
     {
+        _sort = new TableSortSync(NavigationManager);
         _customers = await CustomerService.GetAllAsync();
 
         _isAdminOrBuero = await UserContextService.IsAdminOrBueroAsync();
