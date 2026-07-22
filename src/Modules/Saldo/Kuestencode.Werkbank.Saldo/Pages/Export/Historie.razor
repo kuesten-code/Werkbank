@@ -54,14 +54,14 @@
     <MudText Typo="Typo.h5" Class="mb-2">Bisherige Exporte</MudText>
 
     <MudTable Items="@_historie" Dense="true" Hover="true" Elevation="1"
-              Loading="@_loading" LoadingProgressColor="Color.Primary">
+              Loading="@_loading" LoadingProgressColor="Color.Primary" RowsPerPage="25" SortLabel="Sortieren nach" T="ExportLogDto">
         <HeaderContent>
-            <MudTh>Exportiert am</MudTh>
-            <MudTh>Typ</MudTh>
-            <MudTh>Zeitraum</MudTh>
-            <MudTh Style="text-align:right">Buchungen</MudTh>
-            <MudTh Style="text-align:right">Größe</MudTh>
-            <MudTh>Datei</MudTh>
+            <MudTh><MudTableSortLabel InitialDirection="@_sort.InitialDirectionFor("exported", SortDirection.Descending)" SortDirectionChanged="@(d => _sort.Update("exported", d))" SortBy="new Func<ExportLogDto, object>(x => x.ExportedAt)">Exportiert am</MudTableSortLabel></MudTh>
+            <MudTh><MudTableSortLabel InitialDirection="@_sort.InitialDirectionFor("typ")" SortDirectionChanged="@(d => _sort.Update("typ", d))" SortBy="new Func<ExportLogDto, object>(x => x.ExportTyp)">Typ</MudTableSortLabel></MudTh>
+            <MudTh><MudTableSortLabel InitialDirection="@_sort.InitialDirectionFor("zeitraum")" SortDirectionChanged="@(d => _sort.Update("zeitraum", d))" SortBy="new Func<ExportLogDto, object>(x => x.ZeitraumVon)">Zeitraum</MudTableSortLabel></MudTh>
+            <MudTh Style="text-align:right"><MudTableSortLabel InitialDirection="@_sort.InitialDirectionFor("buchungen")" SortDirectionChanged="@(d => _sort.Update("buchungen", d))" SortBy="new Func<ExportLogDto, object>(x => x.AnzahlBuchungen)">Buchungen</MudTableSortLabel></MudTh>
+            <MudTh Style="text-align:right"><MudTableSortLabel InitialDirection="@_sort.InitialDirectionFor("groesse")" SortDirectionChanged="@(d => _sort.Update("groesse", d))" SortBy="new Func<ExportLogDto, object>(x => x.DateiGroesse)">Größe</MudTableSortLabel></MudTh>
+            <MudTh><MudTableSortLabel InitialDirection="@_sort.InitialDirectionFor("datei")" SortDirectionChanged="@(d => _sort.Update("datei", d))" SortBy="new Func<ExportLogDto, object>(x => x.DateiName)">Datei</MudTableSortLabel></MudTh>
             <MudTh Style="text-align:center; width:80px;">Neu exportieren</MudTh>
         </HeaderContent>
         <RowTemplate>

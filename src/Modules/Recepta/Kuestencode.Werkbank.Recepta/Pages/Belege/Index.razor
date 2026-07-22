@@ -119,14 +119,14 @@
         <!-- Tabelle -->
         <MudTable Items="@_documents" Hover="true" Breakpoint="Breakpoint.Sm"
                  Loading="@_loading" LoadingProgressColor="Color.Info"
-                 RowsPerPage="25" SortLabel="Sortieren nach"
+                 RowsPerPage="50" SortLabel="Sortieren nach"
                  OnRowClick="@(args => ViewDocument(args.Item!.Id))" T="DocumentDto" RowClass="cursor-pointer">
             <HeaderContent>
-                <MudTh><MudTableSortLabel SortBy="new Func<DocumentDto, object>(x => x.DocumentNumber)" InitialDirection="SortDirection.None">Belegnr.</MudTableSortLabel></MudTh>
-                <MudTh><MudTableSortLabel SortBy="new Func<DocumentDto, object>(x => x.SupplierName)">Lieferant</MudTableSortLabel></MudTh>
+                <MudTh><MudTableSortLabel SortBy="new Func<DocumentDto, object>(x => x.DocumentNumber)" InitialDirection="@_sort.InitialDirectionFor("number")" SortDirectionChanged="@(d => _sort.Update("number", d))">Belegnr.</MudTableSortLabel></MudTh>
+                <MudTh><MudTableSortLabel SortBy="new Func<DocumentDto, object>(x => x.SupplierName)" InitialDirection="@_sort.InitialDirectionFor("supplier")" SortDirectionChanged="@(d => _sort.Update("supplier", d))">Lieferant</MudTableSortLabel></MudTh>
                 <MudTh>Rechnungsnr.</MudTh>
-                <MudTh><MudTableSortLabel SortBy="new Func<DocumentDto, object>(x => x.InvoiceDate)" InitialDirection="SortDirection.Descending">Datum</MudTableSortLabel></MudTh>
-                <MudTh><MudTableSortLabel SortBy="new Func<DocumentDto, object>(x => x.AmountGross)">Brutto</MudTableSortLabel></MudTh>
+                <MudTh><MudTableSortLabel SortBy="new Func<DocumentDto, object>(x => x.InvoiceDate)" InitialDirection="@_sort.InitialDirectionFor("date", SortDirection.Descending)" SortDirectionChanged="@(d => _sort.Update("date", d))">Datum</MudTableSortLabel></MudTh>
+                <MudTh><MudTableSortLabel SortBy="new Func<DocumentDto, object>(x => x.AmountGross)" InitialDirection="@_sort.InitialDirectionFor("amount")" SortDirectionChanged="@(d => _sort.Update("amount", d))">Brutto</MudTableSortLabel></MudTh>
                 <MudTh>Kategorie</MudTh>
                 <MudTh>Status</MudTh>
                 @if (_actaAvailable)
@@ -284,6 +284,7 @@
 
     private readonly CultureInfo _culture = new("de-DE");
     private bool _loading = true;
+    private TableSortSync _sort = null!;
 
     // Badge-Zählungen (ungefiltert)
     private int _draftCount, _bookedCount, _paidCount, _partiallyPaidCount, _overdueCount;
@@ -312,6 +313,7 @@
 
     protected override async Task OnInitializedAsync()
     {
+        _sort = new TableSortSync(NavigationManager);
         await LoadReferenceDataAsync();
         await LoadDocumentsAsync();
         await LoadCountsAsync();

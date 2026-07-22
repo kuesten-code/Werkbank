@@ -77,35 +77,44 @@
     @* Tabelle *@
     <MudTable @ref="_table" Items="@_gefiltert" Dense="true" Hover="true" Elevation="1"
               Loading="@_loading" LoadingProgressColor="Color.Primary"
-              SortLabel="Sortieren" AllowUnsorted="false"
+              RowsPerPage="25" SortLabel="Sortieren" AllowUnsorted="false"
               OnRowClick="OnRowClick" RowClass="cursor-pointer"
               T="BuchungDto">
         <HeaderContent>
             <MudTh>
-                <MudTableSortLabel InitialDirection="SortDirection.Descending"
+                <MudTableSortLabel InitialDirection="@_sort.InitialDirectionFor("date", SortDirection.Descending)"
+                                   SortDirectionChanged="@(d => _sort.Update("date", d))"
                                    SortBy="new Func<BuchungDto, object>(b => b.ZahlungsDatum)">
                     Datum
                 </MudTableSortLabel>
             </MudTh>
             <MudTh>
-                <MudTableSortLabel SortBy="new Func<BuchungDto, object>(b => b.QuelleId)">
+                <MudTableSortLabel InitialDirection="@_sort.InitialDirectionFor("beleg")"
+                                   SortDirectionChanged="@(d => _sort.Update("beleg", d))"
+                                   SortBy="new Func<BuchungDto, object>(b => b.QuelleId)">
                     Beleg
                 </MudTableSortLabel>
             </MudTh>
             <MudTh>
-                <MudTableSortLabel SortBy="new Func<BuchungDto, object>(b => b.Beschreibung)">
+                <MudTableSortLabel InitialDirection="@_sort.InitialDirectionFor("beschreibung")"
+                                   SortDirectionChanged="@(d => _sort.Update("beschreibung", d))"
+                                   SortBy="new Func<BuchungDto, object>(b => b.Beschreibung)">
                     Beschreibung
                 </MudTableSortLabel>
             </MudTh>
             <MudTh>Kategorie</MudTh>
             <MudTh>Konto</MudTh>
             <MudTh Style="text-align:right; color: #4caf50;">
-                <MudTableSortLabel SortBy="new Func<BuchungDto, object>(b => b.Typ == BuchungsTyp.Einnahme ? b.Brutto : 0m)">
+                <MudTableSortLabel InitialDirection="@_sort.InitialDirectionFor("einnahme")"
+                                   SortDirectionChanged="@(d => _sort.Update("einnahme", d))"
+                                   SortBy="new Func<BuchungDto, object>(b => b.Typ == BuchungsTyp.Einnahme ? b.Brutto : 0m)">
                     Einnahme
                 </MudTableSortLabel>
             </MudTh>
             <MudTh Style="text-align:right; color: #f44336;">
-                <MudTableSortLabel SortBy="new Func<BuchungDto, object>(b => b.Typ == BuchungsTyp.Ausgabe ? b.Brutto : 0m)">
+                <MudTableSortLabel InitialDirection="@_sort.InitialDirectionFor("ausgabe")"
+                                   SortDirectionChanged="@(d => _sort.Update("ausgabe", d))"
+                                   SortBy="new Func<BuchungDto, object>(b => b.Typ == BuchungsTyp.Ausgabe ? b.Brutto : 0m)">
                     Ausgabe
                 </MudTableSortLabel>
             </MudTh>

@@ -10,6 +10,7 @@ using MudBlazor;
 using Kuestencode.Core.Interfaces;
 using Kuestencode.Core.Models;
 using Kuestencode.Shared.UI.Components;
+using Kuestencode.Shared.UI.Pages;
 using Kuestencode.Werkbank.Host.Services;
 
 namespace Kuestencode.Werkbank.Host.Pages.Customers;
@@ -19,6 +20,7 @@ public partial class List
     private List<Customer> _customers = new();
     private string _searchString = string.Empty;
     private bool _loading = true;
+    private TableSortSync _sort = null!;
 
     private IEnumerable<Customer> _filteredCustomers => _customers.Where(c =>
         string.IsNullOrWhiteSpace(_searchString) ||
@@ -30,6 +32,7 @@ public partial class List
 
     protected override async Task OnInitializedAsync()
     {
+        _sort = new TableSortSync(NavigationManager);
         await LoadCustomers();
     }
 

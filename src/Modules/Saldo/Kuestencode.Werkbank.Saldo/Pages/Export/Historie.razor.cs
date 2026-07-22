@@ -3,6 +3,7 @@ using Microsoft.JSInterop;
 using MudBlazor;
 using Kuestencode.Werkbank.Saldo.Domain.Dtos;
 using Kuestencode.Werkbank.Saldo.Services;
+using Kuestencode.Shared.UI.Pages;
 
 namespace Kuestencode.Werkbank.Saldo.Pages.Export;
 
@@ -11,6 +12,7 @@ public partial class Historie
     [Inject] private IDatevExportService ExportService { get; set; } = default!;
     [Inject] private IJSRuntime JS { get; set; } = default!;
     [Inject] private ISnackbar Snackbar { get; set; } = default!;
+    [Inject] private NavigationManager NavigationManager { get; set; } = default!;
 
     private bool _loading = true;
     private string? _exportingId;
@@ -19,9 +21,11 @@ public partial class Historie
 
     private DateTime? _vonDate = new DateTime(DateTime.Today.Year, 1, 1);
     private DateTime? _bisDate = new DateTime(DateTime.Today.Year, 12, 31);
+    private TableSortSync _sort = null!;
 
     protected override async Task OnInitializedAsync()
     {
+        _sort = new TableSortSync(NavigationManager);
         await LoadAsync();
     }
 

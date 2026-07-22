@@ -1,6 +1,7 @@
 ﻿@page "/team-members"
 @attribute [Authorize]
 @using Kuestencode.Shared.Contracts.Host
+@using Kuestencode.Shared.UI.Pages
 @using Kuestencode.Werkbank.Host.Models
 @inject Kuestencode.Werkbank.Host.Services.ITeamMemberService TeamMemberService
 @inject Kuestencode.Werkbank.Host.Services.IInviteService InviteService
@@ -27,12 +28,12 @@
 
         <MudTable Items="@_filteredMembers" Hover="true" Breakpoint="Breakpoint.Sm"
                  Loading="@_loading" LoadingProgressColor="Color.Info"
-                 RowsPerPage="10">
+                 RowsPerPage="25" SortLabel="Sortieren nach" T="TeamMember">
             <HeaderContent>
-                <MudTh>Name</MudTh>
-                <MudTh>E-Mail</MudTh>
-                <MudTh>Rolle</MudTh>
-                <MudTh>Status</MudTh>
+                <MudTh><MudTableSortLabel SortBy="new Func<TeamMember, object>(x => x.DisplayName)" InitialDirection="@_sort.InitialDirectionFor("name")" SortDirectionChanged="@(d => _sort.Update("name", d))">Name</MudTableSortLabel></MudTh>
+                <MudTh><MudTableSortLabel SortBy="new Func<TeamMember, object>(x => x.Email ?? string.Empty)" InitialDirection="@_sort.InitialDirectionFor("email")" SortDirectionChanged="@(d => _sort.Update("email", d))">E-Mail</MudTableSortLabel></MudTh>
+                <MudTh><MudTableSortLabel SortBy="new Func<TeamMember, object>(x => GetRoleLabel(x.Role))" InitialDirection="@_sort.InitialDirectionFor("role")" SortDirectionChanged="@(d => _sort.Update("role", d))">Rolle</MudTableSortLabel></MudTh>
+                <MudTh><MudTableSortLabel SortBy="new Func<TeamMember, object>(x => GetStatusLabel(x))" InitialDirection="@_sort.InitialDirectionFor("status")" SortDirectionChanged="@(d => _sort.Update("status", d))">Status</MudTableSortLabel></MudTh>
                 <MudTh Style="text-align: right">Aktionen</MudTh>
             </HeaderContent>
             <RowTemplate>
@@ -91,6 +92,7 @@
     private List<TeamMember> _members = new();
     private string _searchString = string.Empty;
     private bool _loading = true;
+    private TableSortSync _sort = null!;
 
     private IEnumerable<TeamMember> _filteredMembers => _members.Where(m =>
         string.IsNullOrWhiteSpace(_searchString) ||
@@ -100,6 +102,7 @@
 
     protected override async Task OnInitializedAsync()
     {
+        _sort = new TableSortSync(NavigationManager);
         await LoadMembers();
     }
 
