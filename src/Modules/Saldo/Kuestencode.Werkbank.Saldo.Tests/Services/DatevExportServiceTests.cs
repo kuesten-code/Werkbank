@@ -149,6 +149,36 @@ public class DatevExportServiceTests
         buchungszeile.Should().Contain("4980");
     }
 
+    [Fact]
+    public async Task ExportBuchungsstapel_NegativeEinnahmeKehrtSollHabenUmUndBleibtOhneVorzeichen()
+    {
+        SetupBasicMocks();
+        _saldoService.Setup(s => s.GetAlleBuchungenAsync(Von, Bis))
+            .ReturnsAsync(new List<BuchungDto>
+            {
+                new()
+                {
+                    Typ = BuchungsTyp.Einnahme,
+                    Brutto = -1190m, // Gutschrift: negative Einnahme
+                    UstSatz = 19,
+                    ZahlungsDatum = new DateOnly(2026, 3, 20),
+                    QuelleId = "GS-2026-001",
+                    Beschreibung = "Gutschrift Kunde XY",
+                    KontoNummer = "8400"
+                }
+            });
+
+        var service = CreateService();
+        var result = await service.ExportBuchungsstapelAsync(Von, Bis);
+
+        var text = Encoding.GetEncoding(1252).GetString(result);
+        var buchungszeile = text.Split('\n')[2];
+
+        buchungszeile.Should().Contain("\"H\""); // Gutschrift kippt Einnahme von Soll auf Haben
+        buchungszeile.Should().Contain("1190,00"); // Umsatzfeld ohne Vorzeichen
+        buchungszeile.Should().NotContain("-1190,00");
+    }
+
     // ─── BU-Schlüssel ─────────────────────────────────────────────────────────
 
     [Theory]

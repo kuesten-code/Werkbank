@@ -77,7 +77,7 @@ public class KlarLayoutRenderer : BasePdfLayout
                         rightColumn.Item().PaddingBottom(10);
                     }
 
-                    rightColumn.Item().Text($"Rechnung {invoice.InvoiceNumber}")
+                    rightColumn.Item().Text($"{invoice.DocumentLabel} {invoice.InvoiceNumber}")
                         .FontSize(16)
                         .Bold()
                         .FontColor(company.PdfPrimaryColor);

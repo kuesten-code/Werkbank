@@ -262,6 +262,14 @@ public class ProgramApi
                     Type = NavItemType.Link,
                     AllowedRoles = new List<UserRole> { UserRole.Buero, UserRole.Admin }
                 },
+                new NavItemDto
+                {
+                    Label = "Gutschriften",
+                    Href = "/faktura/credit-notes",
+                    Icon = "",
+                    Type = NavItemType.Link,
+                    AllowedRoles = new List<UserRole> { UserRole.Buero, UserRole.Admin }
+                },
                 // Settings: PDF-Anpassung unter "Dokumente" - nur Admin
                 new NavItemDto
                 {

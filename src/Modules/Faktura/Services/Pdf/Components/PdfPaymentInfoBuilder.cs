@@ -44,9 +44,13 @@ public class PdfPaymentInfoBuilder
     {
         string noticeText;
 
-        if (!string.IsNullOrWhiteSpace(company.PdfPaymentNotice))
+        var paymentNotice = invoice.Type == InvoiceType.CreditNote
+            ? company.PdfCreditNotePaymentNotice
+            : company.PdfPaymentNotice;
+
+        if (!string.IsNullOrWhiteSpace(paymentNotice))
         {
-            noticeText = _templateEngine.ReplacePlaceholders(company.PdfPaymentNotice, invoice, company);
+            noticeText = _templateEngine.ReplacePlaceholders(paymentNotice, invoice, company);
         }
         else
         {

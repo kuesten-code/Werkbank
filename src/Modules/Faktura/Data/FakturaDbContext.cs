@@ -42,12 +42,21 @@ public class FakturaDbContext : DbContext
             entity.HasKey(e => e.Id);
             entity.HasIndex(e => e.InvoiceNumber).IsUnique();
             entity.HasIndex(e => e.ProjectId);
+            entity.HasIndex(e => e.Type);
+            entity.HasIndex(e => e.RelatedInvoiceId);
             entity.Property(e => e.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
             entity.Property(e => e.UpdatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
             entity.Property(e => e.DiscountValue).HasPrecision(18, 2);
 
             // CustomerId bleibt als FK, aber ohne Navigation Property zum Host-Schema
             entity.Property(e => e.CustomerId).IsRequired();
+
+            entity.HasOne<Invoice>()
+                .WithMany()
+                .HasForeignKey(e => e.RelatedInvoiceId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            entity.Ignore(e => e.RelatedInvoice);
 
             // Relationships innerhalb des Faktura-Schemas
             entity.HasMany(e => e.Items)

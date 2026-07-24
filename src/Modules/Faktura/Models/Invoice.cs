@@ -63,6 +63,10 @@ public class Invoice
     // Tax Mode
     public bool IsReverseCharge { get; set; } = false;
 
+    public InvoiceType Type { get; set; } = InvoiceType.Invoice;
+
+    public int? RelatedInvoiceId { get; set; }
+
     // Navigation Properties
     // Customer ist in einem anderen Schema (host) - wird separat geladen
     [NotMapped]
@@ -71,6 +75,13 @@ public class Invoice
     // Projektname aus Acta - wird separat geladen
     [NotMapped]
     public string? ProjectName { get; set; }
+
+    // Bezugsrechnung bei Gutschriften - wird separat geladen
+    [NotMapped]
+    public Invoice? RelatedInvoice { get; set; }
+
+    [NotMapped]
+    public string DocumentLabel => Type == InvoiceType.CreditNote ? "Gutschrift" : "Rechnung";
 
     public List<InvoiceItem> Items { get; set; } = new();
     public List<DownPayment> DownPayments { get; set; } = new();

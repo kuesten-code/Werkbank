@@ -81,7 +81,10 @@ public class ApiCompanyService : ICompanyService
             PdfAccentColor = company.PdfAccentColor,
             PdfHeaderText = company.PdfHeaderText,
             PdfFooterText = company.PdfFooterText,
-            PdfPaymentNotice = company.PdfPaymentNotice
+            PdfPaymentNotice = company.PdfPaymentNotice,
+            PdfCreditNoteHeaderText = company.PdfCreditNoteHeaderText,
+            PdfCreditNoteFooterText = company.PdfCreditNoteFooterText,
+            PdfCreditNotePaymentNotice = company.PdfCreditNotePaymentNotice
         };
 
         await _hostApiClient.UpdateCompanyAsync(request);
@@ -158,6 +161,9 @@ public class ApiCompanyService : ICompanyService
             PdfHeaderText = dto.PdfHeaderText,
             PdfFooterText = dto.PdfFooterText,
             PdfPaymentNotice = dto.PdfPaymentNotice,
+            PdfCreditNoteHeaderText = dto.PdfCreditNoteHeaderText,
+            PdfCreditNoteFooterText = dto.PdfCreditNoteFooterText,
+            PdfCreditNotePaymentNotice = dto.PdfCreditNotePaymentNotice,
             AdditionalBankAccounts = dto.AdditionalBankAccounts
                 .Select(a => new AdditionalBankAccount
                 {

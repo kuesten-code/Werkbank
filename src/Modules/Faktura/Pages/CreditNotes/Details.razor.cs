@@ -15,7 +15,7 @@ using Kuestencode.Faktura.Services;
 using Kuestencode.Faktura.Shared;
 using Kuestencode.Faktura.Shared.Components;
 
-namespace Kuestencode.Faktura.Pages.Invoices;
+namespace Kuestencode.Faktura.Pages.CreditNotes;
 
 public partial class Details
 {
@@ -58,7 +58,7 @@ public partial class Details
         if (queryParams.TryGetValue("action", out var action) && action == "send")
         {
             // Navigiere zu bereinigter URL
-            NavigationManager.NavigateTo($"/faktura/invoices/details/{Id}", replace: true);
+            NavigationManager.NavigateTo($"/faktura/credit-notes/details/{Id}", replace: true);
 
             // Warte kurz damit die Navigation abgeschlossen ist
             await Task.Delay(100);
@@ -106,10 +106,11 @@ public partial class Details
         {
             _invoice = await InvoiceService.GetByIdAsync(Id, includeCustomer: true, includeItems: true);
             await LoadProjectNameAsync();
+            await LoadRelatedInvoiceAsync();
         }
         catch (Exception ex)
         {
-            Snackbar.Add($"Fehler beim Laden der Rechnung: {ex.Message}", Severity.Error);
+            Snackbar.Add($"Fehler beim Laden der Gutschrift: {ex.Message}", Severity.Error);
         }
         finally
         {
@@ -132,6 +133,24 @@ public partial class Details
         catch
         {
             // Acta-Modul evtl. nicht verfügbar - Projektname bleibt leer
+        }
+    }
+
+    private async Task LoadRelatedInvoiceAsync()
+    {
+        if (_invoice?.RelatedInvoiceId == null)
+        {
+            return;
+        }
+
+        try
+        {
+            _invoice.RelatedInvoice = await InvoiceService.GetByIdAsync(
+                _invoice.RelatedInvoiceId.Value, includeCustomer: false, includeItems: false);
+        }
+        catch
+        {
+            // Bezugsrechnung nicht auffindbar - Chip bleibt ausgeblendet
         }
     }
 
@@ -159,26 +178,12 @@ public partial class Details
         try
         {
             await InvoiceService.MarkAsPaidAsync(_invoice.Id, paidDate);
-            Snackbar.Add($"Faktura {_invoice.InvoiceNumber} wurde als beglichen markiert.", Severity.Success);
+            Snackbar.Add($"Gutschrift {_invoice.InvoiceNumber} wurde als beglichen markiert.", Severity.Success);
             await LoadInvoice();
         }
         catch (Exception ex)
         {
             Snackbar.Add($"Fehler: {ex.Message}", Severity.Error);
-        }
-    }
-
-    private async Task CreateCreditNote()
-    {
-        if (_invoice == null) return;
-        try
-        {
-            var creditNote = await InvoiceService.CreateCreditNoteFromInvoiceAsync(_invoice.Id, DateTime.Today);
-            NavigationManager.NavigateTo($"/faktura/credit-notes/edit/{creditNote.Id}");
-        }
-        catch (Exception ex)
-        {
-            Snackbar.Add($"Fehler beim Erstellen der Gutschrift: {ex.Message}", Severity.Error);
         }
     }
 
@@ -213,7 +218,7 @@ public partial class Details
     private void OpenZahlungModal()
     {
         if (_invoice == null) return;
-        _zahlungBetrag = _invoice.RemainingAmount > 0 ? _invoice.RemainingAmount : 0;
+        _zahlungBetrag = _invoice.RemainingAmount != 0 ? Math.Abs(_invoice.RemainingAmount) : 0;
         _zahlungDatum = DateTime.Today;
         _zahlungNotiz = null;
         _zahlungModalOpen = true;
@@ -231,9 +236,10 @@ public partial class Details
         _zahlungSaving = true;
         try
         {
+            // Gutschriften tragen negative Beträge (Vorzeichenkonvention) - Eingabe erfolgt positiv
             await PaymentService.ZahlungErfassenAsync(
                 _invoice.Id,
-                _zahlungBetrag,
+                -Math.Abs(_zahlungBetrag),
                 _zahlungDatum ?? DateTime.Today,
                 _zahlungNotiz);
 
@@ -277,7 +283,7 @@ public partial class Details
             var fileName = $"{_invoice.InvoiceNumber}.pdf";
 
             await JSRuntime.InvokeVoidAsync("downloadFile", fileName, Convert.ToBase64String(pdfBytes));
-            Snackbar.Add($"PDF für Rechnung {_invoice.InvoiceNumber} wurde heruntergeladen.", Severity.Success);
+            Snackbar.Add($"PDF für Gutschrift {_invoice.InvoiceNumber} wurde heruntergeladen.", Severity.Success);
         }
         catch (Exception ex)
         {
@@ -308,7 +314,7 @@ public partial class Details
             var fileName = $"{_invoice.InvoiceNumber}_zugferd.pdf";
 
             await JSRuntime.InvokeVoidAsync("downloadFile", fileName, Convert.ToBase64String(pdfBytes));
-            Snackbar.Add($"ZUGFeRD-PDF für Rechnung {_invoice.InvoiceNumber} wurde heruntergeladen.", Severity.Success);
+            Snackbar.Add($"ZUGFeRD-PDF für Gutschrift {_invoice.InvoiceNumber} wurde heruntergeladen.", Severity.Success);
         }
         catch (Exception ex)
         {
@@ -342,7 +348,7 @@ public partial class Details
             var xmlBytes = System.Text.Encoding.UTF8.GetBytes(xmlContent);
             await JSRuntime.InvokeVoidAsync("downloadFile", fileName, Convert.ToBase64String(xmlBytes));
 
-            Snackbar.Add($"XRechnung (XML) für Rechnung {_invoice.InvoiceNumber} wurde heruntergeladen.", Severity.Success);
+            Snackbar.Add($"XRechnung (XML) für Gutschrift {_invoice.InvoiceNumber} wurde heruntergeladen.", Severity.Success);
         }
         catch (Exception ex)
         {
@@ -362,14 +368,14 @@ public partial class Details
         {
             { x => x.Invoice, _invoice },
             { x => x.CustomerEmail, _invoice.Customer?.Email },
-            { x => x.OnSend, EventCallback.Factory.Create<(string Email, string? Message, EmailAttachmentFormat Format, string? CcEmails, string? BccEmails, bool IncludeClosing)>(this, SendInvoiceEmail) }
+            { x => x.OnSend, EventCallback.Factory.Create<(string Email, string? Message, EmailAttachmentFormat Format, string? CcEmails, string? BccEmails, bool IncludeClosing)>(this, SendCreditNoteEmail) }
         };
 
         var options = new DialogOptions { CloseOnEscapeKey = true, MaxWidth = MaxWidth.Small, FullWidth = true };
         var dialog = await DialogService.ShowAsync<SendEmailDialog>("E-Mail versenden", parameters, options);
     }
 
-    private async Task SendInvoiceEmail((string Email, string? Message, EmailAttachmentFormat Format, string? CcEmails, string? BccEmails, bool IncludeClosing) data)
+    private async Task SendCreditNoteEmail((string Email, string? Message, EmailAttachmentFormat Format, string? CcEmails, string? BccEmails, bool IncludeClosing) data)
     {
         if (_invoice == null) return;
 
@@ -395,7 +401,7 @@ public partial class Details
                 };
 
                 Snackbar.Add(
-                    $"Rechnung {_invoice.InvoiceNumber}{formatText} wurde erfolgreich an {data.Email} versendet.",
+                    $"Gutschrift {_invoice.InvoiceNumber}{formatText} wurde erfolgreich an {data.Email} versendet.",
                     Severity.Success);
                 await LoadInvoice(); // Reload to update email tracking info
             }
@@ -417,13 +423,13 @@ public partial class Details
 
             var parameters = new DialogParameters();
             var options = new DialogOptions { CloseOnEscapeKey = true, MaxWidth = MaxWidth.Small };
-            var dialog = await DialogService.ShowAsync<PrintConfirmationDialog>("Rechnung gedruckt?", parameters, options);
+            var dialog = await DialogService.ShowAsync<PrintConfirmationDialog>("Gutschrift gedruckt?", parameters, options);
             var result = await dialog.Result;
 
             if (result is not null && !result.Canceled)
             {
                 await InvoiceService.MarkAsPrintedAsync(_invoice.Id);
-                Snackbar.Add("Rechnung als gedruckt markiert", Severity.Success);
+                Snackbar.Add("Gutschrift als gedruckt markiert", Severity.Success);
                 await LoadInvoice();
             }
         }

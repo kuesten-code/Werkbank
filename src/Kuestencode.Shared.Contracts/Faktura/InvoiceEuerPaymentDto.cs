@@ -9,6 +9,7 @@ public class InvoiceEuerPaymentDto
     public int PaymentId { get; set; }
     public int InvoiceId { get; set; }
     public string InvoiceNumber { get; set; } = string.Empty;
+    public string InvoiceType { get; set; } = "Invoice";
     public DateTime InvoiceDate { get; set; }
     public DateOnly PaymentDate { get; set; }
     public decimal PaymentAmount { get; set; }

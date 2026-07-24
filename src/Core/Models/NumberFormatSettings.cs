@@ -21,4 +21,7 @@ public class NumberFormatSettings
 
     [MaxLength(50)]
     public string IncomingInvoiceFormat { get; set; } = "ER-YYYY-XXXX";
+
+    [MaxLength(50)]
+    public string CreditNoteFormat { get; set; } = "GS-YYYY-XXXX";
 }

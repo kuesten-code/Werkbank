@@ -1,5 +1,5 @@
 @using Kuestencode.Core.Interfaces
-@page "/invoices/details/{Id:int}"
+@page "/credit-notes/details/{Id:int}"
 @using Kuestencode.Faktura.Services
 @using Kuestencode.Faktura.Models
 @using Microsoft.AspNetCore.WebUtilities
@@ -15,7 +15,7 @@
 @inject IJSRuntime JSRuntime
 @inject IDialogService DialogService
 
-<PageTitle>Faktura-Details - Küstencode Faktura</PageTitle>
+<PageTitle>Gutschrift-Details - Küstencode Faktura</PageTitle>
 
 <MudContainer MaxWidth="MaxWidth.Large" Class="mt-4">
     @if (_loading)
@@ -24,13 +24,22 @@
     }
     else if (_invoice == null)
     {
-        <MudAlert Severity="Severity.Error">Rechnung nicht gefunden.</MudAlert>
+        <MudAlert Severity="Severity.Error">Gutschrift nicht gefunden.</MudAlert>
     }
     else
     {
         <MudPaper Class="pa-4">
             <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-4">
-                <MudText Typo="Typo.h4">Rechnung @_invoice.InvoiceNumber</MudText>
+                <MudStack Spacing="1">
+                    <MudText Typo="Typo.h4">Gutschrift @_invoice.InvoiceNumber</MudText>
+                    @if (_invoice.RelatedInvoice != null)
+                    {
+                        <MudChip T="string" Size="Size.Small" Color="Color.Info" Icon="@Icons.Material.Filled.Link"
+                                 OnClick="@(() => NavigationManager.NavigateTo($"/faktura/invoices/details/{_invoice.RelatedInvoiceId}"))">
+                            Gutschrift zu @_invoice.RelatedInvoice.InvoiceNumber
+                        </MudChip>
+                    }
+                </MudStack>
                 <MudStack AlignItems="AlignItems.End" Spacing="0">
                     <MudChip T="string" Size="Size.Large" Color="@GetStatusColor(_invoice.Status)">
                         @GetStatusText(_invoice.Status)
@@ -47,15 +56,15 @@
             <MudGrid>
                 <!-- Kopfdaten -->
                 <MudItem xs="12" md="6">
-                    <MudText Typo="Typo.h6" GutterBottom="true">Rechnungsdaten</MudText>
+                    <MudText Typo="Typo.h6" GutterBottom="true">Gutschriftdaten</MudText>
                     <MudSimpleTable Dense="true">
                         <tbody>
                             <tr>
-                                <td><strong>Rechnungsnummer:</strong></td>
+                                <td><strong>Gutschriftnummer:</strong></td>
                                 <td><strong>@_invoice.InvoiceNumber</strong></td>
                             </tr>
                             <tr>
-                                <td><strong>Rechnungsdatum:</strong></td>
+                                <td><strong>Gutschriftdatum:</strong></td>
                                 <td>@_invoice.InvoiceDate.ToString("dd.MM.yyyy")</td>
                             </tr>
                             @if (_invoice.ServicePeriodStart.HasValue || _invoice.ServicePeriodEnd.HasValue)
@@ -185,8 +194,8 @@
                                         <td><MudText Style="white-space: pre-line;">@item.Description</MudText></td>
                                         <td>@item.Unit</td>
                                         <td style="text-align: right">@item.Quantity.ToString("N3", _culture)</td>
-                                        <td style="text-align: right">@item.UnitPrice.ToString("C2", _culture)</td>
-                                        <td style="text-align: right">@item.TotalNet.ToString("C2", _culture)</td>
+                                        <td style="text-align: right">@Math.Abs(item.UnitPrice).ToString("C2", _culture)</td>
+                                        <td style="text-align: right">@Math.Abs(item.TotalNet).ToString("C2", _culture)</td>
                                     </tr>
                                 }
                                 @if (hatUeberschriften && itemGruppe.Header != null && itemGruppe.Items.Count > 0)
@@ -196,7 +205,7 @@
                                             Zwischensumme:
                                         </td>
                                         <td style="text-align: right; font-weight: 600; padding: 4px 8px; border-top: 1px solid var(--mud-palette-divider);">
-                                            @itemGruppe.Items.Sum(i => i.TotalNet).ToString("C2", _culture)
+                                            @Math.Abs(itemGruppe.Items.Sum(i => i.TotalNet)).ToString("C2", _culture)
                                         </td>
                                     </tr>
                                 }
@@ -267,38 +276,38 @@
                         <MudStack Spacing="2">
                             <MudStack Row="true" Justify="Justify.SpaceBetween">
                                 <MudText>Nettosumme:</MudText>
-                                <MudText>@_invoice.TotalNet.ToString("C2", _culture)</MudText>
+                                <MudText>@Math.Abs(_invoice.TotalNet).ToString("C2", _culture)</MudText>
                             </MudStack>
                             @if (_invoice.DiscountAmount > 0)
                             {
                                 <MudStack Row="true" Justify="Justify.SpaceBetween">
                                     <MudText>Rabatt @(_invoice.DiscountType == DiscountType.Percentage ? $"({_invoice.DiscountValue}%)" : ""):</MudText>
-                                    <MudText Color="Color.Success">-@_invoice.DiscountAmount.ToString("C2", _culture)</MudText>
+                                    <MudText Color="Color.Success">-@Math.Abs(_invoice.DiscountAmount).ToString("C2", _culture)</MudText>
                                 </MudStack>
                                 <MudStack Row="true" Justify="Justify.SpaceBetween">
                                     <MudText>Zwischensumme:</MudText>
-                                    <MudText>@_invoice.TotalNetAfterDiscount.ToString("C2", _culture)</MudText>
+                                    <MudText>@Math.Abs(_invoice.TotalNetAfterDiscount).ToString("C2", _culture)</MudText>
                                 </MudStack>
                             }
                             <MudStack Row="true" Justify="Justify.SpaceBetween">
                                 <MudText>@(_company?.IsKleinunternehmer == true ? "MwSt (0%, §19 UStG):" : "MwSt (19%):")</MudText>
-                                <MudText>@_invoice.TotalVat.ToString("C2", _culture)</MudText>
+                                <MudText>@Math.Abs(_invoice.TotalVat).ToString("C2", _culture)</MudText>
                             </MudStack>
                             <MudDivider />
                             <MudStack Row="true" Justify="Justify.SpaceBetween">
-                                <MudText Typo="Typo.subtitle1">Bruttosumme:</MudText>
-                                <MudText Typo="Typo.subtitle1">@_invoice.TotalGross.ToString("C2", _culture)</MudText>
+                                <MudText Typo="Typo.subtitle1">Gutschriftbetrag:</MudText>
+                                <MudText Typo="Typo.subtitle1">@Math.Abs(_invoice.TotalGross).ToString("C2", _culture)</MudText>
                             </MudStack>
                             @if (_invoice.TotalDownPayments > 0)
                             {
                                 <MudStack Row="true" Justify="Justify.SpaceBetween">
                                     <MudText>Abschl&auml;ge:</MudText>
-                                    <MudText Color="Color.Error">-@_invoice.TotalDownPayments.ToString("C2", _culture)</MudText>
+                                    <MudText Color="Color.Error">-@Math.Abs(_invoice.TotalDownPayments).ToString("C2", _culture)</MudText>
                                 </MudStack>
                                 <MudDivider DividerType="DividerType.FullWidth" Style="border-width: 2px;" />
                                 <MudStack Row="true" Justify="Justify.SpaceBetween">
-                                    <MudText Typo="Typo.h6">Zu zahlen:</MudText>
-                                    <MudText Typo="Typo.h6">@_invoice.AmountDue.ToString("C2", _culture)</MudText>
+                                    <MudText Typo="Typo.h6">Zu erstatten:</MudText>
+                                    <MudText Typo="Typo.h6">@Math.Abs(_invoice.AmountDue).ToString("C2", _culture)</MudText>
                                 </MudStack>
                             }
                             @if (_company?.IsKleinunternehmer == true)
@@ -338,7 +347,7 @@
                                 </HeaderContent>
                                 <RowTemplate Context="zahlung">
                                     <MudTd DataLabel="Datum">@zahlung.PaymentDate.ToLocalTime().ToString("dd.MM.yyyy")</MudTd>
-                                    <MudTd DataLabel="Betrag" Style="text-align: right">@zahlung.Amount.ToString("C2", _culture)</MudTd>
+                                    <MudTd DataLabel="Betrag" Style="text-align: right">@Math.Abs(zahlung.Amount).ToString("C2", _culture)</MudTd>
                                     <MudTd DataLabel="Notiz">@zahlung.Notes</MudTd>
                                     <MudTd Style="text-align: right">
                                         @if (_invoice.Status != InvoiceStatus.Cancelled)
@@ -352,13 +361,13 @@
                                 <FooterContent>
                                     <MudTh></MudTh>
                                     <MudTh Style="text-align: right">
-                                        @if (_invoice.RemainingAmount <= 0)
+                                        @if (_invoice.RemainingAmount == 0)
                                         {
                                             <MudText Color="Color.Success"><strong>Vollständig bezahlt</strong></MudText>
                                         }
                                         else
                                         {
-                                            <MudText><strong>Offen: @_invoice.RemainingAmount.ToString("C2", _culture)</strong></MudText>
+                                            <MudText><strong>Offen: @Math.Abs(_invoice.RemainingAmount).ToString("C2", _culture)</strong></MudText>
                                         }
                                     </MudTh>
                                     <MudTh></MudTh>
@@ -389,7 +398,7 @@
                     <MudStack Row="true" Justify="Justify.SpaceBetween">
                         <MudButton Variant="Variant.Filled" Color="Color.Default"
                                   StartIcon="@Icons.Material.Filled.ArrowBack"
-                                  OnClick="@(() => NavigationManager.NavigateTo(Kuestencode.Shared.UI.Pages.TabbedListPageBase.BackUrl("/faktura/invoices", _fromFilter, _fromSearch)))">
+                                  OnClick="@(() => NavigationManager.NavigateTo(Kuestencode.Shared.UI.Pages.TabbedListPageBase.BackUrl("/faktura/credit-notes", _fromFilter, _fromSearch)))">
                             Zurück zur Übersicht
                         </MudButton>
 
@@ -398,7 +407,7 @@
                             {
                                 <MudButton Variant="Variant.Filled" Color="Color.Primary"
                                           StartIcon="@Icons.Material.Filled.Edit"
-                                          OnClick="@(() => NavigationManager.NavigateTo($"/faktura/invoices/edit/{_invoice.Id}"))">
+                                          OnClick="@(() => NavigationManager.NavigateTo($"/faktura/credit-notes/edit/{_invoice.Id}"))">
                                     Bearbeiten
                                 </MudButton>
                             }
@@ -409,15 +418,6 @@
                                           StartIcon="@Icons.Material.Filled.CheckCircle"
                                           OnClick="OpenMarkAsPaidDialog">
                                     Als beglichen markieren
-                                </MudButton>
-                            }
-
-                            @if (_invoice.Type == InvoiceType.Invoice && _invoice.Status != InvoiceStatus.Draft)
-                            {
-                                <MudButton Variant="Variant.Outlined" Color="Color.Secondary"
-                                          StartIcon="@Icons.Material.Filled.Undo"
-                                          OnClick="CreateCreditNote">
-                                    Gutschrift erstellen
                                 </MudButton>
                             }
 
@@ -519,7 +519,7 @@
                       Elevation="8" Class="pa-6">
                 <MudText Typo="Typo.h6" GutterBottom="true">Als beglichen markieren</MudText>
                 <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">
-                    Wann wurde die Rechnung beglichen?
+                    Wann wurde die Gutschrift beglichen?
                 </MudText>
                 <MudDatePicker Label="Zahlungsdatum" @bind-Date="_paidDateInput"
                                DateFormat="dd.MM.yyyy" Variant="Variant.Outlined"

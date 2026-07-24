@@ -67,10 +67,13 @@ public class PdfSummaryBlockBuilder
             var text = row.RelativeItem().Text("Nettosumme:").FontSize(10);
             if (textColor != null) text.FontColor(textColor);
 
-            var amountText = row.ConstantItem(100).AlignRight().Text(invoice.TotalNet.ToString("C2", _germanCulture)).FontSize(10);
+            var amountText = row.ConstantItem(100).AlignRight().Text(DisplayAmount(invoice, invoice.TotalNet).ToString("C2", _germanCulture)).FontSize(10);
             if (textColor != null) amountText.FontColor(textColor);
         });
     }
+
+    private static decimal DisplayAmount(Invoice invoice, decimal amount) =>
+        invoice.Type == InvoiceType.CreditNote ? Math.Abs(amount) : amount;
 
     private void RenderDiscount(ColumnDescriptor sumColumn, Invoice invoice, string? textColor = null)
     {
@@ -100,7 +103,7 @@ public class PdfSummaryBlockBuilder
                 var text = row.RelativeItem().Text("Zwischensumme:").FontSize(10);
                 if (textColor != null) text.FontColor(textColor);
 
-                var amountText = row.ConstantItem(100).AlignRight().Text(invoice.TotalNetAfterDiscount.ToString("C2", _germanCulture)).FontSize(10);
+                var amountText = row.ConstantItem(100).AlignRight().Text(DisplayAmount(invoice, invoice.TotalNetAfterDiscount).ToString("C2", _germanCulture)).FontSize(10);
                 if (textColor != null) amountText.FontColor(textColor);
             });
         }
@@ -122,7 +125,7 @@ public class PdfSummaryBlockBuilder
             else
                 labelText.FontColor(TextSecondaryColor);
 
-            var amountText = row.ConstantItem(100).AlignRight().Text(invoice.TotalVat.ToString("C2", _germanCulture)).FontSize(10);
+            var amountText = row.ConstantItem(100).AlignRight().Text(DisplayAmount(invoice, invoice.TotalVat).ToString("C2", _germanCulture)).FontSize(10);
             if (textColor != null) amountText.FontColor(textColor);
         });
     }
@@ -135,10 +138,12 @@ public class PdfSummaryBlockBuilder
             .BorderColor(borderColor)
             .PaddingTop(5);
 
+        var label = invoice.Type == InvoiceType.CreditNote ? "Gutschriftbetrag:" : "Bruttosumme:";
+
         sumColumn.Item().Row(row =>
         {
-            row.RelativeItem().Text("Bruttosumme:").FontSize(textColor == "#FFFFFF" ? 12 : 11).FontColor(textColor);
-            row.ConstantItem(100).AlignRight().Text(invoice.TotalGross.ToString("C2", _germanCulture)).FontSize(textColor == "#FFFFFF" ? 12 : 11).FontColor(textColor);
+            row.RelativeItem().Text(label).FontSize(textColor == "#FFFFFF" ? 12 : 11).FontColor(textColor);
+            row.ConstantItem(100).AlignRight().Text(DisplayAmount(invoice, invoice.TotalGross).ToString("C2", _germanCulture)).FontSize(textColor == "#FFFFFF" ? 12 : 11).FontColor(textColor);
         });
     }
 

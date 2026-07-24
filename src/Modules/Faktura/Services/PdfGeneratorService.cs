@@ -126,6 +126,9 @@ public class PdfGeneratorService : IPdfGeneratorService
             PdfHeaderText = companyDto.PdfHeaderText,
             PdfFooterText = companyDto.PdfFooterText,
             PdfPaymentNotice = companyDto.PdfPaymentNotice,
+            PdfCreditNoteHeaderText = companyDto.PdfCreditNoteHeaderText,
+            PdfCreditNoteFooterText = companyDto.PdfCreditNoteFooterText,
+            PdfCreditNotePaymentNotice = companyDto.PdfCreditNotePaymentNotice,
             AdditionalBankAccounts = companyDto.AdditionalBankAccounts
                 .Select(a => new AdditionalBankAccount
                 {

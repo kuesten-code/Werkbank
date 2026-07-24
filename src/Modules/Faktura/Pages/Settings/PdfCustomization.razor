@@ -153,35 +153,71 @@
 
                     <!-- Textanpassung -->
                     <MudText Typo="Typo.h6" Class="mt-6 mb-3">Textanpassung (optional)</MudText>
-                    <MudGrid>
-                        <MudItem xs="12">
-                            <MudTextField Label="Header-Text"
-                                         @bind-Value="_company.PdfHeaderText"
-                                         Lines="3"
-                                         Placeholder="Optionaler Text im Header-Bereich"
-                                         HelperText="Max. 500 Zeichen"
-                                         Counter="500"
-                                         MaxLength="500" />
-                        </MudItem>
-                        <MudItem xs="12">
-                            <MudTextField Label="Footer-Text"
-                                         @bind-Value="_company.PdfFooterText"
-                                         Lines="3"
-                                         Placeholder="Optionaler zusätzlicher Text im Footer"
-                                         HelperText="Max. 1000 Zeichen"
-                                         Counter="1000"
-                                         MaxLength="1000" />
-                        </MudItem>
-                        <MudItem xs="12">
-                            <MudTextField Label="Zahlungshinweis"
-                                         @bind-Value="_company.PdfPaymentNotice"
-                                         Lines="3"
-                                         Placeholder="Bitte überweisen Sie den Betrag bis zum {{Faelligkeitsdatum}} auf unser Konto."
-                                         HelperText="Max. 500 Zeichen"
-                                         Counter="500"
-                                         MaxLength="500" />
-                        </MudItem>
-                    </MudGrid>
+                    <MudTabs Elevation="0" Rounded="true" ApplyEffectsToContainer="true" Class="mb-4"
+                            @bind-ActivePanelIndex="_activeTextTab">
+                        <MudTabPanel Text="Rechnung">
+                            <MudGrid>
+                                <MudItem xs="12">
+                                    <MudTextField Label="Header-Text"
+                                                 @bind-Value="_company.PdfHeaderText"
+                                                 Lines="3"
+                                                 Placeholder="Optionaler Text im Header-Bereich"
+                                                 HelperText="Max. 500 Zeichen"
+                                                 Counter="500"
+                                                 MaxLength="500" />
+                                </MudItem>
+                                <MudItem xs="12">
+                                    <MudTextField Label="Footer-Text"
+                                                 @bind-Value="_company.PdfFooterText"
+                                                 Lines="3"
+                                                 Placeholder="Optionaler zusätzlicher Text im Footer"
+                                                 HelperText="Max. 1000 Zeichen"
+                                                 Counter="1000"
+                                                 MaxLength="1000" />
+                                </MudItem>
+                                <MudItem xs="12">
+                                    <MudTextField Label="Zahlungshinweis"
+                                                 @bind-Value="_company.PdfPaymentNotice"
+                                                 Lines="3"
+                                                 Placeholder="Bitte überweisen Sie den Betrag bis zum {{Faelligkeitsdatum}} auf unser Konto."
+                                                 HelperText="Max. 500 Zeichen"
+                                                 Counter="500"
+                                                 MaxLength="500" />
+                                </MudItem>
+                            </MudGrid>
+                        </MudTabPanel>
+                        <MudTabPanel Text="Gutschrift">
+                            <MudGrid>
+                                <MudItem xs="12">
+                                    <MudTextField Label="Header-Text"
+                                                 @bind-Value="_company.PdfCreditNoteHeaderText"
+                                                 Lines="3"
+                                                 Placeholder="Optionaler Text im Header-Bereich einer Gutschrift"
+                                                 HelperText="Max. 500 Zeichen"
+                                                 Counter="500"
+                                                 MaxLength="500" />
+                                </MudItem>
+                                <MudItem xs="12">
+                                    <MudTextField Label="Footer-Text"
+                                                 @bind-Value="_company.PdfCreditNoteFooterText"
+                                                 Lines="3"
+                                                 Placeholder="Optionaler zusätzlicher Text im Footer einer Gutschrift"
+                                                 HelperText="Max. 1000 Zeichen"
+                                                 Counter="1000"
+                                                 MaxLength="1000" />
+                                </MudItem>
+                                <MudItem xs="12">
+                                    <MudTextField Label="Zahlungshinweis"
+                                                 @bind-Value="_company.PdfCreditNotePaymentNotice"
+                                                 Lines="3"
+                                                 Placeholder="Optionaler Hinweis zur Auszahlung/Verrechnung der Gutschrift"
+                                                 HelperText="Max. 500 Zeichen"
+                                                 Counter="500"
+                                                 MaxLength="500" />
+                                </MudItem>
+                            </MudGrid>
+                        </MudTabPanel>
+                    </MudTabs>
 
                     <MudAlert Severity="Severity.Info" Class="mt-3">
                         <strong>Verfügbare Platzhalter:</strong><br />
@@ -226,7 +262,7 @@
             <MudPaper Elevation="2" Class="pa-6">
                 <MudText Typo="Typo.h6" Class="mb-3">Live-Vorschau</MudText>
                 <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-4">
-                    Beispiel-Rechnung mit aktuellen Einstellungen
+                    @(_activeTextTab == 1 ? "Beispiel-Gutschrift" : "Beispiel-Rechnung") mit aktuellen Einstellungen
                 </MudText>
 
                 @if (!_loading)
@@ -244,7 +280,7 @@
                 <MudPaper Elevation="2" Class="pa-6">
                     <MudText Typo="Typo.h6" Class="mb-3">Live-Vorschau</MudText>
                     <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-4">
-                        Beispiel-Rechnung mit aktuellen Einstellungen
+                        @(_activeTextTab == 1 ? "Beispiel-Gutschrift" : "Beispiel-Rechnung") mit aktuellen Einstellungen
                     </MudText>
 
                     @if (!_loading)

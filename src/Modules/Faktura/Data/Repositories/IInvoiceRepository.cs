@@ -8,8 +8,11 @@ public interface IInvoiceRepository : IRepository<Invoice>
     Task<bool> InvoiceNumberExistsAsync(string invoiceNumber);
     Task<string> GenerateInvoiceNumberAsync();
     Task<(string Prefix, string Suffix, int SequenceLength)> GetInvoiceNumberFormatPartsAsync();
+    Task<string> GenerateCreditNoteNumberAsync();
+    Task<(string Prefix, string Suffix, int SequenceLength)> GetCreditNoteNumberFormatPartsAsync();
     Task<IEnumerable<Invoice>> GetByCustomerIdAsync(int customerId);
     Task<IEnumerable<Invoice>> GetByStatusAsync(InvoiceStatus status);
+    Task<IEnumerable<Invoice>> GetByTypeAsync(InvoiceType type);
     Task<IEnumerable<Invoice>> GetPaidByDateRangeAsync(DateTime paidFrom, DateTime paidTo);
     Task<IEnumerable<Invoice>> GetOverdueInvoicesAsync();
     Task<Invoice?> GetWithDetailsAsync(int id);

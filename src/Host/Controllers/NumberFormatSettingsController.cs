@@ -35,6 +35,7 @@ public class NumberFormatSettingsController : ControllerBase
         settings.QuoteFormat = request.QuoteFormat;
         settings.ProjectFormat = request.ProjectFormat;
         settings.IncomingInvoiceFormat = request.IncomingInvoiceFormat;
+        settings.CreditNoteFormat = request.CreditNoteFormat;
 
         await _service.UpdateSettingsAsync(settings);
         return NoContent();
@@ -47,7 +48,8 @@ public class NumberFormatSettingsController : ControllerBase
             InvoiceFormat = settings.InvoiceFormat,
             QuoteFormat = settings.QuoteFormat,
             ProjectFormat = settings.ProjectFormat,
-            IncomingInvoiceFormat = settings.IncomingInvoiceFormat
+            IncomingInvoiceFormat = settings.IncomingInvoiceFormat,
+            CreditNoteFormat = settings.CreditNoteFormat
         };
     }
 }

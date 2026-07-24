@@ -51,6 +51,9 @@ public record CompanyDto
     public string? PdfHeaderText { get; init; }
     public string? PdfFooterText { get; init; }
     public string? PdfPaymentNotice { get; init; }
+    public string? PdfCreditNoteHeaderText { get; init; }
+    public string? PdfCreditNoteFooterText { get; init; }
+    public string? PdfCreditNotePaymentNotice { get; init; }
     public List<AdditionalBankAccountDto> AdditionalBankAccounts { get; init; } = [];
 }
 
@@ -130,6 +133,9 @@ public record UpdateCompanyRequest
     public string? PdfHeaderText { get; init; }
     public string? PdfFooterText { get; init; }
     public string? PdfPaymentNotice { get; init; }
+    public string? PdfCreditNoteHeaderText { get; init; }
+    public string? PdfCreditNoteFooterText { get; init; }
+    public string? PdfCreditNotePaymentNotice { get; init; }
     public List<UpdateAdditionalBankAccountRequest> AdditionalBankAccounts { get; init; } = [];
 }
 

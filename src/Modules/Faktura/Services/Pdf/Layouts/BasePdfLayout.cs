@@ -110,9 +110,13 @@ public abstract class BasePdfLayout : IPdfLayoutRenderer
     /// </summary>
     protected void RenderGreeting(ColumnDescriptor column, Invoice invoice, Company company)
     {
-        if (!string.IsNullOrWhiteSpace(company.PdfHeaderText))
+        var headerText = invoice.Type == InvoiceType.CreditNote
+            ? company.PdfCreditNoteHeaderText
+            : company.PdfHeaderText;
+
+        if (!string.IsNullOrWhiteSpace(headerText))
         {
-            column.Item().Text(TemplateEngine.ReplacePlaceholders(company.PdfHeaderText, invoice, company))
+            column.Item().Text(TemplateEngine.ReplacePlaceholders(headerText, invoice, company))
                 .FontSize(10);
         }
         else
@@ -124,7 +128,11 @@ public abstract class BasePdfLayout : IPdfLayoutRenderer
 
             column.Item().Text(salutation)
                 .FontSize(10);
-            column.Item().PaddingTop(10).Text("hiermit stellen wir Ihnen folgende Leistungen in Rechnung:")
+
+            var intro = invoice.Type == InvoiceType.CreditNote
+                ? "hiermit schreiben wir Ihnen folgende Positionen gut:"
+                : "hiermit stellen wir Ihnen folgende Leistungen in Rechnung:";
+            column.Item().PaddingTop(10).Text(intro)
                 .FontSize(10);
         }
     }
@@ -298,8 +306,12 @@ public abstract class BasePdfLayout : IPdfLayoutRenderer
     /// </summary>
     protected void RenderClosingText(ColumnDescriptor column, Invoice invoice, Company company, bool bold = false)
     {
-        var text = !string.IsNullOrWhiteSpace(company.PdfFooterText)
-            ? TemplateEngine.ReplacePlaceholders(company.PdfFooterText, invoice, company)
+        var footerText = invoice.Type == InvoiceType.CreditNote
+            ? company.PdfCreditNoteFooterText
+            : company.PdfFooterText;
+
+        var text = !string.IsNullOrWhiteSpace(footerText)
+            ? TemplateEngine.ReplacePlaceholders(footerText, invoice, company)
             : "Vielen Dank für Ihr Vertrauen!";
 
         var textStyle = column.Item().PaddingTop(10).Text(text).FontSize(10);

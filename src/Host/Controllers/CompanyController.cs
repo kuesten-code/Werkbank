@@ -90,6 +90,9 @@ public class CompanyController : ControllerBase
         if (request.PdfHeaderText != null) company.PdfHeaderText = request.PdfHeaderText;
         if (request.PdfFooterText != null) company.PdfFooterText = request.PdfFooterText;
         if (request.PdfPaymentNotice != null) company.PdfPaymentNotice = request.PdfPaymentNotice;
+        if (request.PdfCreditNoteHeaderText != null) company.PdfCreditNoteHeaderText = request.PdfCreditNoteHeaderText;
+        if (request.PdfCreditNoteFooterText != null) company.PdfCreditNoteFooterText = request.PdfCreditNoteFooterText;
+        if (request.PdfCreditNotePaymentNotice != null) company.PdfCreditNotePaymentNotice = request.PdfCreditNotePaymentNotice;
 
         company.AdditionalBankAccounts = request.AdditionalBankAccounts
             .Select((a, i) => new AdditionalBankAccount
@@ -153,6 +156,9 @@ public class CompanyController : ControllerBase
             PdfHeaderText = company.PdfHeaderText,
             PdfFooterText = company.PdfFooterText,
             PdfPaymentNotice = company.PdfPaymentNotice,
+            PdfCreditNoteHeaderText = company.PdfCreditNoteHeaderText,
+            PdfCreditNoteFooterText = company.PdfCreditNoteFooterText,
+            PdfCreditNotePaymentNotice = company.PdfCreditNotePaymentNotice,
             AdditionalBankAccounts = company.AdditionalBankAccounts
                 .OrderBy(a => a.SortOrder)
                 .Select(a => new AdditionalBankAccountDto

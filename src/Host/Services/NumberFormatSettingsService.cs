@@ -42,6 +42,7 @@ public class NumberFormatSettingsService : INumberFormatSettingsService
             existing.QuoteFormat = settings.QuoteFormat;
             existing.ProjectFormat = settings.ProjectFormat;
             existing.IncomingInvoiceFormat = settings.IncomingInvoiceFormat;
+            existing.CreditNoteFormat = settings.CreditNoteFormat;
         }
 
         await _context.SaveChangesAsync();
