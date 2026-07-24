@@ -136,6 +136,9 @@ public class CompanyService : ICompanyService
         existing.PdfHeaderText = company.PdfHeaderText;
         existing.PdfFooterText = company.PdfFooterText;
         existing.PdfPaymentNotice = company.PdfPaymentNotice;
+        existing.PdfCreditNoteHeaderText = company.PdfCreditNoteHeaderText;
+        existing.PdfCreditNoteFooterText = company.PdfCreditNoteFooterText;
+        existing.PdfCreditNotePaymentNotice = company.PdfCreditNotePaymentNotice;
 
         // Snapshot additional bank accounts before EF can touch the collection.
         var newAccounts = company.AdditionalBankAccounts
@@ -219,6 +222,9 @@ public class CompanyService : ICompanyService
             ("PDF-Kopftext", company.PdfHeaderText, 500),
             ("PDF-Fußzeile", company.PdfFooterText, 1000),
             ("PDF-Zahlungshinweis", company.PdfPaymentNotice, 500),
+            ("PDF-Kopftext Gutschrift", company.PdfCreditNoteHeaderText, 500),
+            ("PDF-Fußzeile Gutschrift", company.PdfCreditNoteFooterText, 1000),
+            ("PDF-Zahlungshinweis Gutschrift", company.PdfCreditNotePaymentNotice, 500),
         };
 
         var tooLong = fields

@@ -43,7 +43,14 @@
                     <MudItem xs="12" sm="6">
                         <MudTextField Label="Rechnungen (Faktura)" @bind-Value="_settings.InvoiceFormat"
                                      Placeholder="YYYY-XXXX"
-                                     HelperText="Ausgangsrechnungen" Required="true" />
+                                     HelperText="Ausgangsrechnungen" Required="true"
+                                     Error="@FormatsCollide" ErrorText="Format ist identisch mit einem anderen Nummernkreis" />
+                    </MudItem>
+                    <MudItem xs="12" sm="6">
+                        <MudTextField Label="Gutschriften (Faktura)" @bind-Value="_settings.CreditNoteFormat"
+                                     Placeholder="GS-YYYY-XXXX"
+                                     HelperText="Ausgangsgutschriften" Required="true"
+                                     Error="@FormatsCollide" ErrorText="Format ist identisch mit einem anderen Nummernkreis" />
                     </MudItem>
                 }
                 @if (_activeModules.Contains("Offerte"))
@@ -98,6 +105,9 @@
     private bool _saving;
     private string? _errorMessage;
 
+    private bool FormatsCollide => !string.IsNullOrWhiteSpace(_settings.InvoiceFormat)
+        && string.Equals(_settings.InvoiceFormat.Trim(), _settings.CreditNoteFormat.Trim(), StringComparison.OrdinalIgnoreCase);
+
     protected override async Task OnInitializedAsync()
     {
         try
@@ -125,6 +135,7 @@
         try
         {
             if ((_activeModules.Contains("Faktura") && string.IsNullOrWhiteSpace(_settings.InvoiceFormat)) ||
+                (_activeModules.Contains("Faktura") && string.IsNullOrWhiteSpace(_settings.CreditNoteFormat)) ||
                 (_activeModules.Contains("Offerte") && string.IsNullOrWhiteSpace(_settings.QuoteFormat)) ||
                 (_activeModules.Contains("Acta") && string.IsNullOrWhiteSpace(_settings.ProjectFormat)) ||
                 (_activeModules.Contains("Recepta") && string.IsNullOrWhiteSpace(_settings.IncomingInvoiceFormat)))

@@ -61,7 +61,7 @@ public class StrukturiertLayoutRenderer : BasePdfLayout
             {
                 row.RelativeItem().Column(leftCol =>
                 {
-                    leftCol.Item().Text($"Rechnung {invoice.InvoiceNumber}")
+                    leftCol.Item().Text($"{invoice.DocumentLabel} {invoice.InvoiceNumber}")
                         .FontSize(14)
                         .Bold()
                         .FontColor(company.PdfPrimaryColor);

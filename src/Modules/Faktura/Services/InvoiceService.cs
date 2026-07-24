@@ -7,14 +7,18 @@ public interface IInvoiceService
 {
     Task<List<Invoice>> GetAllAsync();
     Task<List<Invoice>> GetByStatusAsync(InvoiceStatus status);
+    Task<List<Invoice>> GetByTypeAsync(InvoiceType type);
     Task<List<Invoice>> GetByProjectIdAsync(int projectId);
     Task<List<Invoice>> GetPaidByDateRangeAsync(DateTime paidFrom, DateTime paidTo);
     Task<Invoice?> GetByIdAsync(int id, bool includeCustomer = true, bool includeItems = true);
     Task<Invoice> CreateAsync(Invoice invoice);
+    Task<Invoice> CreateCreditNoteFromInvoiceAsync(int sourceInvoiceId, DateTime creditNoteDate);
     Task UpdateAsync(Invoice invoice);
     Task DeleteAsync(int id);
     Task<string> GenerateInvoiceNumberAsync();
     Task<(string Prefix, string Suffix, int SequenceLength)> GetInvoiceNumberFormatPartsAsync();
+    Task<string> GenerateCreditNoteNumberAsync();
+    Task<(string Prefix, string Suffix, int SequenceLength)> GetCreditNoteNumberFormatPartsAsync();
     Task MarkAsPaidAsync(int id, DateTime paidDate);
     Task MarkAsPrintedAsync(int id);
     Task<decimal> CalculateTotalNetAsync(List<InvoiceItem> items);
@@ -24,11 +28,16 @@ public interface IInvoiceService
 public class InvoiceService : IInvoiceService
 {
     private readonly IInvoiceRepository _invoiceRepository;
+    private readonly IInvoicePaymentService _paymentService;
     private readonly ILogger<InvoiceService> _logger;
 
-    public InvoiceService(IInvoiceRepository invoiceRepository, ILogger<InvoiceService> logger)
+    public InvoiceService(
+        IInvoiceRepository invoiceRepository,
+        IInvoicePaymentService paymentService,
+        ILogger<InvoiceService> logger)
     {
         _invoiceRepository = invoiceRepository;
+        _paymentService = paymentService;
         _logger = logger;
     }
 
@@ -56,6 +65,20 @@ public class InvoiceService : IInvoiceService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Fehler beim Abrufen der Rechnungen mit Status {Status}", status);
+            throw;
+        }
+    }
+
+    public async Task<List<Invoice>> GetByTypeAsync(InvoiceType type)
+    {
+        try
+        {
+            var invoices = await _invoiceRepository.GetByTypeAsync(type);
+            return invoices.ToList();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Fehler beim Abrufen der Rechnungen mit Typ {Type}", type);
             throw;
         }
     }
@@ -135,6 +158,42 @@ public class InvoiceService : IInvoiceService
         }
     }
 
+    public async Task<Invoice> CreateCreditNoteFromInvoiceAsync(int sourceInvoiceId, DateTime creditNoteDate)
+    {
+        try
+        {
+            var sourceInvoice = await _invoiceRepository.GetByIdAsync(sourceInvoiceId)
+                ?? throw new InvalidOperationException($"Rechnung mit ID {sourceInvoiceId} wurde nicht gefunden.");
+
+            var creditNote = new Invoice
+            {
+                Type = InvoiceType.CreditNote,
+                RelatedInvoiceId = sourceInvoiceId,
+                InvoiceNumber = await GenerateCreditNoteNumberAsync(),
+                InvoiceDate = creditNoteDate.Kind == DateTimeKind.Utc ? creditNoteDate : DateTime.SpecifyKind(creditNoteDate.Date, DateTimeKind.Utc),
+                CustomerId = sourceInvoice.CustomerId,
+                ProjectId = sourceInvoice.ProjectId,
+                Status = InvoiceStatus.Draft,
+                Items = sourceInvoice.Items.Select(item => new InvoiceItem
+                {
+                    Description = item.Description,
+                    Unit = item.Unit,
+                    Quantity = item.Quantity,
+                    UnitPrice = -Math.Abs(item.UnitPrice),
+                    VatRate = item.VatRate,
+                    IsHeader = item.IsHeader
+                }).ToList()
+            };
+
+            return await CreateAsync(creditNote);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Fehler beim Erstellen der Gutschrift aus Rechnung {InvoiceId}", sourceInvoiceId);
+            throw;
+        }
+    }
+
     public async Task UpdateAsync(Invoice invoice)
     {
         try
@@ -205,6 +264,32 @@ public class InvoiceService : IInvoiceService
         }
     }
 
+    public async Task<string> GenerateCreditNoteNumberAsync()
+    {
+        try
+        {
+            return await _invoiceRepository.GenerateCreditNoteNumberAsync();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Fehler beim Generieren der Gutschriftnummer");
+            throw;
+        }
+    }
+
+    public async Task<(string Prefix, string Suffix, int SequenceLength)> GetCreditNoteNumberFormatPartsAsync()
+    {
+        try
+        {
+            return await _invoiceRepository.GetCreditNoteNumberFormatPartsAsync();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Fehler beim Ermitteln des Gutschriftnummer-Formats");
+            throw;
+        }
+    }
+
     public async Task MarkAsPaidAsync(int id, DateTime paidDate)
     {
         try
@@ -215,10 +300,12 @@ public class InvoiceService : IInvoiceService
                 throw new InvalidOperationException($"Rechnung mit ID {id} wurde nicht gefunden.");
             }
 
-            invoice.Status = InvoiceStatus.Paid;
-            invoice.PaidDate = paidDate.Kind == DateTimeKind.Utc ? paidDate : paidDate.ToUniversalTime();
+            var utcPaidDate = paidDate.Kind == DateTimeKind.Utc ? paidDate : paidDate.ToUniversalTime();
 
-            await _invoiceRepository.UpdateAsync(invoice);
+            if (invoice.RemainingAmount != 0)
+            {
+                await _paymentService.ZahlungErfassenAsync(id, invoice.RemainingAmount, utcPaidDate, "Als beglichen markiert");
+            }
         }
         catch (Exception ex)
         {

@@ -41,13 +41,7 @@ public class InvoiceRepository : Repository<Invoice>, IInvoiceRepository
 
     public async Task<string> GenerateInvoiceNumberAsync()
     {
-        var format = await GetInvoiceNumberFormatAsync();
-
-        var existingNumbers = await _dbSet
-            .Select(i => i.InvoiceNumber)
-            .ToListAsync();
-
-        return DocumentNumberFormatter.GenerateNext(format, DateTime.Now, existingNumbers);
+        return await GenerateNumberAsync(await GetInvoiceNumberFormatAsync(), InvoiceType.Invoice);
     }
 
     public async Task<(string Prefix, string Suffix, int SequenceLength)> GetInvoiceNumberFormatPartsAsync()
@@ -56,12 +50,41 @@ public class InvoiceRepository : Repository<Invoice>, IInvoiceRepository
         return DocumentNumberFormatter.SplitAroundSequence(format, DateTime.Now);
     }
 
+    public async Task<string> GenerateCreditNoteNumberAsync()
+    {
+        return await GenerateNumberAsync(await GetCreditNoteNumberFormatAsync(), InvoiceType.CreditNote);
+    }
+
+    public async Task<(string Prefix, string Suffix, int SequenceLength)> GetCreditNoteNumberFormatPartsAsync()
+    {
+        var format = await GetCreditNoteNumberFormatAsync();
+        return DocumentNumberFormatter.SplitAroundSequence(format, DateTime.Now);
+    }
+
+    private async Task<string> GenerateNumberAsync(string format, InvoiceType type)
+    {
+        var existingNumbers = await _dbSet
+            .Where(i => i.Type == type)
+            .Select(i => i.InvoiceNumber)
+            .ToListAsync();
+
+        return DocumentNumberFormatter.GenerateNext(format, DateTime.Now, existingNumbers);
+    }
+
     private async Task<string> GetInvoiceNumberFormatAsync()
     {
         var settings = await _hostApiClient.GetNumberFormatSettingsAsync();
         return !string.IsNullOrWhiteSpace(settings?.InvoiceFormat)
             ? settings.InvoiceFormat.Trim()
             : "YYYY-XXXX";
+    }
+
+    private async Task<string> GetCreditNoteNumberFormatAsync()
+    {
+        var settings = await _hostApiClient.GetNumberFormatSettingsAsync();
+        return !string.IsNullOrWhiteSpace(settings?.CreditNoteFormat)
+            ? settings.CreditNoteFormat.Trim()
+            : "GS-YYYY-XXXX";
     }
 
     public async Task<IEnumerable<Invoice>> GetByCustomerIdAsync(int customerId)
@@ -87,6 +110,21 @@ public class InvoiceRepository : Repository<Invoice>, IInvoiceRepository
             .Include(i => i.Attachments)
             .Include(i => i.Payments)
             .Where(i => i.Status == status)
+            .OrderByDescending(i => i.InvoiceDate)
+            .ToListAsync();
+
+        await LoadCustomersAsync(invoices);
+        return invoices;
+    }
+
+    public async Task<IEnumerable<Invoice>> GetByTypeAsync(InvoiceType type)
+    {
+        var invoices = await _dbSet
+            .Include(i => i.Items)
+            .Include(i => i.DownPayments)
+            .Include(i => i.Attachments)
+            .Include(i => i.Payments)
+            .Where(i => i.Type == type)
             .OrderByDescending(i => i.InvoiceDate)
             .ToListAsync();
 

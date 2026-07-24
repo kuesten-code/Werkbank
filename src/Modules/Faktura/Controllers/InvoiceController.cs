@@ -40,6 +40,7 @@ public class InvoiceController : ControllerBase
     [HttpGet]
     public async Task<ActionResult<List<InvoiceDto>>> GetAll(
         [FromQuery] string? status = null,
+        [FromQuery] string? type = null,
         [FromQuery] int? customerId = null,
         [FromQuery] DateTime? paidFrom = null,
         [FromQuery] DateTime? paidTo = null)
@@ -61,6 +62,10 @@ public class InvoiceController : ControllerBase
                     invoices = invoices.Where(i => i.PaidDate.HasValue && i.PaidDate.Value >= paidFrom.Value).ToList();
                 if (paidTo.HasValue)
                     invoices = invoices.Where(i => i.PaidDate.HasValue && i.PaidDate.Value <= paidTo.Value).ToList();
+            }
+            else if (!string.IsNullOrEmpty(type) && Enum.TryParse<InvoiceType>(type, out var invoiceType))
+            {
+                invoices = await _invoiceService.GetByTypeAsync(invoiceType);
             }
             else
             {
@@ -160,6 +165,8 @@ public class InvoiceController : ControllerBase
                 Notes = request.Notes,
                 DiscountType = Enum.Parse<DiscountType>(request.DiscountType),
                 DiscountValue = request.DiscountValue,
+                Type = Enum.Parse<InvoiceType>(request.Type),
+                RelatedInvoiceId = request.RelatedInvoiceId,
                 Status = InvoiceStatus.Draft,
                 Items = request.Items.Select(item => new InvoiceItem
                 {
@@ -289,13 +296,7 @@ public class InvoiceController : ControllerBase
     {
         try
         {
-            var invoice = await _invoiceService.GetByIdAsync(id);
-            if (invoice == null) return NotFound();
-
-            invoice.Status = InvoiceStatus.Paid;
-            invoice.PaidDate = request.PaidDate;
-            await _invoiceService.UpdateAsync(invoice);
-
+            await _invoiceService.MarkAsPaidAsync(id, request.PaidDate);
             return Ok(new { message = "Invoice marked as paid" });
         }
         catch (Exception ex)
@@ -334,6 +335,7 @@ public class InvoiceController : ControllerBase
                 PaymentId = p.Id,
                 InvoiceId = p.InvoiceId,
                 InvoiceNumber = p.Invoice.InvoiceNumber,
+                InvoiceType = p.Invoice.Type.ToString(),
                 InvoiceDate = p.Invoice.InvoiceDate,
                 PaymentDate = DateOnly.FromDateTime(p.PaymentDate),
                 PaymentAmount = p.Amount,
@@ -402,8 +404,18 @@ public class InvoiceController : ControllerBase
             customerName = customer?.Name;
         }
 
+        string? relatedInvoiceNumber = null;
+        if (invoice.RelatedInvoiceId.HasValue)
+        {
+            var relatedInvoice = await _invoiceService.GetByIdAsync(invoice.RelatedInvoiceId.Value, includeCustomer: false, includeItems: false);
+            relatedInvoiceNumber = relatedInvoice?.InvoiceNumber;
+        }
+
         return new InvoiceDto
         {
+            Type = invoice.Type.ToString(),
+            RelatedInvoiceId = invoice.RelatedInvoiceId,
+            RelatedInvoiceNumber = relatedInvoiceNumber,
             Id = invoice.Id,
             InvoiceNumber = invoice.InvoiceNumber,
             InvoiceDate = invoice.InvoiceDate,

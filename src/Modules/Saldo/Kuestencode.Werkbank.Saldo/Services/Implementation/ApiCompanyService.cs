@@ -101,6 +101,9 @@ public class ApiCompanyService : ICompanyService
             PdfHeaderText = dto.PdfHeaderText,
             PdfFooterText = dto.PdfFooterText,
             PdfPaymentNotice = dto.PdfPaymentNotice,
+            PdfCreditNoteHeaderText = dto.PdfCreditNoteHeaderText,
+            PdfCreditNoteFooterText = dto.PdfCreditNoteFooterText,
+            PdfCreditNotePaymentNotice = dto.PdfCreditNotePaymentNotice,
             AdditionalBankAccounts = dto.AdditionalBankAccounts
                 .Select(a => new AdditionalBankAccount
                 {

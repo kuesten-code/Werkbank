@@ -183,6 +183,18 @@ namespace Kuestencode.Werkbank.Host.Data.Migrations
                         .HasMaxLength(7)
                         .HasColumnType("character varying(7)");
 
+                    b.Property<string>("PdfCreditNoteFooterText")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<string>("PdfCreditNoteHeaderText")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("PdfCreditNotePaymentNotice")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
                     b.Property<string>("PdfFooterText")
                         .HasMaxLength(1000)
                         .HasColumnType("character varying(1000)");
@@ -260,6 +272,11 @@ namespace Kuestencode.Werkbank.Host.Data.Migrations
                         .HasColumnType("integer");
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("CreditNoteFormat")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
 
                     b.Property<string>("IncomingInvoiceFormat")
                         .IsRequired()

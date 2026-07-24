@@ -1,0 +1,128 @@
+@page "/credit-notes"
+@using Kuestencode.Faktura.Services
+@using Kuestencode.Faktura.Models
+@using Kuestencode.Shared.UI.Pages
+@inherits TabbedListPageBase
+@inject IInvoiceService InvoiceService
+@inject IPdfGeneratorService PdfGeneratorService
+@inject ISnackbar Snackbar
+@inject IJSRuntime JSRuntime
+
+<PageTitle>Gutschriften - Küstencode Faktura</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4">
+    <MudText Typo="Typo.h4" GutterBottom="true">Gutschriften</MudText>
+
+    <MudPaper Class="pa-4 mt-4">
+        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-4">
+            <MudTextField @bind-Value="_searchString" @bind-Value:after="SyncTabToUrl"
+                         Placeholder="Gutschrift oder Kunde suchen"
+                         Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search"
+                         IconSize="Size.Medium" Class="mt-0" Immediate="true" Style="max-width: 400px;" />
+            <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                      StartIcon="@Icons.Material.Filled.Add" OnClick="CreateCreditNote">
+                Neue Gutschrift
+            </MudButton>
+        </MudStack>
+
+        <MudTabs Elevation="0" Rounded="true" ApplyEffectsToContainer="true" Class="mb-4"
+                @bind-ActivePanelIndex="_activeTabIndex" @bind-ActivePanelIndex:after="OnTabChanged">
+            <MudTabPanel Text="Alle" Icon="@Icons.Material.Filled.List" />
+            <MudTabPanel Text="Entwurf" Icon="@Icons.Material.Filled.Edit" BadgeData="@_draftCount" BadgeColor="Color.Default" />
+            <MudTabPanel Text="Versendet" Icon="@Icons.Material.Filled.Send" BadgeData="@_sentCount" BadgeColor="Color.Info" />
+            <MudTabPanel Text="Beglichen" Icon="@Icons.Material.Filled.CheckCircle" BadgeData="@_paidCount" BadgeColor="Color.Success" />
+            <MudTabPanel Text="Teilgezahlt" Icon="@Icons.Material.Filled.Payments" BadgeData="@_partiallyPaidCount" BadgeColor="Color.Warning" />
+            <MudTabPanel Text="Überfällig" Icon="@Icons.Material.Filled.Warning" BadgeData="@_overdueCount" BadgeColor="Color.Error" />
+        </MudTabs>
+
+        <MudTable Items="@_filteredCreditNotes" Hover="true" Breakpoint="Breakpoint.Sm"
+                 Loading="@_loading" LoadingProgressColor="Color.Info"
+                 RowsPerPage="50" SortLabel="Sortieren nach" T="Invoice">
+            <HeaderContent>
+                <MudTh><MudTableSortLabel SortBy="new Func<Invoice, object>(x => x.InvoiceNumber)" InitialDirection="@_sort.InitialDirectionFor("number")" SortDirectionChanged="@(d => _sort.Update("number", d))">Nummer</MudTableSortLabel></MudTh>
+                <MudTh><MudTableSortLabel SortBy="new Func<Invoice, object>(x => x.InvoiceDate)" InitialDirection="@_sort.InitialDirectionFor("date")" SortDirectionChanged="@(d => _sort.Update("date", d))">Datum</MudTableSortLabel></MudTh>
+                <MudTh><MudTableSortLabel SortBy="new Func<Invoice, object>(x => x.Customer?.Name ?? string.Empty)" InitialDirection="@_sort.InitialDirectionFor("customer")" SortDirectionChanged="@(d => _sort.Update("customer", d))">Kunde</MudTableSortLabel></MudTh>
+                <MudTh Style="text-align: right"><MudTableSortLabel SortBy="new Func<Invoice, object>(x => x.TotalGross)" InitialDirection="@_sort.InitialDirectionFor("amount")" SortDirectionChanged="@(d => _sort.Update("amount", d))">Betrag</MudTableSortLabel></MudTh>
+                <MudTh><MudTableSortLabel SortBy="new Func<Invoice, object>(x => x.Status)" InitialDirection="@_sort.InitialDirectionFor("status")" SortDirectionChanged="@(d => _sort.Update("status", d))">Status</MudTableSortLabel></MudTh>
+                <MudTh Style="text-align: right">Aktionen</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd DataLabel="Nummer">@context.InvoiceNumber</MudTd>
+                <MudTd DataLabel="Datum">@context.InvoiceDate.ToString("dd.MM.yyyy")</MudTd>
+                <MudTd DataLabel="Kunde">@context.Customer?.Name</MudTd>
+                <MudTd DataLabel="Betrag" Style="text-align: right; color: var(--mud-palette-error);">@context.TotalGross.ToString("C2", _culture)</MudTd>
+                <MudTd DataLabel="Status">
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                        <MudChip T="string" Size="Size.Small" Color="@GetStatusColor(context.Status)">
+                            @GetStatusText(context.Status)
+                        </MudChip>
+                        @if (context.Status == InvoiceStatus.PartiallyPaid)
+                        {
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                · noch @context.RemainingAmount.ToString("C2", _culture)
+                            </MudText>
+                        }
+                    </MudStack>
+                </MudTd>
+                <MudTd DataLabel="Aktionen" Style="text-align: right">
+                    <MudIconButton Icon="@Icons.Material.Filled.Visibility"
+                                  Color="Color.Info" Size="Size.Small"
+                                  OnClick="@(() => ViewCreditNote(context.Id))" />
+                    @if (context.Status == InvoiceStatus.Draft)
+                    {
+                        <MudIconButton Icon="@Icons.Material.Filled.Edit"
+                                      Color="Color.Primary" Size="Size.Small"
+                                      OnClick="@(() => EditCreditNote(context.Id))" />
+                    }
+                    @if (context.Status == InvoiceStatus.Sent || context.Status == InvoiceStatus.PartiallyPaid)
+                    {
+                        <MudIconButton Icon="@Icons.Material.Filled.CheckCircle"
+                                      Color="Color.Success" Size="Size.Small"
+                                      OnClick="@(() => OpenMarkAsPaidDialog(context))" />
+                    }
+                    @if (context.Status != InvoiceStatus.Draft)
+                    {
+                        <MudIconButton Icon="@Icons.Material.Filled.PictureAsPdf"
+                                      Color="Color.Default" Size="Size.Small"
+                                      OnClick="@(() => DownloadPdf(context))" />
+                    }
+                </MudTd>
+            </RowTemplate>
+            <PagerContent>
+                <MudTablePager PageSizeOptions="new int[] { 10, 25, 50, 100 }" />
+            </PagerContent>
+        </MudTable>
+    </MudPaper>
+
+    @if (_markAsPaidCreditNote != null)
+    {
+        <MudOverlay Visible="true" DarkBackground="true" ZIndex="1200" />
+        <MudPaper Style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 1300; min-width: 340px;"
+                  Elevation="8" Class="pa-6">
+            <MudText Typo="Typo.h6" GutterBottom="true">Als beglichen markieren</MudText>
+            <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-1">
+                Gutschrift @_markAsPaidCreditNote.InvoiceNumber
+            </MudText>
+            <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">
+                Wann wurde die Gutschrift ausgeglichen?
+            </MudText>
+            <MudDatePicker Label="Datum" @bind-Date="_paidDateInput"
+                           DateFormat="dd.MM.yyyy" Variant="Variant.Outlined"
+                           MaxDate="DateTime.Today" />
+            <MudStack Row="true" Justify="Justify.FlexEnd" Class="mt-4" Spacing="2">
+                <MudButton Variant="Variant.Text" OnClick="CloseMarkAsPaidDialog">Abbrechen</MudButton>
+                <MudButton Variant="Variant.Filled" Color="Color.Success"
+                           StartIcon="@Icons.Material.Filled.CheckCircle"
+                           OnClick="ConfirmMarkAsPaid">
+                    Speichern
+                </MudButton>
+            </MudStack>
+        </MudPaper>
+    }
+</MudContainer>
+
+<style>
+    .mud-tab {
+        overflow: visible !important;
+    }
+</style>

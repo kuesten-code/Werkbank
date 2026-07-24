@@ -140,8 +140,12 @@ public class DatevExportService : IDatevExportService
 
     private static string GenerateBuchungszeile(BuchungDto buchung, string bankKonto)
     {
-        // Soll/Haben: Einnahme = Zugang auf Bankkonto (Soll), Ausgabe = Abgang (Haben)
-        var sollHaben = buchung.Typ == BuchungsTyp.Einnahme ? "S" : "H";
+        // Soll/Haben: Einnahme = Zugang auf Bankkonto (Soll), Ausgabe = Abgang (Haben).
+        // Ein negativer Brutto-Betrag (z.B. Gutschrift) kehrt die Buchungsrichtung um -
+        // das Umsatzfeld selbst darf laut DATEV EXTF-Format nie ein Vorzeichen tragen.
+        var isNegative = buchung.Brutto < 0;
+        var isEinnahme = buchung.Typ == BuchungsTyp.Einnahme;
+        var sollHaben = isEinnahme != isNegative ? "S" : "H";
 
         // BU-Schlüssel (Steuerkennzeichen)
         var buSchluessel = GetBuSchluessel(buchung.Typ, buchung.UstSatz);
@@ -149,8 +153,8 @@ public class DatevExportService : IDatevExportService
         // Belegdatum: ddMMyyyy → DATEV erwartet TTMMJJJJ (8-stellig ohne Trennzeichen)
         var belegDatum = buchung.ZahlungsDatum.ToString("ddMMyyyy");
 
-        // Betrag: Brutto, Komma als Dezimaltrennzeichen (DATEV-Standard)
-        var betrag = buchung.Brutto.ToString("0.00").Replace('.', ',');
+        // Betrag: Brutto, Komma als Dezimaltrennzeichen (DATEV-Standard), immer ohne Vorzeichen
+        var betrag = Math.Abs(buchung.Brutto).ToString("0.00").Replace('.', ',');
 
         // Buchungstext: max. 60 Zeichen, Sonderzeichen bereinigen
         var buchungstext = SanitizeText(buchung.Beschreibung, 60);

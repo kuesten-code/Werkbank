@@ -129,6 +129,9 @@ namespace Kuestencode.Faktura.Data.Migrations
                     b.Property<int?>("ProjectId")
                         .HasColumnType("integer");
 
+                    b.Property<int?>("RelatedInvoiceId")
+                        .HasColumnType("integer");
+
                     b.Property<DateTime?>("ServicePeriodEnd")
                         .HasColumnType("timestamp with time zone");
 
@@ -136,6 +139,9 @@ namespace Kuestencode.Faktura.Data.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Type")
                         .HasColumnType("integer");
 
                     b.Property<DateTime>("UpdatedAt")
@@ -149,6 +155,10 @@ namespace Kuestencode.Faktura.Data.Migrations
                         .IsUnique();
 
                     b.HasIndex("ProjectId");
+
+                    b.HasIndex("RelatedInvoiceId");
+
+                    b.HasIndex("Type");
 
                     b.ToTable("Invoices", "faktura");
                 });
@@ -280,6 +290,14 @@ namespace Kuestencode.Faktura.Data.Migrations
                         .IsRequired();
 
                     b.Navigation("Invoice");
+                });
+
+            modelBuilder.Entity("Kuestencode.Faktura.Models.Invoice", b =>
+                {
+                    b.HasOne("Kuestencode.Faktura.Models.Invoice", null)
+                        .WithMany()
+                        .HasForeignKey("RelatedInvoiceId")
+                        .OnDelete(DeleteBehavior.SetNull);
                 });
 
             modelBuilder.Entity("Kuestencode.Faktura.Models.InvoiceAttachment", b =>

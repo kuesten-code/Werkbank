@@ -11,11 +11,12 @@ namespace Kuestencode.Faktura.Tests.Services;
 public class InvoiceServiceTests
 {
     private readonly Mock<IInvoiceRepository> _repo = new();
+    private readonly Mock<IInvoicePaymentService> _paymentService = new();
     private readonly InvoiceService _service;
 
     public InvoiceServiceTests()
     {
-        _service = new InvoiceService(_repo.Object, NullLogger<InvoiceService>.Instance);
+        _service = new InvoiceService(_repo.Object, _paymentService.Object, NullLogger<InvoiceService>.Instance);
     }
 
     private static Invoice MakeInvoice(int id = 1, InvoiceStatus status = InvoiceStatus.Draft) =>
@@ -210,31 +211,56 @@ public class InvoiceServiceTests
     // ─── MarkAsPaidAsync ──────────────────────────────────────────────────────
 
     [Fact]
-    public async Task MarkAsPaid_SentRechnung_WirdBezahlt()
+    public async Task MarkAsPaid_OffenerBetrag_ErfasstZahlungUeberOffenenBetrag()
     {
         var inv = MakeInvoice(1, InvoiceStatus.Sent);
+        inv.Items.Add(MakeItem(1, 100m, 19m)); // TotalGross = 119, RemainingAmount = 119
         var paidDate = new DateTime(2026, 3, 15, 0, 0, 0, DateTimeKind.Utc);
         _repo.Setup(r => r.GetByIdAsync(1)).ReturnsAsync(inv);
-        _repo.Setup(r => r.UpdateAsync(It.IsAny<Invoice>())).Returns(Task.CompletedTask);
 
         await _service.MarkAsPaidAsync(1, paidDate);
 
-        inv.Status.Should().Be(InvoiceStatus.Paid);
-        inv.PaidDate.Should().Be(paidDate);
-        _repo.Verify(r => r.UpdateAsync(inv), Times.Once);
+        _paymentService.Verify(p => p.ZahlungErfassenAsync(1, 119m, paidDate, It.IsAny<string>()), Times.Once);
     }
 
     [Fact]
     public async Task MarkAsPaid_LocalDateTime_WirdNachUtcKonvertiert()
     {
         var inv = MakeInvoice(1, InvoiceStatus.Sent);
+        inv.Items.Add(MakeItem(1, 100m, 19m));
         var localDate = new DateTime(2026, 3, 15, 12, 0, 0, DateTimeKind.Local);
         _repo.Setup(r => r.GetByIdAsync(1)).ReturnsAsync(inv);
-        _repo.Setup(r => r.UpdateAsync(It.IsAny<Invoice>())).Returns(Task.CompletedTask);
 
         await _service.MarkAsPaidAsync(1, localDate);
 
-        inv.PaidDate!.Value.Kind.Should().Be(DateTimeKind.Utc);
+        _paymentService.Verify(p => p.ZahlungErfassenAsync(
+            1, 119m, It.Is<DateTime>(d => d.Kind == DateTimeKind.Utc), It.IsAny<string>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task MarkAsPaid_GutschriftMitOffenemBetrag_ErfasstNegativeZahlung()
+    {
+        var inv = MakeInvoice(1, InvoiceStatus.Sent);
+        inv.Type = InvoiceType.CreditNote;
+        inv.Items.Add(MakeItem(1, -100m, 19m)); // TotalGross = -119
+        var paidDate = new DateTime(2026, 3, 15, 0, 0, 0, DateTimeKind.Utc);
+        _repo.Setup(r => r.GetByIdAsync(1)).ReturnsAsync(inv);
+
+        await _service.MarkAsPaidAsync(1, paidDate);
+
+        _paymentService.Verify(p => p.ZahlungErfassenAsync(1, -119m, paidDate, It.IsAny<string>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task MarkAsPaid_KeinOffenerBetrag_ErstelltKeineZahlung()
+    {
+        var inv = MakeInvoice(1, InvoiceStatus.Sent); // keine Items -> RemainingAmount == 0
+        _repo.Setup(r => r.GetByIdAsync(1)).ReturnsAsync(inv);
+
+        await _service.MarkAsPaidAsync(1, DateTime.UtcNow);
+
+        _paymentService.Verify(p => p.ZahlungErfassenAsync(
+            It.IsAny<int>(), It.IsAny<decimal>(), It.IsAny<DateTime>(), It.IsAny<string>()), Times.Never);
     }
 
     [Fact]

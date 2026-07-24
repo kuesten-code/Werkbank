@@ -1,0 +1,538 @@
+@using Kuestencode.Core.Interfaces
+@page "/credit-notes/details/{Id:int}"
+@using Kuestencode.Faktura.Services
+@using Kuestencode.Faktura.Models
+@using Microsoft.AspNetCore.WebUtilities
+@inject IInvoiceService InvoiceService
+@inject IInvoicePaymentService PaymentService
+@inject IPdfGeneratorService PdfGeneratorService
+@inject IXRechnungService XRechnungService
+@inject ICompanyService CompanyService
+@inject Kuestencode.Shared.ApiClients.IActaApiClient ActaApiClient
+@inject Kuestencode.Faktura.Services.IEmailService EmailService
+@inject NavigationManager NavigationManager
+@inject ISnackbar Snackbar
+@inject IJSRuntime JSRuntime
+@inject IDialogService DialogService
+
+<PageTitle>Gutschrift-Details - Küstencode Faktura</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="mt-4">
+    @if (_loading)
+    {
+        <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+    }
+    else if (_invoice == null)
+    {
+        <MudAlert Severity="Severity.Error">Gutschrift nicht gefunden.</MudAlert>
+    }
+    else
+    {
+        <MudPaper Class="pa-4">
+            <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-4">
+                <MudStack Spacing="1">
+                    <MudText Typo="Typo.h4">Gutschrift @_invoice.InvoiceNumber</MudText>
+                    @if (_invoice.RelatedInvoice != null)
+                    {
+                        <MudChip T="string" Size="Size.Small" Color="Color.Info" Icon="@Icons.Material.Filled.Link"
+                                 OnClick="@(() => NavigationManager.NavigateTo($"/faktura/invoices/details/{_invoice.RelatedInvoiceId}"))">
+                            Gutschrift zu @_invoice.RelatedInvoice.InvoiceNumber
+                        </MudChip>
+                    }
+                </MudStack>
+                <MudStack AlignItems="AlignItems.End" Spacing="0">
+                    <MudChip T="string" Size="Size.Large" Color="@GetStatusColor(_invoice.Status)">
+                        @GetStatusText(_invoice.Status)
+                    </MudChip>
+                    @if (_invoice.PaidDate.HasValue)
+                    {
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">
+                            Bezahlt am @_invoice.PaidDate.Value.ToString("dd.MM.yyyy")
+                        </MudText>
+                    }
+                </MudStack>
+            </MudStack>
+
+            <MudGrid>
+                <!-- Kopfdaten -->
+                <MudItem xs="12" md="6">
+                    <MudText Typo="Typo.h6" GutterBottom="true">Gutschriftdaten</MudText>
+                    <MudSimpleTable Dense="true">
+                        <tbody>
+                            <tr>
+                                <td><strong>Gutschriftnummer:</strong></td>
+                                <td><strong>@_invoice.InvoiceNumber</strong></td>
+                            </tr>
+                            <tr>
+                                <td><strong>Gutschriftdatum:</strong></td>
+                                <td>@_invoice.InvoiceDate.ToString("dd.MM.yyyy")</td>
+                            </tr>
+                            @if (_invoice.ServicePeriodStart.HasValue || _invoice.ServicePeriodEnd.HasValue)
+                            {
+                                <tr>
+                                    <td><strong>Leistungszeitraum:</strong></td>
+                                    <td>
+                                        @if (_invoice.ServicePeriodStart.HasValue && _invoice.ServicePeriodEnd.HasValue)
+                                        {
+                                            @($"{_invoice.ServicePeriodStart.Value.ToString("dd.MM.yyyy")} - {_invoice.ServicePeriodEnd.Value.ToString("dd.MM.yyyy")}")
+                                        }
+                                        else if (_invoice.ServicePeriodStart.HasValue)
+                                        {
+                                            @($"ab {_invoice.ServicePeriodStart.Value.ToString("dd.MM.yyyy")}")
+                                        }
+                                        else if (_invoice.ServicePeriodEnd.HasValue)
+                                        {
+                                            @($"bis {_invoice.ServicePeriodEnd.Value.ToString("dd.MM.yyyy")}")
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                            @if (_invoice.DueDate.HasValue)
+                            {
+                                <tr>
+                                    <td><strong>Fälligkeitsdatum:</strong></td>
+                                    <td>@_invoice.DueDate.Value.ToString("dd.MM.yyyy")</td>
+                                </tr>
+                            }
+                            @if (_invoice.PaidDate.HasValue)
+                            {
+                                <tr>
+                                    <td><strong>Bezahlt am:</strong></td>
+                                    <td>@_invoice.PaidDate.Value.ToString("dd.MM.yyyy")</td>
+                                </tr>
+                            }
+                            @if (!string.IsNullOrWhiteSpace(_invoice.ProjectName))
+                            {
+                                <tr>
+                                    <td><strong>Projekt:</strong></td>
+                                    <td>@_invoice.ProjectName</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </MudSimpleTable>
+                </MudItem>
+
+                <!-- Kundendaten -->
+                <MudItem xs="12" md="6">
+                    <MudText Typo="Typo.h6" GutterBottom="true">Kunde</MudText>
+                    @if (_invoice.Customer != null)
+                    {
+                        <MudText Typo="Typo.body1"><strong>@_invoice.Customer.Name</strong></MudText>
+                        <MudText Typo="Typo.body2">@_invoice.Customer.CustomerNumber</MudText>
+                        <MudText Typo="Typo.body2">@_invoice.Customer.Address</MudText>
+                        <MudText Typo="Typo.body2">@_invoice.Customer.PostalCode @_invoice.Customer.City</MudText>
+                        @if (!string.IsNullOrEmpty(_invoice.Customer.Email))
+                        {
+                            <MudText Typo="Typo.body2">@_invoice.Customer.Email</MudText>
+                        }
+
+                        @if (_invoice.EmailSendCount > 0 && _invoice.EmailSentAt.HasValue || _invoice.PrintCount > 0 && _invoice.PrintedAt.HasValue)
+                        {
+                            <MudDivider Class="my-2" />
+                            @if (_invoice.EmailSendCount > 0 && _invoice.EmailSentAt.HasValue)
+                            {
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                    @(_invoice.EmailSendCount == 1 ? "Per E-Mail versendet" : $"{_invoice.EmailSendCount}× per E-Mail versendet")
+                                </MudText>
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                    Zuletzt: @_invoice.EmailSentAt.Value.ToLocalTime().ToString("dd.MM.yyyy HH:mm") Uhr
+                                </MudText>
+                                @if (!string.IsNullOrWhiteSpace(_invoice.EmailSentTo))
+                                {
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                        An: @_invoice.EmailSentTo
+                                    </MudText>
+                                }
+                            }
+                            @if (_invoice.PrintCount > 0 && _invoice.PrintedAt.HasValue)
+                            {
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                    @(_invoice.PrintCount == 1 ? "Gedruckt" : $"{_invoice.PrintCount}× gedruckt")
+                                </MudText>
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                    Zuletzt: @_invoice.PrintedAt.Value.ToLocalTime().ToString("dd.MM.yyyy HH:mm") Uhr
+                                </MudText>
+                            }
+                        }
+                    }
+                </MudItem>
+
+                <!-- Positionen -->
+                <MudItem xs="12" Class="mt-4">
+                    <MudText Typo="Typo.h6" GutterBottom="true">Positionen</MudText>
+                    <MudSimpleTable Dense="true" Hover="true" Bordered="true" Elevation="0">
+                        <thead>
+                            <tr>
+                                <th style="width: 60px">Pos.</th>
+                                <th>Beschreibung</th>
+                                <th style="width: 90px">Einheit</th>
+                                <th style="width: 100px; text-align: right">Menge</th>
+                                <th style="width: 130px; text-align: right">Einzelpreis</th>
+                                <th style="width: 120px; text-align: right">Gesamt</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @{
+                                var hatUeberschriften = _invoice.Items.Any(i => i.IsHeader);
+                                int posCounter = 0;
+                            }
+                            @foreach (var itemGruppe in GetItemSections())
+                            {
+                                @if (itemGruppe.Header != null)
+                                {
+                                    <tr style="background-color: var(--mud-palette-background-grey);">
+                                        <td colspan="6" style="padding: 4px 8px; border-top: 2px solid var(--mud-palette-divider); font-weight: 600;">
+                                            @itemGruppe.Header.Description
+                                        </td>
+                                    </tr>
+                                }
+                                @foreach (var item in itemGruppe.Items)
+                                {
+                                    posCounter++;
+                                    <tr>
+                                        <td>@posCounter</td>
+                                        <td><MudText Style="white-space: pre-line;">@item.Description</MudText></td>
+                                        <td>@item.Unit</td>
+                                        <td style="text-align: right">@item.Quantity.ToString("N3", _culture)</td>
+                                        <td style="text-align: right">@Math.Abs(item.UnitPrice).ToString("C2", _culture)</td>
+                                        <td style="text-align: right">@Math.Abs(item.TotalNet).ToString("C2", _culture)</td>
+                                    </tr>
+                                }
+                                @if (hatUeberschriften && itemGruppe.Header != null && itemGruppe.Items.Count > 0)
+                                {
+                                    <tr style="background-color: var(--mud-palette-background-grey);">
+                                        <td colspan="5" style="text-align: right; font-style: italic; padding: 4px 8px; color: var(--mud-palette-text-secondary);">
+                                            Zwischensumme:
+                                        </td>
+                                        <td style="text-align: right; font-weight: 600; padding: 4px 8px; border-top: 1px solid var(--mud-palette-divider);">
+                                            @Math.Abs(itemGruppe.Items.Sum(i => i.TotalNet)).ToString("C2", _culture)
+                                        </td>
+                                    </tr>
+                                }
+                            }
+                        </tbody>
+                    </MudSimpleTable>
+                </MudItem>
+
+                <!-- Abschl&auml;ge -->
+                @if (_invoice.DownPayments.Any())
+                {
+                    <MudItem xs="12" Class="mt-4">
+                        <MudText Typo="Typo.h6" GutterBottom="true">Abschl&auml;ge</MudText>
+                        <MudTable Items="@_invoice.DownPayments" Dense="true" Hover="true" Elevation="0">
+                            <HeaderContent>
+                                <MudTh>Beschreibung</MudTh>
+                                <MudTh Style="text-align: right">Betrag</MudTh>
+                                <MudTh Style="text-align: right">Datum</MudTh>
+                            </HeaderContent>
+                            <RowTemplate Context="downPayment">
+                                <MudTd DataLabel="Beschreibung">
+                                    <MudText Style="white-space: pre-line;">@downPayment.Description</MudText>
+                                </MudTd>
+                                <MudTd DataLabel="Betrag" Style="text-align: right">@downPayment.Amount.ToString("C2", _culture)</MudTd>
+                                <MudTd DataLabel="Datum" Style="text-align: right">
+                                    @(downPayment.PaymentDate.HasValue ? downPayment.PaymentDate.Value.ToString("dd.MM.yyyy") : "-")
+                                </MudTd>
+                            </RowTemplate>
+                            <FooterContent>
+                                <MudTh></MudTh>
+                                <MudTh Style="text-align: right"><strong>Summe Abschl&auml;ge:</strong></MudTh>
+                                <MudTh Style="text-align: right"><strong>@_invoice.TotalDownPayments.ToString("C2", _culture)</strong></MudTh>
+                            </FooterContent>
+                        </MudTable>
+                    </MudItem>
+                }
+
+                <!-- Anh&auml;nge -->
+                @if (_invoice.Attachments.Any())
+                {
+                    <MudItem xs="12" Class="mt-4">
+                        <MudText Typo="Typo.h6" GutterBottom="true">Anh&auml;nge</MudText>
+                        <MudSimpleTable Dense="true" Hover="true" Bordered="true">
+                            <thead>
+                                <tr>
+                                    <th>Datei</th>
+                                    <th>Typ</th>
+                                    <th>Gr&ouml;&szlig;e</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var attachment in _invoice.Attachments)
+                                {
+                                    <tr>
+                                        <td>@attachment.FileName</td>
+                                        <td>@attachment.ContentType</td>
+                                        <td>@FormatFileSize(attachment.FileSize)</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </MudSimpleTable>
+                    </MudItem>
+                }
+
+                <!-- Summen -->
+                <MudItem xs="12" Class="mt-4">
+                    <MudPaper Elevation="2" Class="pa-4" Style="max-width: 400px; margin-left: auto;">
+                        <MudStack Spacing="2">
+                            <MudStack Row="true" Justify="Justify.SpaceBetween">
+                                <MudText>Nettosumme:</MudText>
+                                <MudText>@Math.Abs(_invoice.TotalNet).ToString("C2", _culture)</MudText>
+                            </MudStack>
+                            @if (_invoice.DiscountAmount > 0)
+                            {
+                                <MudStack Row="true" Justify="Justify.SpaceBetween">
+                                    <MudText>Rabatt @(_invoice.DiscountType == DiscountType.Percentage ? $"({_invoice.DiscountValue}%)" : ""):</MudText>
+                                    <MudText Color="Color.Success">-@Math.Abs(_invoice.DiscountAmount).ToString("C2", _culture)</MudText>
+                                </MudStack>
+                                <MudStack Row="true" Justify="Justify.SpaceBetween">
+                                    <MudText>Zwischensumme:</MudText>
+                                    <MudText>@Math.Abs(_invoice.TotalNetAfterDiscount).ToString("C2", _culture)</MudText>
+                                </MudStack>
+                            }
+                            <MudStack Row="true" Justify="Justify.SpaceBetween">
+                                <MudText>@(_company?.IsKleinunternehmer == true ? "MwSt (0%, §19 UStG):" : "MwSt (19%):")</MudText>
+                                <MudText>@Math.Abs(_invoice.TotalVat).ToString("C2", _culture)</MudText>
+                            </MudStack>
+                            <MudDivider />
+                            <MudStack Row="true" Justify="Justify.SpaceBetween">
+                                <MudText Typo="Typo.subtitle1">Gutschriftbetrag:</MudText>
+                                <MudText Typo="Typo.subtitle1">@Math.Abs(_invoice.TotalGross).ToString("C2", _culture)</MudText>
+                            </MudStack>
+                            @if (_invoice.TotalDownPayments > 0)
+                            {
+                                <MudStack Row="true" Justify="Justify.SpaceBetween">
+                                    <MudText>Abschl&auml;ge:</MudText>
+                                    <MudText Color="Color.Error">-@Math.Abs(_invoice.TotalDownPayments).ToString("C2", _culture)</MudText>
+                                </MudStack>
+                                <MudDivider DividerType="DividerType.FullWidth" Style="border-width: 2px;" />
+                                <MudStack Row="true" Justify="Justify.SpaceBetween">
+                                    <MudText Typo="Typo.h6">Zu erstatten:</MudText>
+                                    <MudText Typo="Typo.h6">@Math.Abs(_invoice.AmountDue).ToString("C2", _culture)</MudText>
+                                </MudStack>
+                            }
+                            @if (_company?.IsKleinunternehmer == true)
+                            {
+                                <MudAlert Severity="Severity.Info" Dense="true" Class="mt-2">
+                                    §19 UStG - Kleinunternehmer (keine MwSt)
+                                </MudAlert>
+                            }
+                        </MudStack>
+                    </MudPaper>
+                </MudItem>
+
+                <!-- Zahlungen -->
+                @if (_invoice.Status != InvoiceStatus.Draft)
+                {
+                    <MudItem xs="12" Class="mt-4">
+                        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-2">
+                            <MudText Typo="Typo.h6">Zahlungen</MudText>
+                            @if (_invoice.Status != InvoiceStatus.Paid && _invoice.Status != InvoiceStatus.Cancelled)
+                            {
+                                <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small"
+                                           StartIcon="@Icons.Material.Filled.AddCircleOutline"
+                                           OnClick="OpenZahlungModal">
+                                    Zahlung erfassen
+                                </MudButton>
+                            }
+                        </MudStack>
+
+                        @if (_invoice.Payments.Any())
+                        {
+                            <MudTable Items="@_invoice.Payments" Dense="true" Hover="true" Elevation="0">
+                                <HeaderContent>
+                                    <MudTh>Datum</MudTh>
+                                    <MudTh Style="text-align: right">Betrag</MudTh>
+                                    <MudTh>Notiz</MudTh>
+                                    <MudTh Style="text-align: right"></MudTh>
+                                </HeaderContent>
+                                <RowTemplate Context="zahlung">
+                                    <MudTd DataLabel="Datum">@zahlung.PaymentDate.ToLocalTime().ToString("dd.MM.yyyy")</MudTd>
+                                    <MudTd DataLabel="Betrag" Style="text-align: right">@Math.Abs(zahlung.Amount).ToString("C2", _culture)</MudTd>
+                                    <MudTd DataLabel="Notiz">@zahlung.Notes</MudTd>
+                                    <MudTd Style="text-align: right">
+                                        @if (_invoice.Status != InvoiceStatus.Cancelled)
+                                        {
+                                            <MudIconButton Icon="@Icons.Material.Filled.DeleteOutline"
+                                                           Color="Color.Error" Size="Size.Small"
+                                                           OnClick="@(() => LoescheZahlung(zahlung.Id))" />
+                                        }
+                                    </MudTd>
+                                </RowTemplate>
+                                <FooterContent>
+                                    <MudTh></MudTh>
+                                    <MudTh Style="text-align: right">
+                                        @if (_invoice.RemainingAmount == 0)
+                                        {
+                                            <MudText Color="Color.Success"><strong>Vollständig bezahlt</strong></MudText>
+                                        }
+                                        else
+                                        {
+                                            <MudText><strong>Offen: @Math.Abs(_invoice.RemainingAmount).ToString("C2", _culture)</strong></MudText>
+                                        }
+                                    </MudTh>
+                                    <MudTh></MudTh>
+                                    <MudTh></MudTh>
+                                </FooterContent>
+                            </MudTable>
+                        }
+                        else
+                        {
+                            <MudText Typo="Typo.body2" Color="Color.Secondary">Noch keine Zahlungen erfasst.</MudText>
+                        }
+                    </MudItem>
+                }
+
+                <!-- Notizen -->
+                @if (!string.IsNullOrWhiteSpace(_invoice.Notes))
+                {
+                    <MudItem xs="12" Class="mt-4">
+                        <MudText Typo="Typo.h6" GutterBottom="true">Notizen</MudText>
+                        <MudPaper Class="pa-3" Elevation="0">
+                            <MudText Typo="Typo.body2">@_invoice.Notes</MudText>
+                        </MudPaper>
+                    </MudItem>
+                }
+
+                <!-- Actions -->
+                <MudItem xs="12" Class="mt-6">
+                    <MudStack Row="true" Justify="Justify.SpaceBetween">
+                        <MudButton Variant="Variant.Filled" Color="Color.Default"
+                                  StartIcon="@Icons.Material.Filled.ArrowBack"
+                                  OnClick="@(() => NavigationManager.NavigateTo(Kuestencode.Shared.UI.Pages.TabbedListPageBase.BackUrl("/faktura/credit-notes", _fromFilter, _fromSearch)))">
+                            Zurück zur Übersicht
+                        </MudButton>
+
+                        <MudStack Row="true" Spacing="2">
+                            @if (_invoice.Status == InvoiceStatus.Draft)
+                            {
+                                <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                                          StartIcon="@Icons.Material.Filled.Edit"
+                                          OnClick="@(() => NavigationManager.NavigateTo($"/faktura/credit-notes/edit/{_invoice.Id}"))">
+                                    Bearbeiten
+                                </MudButton>
+                            }
+
+                            @if (_invoice.Status == InvoiceStatus.Sent || _invoice.Status == InvoiceStatus.Overdue || _invoice.Status == InvoiceStatus.PartiallyPaid)
+                            {
+                                <MudButton Variant="Variant.Filled" Color="Color.Success"
+                                          StartIcon="@Icons.Material.Filled.CheckCircle"
+                                          OnClick="OpenMarkAsPaidDialog">
+                                    Als beglichen markieren
+                                </MudButton>
+                            }
+
+                            @if(_invoice.Status != InvoiceStatus.Paid){
+                                <MudButton Variant="Variant.Outlined"
+                                          Color="Color.Primary"
+                                          StartIcon="@Icons.Material.Filled.Print"
+                                          OnClick="PrintAndConfirm">
+                                    Drucken
+                                </MudButton>
+
+                                @if (_isEmailConfigured)
+                                {
+                                    <MudButton Variant="Variant.Outlined"
+                                            Color="Color.Primary"
+                                            StartIcon="@Icons.Material.Filled.Email"
+                                            OnClick="OpenEmailDialog"
+                                            Disabled="@(string.IsNullOrWhiteSpace(_invoice.Customer?.Email))">
+                                        Per E-Mail versenden
+                                    </MudButton>
+                                }
+                                else
+                                {
+                                    <MudAlert Severity="Severity.Info" Dense="true" Class="mt-2">
+                                        E-Mail-Versand nicht konfiguriert.
+                                        <MudLink Href="/settings/email">Jetzt einrichten</MudLink>
+                                    </MudAlert>
+                                }
+                            }
+
+
+                            <MudMenu Icon="@Icons.Material.Filled.Download"
+                                    Variant="Variant.Outlined"
+                                    Color="Color.Primary"
+                                    Label="Download"
+                                    Disabled="@_downloading"
+                                    EndIcon="@Icons.Material.Filled.KeyboardArrowDown">
+                                <MudMenuItem OnClick="DownloadPdf">
+                                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                                        <MudIcon Icon="@Icons.Material.Filled.PictureAsPdf" Size="Size.Small" />
+                                        <MudText>PDF (Normal)</MudText>
+                                    </MudStack>
+                                </MudMenuItem>
+                                <MudMenuItem OnClick="DownloadZugferdPdf">
+                                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                                        <MudIcon Icon="@Icons.Material.Filled.IntegrationInstructions" Size="Size.Small" />
+                                        <MudText>PDF (ZUGFeRD)</MudText>
+                                    </MudStack>
+                                </MudMenuItem>
+                                <MudMenuItem OnClick="DownloadXRechnung">
+                                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                                        <MudIcon Icon="@Icons.Material.Filled.Code" Size="Size.Small" />
+                                        <MudText>XRechnung (XML)</MudText>
+                                    </MudStack>
+                                </MudMenuItem>
+                            </MudMenu>
+                        </MudStack>
+                    </MudStack>
+                </MudItem>
+            </MudGrid>
+        </MudPaper>
+
+        @if (_zahlungModalOpen)
+        {
+            <MudOverlay Visible="true" DarkBackground="true" ZIndex="1200" />
+            <MudPaper Style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 1300; min-width: 360px;"
+                      Elevation="8" Class="pa-6">
+                <MudText Typo="Typo.h6" GutterBottom="true">Zahlung erfassen</MudText>
+                <MudStack Spacing="3">
+                    <MudDatePicker Label="Datum" @bind-Date="_zahlungDatum"
+                                   DateFormat="dd.MM.yyyy" Variant="Variant.Outlined"
+                                   MaxDate="DateTime.Today" />
+                    <MudNumericField T="decimal" Label="Betrag (€)" @bind-Value="_zahlungBetrag"
+                                     Variant="Variant.Outlined" Min="0.01m" Step="0.01m"
+                                     Format="F2" Culture="@_culture" />
+                    <MudTextField Label="Notiz (optional)" @bind-Value="_zahlungNotiz"
+                                  Variant="Variant.Outlined" MaxLength="500" />
+                </MudStack>
+                <MudStack Row="true" Justify="Justify.FlexEnd" Class="mt-4" Spacing="2">
+                    <MudButton Variant="Variant.Text" OnClick="CloseZahlungModal" Disabled="@_zahlungSaving">Abbrechen</MudButton>
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                               StartIcon="@Icons.Material.Filled.Save"
+                               OnClick="ErfasseZahlung"
+                               Disabled="@(_zahlungSaving || _zahlungBetrag <= 0)">
+                        @if (_zahlungSaving)
+                        {
+                            <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                        }
+                        Speichern
+                    </MudButton>
+                </MudStack>
+            </MudPaper>
+        }
+
+        @if (_markAsPaidOpen)
+        {
+            <MudOverlay Visible="true" DarkBackground="true" ZIndex="1200" />
+            <MudPaper Style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 1300; min-width: 340px;"
+                      Elevation="8" Class="pa-6">
+                <MudText Typo="Typo.h6" GutterBottom="true">Als beglichen markieren</MudText>
+                <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">
+                    Wann wurde die Gutschrift beglichen?
+                </MudText>
+                <MudDatePicker Label="Zahlungsdatum" @bind-Date="_paidDateInput"
+                               DateFormat="dd.MM.yyyy" Variant="Variant.Outlined"
+                               MaxDate="DateTime.Today" />
+                <MudStack Row="true" Justify="Justify.FlexEnd" Class="mt-4" Spacing="2">
+                    <MudButton Variant="Variant.Text" OnClick="CloseMarkAsPaidDialog">Abbrechen</MudButton>
+                    <MudButton Variant="Variant.Filled" Color="Color.Success"
+                               StartIcon="@Icons.Material.Filled.CheckCircle"
+                               OnClick="ConfirmMarkAsPaid">
+                        Speichern
+                    </MudButton>
+                </MudStack>
+            </MudPaper>
+        }
+    }
+</MudContainer>

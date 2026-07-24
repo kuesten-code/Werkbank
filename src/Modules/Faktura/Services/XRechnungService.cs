@@ -222,7 +222,7 @@ public class XRechnungService : IXRechnungService
                 // ExchangedDocument
                 new XElement(Rsm + "ExchangedDocument",
                     new XElement(Ram + "ID", invoice.InvoiceNumber),
-                    new XElement(Ram + "TypeCode", "380"),
+                    new XElement(Ram + "TypeCode", invoice.Type == InvoiceType.CreditNote ? "381" : "380"),
                     new XElement(Ram + "IssueDateTime",
                         new XElement(Udt + "DateTimeString",
                             new XAttribute("format", "102"),
@@ -292,7 +292,7 @@ public class XRechnungService : IXRechnungService
                 ),
                 new XElement(Ram + "SpecifiedLineTradeAgreement",
                     new XElement(Ram + "NetPriceProductTradePrice",
-                        new XElement(Ram + "ChargeAmount", item.UnitPrice.ToString("F2", culture))
+                        new XElement(Ram + "ChargeAmount", Math.Abs(item.UnitPrice).ToString("F2", culture))
                     )
                 ),
                 new XElement(Ram + "SpecifiedLineTradeDelivery",
@@ -310,7 +310,7 @@ public class XRechnungService : IXRechnungService
                             (isKleinunternehmer || isReverseCharge) ? "0.00" : item.VatRate.ToString("F2", culture))
                     ),
                     new XElement(Ram + "SpecifiedTradeSettlementLineMonetarySummation",
-                        new XElement(Ram + "LineTotalAmount", item.TotalNet.ToString("F2", culture))
+                        new XElement(Ram + "LineTotalAmount", Math.Abs(item.TotalNet).ToString("F2", culture))
                     )
                 )
             );
@@ -466,9 +466,9 @@ public class XRechnungService : IXRechnungService
     private XElement BuildHeaderTradeSettlement(Invoice invoice, Company company)
     {
         var culture = CultureInfo.InvariantCulture;
-        var totalNet = invoice.Items.Sum(i => i.TotalNet);
-        var totalVat = invoice.Items.Sum(i => i.TotalVat);
-        var totalGross = invoice.Items.Sum(i => i.TotalGross);
+        var totalNet = Math.Abs(invoice.Items.Sum(i => i.TotalNet));
+        var totalVat = Math.Abs(invoice.Items.Sum(i => i.TotalVat));
+        var totalGross = Math.Abs(invoice.Items.Sum(i => i.TotalGross));
 
         var elements = new List<XElement?>
         {

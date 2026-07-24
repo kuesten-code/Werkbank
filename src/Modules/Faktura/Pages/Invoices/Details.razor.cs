@@ -168,6 +168,20 @@ public partial class Details
         }
     }
 
+    private async Task CreateCreditNote()
+    {
+        if (_invoice == null) return;
+        try
+        {
+            var creditNote = await InvoiceService.CreateCreditNoteFromInvoiceAsync(_invoice.Id, DateTime.Today);
+            NavigationManager.NavigateTo($"/faktura/credit-notes/edit/{creditNote.Id}");
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Fehler beim Erstellen der Gutschrift: {ex.Message}", Severity.Error);
+        }
+    }
+
     private Color GetStatusColor(InvoiceStatus status)
     {
         return status switch

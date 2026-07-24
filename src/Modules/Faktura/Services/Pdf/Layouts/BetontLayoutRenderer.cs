@@ -62,7 +62,7 @@ public class BetontLayoutRenderer : BasePdfLayout
                 });
 
                 // Invoice number highlighted
-                headerCol.Item().PaddingTop(15).Background(company.PdfAccentColor).Padding(10).Text($"RECHNUNG {invoice.InvoiceNumber}")
+                headerCol.Item().PaddingTop(15).Background(company.PdfAccentColor).Padding(10).Text($"{invoice.DocumentLabel.ToUpperInvariant()} {invoice.InvoiceNumber}")
                     .FontSize(16)
                     .Bold()
                     .FontColor("#FFFFFF")

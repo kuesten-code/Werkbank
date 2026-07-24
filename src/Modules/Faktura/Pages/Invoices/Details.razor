@@ -412,6 +412,15 @@
                                 </MudButton>
                             }
 
+                            @if (_invoice.Type == InvoiceType.Invoice && _invoice.Status != InvoiceStatus.Draft)
+                            {
+                                <MudButton Variant="Variant.Outlined" Color="Color.Secondary"
+                                          StartIcon="@Icons.Material.Filled.Undo"
+                                          OnClick="CreateCreditNote">
+                                    Gutschrift erstellen
+                                </MudButton>
+                            }
+
                             @if(_invoice.Status != InvoiceStatus.Paid){
                                 <MudButton Variant="Variant.Outlined"
                                           Color="Color.Primary"

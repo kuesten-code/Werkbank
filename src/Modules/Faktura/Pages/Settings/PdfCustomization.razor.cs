@@ -25,13 +25,16 @@ public partial class PdfCustomization
     private Company _company = new();
     private bool _loading = true;
     private bool _saving = false;
+    private int _activeTextTab;
     private MudBlazor.Utilities.MudColor _primaryColorValue = new("#1f3a5f");
     private MudBlazor.Utilities.MudColor _accentColorValue = new("#3FA796");
 
     private byte[]? GeneratePreviewPdf()
     {
-        var sampleInvoice = PreviewService.GenerateSampleInvoice(_company);
-        return PdfGeneratorService.GeneratePdfWithCompany(sampleInvoice, _company);
+        var sample = _activeTextTab == 1
+            ? PreviewService.GenerateSampleCreditNote(_company)
+            : PreviewService.GenerateSampleInvoice(_company);
+        return PdfGeneratorService.GeneratePdfWithCompany(sample, _company);
     }
 
     protected override async Task OnInitializedAsync()
@@ -110,6 +113,9 @@ public partial class PdfCustomization
             _company.PdfHeaderText = null;
             _company.PdfFooterText = null;
             _company.PdfPaymentNotice = null;
+            _company.PdfCreditNoteHeaderText = null;
+            _company.PdfCreditNoteFooterText = null;
+            _company.PdfCreditNotePaymentNotice = null;
 
             _primaryColorValue = new MudBlazor.Utilities.MudColor(_company.PdfPrimaryColor);
             _accentColorValue = new MudBlazor.Utilities.MudColor(_company.PdfAccentColor);
