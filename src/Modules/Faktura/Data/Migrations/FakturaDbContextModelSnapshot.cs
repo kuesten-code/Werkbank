@@ -51,9 +51,14 @@ namespace Kuestencode.Faktura.Data.Migrations
                     b.Property<DateTime?>("PaymentDate")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<int?>("SourceInvoiceId")
+                        .HasColumnType("integer");
+
                     b.HasKey("Id");
 
                     b.HasIndex("InvoiceId");
+
+                    b.HasIndex("SourceInvoiceId");
 
                     b.ToTable("DownPayments", "faktura");
                 });
@@ -288,6 +293,11 @@ namespace Kuestencode.Faktura.Data.Migrations
                         .HasForeignKey("InvoiceId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.HasOne("Kuestencode.Faktura.Models.Invoice", null)
+                        .WithMany()
+                        .HasForeignKey("SourceInvoiceId")
+                        .OnDelete(DeleteBehavior.SetNull);
 
                     b.Navigation("Invoice");
                 });
