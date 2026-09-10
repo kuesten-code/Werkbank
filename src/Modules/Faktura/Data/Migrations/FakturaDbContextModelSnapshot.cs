@@ -64,9 +64,25 @@ namespace Kuestencode.Faktura.Data.Migrations
                     b.Property<string>("OldValue")
                         .HasColumnType("text");
 
+                    b.Property<long>("SequenceNumber")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Hash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("PreviousHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
                     b.HasKey("Id");
 
                     b.HasIndex("EntityName", "EntityId");
+
+                    b.HasIndex("SequenceNumber")
+                        .IsUnique();
 
                     b.ToTable("AuditLogEntries", "faktura");
                 });
