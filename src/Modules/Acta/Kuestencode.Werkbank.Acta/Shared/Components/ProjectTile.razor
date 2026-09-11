@@ -1,0 +1,77 @@
+@using Kuestencode.Werkbank.Acta.Domain.Dtos
+@using Kuestencode.Werkbank.Acta.Domain.Entities
+
+<MudPaper Class="pa-4 cursor-pointer" Elevation="2" Style="position: relative;" @onclick="@(() => OnClick.InvokeAsync(Project.Id))">
+    <span class="tile-close-btn" @onclick:stopPropagation="true">
+        <MudIconButton Icon="@Icons.Material.Filled.Close"
+                       Size="Size.Small"
+                       OnClick="@(() => OnUnpin.InvokeAsync(Project.Id))" />
+    </span>
+
+    @if (IsLoading)
+    {
+        <MudStack Spacing="1">
+            <MudSkeleton Width="60%" Height="24px" />
+            <MudSkeleton Width="40%" />
+            <MudSkeleton Width="75%" />
+            <MudSkeleton Width="50%" />
+        </MudStack>
+    }
+    else
+    {
+        <MudStack Spacing="1">
+            <MudText Typo="Typo.subtitle1">@Project.Name</MudText>
+            <MudText Typo="Typo.caption" Color="Color.Secondary">@CustomerName</MudText>
+
+            @if (Project.TargetDate.HasValue)
+            {
+                var days = Project.TargetDate.Value.DayNumber - DateOnly.FromDateTime(DateTime.Today).DayNumber;
+                @if (days >= 0)
+                {
+                    <MudText Typo="Typo.body2">@days Tage bis geplanter Abschluss</MudText>
+                }
+                else
+                {
+                    <MudText Typo="Typo.body2" Color="Color.Error">@(-days) Tage überfällig</MudText>
+                }
+            }
+            else
+            {
+                <MudText Typo="Typo.body2" Color="Color.Secondary">Kein Zieldatum</MudText>
+            }
+
+            @if (Summary == null)
+            {
+                <MudText Typo="Typo.body2" Color="Color.Secondary">Budget nicht verfügbar</MudText>
+            }
+            else if (Summary.BudgetNet == null)
+            {
+                <MudText Typo="Typo.body2" Color="Color.Secondary">Kein Budget hinterlegt</MudText>
+            }
+            else
+            {
+                var remaining = Summary.BudgetRemaining ?? 0;
+                <MudText Typo="Typo.body2" Color="@(remaining < 0 ? Color.Error : Color.Default)">
+                    @remaining.ToString("C") verfügbar
+                </MudText>
+            }
+        </MudStack>
+    }
+</MudPaper>
+
+<style>
+    .tile-close-btn {
+        position: absolute;
+        top: 4px;
+        right: 4px;
+    }
+</style>
+
+@code {
+    [Parameter, EditorRequired] public Project Project { get; set; } = null!;
+    [Parameter] public string CustomerName { get; set; } = string.Empty;
+    [Parameter] public ProjectSummaryDto? Summary { get; set; }
+    [Parameter] public bool IsLoading { get; set; }
+    [Parameter] public EventCallback<Guid> OnUnpin { get; set; }
+    [Parameter] public EventCallback<Guid> OnClick { get; set; }
+}

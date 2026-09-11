@@ -13,6 +13,7 @@ public class StundensatzService : IStundensatzService
     private readonly IRapportApiClient _rapportClient;
     private readonly IReceptaApiClient _receptaClient;
     private readonly IHostApiClient _hostClient;
+    private readonly IFakturaApiClient _fakturaClient;
 
     public StundensatzService(
         IProjektStundensatzRepository repo,
@@ -20,7 +21,8 @@ public class StundensatzService : IStundensatzService
         IProjektBerechneterAufwandRepository aufwandRepo,
         IRapportApiClient rapportClient,
         IReceptaApiClient receptaClient,
-        IHostApiClient hostClient)
+        IHostApiClient hostClient,
+        IFakturaApiClient fakturaClient)
     {
         _repo = repo;
         _projectRepo = projectRepo;
@@ -28,6 +30,7 @@ public class StundensatzService : IStundensatzService
         _rapportClient = rapportClient;
         _receptaClient = receptaClient;
         _hostClient = hostClient;
+        _fakturaClient = fakturaClient;
     }
 
     public async Task<List<StundensatzDto>> GetStundensaetzeAsync(Guid projektId)
@@ -191,6 +194,44 @@ public class StundensatzService : IStundensatzService
         }
 
         return abrechnung;
+    }
+
+    public async Task<ProjectSummaryDto> GetProjectSummaryAsync(Guid projektId)
+    {
+        var abrechnung = await GetProjektAbrechnungAsync(projektId);
+        var project = await _projectRepo.GetByIdAsync(projektId);
+
+        var summary = new ProjectSummaryDto
+        {
+            ProjectId = projektId,
+            ProjectNumber = project?.ProjectNumber ?? string.Empty,
+            ProjectName = project?.Name ?? string.Empty,
+            BudgetNet = project?.BudgetNet,
+            TotalHours = abrechnung.Arbeitskosten.Sum(a => a.Stunden),
+            TotalLaborCost = abrechnung.ArbeitszeitkostenNetto,
+            TotalExternalCostNet = abrechnung.MaterialNetto + abrechnung.MaterialBerechnedNetto,
+            TotalExternalCostGross = abrechnung.MaterialBrutto + abrechnung.MaterialBerechnedBrutto,
+            ExternalDocumentCount = abrechnung.BerechneteAufwaende.Count
+        };
+
+        if (project?.ExternalId.HasValue == true)
+        {
+            try
+            {
+                var invoices = await _fakturaClient.GetProjectInvoicesAsync(project.ExternalId.Value);
+                if (invoices != null)
+                {
+                    summary.TotalInvoicedNet = invoices.TotalNet;
+                    summary.InvoiceCount = invoices.InvoiceCount;
+                }
+            }
+            catch
+            {
+                // Faktura nicht erreichbar → Rechnungsdaten bleiben 0
+            }
+        }
+
+        return summary;
     }
 
     public async Task MarkProjectTimeEntriesAsInvoicedAsync(int externalProjectId)

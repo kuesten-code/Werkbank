@@ -78,32 +78,3 @@ public class ChangeStatusRequest
     public string NewStatus { get; set; } = string.Empty;
 }
 
-/// <summary>
-/// API-Response DTO für Projektzusammenfassung.
-/// </summary>
-public class ProjectSummaryDto
-{
-    public Guid ProjectId { get; set; }
-    public string ProjectNumber { get; set; } = string.Empty;
-    public string ProjectName { get; set; } = string.Empty;
-
-    // Budget
-    public decimal? BudgetNet { get; set; }
-
-    // Aus Rapport-Modul (falls verfügbar)
-    public decimal TotalHours { get; set; }
-    public decimal TotalLaborCost { get; set; }
-
-    // Aus Faktura-Modul (falls verfügbar)
-    public decimal TotalInvoicedNet { get; set; }
-    public int InvoiceCount { get; set; }
-
-    // Aus Recepta-Modul (falls verfügbar)
-    public decimal TotalExternalCostNet { get; set; }
-    public decimal TotalExternalCostGross { get; set; }
-    public int ExternalDocumentCount { get; set; }
-
-    // Berechnet
-    public decimal? BudgetRemaining => BudgetNet.HasValue ? BudgetNet.Value - TotalLaborCost - TotalExternalCostNet : null;
-    public decimal Profit => TotalInvoicedNet - TotalLaborCost - TotalExternalCostNet;
-}

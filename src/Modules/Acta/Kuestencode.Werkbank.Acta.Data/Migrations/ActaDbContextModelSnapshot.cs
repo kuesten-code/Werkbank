@@ -160,6 +160,29 @@ namespace Kuestencode.Werkbank.Acta.Data.Migrations
                     b.ToTable("Tasks", "acta");
                 });
 
+            modelBuilder.Entity("Kuestencode.Werkbank.Acta.Domain.Entities.PinnedProject", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("PinnedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("ProjectId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId", "ProjectId")
+                        .IsUnique();
+
+                    b.ToTable("PinnedProjects", "acta");
+                });
+
             modelBuilder.Entity("Kuestencode.Werkbank.Acta.Domain.Entities.ProjektBerechneterAufwand", b =>
                 {
                     b.Property<Guid>("Id")
@@ -236,6 +259,17 @@ namespace Kuestencode.Werkbank.Acta.Data.Migrations
                 {
                     b.HasOne("Kuestencode.Werkbank.Acta.Domain.Entities.Project", "Project")
                         .WithMany("Tasks")
+                        .HasForeignKey("ProjectId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Project");
+                });
+
+            modelBuilder.Entity("Kuestencode.Werkbank.Acta.Domain.Entities.PinnedProject", b =>
+                {
+                    b.HasOne("Kuestencode.Werkbank.Acta.Domain.Entities.Project", "Project")
+                        .WithMany()
                         .HasForeignKey("ProjectId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();

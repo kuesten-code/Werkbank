@@ -33,6 +33,10 @@ public static class ActaModule
         services.AddScoped<IProjectTaskRepository, ProjectTaskRepository>();
         services.AddScoped<IProjektStundensatzRepository, ProjektStundensatzRepository>();
         services.AddScoped<IProjektBerechneterAufwandRepository, ProjektBerechneterAufwandRepository>();
+        services.AddScoped<IPinnedProjectRepository, PinnedProjectRepository>();
+
+        // Current-User-Zugriff (für pro Nutzer gespeicherte Kachel-Pins)
+        services.AddScoped<Kuestencode.Core.Auth.ICurrentUserAccessor, Kuestencode.Core.Auth.HttpContextCurrentUserAccessor>();
 
         // Register Domain Services
         services.AddScoped<ProjectStatusService>();
@@ -41,6 +45,7 @@ public static class ActaModule
         services.AddScoped<IProjectService, ProjectService>();
         services.AddScoped<IProjectTaskService, ProjectTaskService>();
         services.AddScoped<IStundensatzService, StundensatzService>();
+        services.AddScoped<IPinnedProjectService, PinnedProjectService>();
         services.AddSingleton<ITeamMemberDirectory, HostTeamMemberDirectory>();
 
         return services;

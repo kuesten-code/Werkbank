@@ -1,5 +1,6 @@
 using FluentAssertions;
 using Kuestencode.Shared.ApiClients;
+using Kuestencode.Shared.Contracts.Faktura;
 using Kuestencode.Shared.Contracts.Host;
 using Kuestencode.Shared.Contracts.Rapport;
 using Kuestencode.Shared.Contracts.Recepta;
@@ -20,10 +21,11 @@ public class StundensatzServiceTests
     private readonly Mock<IRapportApiClient> _rapportClient = new();
     private readonly Mock<IReceptaApiClient> _receptaClient = new();
     private readonly Mock<IHostApiClient> _hostClient = new();
+    private readonly Mock<IFakturaApiClient> _fakturaClient = new();
 
     private StundensatzService CreateService() => new(
         _repo.Object, _projectRepo.Object, _aufwandRepo.Object,
-        _rapportClient.Object, _receptaClient.Object, _hostClient.Object);
+        _rapportClient.Object, _receptaClient.Object, _hostClient.Object, _fakturaClient.Object);
 
     private static Project MakeProject(Guid id, int? externalId = null) => new()
     {
@@ -250,5 +252,82 @@ public class StundensatzServiceTests
 
         _aufwandRepo.Verify(a => a.AddRangeAsync(It.IsAny<IEnumerable<ProjektBerechneterAufwand>>()), Times.Never);
         _projectRepo.Verify(p => p.GetByIdAsync(It.IsAny<Guid>()), Times.Never);
+    }
+
+    // ─── GetProjectSummaryAsync ─────────────────────────────────────────────
+
+    [Fact]
+    public async Task GetProjectSummaryAsync_BerechnetBudgetVerbrauchAusArbeitszeitUndMaterial()
+    {
+        var projektId = Guid.NewGuid();
+        var externalId = 42;
+        var project = MakeProject(projektId, externalId);
+        project.BudgetNet = 2000m;
+
+        _repo.Setup(r => r.GetByProjektIdAsync(projektId)).ReturnsAsync([]);
+        _projectRepo.Setup(p => p.GetByIdAsync(projektId)).ReturnsAsync(project);
+        _aufwandRepo.Setup(a => a.GetByProjektIdAsync(projektId)).ReturnsAsync([]);
+
+        var teamMemberId = Guid.NewGuid();
+        _rapportClient.Setup(r => r.GetProjectHoursByTypeAsync(externalId)).ReturnsAsync(new ProjectHoursByTypeResponseDto
+        {
+            ProjectId = externalId,
+            StundenByRolle = [],
+            InvoicedStundenByRolle = []
+        });
+        _rapportClient.Setup(r => r.GetProjectHoursByMemberAsync(externalId)).ReturnsAsync(new ProjectHoursByMemberResponseDto
+        {
+            ProjectId = externalId,
+            StundenByMitarbeiter = [new ProjectHoursByMemberDto { TeamMemberId = teamMemberId, TeamMemberName = "Max", Stunden = 10 }]
+        });
+        _hostClient.Setup(h => h.GetTeamMembersAsync()).ReturnsAsync(
+        [
+            new TeamMemberDto { Id = teamMemberId, DisplayName = "Max", Kostensatz = 40m }
+        ]);
+        _receptaClient.Setup(r => r.GetProjectExpensesAsync(It.IsAny<Guid>())).ReturnsAsync(new ProjectExpensesResponseDto
+        {
+            TotalNet = 100m,
+            TotalGross = 119m
+        });
+        _fakturaClient.Setup(f => f.GetProjectInvoicesAsync(externalId)).ReturnsAsync(new ProjectInvoicesResponseDto
+        {
+            ProjectId = externalId,
+            TotalNet = 1500m,
+            InvoiceCount = 2
+        });
+
+        var summary = await CreateService().GetProjectSummaryAsync(projektId);
+
+        summary.BudgetNet.Should().Be(2000m);
+        summary.TotalHours.Should().Be(10);
+        summary.TotalLaborCost.Should().Be(400m); // 10h × 40€
+        summary.TotalExternalCostNet.Should().Be(100m);
+        summary.TotalInvoicedNet.Should().Be(1500m);
+        summary.InvoiceCount.Should().Be(2);
+        summary.BudgetRemaining.Should().Be(2000m - 400m - 100m);
+    }
+
+    [Fact]
+    public async Task GetProjectSummaryAsync_FakturaNichtErreichbar_RechnungsdatenBleibenNullUndAndereWerteBleibenErhalten()
+    {
+        var projektId = Guid.NewGuid();
+        var externalId = 42;
+        var project = MakeProject(projektId, externalId);
+        project.BudgetNet = 1000m;
+
+        _repo.Setup(r => r.GetByProjektIdAsync(projektId)).ReturnsAsync([]);
+        _projectRepo.Setup(p => p.GetByIdAsync(projektId)).ReturnsAsync(project);
+        _aufwandRepo.Setup(a => a.GetByProjektIdAsync(projektId)).ReturnsAsync([]);
+        _rapportClient.Setup(r => r.GetProjectHoursByTypeAsync(externalId)).ReturnsAsync((ProjectHoursByTypeResponseDto?)null);
+        _rapportClient.Setup(r => r.GetProjectHoursByMemberAsync(externalId)).ReturnsAsync((ProjectHoursByMemberResponseDto?)null);
+        _receptaClient.Setup(r => r.GetProjectExpensesAsync(It.IsAny<Guid>())).ReturnsAsync((ProjectExpensesResponseDto?)null);
+        _fakturaClient.Setup(f => f.GetProjectInvoicesAsync(externalId)).ThrowsAsync(new HttpRequestException("Faktura nicht erreichbar"));
+
+        var summary = await CreateService().GetProjectSummaryAsync(projektId);
+
+        summary.TotalInvoicedNet.Should().Be(0);
+        summary.InvoiceCount.Should().Be(0);
+        summary.BudgetNet.Should().Be(1000m);
+        summary.BudgetRemaining.Should().Be(1000m);
     }
 }
