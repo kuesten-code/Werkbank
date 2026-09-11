@@ -8,7 +8,7 @@ namespace Kuestencode.Werkbank.Host.Controllers;
 
 [ApiController]
 [Route("api/acta-proxy")]
-[RequireRole(UserRole.Admin, UserRole.Buero)]
+[RequireRole(UserRole.Admin, UserRole.Buero, UserRole.Mitarbeiter)]
 public class ActaProxyController : ControllerBase
 {
     private readonly IActaApiClient _actaApiClient;
