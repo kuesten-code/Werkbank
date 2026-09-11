@@ -16,12 +16,18 @@ public class ProjectsController : ControllerBase
 {
     private readonly IProjectService _projectService;
     private readonly Kuestencode.Core.Interfaces.ICustomerService _customerService;
+    private readonly IStundensatzService _stundensatzService;
     private readonly ILogger<ProjectsController> _logger;
 
-    public ProjectsController(IProjectService projectService, Kuestencode.Core.Interfaces.ICustomerService customerService, ILogger<ProjectsController> logger)
+    public ProjectsController(
+        IProjectService projectService,
+        Kuestencode.Core.Interfaces.ICustomerService customerService,
+        IStundensatzService stundensatzService,
+        ILogger<ProjectsController> logger)
     {
         _projectService = projectService;
         _customerService = customerService;
+        _stundensatzService = stundensatzService;
         _logger = logger;
     }
 
@@ -192,20 +198,7 @@ public class ProjectsController : ControllerBase
             return NotFound();
         }
 
-        // TODO: Daten aus Rapport und Faktura laden, wenn API-Clients verfügbar
-        var summary = new ProjectSummaryDto
-        {
-            ProjectId = project.Id,
-            ProjectNumber = project.ProjectNumber,
-            ProjectName = project.Name,
-            BudgetNet = project.BudgetNet,
-            // Platzhalter - werden später durch echte API-Aufrufe ersetzt
-            TotalHours = 0,
-            TotalLaborCost = 0,
-            TotalInvoicedNet = 0,
-            InvoiceCount = 0
-        };
-
+        var summary = await _stundensatzService.GetProjectSummaryAsync(id);
         return Ok(summary);
     }
 

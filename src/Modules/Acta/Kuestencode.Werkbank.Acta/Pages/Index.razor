@@ -3,6 +3,9 @@
 @using Kuestencode.Werkbank.Acta.Domain.Enums
 @using Kuestencode.Werkbank.Acta.Services
 @inject Kuestencode.Werkbank.Acta.Services.IProjectService ProjectService
+@inject IPinnedProjectService PinnedProjectService
+@inject IStundensatzService StundensatzService
+@inject Kuestencode.Core.Interfaces.ICustomerService CustomerService
 @inject NavigationManager NavigationManager
 
 <PageTitle>Acta - Übersicht</PageTitle>
@@ -89,6 +92,32 @@
                   OnClick="@(() => NavigationManager.NavigateTo("/acta/projekte"))">
             Alle Projekte
         </MudButton>
+
+        <MudText Typo="Typo.h5" Class="mt-8" GutterBottom="true">Aktive Projekte</MudText>
+
+        @if (_pinnedProjects.Count == 0)
+        {
+            <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-2">
+                Noch keine Projekte angeheftet — über das Plus rechts hinzufügen.
+            </MudText>
+        }
+
+        <MudGrid>
+            @foreach (var project in _pinnedProjects)
+            {
+                <MudItem xs="12" sm="6" md="4" lg="3">
+                    <ProjectTile Project="project"
+                                 CustomerName="@_customerNames.GetValueOrDefault(project.CustomerId, "")"
+                                 Summary="_summaries.GetValueOrDefault(project.Id)"
+                                 IsLoading="_summaryLoading.GetValueOrDefault(project.Id)"
+                                 OnUnpin="HandleUnpin"
+                                 OnClick="@(id => NavigationManager.NavigateTo($"/acta/projekte/{id}"))" />
+                </MudItem>
+            }
+            <MudItem xs="12" sm="6" md="4" lg="3">
+                <AddProjectTile PinnableProjects="_pinnableProjects" OnProjectPinned="HandlePinned" />
+            </MudItem>
+        </MudGrid>
     }
 </MudContainer>
 
@@ -110,28 +139,83 @@
     private int _archivedCount;
     private int _totalCount;
 
+    private List<Project> _pinnedProjects = new();
+    private List<Project> _pinnableProjects = new();
+    private Dictionary<int, string> _customerNames = new();
+    private Dictionary<Guid, ProjectSummaryDto?> _summaries = new();
+    private Dictionary<Guid, bool> _summaryLoading = new();
+
     protected override async Task OnInitializedAsync()
     {
-        await LoadStatsAsync();
+        await Task.WhenAll(LoadStatsAsync(), LoadPinnedListsAsync());
+        _loading = false;
+
+        // Läuft bewusst ohne await weiter: die Budget-Berechnung ruft Rapport/Recepta/Faktura
+        // auf und soll nicht die ganze Seite (inkl. der schnellen Status-Kacheln) blockieren —
+        // jede Kachel zeigt währenddessen ihr eigenes Lade-Skeleton.
+        _ = LoadSummariesAsync();
     }
 
     private async Task LoadStatsAsync()
     {
-        try
-        {
-            var projects = await ProjectService.GetAllAsync();
+        var projects = await ProjectService.GetAllAsync();
 
-            _draftCount = projects.Count(p => p.Status == ProjectStatus.Draft);
-            _activeCount = projects.Count(p => p.Status == ProjectStatus.Active);
-            _pausedCount = projects.Count(p => p.Status == ProjectStatus.Paused);
-            _completedCount = projects.Count(p => p.Status == ProjectStatus.Completed);
-            _archivedCount = projects.Count(p => p.Status == ProjectStatus.Archived);
-            _totalCount = projects.Count;
-        }
-        finally
+        _draftCount = projects.Count(p => p.Status == ProjectStatus.Draft);
+        _activeCount = projects.Count(p => p.Status == ProjectStatus.Active);
+        _pausedCount = projects.Count(p => p.Status == ProjectStatus.Paused);
+        _completedCount = projects.Count(p => p.Status == ProjectStatus.Completed);
+        _archivedCount = projects.Count(p => p.Status == ProjectStatus.Archived);
+        _totalCount = projects.Count;
+    }
+
+    private async Task LoadPinnedListsAsync()
+    {
+        _pinnedProjects = await PinnedProjectService.GetPinnedProjectsAsync();
+        _pinnableProjects = await PinnedProjectService.GetPinnableActiveProjectsAsync();
+
+        var customerIds = _pinnedProjects.Select(p => p.CustomerId).Distinct().ToList();
+        foreach (var customerId in customerIds)
         {
-            _loading = false;
+            if (_customerNames.ContainsKey(customerId)) continue;
+            var customer = await CustomerService.GetByIdAsync(customerId);
+            _customerNames[customerId] = customer?.Name ?? "Unbekannt";
         }
+    }
+
+    private async Task LoadSummariesAsync()
+    {
+        var summaryTasks = _pinnedProjects.Select(async project =>
+        {
+            _summaryLoading[project.Id] = true;
+            try
+            {
+                _summaries[project.Id] = await StundensatzService.GetProjectSummaryAsync(project.Id);
+            }
+            catch
+            {
+                _summaries[project.Id] = null;
+            }
+            finally
+            {
+                _summaryLoading[project.Id] = false;
+            }
+            await InvokeAsync(StateHasChanged);
+        });
+        await Task.WhenAll(summaryTasks);
+    }
+
+    private async Task HandleUnpin(Guid projectId)
+    {
+        await PinnedProjectService.UnpinAsync(projectId);
+        await LoadPinnedListsAsync();
+        await LoadSummariesAsync();
+    }
+
+    private async Task HandlePinned(Guid projectId)
+    {
+        await PinnedProjectService.PinAsync(projectId);
+        await LoadPinnedListsAsync();
+        await LoadSummariesAsync();
     }
 
     private void NavigateToProjekte(string? statusFilter)

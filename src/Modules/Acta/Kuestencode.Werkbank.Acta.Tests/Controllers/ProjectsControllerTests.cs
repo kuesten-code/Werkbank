@@ -17,6 +17,7 @@ public class ProjectsControllerTests
 {
     private readonly Mock<Kuestencode.Werkbank.Acta.Services.IProjectService> _projectService = new();
     private readonly Mock<ICustomerService> _customerService = new();
+    private readonly Mock<Kuestencode.Werkbank.Acta.Services.IStundensatzService> _stundensatzService = new();
 
     public ProjectsControllerTests()
     {
@@ -24,7 +25,7 @@ public class ProjectsControllerTests
             .Returns(new List<(ProjectStatus, string)>());
     }
 
-    private ProjectsController CreateController() => new(_projectService.Object, _customerService.Object, Mock.Of<ILogger<ProjectsController>>());
+    private ProjectsController CreateController() => new(_projectService.Object, _customerService.Object, _stundensatzService.Object, Mock.Of<ILogger<ProjectsController>>());
 
     private static Project MakeProject(Guid? id = null, ProjectStatus status = ProjectStatus.Draft) => new()
     {
@@ -200,6 +201,8 @@ public class ProjectsControllerTests
         var project = MakeProject();
         project.BudgetNet = 5000m;
         _projectService.Setup(s => s.GetByIdAsync(project.Id)).ReturnsAsync(project);
+        _stundensatzService.Setup(s => s.GetProjectSummaryAsync(project.Id))
+            .ReturnsAsync(new ProjectSummaryDto { ProjectId = project.Id, BudgetNet = 5000m });
 
         var result = await CreateController().GetSummary(project.Id);
 

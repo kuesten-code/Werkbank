@@ -26,6 +26,7 @@ public class ActaDbContext : DbContext
     public DbSet<ProjectTask> Tasks { get; set; } = null!;
     public DbSet<ProjektStundensatz> ProjektStundensaetze { get; set; } = null!;
     public DbSet<ProjektBerechneterAufwand> ProjektBerechneteAufwaende { get; set; } = null!;
+    public DbSet<PinnedProject> PinnedProjects { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -101,6 +102,19 @@ public class ActaDbContext : DbContext
             entity.Property(e => e.Brutto).HasPrecision(18, 2);
 
             entity.HasIndex(e => new { e.ProjectId, e.Belegnummer }).IsUnique();
+
+            entity.HasOne(e => e.Project)
+                .WithMany()
+                .HasForeignKey(e => e.ProjectId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // PinnedProject Configuration
+        modelBuilder.Entity<PinnedProject>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+
+            entity.HasIndex(e => new { e.UserId, e.ProjectId }).IsUnique();
 
             entity.HasOne(e => e.Project)
                 .WithMany()

@@ -7,6 +7,7 @@ public interface IStundensatzService
     Task<List<StundensatzDto>> GetStundensaetzeAsync(Guid projektId);
     Task UpsertStundensatzAsync(Guid projektId, int rolleId, string rolleName, decimal stundensatz);
     Task<ProjektAbrechnung> GetProjektAbrechnungAsync(Guid projektId);
+    Task<ProjectSummaryDto> GetProjectSummaryAsync(Guid projektId);
     Task MarkProjectTimeEntriesAsInvoicedAsync(int externalProjectId);
     Task AddBerechneteAufwaendeAsync(Guid projektId, IEnumerable<BerechneterAufwandDto> aufwaende);
 }

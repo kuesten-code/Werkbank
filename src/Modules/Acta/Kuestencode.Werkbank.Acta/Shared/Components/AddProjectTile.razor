@@ -1,0 +1,63 @@
+@using Kuestencode.Werkbank.Acta.Domain.Entities
+
+<MudMenu Class="add-tile-menu" FullWidth="false">
+    <ActivatorContent>
+        <MudPaper Class="pa-4 cursor-pointer" Elevation="2" Style="height: 100%; display: flex; align-items: center; justify-content: center;">
+            <MudStack AlignItems="AlignItems.Center" Spacing="1">
+                <MudIcon Icon="@Icons.Material.Filled.Add" Size="Size.Large" Color="Color.Primary" />
+                <MudText Typo="Typo.body2">Projekt hinzufügen</MudText>
+            </MudStack>
+        </MudPaper>
+    </ActivatorContent>
+    <ChildContent>
+        <div style="min-width: 320px; padding: 8px;">
+            <MudAutocomplete T="Project"
+                             Label="Projekt suchen"
+                             Value="null"
+                             ValueChanged="OnProjectSelected"
+                             SearchFunc="SearchProjects"
+                             ToStringFunc="@(p => p?.Name ?? string.Empty)"
+                             Variant="Variant.Outlined"
+                             Clearable="true"
+                             ResetValueOnEmptyText="true"
+                             CoerceText="true"
+                             CoerceValue="false">
+                <ItemTemplate Context="project">
+                    <MudStack Spacing="0">
+                        <MudText Typo="Typo.body1">@project.Name</MudText>
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">@project.ProjectNumber</MudText>
+                    </MudStack>
+                </ItemTemplate>
+                <NoItemsTemplate>
+                    <MudText Typo="Typo.body2" Class="pa-2">Alle aktiven Projekte sind bereits angeheftet</MudText>
+                </NoItemsTemplate>
+            </MudAutocomplete>
+        </div>
+    </ChildContent>
+</MudMenu>
+
+@code {
+    [Parameter] public List<Project> PinnableProjects { get; set; } = new();
+    [Parameter] public EventCallback<Guid> OnProjectPinned { get; set; }
+
+    private Task<IEnumerable<Project>> SearchProjects(string value, CancellationToken token)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return Task.FromResult(PinnableProjects.Take(10));
+        }
+
+        var searchTerm = value.ToLower();
+        var result = PinnableProjects
+            .Where(p => p.Name.ToLower().Contains(searchTerm) || p.ProjectNumber.ToLower().Contains(searchTerm))
+            .Take(10);
+
+        return Task.FromResult(result);
+    }
+
+    private async Task OnProjectSelected(Project? project)
+    {
+        if (project == null) return;
+        await OnProjectPinned.InvokeAsync(project.Id);
+    }
+}
