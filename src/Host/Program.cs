@@ -50,19 +50,27 @@ builder.Services.AddHostedService<ModuleHealthCheckService>();
 // Add Host services (Company, Customer, Email, PDF engines)
 builder.Services.AddHostServices(builder.Configuration);
 
+// AuthTokenDelegatingHandler forwards the already-validated Authorization header of the
+// incoming request (e.g. to a Proxy-Controller) onward to the target module. Without this,
+// these Host-initiated calls carry no token and no IP-based trust either (Host's own
+// container IP is deliberately excluded from InternalRequestDetector's trusted set, since
+// Host also forwards anonymous browser traffic) — the module then correctly rejects them
+// as unauthenticated, and the calling ApiClient silently swallows that into an empty result.
+builder.Services.AddTransient<Kuestencode.Shared.UI.Handlers.AuthTokenDelegatingHandler>();
+
 // Add HttpClient für Faktura-API
 builder.Services.AddHttpClient<IFakturaApiClient, FakturaApiClient>(client =>
 {
     var fakturaUrl = builder.Configuration.GetValue<string>("ServiceUrls:Faktura") ?? "http://localhost:8081";
     client.BaseAddress = new Uri(fakturaUrl);
-});
+}).AddHttpMessageHandler<Kuestencode.Shared.UI.Handlers.AuthTokenDelegatingHandler>();
 
 // Add HttpClient fuer Rapport-API
 builder.Services.AddHttpClient<IRapportApiClient, RapportApiClient>(client =>
 {
     var rapportUrl = builder.Configuration.GetValue<string>("ServiceUrls:Rapport") ?? "http://localhost:8082";
     client.BaseAddress = new Uri(rapportUrl);
-});
+}).AddHttpMessageHandler<Kuestencode.Shared.UI.Handlers.AuthTokenDelegatingHandler>();
 
 // Add HttpClient fuer Offerte-API
 builder.Services.AddHttpClient<IOfferteApiClient, OfferteApiClient>(client =>
@@ -76,14 +84,14 @@ builder.Services.AddHttpClient<IActaApiClient, ActaApiClient>(client =>
 {
     var actaUrl = builder.Configuration.GetValue<string>("ServiceUrls:Acta") ?? "http://localhost:8084";
     client.BaseAddress = new Uri(actaUrl);
-});
+}).AddHttpMessageHandler<Kuestencode.Shared.UI.Handlers.AuthTokenDelegatingHandler>();
 
 // Add HttpClient fuer Recepta-API
 builder.Services.AddHttpClient<IReceptaApiClient, ReceptaApiClient>(client =>
 {
     var receptaUrl = builder.Configuration.GetValue<string>("ServiceUrls:Recepta") ?? "http://localhost:8085";
     client.BaseAddress = new Uri(receptaUrl);
-});
+}).AddHttpMessageHandler<Kuestencode.Shared.UI.Handlers.AuthTokenDelegatingHandler>();
 
 
 // Add YARP Reverse Proxy for all modules
