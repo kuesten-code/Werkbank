@@ -10,6 +10,64 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
 jobs:
+  test:
+    name: Run tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "9.0.x"
+
+      - name: Restore dependencies
+        run: dotnet restore Kuestencode.Werkbank.sln
+
+      - name: Run tests
+        run: dotnet test Kuestencode.Werkbank.sln --configuration Release --no-restore --logger "trx" --results-directory TestResults
+
+      - name: Publish test summary
+        if: always()
+        run: |
+          {
+            echo "## Testergebnisse"
+            echo
+            echo "| Projekt | Gesamt | Bestanden | Fehlgeschlagen |"
+            echo "|---|---|---|---|"
+            total_all=0; passed_all=0; failed_all=0
+            for trx in TestResults/*.trx; do
+              storage=$(grep -oE 'storage="[^"]*"' "$trx" | head -1 | sed -E 's/storage="([^"]*)"/\1/')
+              name=$(basename "${storage//\\//}" .dll)
+              total=$(grep -oE 'total="[0-9]+"' "$trx" | head -1 | sed -E 's/total="([0-9]+)"/\1/')
+              passed=$(grep -oE 'passed="[0-9]+"' "$trx" | head -1 | sed -E 's/passed="([0-9]+)"/\1/')
+              failed=$(grep -oE 'failed="[0-9]+"' "$trx" | head -1 | sed -E 's/failed="([0-9]+)"/\1/')
+              total=${total:-0}; passed=${passed:-0}; failed=${failed:-0}
+              echo "| $name | $total | $passed | $failed |"
+              total_all=$((total_all + total))
+              passed_all=$((passed_all + passed))
+              failed_all=$((failed_all + failed))
+            done
+            echo "| **Gesamt** | **$total_all** | **$passed_all** | **$failed_all** |"
+
+            if [ "$failed_all" -gt 0 ]; then
+              echo
+              echo "### ❌ Fehlgeschlagene Tests"
+              for trx in TestResults/*.trx; do
+                grep -E 'outcome="Failed"' "$trx" | grep -oE 'testName="[^"]*"' | sed -E 's/testName="([^"]*)"/- \1/'
+              done
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: TestResults/*.trx
+          retention-days: 7
+
   prepare:
     name: Prepare build matrix
     runs-on: ubuntu-latest
@@ -92,7 +150,7 @@ jobs:
   build:
     name: Build ${{ matrix.module }} (${{ matrix.arch }}) v${{ matrix.version }}
     runs-on: ubuntu-latest
-    needs: prepare
+    needs: [test, prepare]
     if: needs.prepare.outputs.has_modules == 'true'
     strategy:
       fail-fast: false
