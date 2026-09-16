@@ -252,6 +252,21 @@ public class BackupService : IBackupService
         return new FileStream(tempPath, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, FileOptions.DeleteOnClose);
     }
 
+    public async Task DeleteBackupFileAsync(int targetId, string fileName)
+    {
+        var target = await _context.BackupTargets.FindAsync(targetId)
+            ?? throw new InvalidOperationException($"Backup-Ziel {targetId} nicht gefunden");
+
+        var provider = _providerFactory.GetProvider(target.Type);
+        await provider.DeleteAsync(DecryptForConnection(target), fileName, CancellationToken.None);
+
+        var historyEntries = await _context.BackupHistory
+            .Where(h => h.BackupTargetId == targetId && h.FileName == fileName)
+            .ToListAsync();
+        _context.BackupHistory.RemoveRange(historyEntries);
+        await _context.SaveChangesAsync();
+    }
+
     public async Task<RestoreResult> RestoreAsync(int targetId, string fileName)
     {
         var settings = await GetSettingsAsync();

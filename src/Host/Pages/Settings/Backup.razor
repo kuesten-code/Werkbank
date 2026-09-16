@@ -192,6 +192,11 @@
                                            OnClick="@(() => DownloadAsync(context.BackupTargetId, context.FileName))" />
                         </MudTooltip>
                     }
+                    <MudTooltip Text="Löschen">
+                        <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error"
+                                       Disabled="@(_deletingFileName == context.FileName)"
+                                       OnClick="@(() => DeleteBackupFileAsync(context))" />
+                    </MudTooltip>
                 </MudTd>
             </RowTemplate>
             <NoRecordsContent>
