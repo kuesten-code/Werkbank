@@ -90,6 +90,22 @@
             }
         };
 
+        // Für größere Dateien (z.B. Backup-Archive): streamt direkt über die SignalR-Verbindung
+        // statt über einen separaten HTTP-Request - umgeht damit das Cookie/AuthMiddleware,
+        // dessen Gültigkeit vom aktuellen Blazor-Circuit-Zustand abweichen kann (z.B. nach
+        // JWT-Ablauf, während der Circuit selbst noch als "eingeloggt" gilt).
+        async function downloadFileFromStream(fileName, contentStreamReference) {
+            const arrayBuffer = await contentStreamReference.arrayBuffer();
+            const blob = new Blob([arrayBuffer]);
+            const url = URL.createObjectURL(blob);
+            const anchorElement = document.createElement('a');
+            anchorElement.href = url;
+            anchorElement.download = fileName ?? '';
+            anchorElement.click();
+            anchorElement.remove();
+            URL.revokeObjectURL(url);
+        }
+
         function downloadFile(filename, base64Data) {
             const linkSource = `data:application/pdf;base64,${base64Data}`;
             const downloadLink = document.createElement("a");

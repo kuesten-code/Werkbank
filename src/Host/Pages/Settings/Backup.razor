@@ -1,0 +1,215 @@
+@page "/settings/backup"
+@attribute [Authorize]
+@using Kuestencode.Werkbank.Host.Models
+@using Kuestencode.Werkbank.Host.Services.Backup
+@inject IBackupService BackupService
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+@inject IJSRuntime JSRuntime
+
+<PageTitle>Einstellungen | Backup - Küstencode Werkbank</PageTitle>
+
+<RoleGuard AllowedRoles="@(new List<UserRole> { UserRole.Admin })" RedirectTo="/rapport">
+<MudContainer MaxWidth="MaxWidth.Medium" Class="mt-4">
+    <MudText Typo="Typo.h4" GutterBottom="true">Einstellungen | Backup</MudText>
+    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">
+        Sichert den kompletten data/-Ordner (Datenbank, Uploads, Keys) als tar.gz zu einem oder mehreren Zielen.
+    </MudText>
+
+    @if (_loading)
+    {
+        <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+    }
+    else
+    {
+        @if (_status is { IsOverdue: true })
+        {
+            <MudAlert Severity="Severity.Warning" Class="mb-4">
+                Letztes erfolgreiches Backup vor @_status.DaysSinceLastBackup Tagen!
+            </MudAlert>
+        }
+
+        @if (_status is { IsRunning: true })
+        {
+            <MudAlert Severity="Severity.Info" Class="mb-4">
+                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                Backup läuft...
+            </MudAlert>
+        }
+
+        @if (!string.IsNullOrEmpty(_errorMessage))
+        {
+            <MudAlert Severity="Severity.Error" Class="mb-4">@_errorMessage</MudAlert>
+        }
+
+        <MudCard Class="mb-4">
+            <MudCardContent>
+                <MudSwitch @bind-Value="_settings.Enabled" Label="Automatische Backups aktiviert" Color="Color.Primary" />
+
+                <MudTextField @bind-Value="_settings.Schedule"
+                              Label="Zeitplan (Cron)"
+                              HelperText="z.B. '0 3 * * *' = täglich um 03:00 Uhr"
+                              Class="mt-4" />
+
+                <MudButton Variant="Variant.Outlined"
+                           Color="Color.Primary"
+                           StartIcon="@Icons.Material.Filled.PlayArrow"
+                           OnClick="RunBackupNow"
+                           Disabled="@(_runningManual || _status is { IsRunning: true })"
+                           Class="mt-4">
+                    @if (_runningManual)
+                    {
+                        <MudProgressCircular Class="me-2" Size="Size.Small" Indeterminate="true" />
+                    }
+                    Jetzt sichern
+                </MudButton>
+            </MudCardContent>
+        </MudCard>
+
+        <MudText Typo="Typo.h6" Class="mb-2">Backup-Ziele</MudText>
+
+        <MudTable Items="@_targets" Hover="true" Dense="true" Class="mb-4">
+            <HeaderContent>
+                <MudTh>Name</MudTh>
+                <MudTh>Typ</MudTh>
+                <MudTh>Aktiv</MudTh>
+                <MudTh>Letztes Backup</MudTh>
+                <MudTh>Status</MudTh>
+                <MudTh Style="text-align: right">Aktionen</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd>@context.Name</MudTd>
+                <MudTd>@context.Type</MudTd>
+                <MudTd>@(context.Enabled ? "Ja" : "Nein")</MudTd>
+                <MudTd>@(context.LastBackupAt?.ToString("dd.MM.yyyy HH:mm") ?? "–")</MudTd>
+                <MudTd>
+                    @if (context.LastBackupSuccess == true)
+                    {
+                        <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Color="Color.Success" Size="Size.Small" />
+                    }
+                    else if (context.LastBackupSuccess == false)
+                    {
+                        <MudTooltip Text="@context.LastBackupError">
+                            <MudIcon Icon="@Icons.Material.Filled.Error" Color="Color.Error" Size="Size.Small" />
+                        </MudTooltip>
+                    }
+                </MudTd>
+                <MudTd Style="text-align: right">
+                    <MudTooltip Text="Verbindung testen">
+                        <MudIconButton Icon="@Icons.Material.Filled.Wifi" Size="Size.Small"
+                                       OnClick="@(() => TestConnectionAsync(context))" />
+                    </MudTooltip>
+                    <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small"
+                                   OnClick="@(() => EditTargetAsync(context))" />
+                    <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small"
+                                   OnClick="@(() => DeleteTargetAsync(context))" />
+                </MudTd>
+            </RowTemplate>
+            <NoRecordsContent>
+                <MudText Color="Color.Secondary">Noch keine Backup-Ziele konfiguriert.</MudText>
+            </NoRecordsContent>
+        </MudTable>
+
+        <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Add" OnClick="AddTargetAsync" Class="mb-4">
+            Backup-Ziel hinzufügen
+        </MudButton>
+
+        <MudExpansionPanels Class="mt-4">
+            <MudExpansionPanel Text="Rotation">
+                <MudNumericField @bind-Value="_settings.KeepDaily" Label="Tägliche Backups behalten" Min="1" Max="30" />
+                <MudNumericField @bind-Value="_settings.KeepWeekly" Label="Wöchentliche Backups behalten" Min="1" Max="12" />
+                <MudNumericField @bind-Value="_settings.KeepMonthly" Label="Monatliche Backups behalten" Min="1" Max="24" />
+                <MudNumericField @bind-Value="_settings.KeepYearly" Label="Jährliche Backups behalten" Min="1" Max="20" />
+            </MudExpansionPanel>
+
+            <MudExpansionPanel Text="Verschlüsselung">
+                <MudSwitch @bind-Value="_settings.EncryptionEnabled" Label="Backups verschlüsseln" Color="Color.Primary" />
+                @if (_settings.EncryptionEnabled)
+                {
+                    <MudTextField @bind-Value="_encryptionPasswordInput"
+                                  Label="@(_hasStoredEncryptionPassword ? "Neues Verschlüsselungs-Passwort (leer lassen zum Beibehalten)" : "Verschlüsselungs-Passwort")"
+                                  InputType="InputType.Password"
+                                  Class="mt-2" />
+                    <MudAlert Severity="Severity.Warning" Dense="true" Class="mt-2">
+                        Ohne dieses Passwort können verschlüsselte Backups nicht wiederhergestellt werden!
+                    </MudAlert>
+                }
+            </MudExpansionPanel>
+
+            <MudExpansionPanel Text="Benachrichtigungen">
+                <MudSwitch @bind-Value="_settings.AlertOnFailure" Label="Bei Fehler benachrichtigen" Color="Color.Primary" />
+                <MudTextField @bind-Value="_settings.AlertEmail" Label="E-Mail" Class="mt-2" />
+                <MudTextField @bind-Value="_settings.AlertWebhookUrl" Label="Webhook-URL" Class="mt-2" />
+                <MudNumericField @bind-Value="_settings.WarnAfterDays" Label="Warnen wenn letztes Backup älter als (Tage)" Min="1" Class="mt-2" />
+            </MudExpansionPanel>
+        </MudExpansionPanels>
+
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveSettingsAsync" Disabled="@_saving" Class="mt-4">
+            Speichern
+        </MudButton>
+
+        <MudDivider Class="my-6" />
+
+        <MudText Typo="Typo.h6" Class="mb-2">Backup-Historie</MudText>
+        <MudTable Items="@_history" Hover="true" Dense="true" Class="mb-4">
+            <HeaderContent>
+                <MudTh>Gestartet</MudTh>
+                <MudTh>Ziel</MudTh>
+                <MudTh>Datei</MudTh>
+                <MudTh>Typ</MudTh>
+                <MudTh>Größe</MudTh>
+                <MudTh>Status</MudTh>
+                <MudTh Style="text-align: right">Aktionen</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd>@context.StartedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</MudTd>
+                <MudTd>@context.Target?.Name</MudTd>
+                <MudTd>@context.FileName</MudTd>
+                <MudTd>@context.Type @(context.IsManual ? "(manuell)" : "")</MudTd>
+                <MudTd>@FormatBytes(context.FileSizeBytes)</MudTd>
+                <MudTd>
+                    @switch (context.Status)
+                    {
+                        case BackupStatus.Success:
+                            <MudChip T="string" Color="Color.Success" Size="Size.Small">Erfolgreich</MudChip>
+                            break;
+                        case BackupStatus.Failed:
+                            <MudTooltip Text="@context.ErrorMessage">
+                                <MudChip T="string" Color="Color.Error" Size="Size.Small">Fehlgeschlagen</MudChip>
+                            </MudTooltip>
+                            break;
+                        default:
+                            <MudChip T="string" Color="Color.Info" Size="Size.Small">Läuft</MudChip>
+                            break;
+                    }
+                </MudTd>
+                <MudTd Style="text-align: right">
+                    @if (context.Status == BackupStatus.Success)
+                    {
+                        <MudTooltip Text="Herunterladen">
+                            <MudIconButton Icon="@Icons.Material.Filled.Download" Size="Size.Small"
+                                           Disabled="@(_downloadingFileName == context.FileName)"
+                                           OnClick="@(() => DownloadAsync(context.BackupTargetId, context.FileName))" />
+                        </MudTooltip>
+                    }
+                </MudTd>
+            </RowTemplate>
+            <NoRecordsContent>
+                <MudText Color="Color.Secondary">Noch keine Backups durchgeführt.</MudText>
+            </NoRecordsContent>
+        </MudTable>
+
+        <MudDivider Class="my-6" />
+
+        <MudText Typo="Typo.h6" Class="mb-2">Wiederherstellen</MudText>
+        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">
+            Öffnet einen Dialog zur Auswahl von Ziel, Backup-Datei und Bestätigung.
+        </MudText>
+
+        <MudButton Variant="Variant.Outlined" Color="Color.Error" StartIcon="@Icons.Material.Filled.Restore"
+                   OnClick="OpenRestoreDialogAsync">
+            Backup wiederherstellen
+        </MudButton>
+    }
+</MudContainer>
+</RoleGuard>

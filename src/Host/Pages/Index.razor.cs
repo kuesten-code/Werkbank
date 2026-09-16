@@ -6,9 +6,13 @@ using Kuestencode.Core.Interfaces;
 using Kuestencode.Shared.Contracts.Host;
 using Kuestencode.Shared.Contracts.Navigation;
 using Kuestencode.Shared.UI.Services;
+using Kuestencode.Werkbank.Host.Models;
 using Kuestencode.Werkbank.Host.Services;
+using Kuestencode.Werkbank.Host.Services.Backup;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Authorization;
+using Microsoft.JSInterop;
+using MudBlazor;
 
 namespace Kuestencode.Werkbank.Host.Pages;
 
@@ -22,10 +26,18 @@ public partial class Index : IDisposable
     private List<SystemStatusItem> _configItems = new();
     private List<(string Name, bool Online)> _moduleStatus = new();
 
+    private bool _isAdmin;
+    private BackupStatusInfo? _backupStatus;
+    private BackupHistory? _latestSuccessfulBackup;
+    private bool _downloadingBackup;
+
     [Inject] private ModuleRegistry ModuleRegistry { get; set; } = default!;
     [Inject] private NavigationManager NavigationManager { get; set; } = default!;
     [Inject] private AuthenticationStateProvider AuthStateProvider { get; set; } = default!;
     [Inject] private ICompanyService CompanyService { get; set; } = default!;
+    [Inject] private IBackupService BackupService { get; set; } = default!;
+    [Inject] private ISnackbar Snackbar { get; set; } = default!;
+    [Inject] private IJSRuntime JSRuntime { get; set; } = default!;
 
     protected override async Task OnInitializedAsync()
     {
@@ -39,10 +51,54 @@ public partial class Index : IDisposable
             return;
         }
 
+        _isAdmin = UserRoleResolver.ResolveRole(user, UserRole.Mitarbeiter) == UserRole.Admin;
+
         ModuleRegistry.OnChanged += HandleModulesChanged;
         RefreshModules();
 
         await LoadSystemstatusAsync();
+
+        if (_isAdmin)
+        {
+            await LoadBackupNotificationAsync();
+        }
+    }
+
+    private async Task LoadBackupNotificationAsync()
+    {
+        try
+        {
+            _backupStatus = await BackupService.GetStatusAsync();
+            var history = await BackupService.GetHistoryAsync(limit: 5);
+            _latestSuccessfulBackup = history.FirstOrDefault(h => h.Status == BackupStatus.Success);
+        }
+        catch
+        {
+            // Backup-Status ist für die Startseite nicht kritisch - Banner bleibt einfach aus.
+        }
+    }
+
+    private async Task DownloadLatestBackupAsync()
+    {
+        if (_latestSuccessfulBackup == null)
+            return;
+
+        _downloadingBackup = true;
+        try
+        {
+            await using var stream = await BackupService.OpenBackupFileForDownloadAsync(
+                _latestSuccessfulBackup.BackupTargetId, _latestSuccessfulBackup.FileName);
+            using var streamRef = new DotNetStreamReference(stream, leaveOpen: false);
+            await JSRuntime.InvokeVoidAsync("downloadFileFromStream", _latestSuccessfulBackup.FileName, streamRef);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Download fehlgeschlagen: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _downloadingBackup = false;
+        }
     }
 
     private async Task LoadSystemstatusAsync()

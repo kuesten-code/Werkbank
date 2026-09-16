@@ -37,6 +37,12 @@
 
     <!-- Reverse Proxy -->
     <PackageReference Include="Yarp.ReverseProxy" Version="2.2.0" />
+
+    <!-- Backup -->
+    <PackageReference Include="SSH.NET" Version="2026.0.0" />
+    <PackageReference Include="AWSSDK.S3" Version="3.7.412" />
+    <PackageReference Include="WebDav.Client" Version="2.9.0" />
+    <PackageReference Include="Cronos" Version="0.10.0" />
   </ItemGroup>
 
   <ItemGroup>

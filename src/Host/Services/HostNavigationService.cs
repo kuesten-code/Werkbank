@@ -159,6 +159,15 @@ public class HostNavigationService : IHostNavigationService
             AllowedRoles = new List<UserRole> { UserRole.Admin, UserRole.Buero, UserRole.Mitarbeiter }
         });
 
+        settingsByCategory[NavSettingsCategory.Allgemein].Add(new NavItemDto
+        {
+            Label = "Backup",
+            Href = "/settings/backup",
+            Icon = "",
+            Type = NavItemType.Link,
+            AllowedRoles = new List<UserRole> { UserRole.Admin }
+        });
+
         // Add Host email settings to "Versand" - nur Admin
         settingsByCategory[NavSettingsCategory.Versand].Add(new NavItemDto
         {
