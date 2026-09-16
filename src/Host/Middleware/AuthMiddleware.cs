@@ -1,17 +1,15 @@
-using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
-using System.Text;
 using Kuestencode.Werkbank.Host.Data;
 using Kuestencode.Werkbank.Host.Models;
+using Kuestencode.Werkbank.Host.Services;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.IdentityModel.Tokens;
 
 namespace Kuestencode.Werkbank.Host.Middleware;
 
 public class AuthMiddleware
 {
     private readonly RequestDelegate _next;
-    private readonly IConfiguration _configuration;
+    private readonly IJwtTokenService _jwtTokenService;
     private readonly ILogger<AuthMiddleware> _logger;
 
     private static readonly HashSet<string> PublicPaths = new(StringComparer.OrdinalIgnoreCase)
@@ -31,10 +29,10 @@ public class AuthMiddleware
         "/m/"            // Mobile Blazor-Seiten
     };
 
-    public AuthMiddleware(RequestDelegate next, IConfiguration configuration, ILogger<AuthMiddleware> logger)
+    public AuthMiddleware(RequestDelegate next, IJwtTokenService jwtTokenService, ILogger<AuthMiddleware> logger)
     {
         _next = next;
-        _configuration = configuration;
+        _jwtTokenService = jwtTokenService;
         _logger = logger;
     }
 
@@ -99,7 +97,7 @@ public class AuthMiddleware
             return;
         }
 
-        var principal = ValidateToken(token);
+        var principal = _jwtTokenService.ValidateToken(token);
         if (principal == null)
         {
             // Ungültiger Token: API-Requests bekommen 401
@@ -185,57 +183,6 @@ public class AuthMiddleware
         if (context.Request.Cookies.TryGetValue("werkbank_auth_cookie", out var cookieToken))
         {
             return cookieToken;
-        }
-
-        return null;
-    }
-
-    private ClaimsPrincipal? ValidateToken(string token)
-    {
-        try
-        {
-            var secret = GetJwtSecret();
-            if (string.IsNullOrEmpty(secret))
-                return null;
-
-            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secret));
-            var issuer = _configuration["Jwt:Issuer"] ?? "KuestencodeWerkbank";
-
-            var parameters = new TokenValidationParameters
-            {
-                ValidateIssuer = true,
-                ValidIssuer = issuer,
-                ValidateAudience = true,
-                ValidAudience = issuer,
-                ValidateLifetime = true,
-                ValidateIssuerSigningKey = true,
-                IssuerSigningKey = key,
-                ClockSkew = TimeSpan.FromMinutes(1)
-            };
-
-            var handler = new JwtSecurityTokenHandler();
-            var principal = handler.ValidateToken(token, parameters, out _);
-            return principal;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogDebug(ex, "JWT-Validierung fehlgeschlagen");
-            return null;
-        }
-    }
-
-    private string? GetJwtSecret()
-    {
-        var secret = _configuration["Jwt:Secret"];
-        if (!string.IsNullOrWhiteSpace(secret) && secret.Length >= 32)
-            return secret;
-
-        var filePath = Path.Combine(AppContext.BaseDirectory, "data", "jwt-secret.txt");
-        if (File.Exists(filePath))
-        {
-            var stored = File.ReadAllText(filePath).Trim();
-            if (stored.Length >= 32)
-                return stored;
         }
 
         return null;
