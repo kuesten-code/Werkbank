@@ -151,35 +151,39 @@
         <MudTable Items="_summary.Einnahmen" Dense="true" Hover="true" Elevation="1" Class="mb-6 euer-table" SortLabel="Sortieren nach" T="EuerPositionDto">
             <HeaderContent>
                 <MudTh Style="width:80px; min-width:80px"><MudTableSortLabel SortBy="new Func<EuerPositionDto, object>(x => x.KontoNummer)" InitialDirection="@_einnahmenSort.InitialDirectionFor("konto")" SortDirectionChanged="@(d => _einnahmenSort.Update("konto", d))">Konto</MudTableSortLabel></MudTh>
-                <MudTh Style="width:auto"><MudTableSortLabel SortBy="new Func<EuerPositionDto, object>(x => x.KontoBezeichnung)" InitialDirection="@_einnahmenSort.InitialDirectionFor("bezeichnung")" SortDirectionChanged="@(d => _einnahmenSort.Update("bezeichnung", d))">Bezeichnung</MudTableSortLabel></MudTh>
-                <MudTh Style="width:140px; min-width:140px"><MudTableSortLabel SortBy="new Func<EuerPositionDto, object>(x => x.Gruppe)" InitialDirection="@_einnahmenSort.InitialDirectionFor("gruppe")" SortDirectionChanged="@(d => _einnahmenSort.Update("gruppe", d))">Gruppe</MudTableSortLabel></MudTh>
-                <MudTh Style="width:110px; min-width:110px; text-align:right"><MudTableSortLabel SortBy="new Func<EuerPositionDto, object>(x => x.BetragNetto)" InitialDirection="@_einnahmenSort.InitialDirectionFor("netto")" SortDirectionChanged="@(d => _einnahmenSort.Update("netto", d))">Netto</MudTableSortLabel></MudTh>
-                <MudTh Style="width:110px; min-width:110px; text-align:right"><MudTableSortLabel SortBy="new Func<EuerPositionDto, object>(x => x.MwstBetrag)" InitialDirection="@_einnahmenSort.InitialDirectionFor("mwst")" SortDirectionChanged="@(d => _einnahmenSort.Update("mwst", d))">MwSt</MudTableSortLabel></MudTh>
-                <MudTh Style="width:110px; min-width:110px; text-align:right"><MudTableSortLabel SortBy="new Func<EuerPositionDto, object>(x => x.BetragBrutto)" InitialDirection="@_einnahmenSort.InitialDirectionFor("brutto")" SortDirectionChanged="@(d => _einnahmenSort.Update("brutto", d))">Brutto</MudTableSortLabel></MudTh>
-                <MudTh Style="width:60px; min-width:60px; text-align:right"><MudTableSortLabel SortBy="new Func<EuerPositionDto, object>(x => x.AnzahlBelege)" InitialDirection="@_einnahmenSort.InitialDirectionFor("belege")" SortDirectionChanged="@(d => _einnahmenSort.Update("belege", d))">Belege</MudTableSortLabel></MudTh>
+                <MudTh Style="width:260px; min-width:160px"><MudTableSortLabel SortBy="new Func<EuerPositionDto, object>(x => x.KontoBezeichnung)" InitialDirection="@_einnahmenSort.InitialDirectionFor("bezeichnung")" SortDirectionChanged="@(d => _einnahmenSort.Update("bezeichnung", d))">Bezeichnung</MudTableSortLabel></MudTh>
+                <MudTh Style="width:120px; min-width:120px"><MudTableSortLabel SortBy="new Func<EuerPositionDto, object>(x => x.Gruppe)" InitialDirection="@_einnahmenSort.InitialDirectionFor("gruppe")" SortDirectionChanged="@(d => _einnahmenSort.Update("gruppe", d))">Gruppe</MudTableSortLabel></MudTh>
+                <MudTh Style="width:140px; min-width:140px; text-align:right"><MudTableSortLabel SortBy="new Func<EuerPositionDto, object>(x => x.BetragNetto)" InitialDirection="@_einnahmenSort.InitialDirectionFor("netto")" SortDirectionChanged="@(d => _einnahmenSort.Update("netto", d))">Netto</MudTableSortLabel></MudTh>
+                <MudTh Style="width:140px; min-width:140px; text-align:right"><MudTableSortLabel SortBy="new Func<EuerPositionDto, object>(x => x.MwstBetrag)" InitialDirection="@_einnahmenSort.InitialDirectionFor("mwst")" SortDirectionChanged="@(d => _einnahmenSort.Update("mwst", d))">MwSt</MudTableSortLabel></MudTh>
+                <MudTh Style="width:140px; min-width:140px; text-align:right"><MudTableSortLabel SortBy="new Func<EuerPositionDto, object>(x => x.BetragBrutto)" InitialDirection="@_einnahmenSort.InitialDirectionFor("brutto")" SortDirectionChanged="@(d => _einnahmenSort.Update("brutto", d))">Brutto</MudTableSortLabel></MudTh>
+                <MudTh Style="width:70px; min-width:70px; text-align:right"><MudTableSortLabel SortBy="new Func<EuerPositionDto, object>(x => x.AnzahlBelege)" InitialDirection="@_einnahmenSort.InitialDirectionFor("belege")" SortDirectionChanged="@(d => _einnahmenSort.Update("belege", d))">Belege</MudTableSortLabel></MudTh>
             </HeaderContent>
             <RowTemplate>
                 <MudTd DataLabel="Konto">
                     <MudText Typo="Typo.body2" Color="Color.Secondary">@context.KontoNummer</MudText>
                 </MudTd>
-                <MudTd DataLabel="Bezeichnung">@context.KontoBezeichnung</MudTd>
+                <MudTd DataLabel="Bezeichnung">
+                    <MudText Typo="Typo.body2" Style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="@context.KontoBezeichnung">
+                        @context.KontoBezeichnung
+                    </MudText>
+                </MudTd>
                 <MudTd DataLabel="Gruppe">
                     <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Success"
-                             Style="max-width:130px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; display:inline-flex;">
+                             Style="max-width:110px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; display:inline-flex;">
                         @context.Gruppe
                     </MudChip>
                 </MudTd>
-                <MudTd DataLabel="Netto" Style="text-align:right">
-                    <MudText Typo="Typo.body2" Color="Color.Success">
+                <MudTd DataLabel="Netto" Style="text-align:right; white-space:nowrap;">
+                    <MudText Typo="Typo.body2" Color="Color.Success" Style="white-space:nowrap;">
                         @context.BetragNetto.ToString("N2", _culture) €
                     </MudText>
                 </MudTd>
-                <MudTd DataLabel="MwSt" Style="text-align:right">
-                    <MudText Typo="Typo.body2" Color="Color.Secondary">
+                <MudTd DataLabel="MwSt" Style="text-align:right; white-space:nowrap;">
+                    <MudText Typo="Typo.body2" Color="Color.Secondary" Style="white-space:nowrap;">
                         @context.MwstBetrag.ToString("N2", _culture) €
                     </MudText>
                 </MudTd>
-                <MudTd DataLabel="Brutto" Style="text-align:right">
+                <MudTd DataLabel="Brutto" Style="text-align:right; white-space:nowrap;">
                     @context.BetragBrutto.ToString("N2", _culture) €
                 </MudTd>
                 <MudTd DataLabel="Belege" Style="text-align:right">
@@ -190,13 +194,13 @@
                 <MudTd colspan="3" Style="font-weight:600; border-top:1px solid rgba(0,0,0,0.12);">
                     Summe (@_summary.Einnahmen.Count Positionen)
                 </MudTd>
-                <MudTd Style="text-align:right; font-weight:600; color:#2E7D32; border-top:1px solid rgba(0,0,0,0.12);">
+                <MudTd Style="text-align:right; font-weight:600; color:#2E7D32; border-top:1px solid rgba(0,0,0,0.12); white-space:nowrap;">
                     @_summary.EinnahmenNetto.ToString("N2", _culture) €
                 </MudTd>
-                <MudTd Style="text-align:right; font-weight:600; border-top:1px solid rgba(0,0,0,0.12);">
+                <MudTd Style="text-align:right; font-weight:600; border-top:1px solid rgba(0,0,0,0.12); white-space:nowrap;">
                     @_summary.EinnahmenMwst.ToString("N2", _culture) €
                 </MudTd>
-                <MudTd Style="text-align:right; font-weight:600; border-top:1px solid rgba(0,0,0,0.12);">
+                <MudTd Style="text-align:right; font-weight:600; border-top:1px solid rgba(0,0,0,0.12); white-space:nowrap;">
                     @_summary.EinnahmenBrutto.ToString("N2", _culture) €
                 </MudTd>
                 <MudTd Style="border-top:1px solid rgba(0,0,0,0.12);"></MudTd>
@@ -208,35 +212,39 @@
         <MudTable Items="_summary.Ausgaben" Dense="true" Hover="true" Elevation="1" Class="euer-table" SortLabel="Sortieren nach" T="EuerPositionDto">
             <HeaderContent>
                 <MudTh Style="width:80px; min-width:80px"><MudTableSortLabel SortBy="new Func<EuerPositionDto, object>(x => x.KontoNummer)" InitialDirection="@_ausgabenSort.InitialDirectionFor("konto")" SortDirectionChanged="@(d => _ausgabenSort.Update("konto", d))">Konto</MudTableSortLabel></MudTh>
-                <MudTh Style="width:auto"><MudTableSortLabel SortBy="new Func<EuerPositionDto, object>(x => x.KontoBezeichnung)" InitialDirection="@_ausgabenSort.InitialDirectionFor("bezeichnung")" SortDirectionChanged="@(d => _ausgabenSort.Update("bezeichnung", d))">Bezeichnung</MudTableSortLabel></MudTh>
-                <MudTh Style="width:140px; min-width:140px"><MudTableSortLabel SortBy="new Func<EuerPositionDto, object>(x => x.Gruppe)" InitialDirection="@_ausgabenSort.InitialDirectionFor("gruppe")" SortDirectionChanged="@(d => _ausgabenSort.Update("gruppe", d))">Gruppe</MudTableSortLabel></MudTh>
-                <MudTh Style="width:110px; min-width:110px; text-align:right"><MudTableSortLabel SortBy="new Func<EuerPositionDto, object>(x => x.BetragNetto)" InitialDirection="@_ausgabenSort.InitialDirectionFor("netto")" SortDirectionChanged="@(d => _ausgabenSort.Update("netto", d))">Netto</MudTableSortLabel></MudTh>
-                <MudTh Style="width:110px; min-width:110px; text-align:right"><MudTableSortLabel SortBy="new Func<EuerPositionDto, object>(x => x.MwstBetrag)" InitialDirection="@_ausgabenSort.InitialDirectionFor("mwst")" SortDirectionChanged="@(d => _ausgabenSort.Update("mwst", d))">MwSt</MudTableSortLabel></MudTh>
-                <MudTh Style="width:110px; min-width:110px; text-align:right"><MudTableSortLabel SortBy="new Func<EuerPositionDto, object>(x => x.BetragBrutto)" InitialDirection="@_ausgabenSort.InitialDirectionFor("brutto")" SortDirectionChanged="@(d => _ausgabenSort.Update("brutto", d))">Brutto</MudTableSortLabel></MudTh>
-                <MudTh Style="width:60px; min-width:60px; text-align:right"><MudTableSortLabel SortBy="new Func<EuerPositionDto, object>(x => x.AnzahlBelege)" InitialDirection="@_ausgabenSort.InitialDirectionFor("belege")" SortDirectionChanged="@(d => _ausgabenSort.Update("belege", d))">Belege</MudTableSortLabel></MudTh>
+                <MudTh Style="width:260px; min-width:160px"><MudTableSortLabel SortBy="new Func<EuerPositionDto, object>(x => x.KontoBezeichnung)" InitialDirection="@_ausgabenSort.InitialDirectionFor("bezeichnung")" SortDirectionChanged="@(d => _ausgabenSort.Update("bezeichnung", d))">Bezeichnung</MudTableSortLabel></MudTh>
+                <MudTh Style="width:120px; min-width:120px"><MudTableSortLabel SortBy="new Func<EuerPositionDto, object>(x => x.Gruppe)" InitialDirection="@_ausgabenSort.InitialDirectionFor("gruppe")" SortDirectionChanged="@(d => _ausgabenSort.Update("gruppe", d))">Gruppe</MudTableSortLabel></MudTh>
+                <MudTh Style="width:140px; min-width:140px; text-align:right"><MudTableSortLabel SortBy="new Func<EuerPositionDto, object>(x => x.BetragNetto)" InitialDirection="@_ausgabenSort.InitialDirectionFor("netto")" SortDirectionChanged="@(d => _ausgabenSort.Update("netto", d))">Netto</MudTableSortLabel></MudTh>
+                <MudTh Style="width:140px; min-width:140px; text-align:right"><MudTableSortLabel SortBy="new Func<EuerPositionDto, object>(x => x.MwstBetrag)" InitialDirection="@_ausgabenSort.InitialDirectionFor("mwst")" SortDirectionChanged="@(d => _ausgabenSort.Update("mwst", d))">MwSt</MudTableSortLabel></MudTh>
+                <MudTh Style="width:140px; min-width:140px; text-align:right"><MudTableSortLabel SortBy="new Func<EuerPositionDto, object>(x => x.BetragBrutto)" InitialDirection="@_ausgabenSort.InitialDirectionFor("brutto")" SortDirectionChanged="@(d => _ausgabenSort.Update("brutto", d))">Brutto</MudTableSortLabel></MudTh>
+                <MudTh Style="width:70px; min-width:70px; text-align:right"><MudTableSortLabel SortBy="new Func<EuerPositionDto, object>(x => x.AnzahlBelege)" InitialDirection="@_ausgabenSort.InitialDirectionFor("belege")" SortDirectionChanged="@(d => _ausgabenSort.Update("belege", d))">Belege</MudTableSortLabel></MudTh>
             </HeaderContent>
             <RowTemplate>
                 <MudTd DataLabel="Konto">
                     <MudText Typo="Typo.body2" Color="Color.Secondary">@context.KontoNummer</MudText>
                 </MudTd>
-                <MudTd DataLabel="Bezeichnung">@context.KontoBezeichnung</MudTd>
+                <MudTd DataLabel="Bezeichnung">
+                    <MudText Typo="Typo.body2" Style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="@context.KontoBezeichnung">
+                        @context.KontoBezeichnung
+                    </MudText>
+                </MudTd>
                 <MudTd DataLabel="Gruppe">
                     <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Default"
-                             Style="max-width:130px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; display:inline-flex;">
+                             Style="max-width:110px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; display:inline-flex;">
                         @context.Gruppe
                     </MudChip>
                 </MudTd>
-                <MudTd DataLabel="Netto" Style="text-align:right">
-                    <MudText Typo="Typo.body2" Color="Color.Error">
+                <MudTd DataLabel="Netto" Style="text-align:right; white-space:nowrap;">
+                    <MudText Typo="Typo.body2" Color="Color.Error" Style="white-space:nowrap;">
                         @context.BetragNetto.ToString("N2", _culture) €
                     </MudText>
                 </MudTd>
-                <MudTd DataLabel="MwSt" Style="text-align:right">
-                    <MudText Typo="Typo.body2" Color="Color.Secondary">
+                <MudTd DataLabel="MwSt" Style="text-align:right; white-space:nowrap;">
+                    <MudText Typo="Typo.body2" Color="Color.Secondary" Style="white-space:nowrap;">
                         @context.MwstBetrag.ToString("N2", _culture) €
                     </MudText>
                 </MudTd>
-                <MudTd DataLabel="Brutto" Style="text-align:right">
+                <MudTd DataLabel="Brutto" Style="text-align:right; white-space:nowrap;">
                     @context.BetragBrutto.ToString("N2", _culture) €
                 </MudTd>
                 <MudTd DataLabel="Belege" Style="text-align:right">
@@ -247,13 +255,13 @@
                 <MudTd colspan="3" Style="font-weight:600; border-top:1px solid rgba(0,0,0,0.12);">
                     Summe (@_summary.Ausgaben.Count Positionen)
                 </MudTd>
-                <MudTd Style="text-align:right; font-weight:600; color:#C62828; border-top:1px solid rgba(0,0,0,0.12);">
+                <MudTd Style="text-align:right; font-weight:600; color:#C62828; border-top:1px solid rgba(0,0,0,0.12); white-space:nowrap;">
                     @_summary.AusgabenNetto.ToString("N2", _culture) €
                 </MudTd>
-                <MudTd Style="text-align:right; font-weight:600; border-top:1px solid rgba(0,0,0,0.12);">
+                <MudTd Style="text-align:right; font-weight:600; border-top:1px solid rgba(0,0,0,0.12); white-space:nowrap;">
                     @_summary.AusgabenMwst.ToString("N2", _culture) €
                 </MudTd>
-                <MudTd Style="text-align:right; font-weight:600; border-top:1px solid rgba(0,0,0,0.12);">
+                <MudTd Style="text-align:right; font-weight:600; border-top:1px solid rgba(0,0,0,0.12); white-space:nowrap;">
                     @_summary.AusgabenBrutto.ToString("N2", _culture) €
                 </MudTd>
                 <MudTd Style="border-top:1px solid rgba(0,0,0,0.12);"></MudTd>
