@@ -7,7 +7,7 @@
 *.userosscache
 *.sln.docstates
 .claude/
-.backups-local-test/
+backups-*-test/
 
 # Build results
 [Dd]ebug/

@@ -3,6 +3,7 @@ using Kuestencode.Werkbank.Host.Auth;
 using Kuestencode.Werkbank.Host.Data;
 using Kuestencode.Werkbank.Host.Data.Repositories;
 using Kuestencode.Werkbank.Host.Services;
+using Kuestencode.Werkbank.Host.Services.Backup;
 using Kuestencode.Werkbank.Host.Services.Email;
 using Kuestencode.Werkbank.Host.Services.Pdf;
 using Microsoft.AspNetCore.Components.Authorization;
@@ -43,6 +44,11 @@ public static class HostModule
         services.AddScoped<IMobileTokenService, MobileTokenService>();
         services.AddScoped<IMobileRapportService, MobileRapportService>();
         services.AddScoped<ITotpService, TotpService>();
+
+        // Backup
+        services.AddSingleton<IBackupTargetProviderFactory, BackupTargetProviderFactory>();
+        services.AddScoped<IBackupService, BackupService>();
+        services.AddHostedService<BackupSchedulerService>();
 
         // HTTP Clients
         services.AddHttpClient();

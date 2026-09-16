@@ -1,0 +1,66 @@
+@using Kuestencode.Werkbank.Host.Models
+@using Kuestencode.Werkbank.Host.Services.Backup
+
+<MudDialog>
+    <DialogContent>
+        <MudAlert Severity="Severity.Error" Class="mb-4">
+            <strong>Achtung:</strong> Eine Wiederherstellung überschreibt alle aktuellen Daten unwiderruflich!
+            Da dabei auch die laufende PostgreSQL-Datenbank und die Daten der anderen Module überschrieben werden,
+            solltest du vorher alle Container außer diesem hier stoppen (<code>docker compose stop postgres faktura rapport offerte acta recepta saldo</code>)
+            und sie erst nach dem Neustart des Host-Containers wieder hochfahren.
+        </MudAlert>
+
+        <MudSelect T="int" Value="_targetId" ValueChanged="OnTargetChangedAsync" Label="Backup-Ziel auswählen" Class="mb-4">
+            @foreach (var target in Targets)
+            {
+                <MudSelectItem T="int" Value="target.Id">@target.Name (@target.Type)</MudSelectItem>
+            }
+        </MudSelect>
+
+        @if (_loadingFiles)
+        {
+            <MudProgressCircular Color="Color.Primary" Indeterminate="true" Class="mb-4" />
+        }
+        else if (_targetId > 0 && _files != null)
+        {
+            <MudSelect @bind-Value="_fileName" Label="Backup auswählen" Class="mb-4">
+                @foreach (var backup in _files.OrderByDescending(f => f.Date))
+                {
+                    <MudSelectItem Value="@backup.FileName">
+                        @backup.Date.ToLocalTime().ToString("dd.MM.yyyy HH:mm") – @FormatBytes(backup.SizeBytes) (@backup.Type)
+                    </MudSelectItem>
+                }
+            </MudSelect>
+        }
+
+        @if (!string.IsNullOrEmpty(_fileName))
+        {
+            <MudTextField @bind-Value="_confirmPassword"
+                          Label="Dein Passwort zur Bestätigung"
+                          InputType="InputType.Password"
+                          Class="mb-3" />
+
+            <MudTextField @bind-Value="_confirmText"
+                          Label="Tippe RESTORE zur Bestätigung"
+                          Class="mb-2" />
+        }
+
+        @if (!string.IsNullOrEmpty(_errorMessage))
+        {
+            <MudAlert Severity="Severity.Error" Class="mt-2">@_errorMessage</MudAlert>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel" Variant="Variant.Text">Abbrechen</MudButton>
+        <MudButton Variant="Variant.Filled"
+                   Color="Color.Error"
+                   OnClick="ExecuteRestoreAsync"
+                   Disabled="@(_restoring || string.IsNullOrEmpty(_fileName) || _confirmText != "RESTORE" || string.IsNullOrEmpty(_confirmPassword))">
+            @if (_restoring)
+            {
+                <MudProgressCircular Class="me-2" Size="Size.Small" Indeterminate="true" />
+            }
+            Wiederherstellen
+        </MudButton>
+    </DialogActions>
+</MudDialog>

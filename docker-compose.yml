@@ -39,8 +39,17 @@ services:
       - ServiceUrls__Recepta=http://recepta:8085
       - ServiceUrls__Saldo=http://saldo:8086
       - APPLY_MIGRATIONS=true
+      - Backup__SourcePath=/app/backup-source
     volumes:
-      - ./data/keys:/app/data/keys
+      # Kompletter eigener Datenordner (Keys, JWT-Secret, ...) - ohne diesen Mount wird bei
+      # jedem Neustart u.a. ein neues JWT-Secret generiert und alle Logins werden ungültig.
+      - ./data:/app/data
+      # Derselbe Ordner nochmal unter anderem Pfad für die Backup-Funktionalität im Host: der
+      # komplette Datenbaum aller Module (Postgres, Uploads, Keys) als Backup-Quelle.
+      - ./data:/app/backup-source
+      # Separater Ordner außerhalb von ./data für das "Lokal"-Backup-Ziel beim Testen -
+      # sonst würde jedes Backup die vorherigen Backups aus ./data gleich mit einpacken.
+      - ./backups-local-test:/app/backup-target
     depends_on:
       postgres:
         condition: service_healthy
@@ -203,6 +212,63 @@ services:
       host:
         condition: service_started
     restart: unless-stopped
+    networks:
+      - kuestencode_network_dev
+
+
+  sftp-test:
+    image: atmoz/sftp:latest
+    container_name: werkbank_sftp_test
+    profiles: ["backup-test"]
+    ports:
+      - "2222:22"
+    volumes:
+      - ./backups-sftp-test:/home/backupuser/backups
+    command: backupuser:backuppass:1001:1001:backups
+    networks:
+      - kuestencode_network_dev
+
+  minio-test:
+    image: quay.io/minio/minio
+    container_name: werkbank_minio_test
+    profiles: ["backup-test"]
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      - MINIO_ROOT_USER=backupadmin
+      - MINIO_ROOT_PASSWORD=backuppassword
+    command: server /data --console-address ":9001"
+    volumes:
+      - ./backups-minio-test:/data
+    networks:
+      - kuestencode_network_dev
+
+  # Legt automatisch einen Bucket an, damit du in der UI nicht erst per mc/Console ran musst.
+  minio-test-init:
+    image: quay.io/minio/mc
+    container_name: werkbank_minio_test_init
+    profiles: ["backup-test"]
+    depends_on:
+      - minio-test
+    entrypoint: >
+      /bin/sh -c "
+      until mc alias set local http://minio-test:9000 backupadmin backuppassword; do sleep 1; done;
+      mc mb -p local/werkbank-backup-test;
+      exit 0;
+      "
+    networks:
+      - kuestencode_network_dev
+
+  webdav-test:
+    image: rclone/rclone
+    container_name: werkbank_webdav_test
+    profiles: ["backup-test"]
+    ports:
+      - "8888:8888"
+    volumes:
+      - ./backups-webdav-test:/data
+    command: serve webdav /data --addr :8888 --user backupuser --pass backuppass
     networks:
       - kuestencode_network_dev
 

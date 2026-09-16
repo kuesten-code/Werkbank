@@ -36,8 +36,12 @@
       - ServiceUrls__Saldo=http://saldo:8086
       - Jwt__Secret=${JWT_SECRET}
       - APPLY_MIGRATIONS=true
+      - Backup__SourcePath=/app/backup-source
     volumes:
       - ./data/host:/app/data
+      # Kompletter Datenordner aller Module (Postgres, Faktura, Recepta, ...) für die
+      # Backup-Funktionalität im Host - der Host-Container sieht sonst nur ./data/host.
+      - ./data:/app/backup-source
     depends_on:
       postgres:
         condition: service_healthy

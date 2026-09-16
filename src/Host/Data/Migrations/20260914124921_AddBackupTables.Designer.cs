@@ -3,6 +3,7 @@ using System;
 using Kuestencode.Werkbank.Host.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Kuestencode.Werkbank.Host.Data.Migrations
 {
     [DbContext(typeof(HostDbContext))]
-    partial class HostDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260914124921_AddBackupTables")]
+    partial class AddBackupTables
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -567,9 +570,6 @@ namespace Kuestencode.Werkbank.Host.Data.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("timestamp with time zone")
                         .HasDefaultValueSql("CURRENT_TIMESTAMP");
-
-                    b.Property<bool>("UseHttps")
-                        .HasColumnType("boolean");
 
                     b.Property<string>("Username")
                         .HasMaxLength(100)

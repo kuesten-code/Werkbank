@@ -21,6 +21,9 @@ public class HostDbContext : DbContext
     public DbSet<TeamMember> TeamMembers => Set<TeamMember>();
     public DbSet<WerkbankSettings> WerkbankSettings => Set<WerkbankSettings>();
     public DbSet<MitarbeiterRolle> MitarbeiterRollen => Set<MitarbeiterRolle>();
+    public DbSet<BackupSettings> BackupSettings => Set<BackupSettings>();
+    public DbSet<BackupTarget> BackupTargets => Set<BackupTarget>();
+    public DbSet<BackupHistory> BackupHistory => Set<BackupHistory>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -139,6 +142,64 @@ public class HostDbContext : DbContext
 
             entity.Property(e => e.AuthEnabled)
                 .HasDefaultValue(false);
+        });
+
+        // BackupSettings Konfiguration
+        modelBuilder.Entity<BackupSettings>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+
+            entity.Property(e => e.Schedule).HasMaxLength(50).HasDefaultValue("0 3 * * *");
+            entity.Property(e => e.EncryptionPassword).HasMaxLength(500);
+            entity.Property(e => e.AlertEmail).HasMaxLength(200);
+            entity.Property(e => e.AlertWebhookUrl).HasMaxLength(500);
+
+            entity.Property(e => e.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
+            entity.Property(e => e.UpdatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
+        });
+
+        // BackupTarget Konfiguration
+        modelBuilder.Entity<BackupTarget>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+
+            entity.Property(e => e.Name).HasMaxLength(100).IsRequired();
+            entity.Property(e => e.Type).HasConversion<int>();
+            entity.Property(e => e.Path).HasMaxLength(500);
+            entity.Property(e => e.Host).HasMaxLength(200);
+            entity.Property(e => e.Username).HasMaxLength(100);
+            entity.Property(e => e.Password).HasMaxLength(500);
+            entity.Property(e => e.AccessKey).HasMaxLength(200);
+            entity.Property(e => e.SecretKey).HasMaxLength(500);
+            entity.Property(e => e.Region).HasMaxLength(50);
+            entity.Property(e => e.LastBackupError).HasMaxLength(1000);
+
+            entity.Property(e => e.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
+            entity.Property(e => e.UpdatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+            entity.HasOne<BackupSettings>()
+                .WithMany(s => s.Targets)
+                .HasForeignKey(e => e.BackupSettingsId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // BackupHistory Konfiguration
+        modelBuilder.Entity<BackupHistory>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+
+            entity.Property(e => e.Status).HasConversion<int>();
+            entity.Property(e => e.Type).HasConversion<int>();
+            entity.Property(e => e.ErrorMessage).HasMaxLength(2000);
+            entity.Property(e => e.FileName).HasMaxLength(200).IsRequired();
+
+            entity.Property(e => e.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
+            entity.Property(e => e.UpdatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+            entity.HasOne(e => e.Target)
+                .WithMany()
+                .HasForeignKey(e => e.BackupTargetId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
     }
 

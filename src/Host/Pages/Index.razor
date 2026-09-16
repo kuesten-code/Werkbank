@@ -5,6 +5,40 @@
 
 <MudText Typo="Typo.h4" GutterBottom="true">Küstencode Werkbank</MudText>
 
+@if (_isAdmin && _backupStatus is { } status && (status.IsOverdue || _latestSuccessfulBackup != null))
+{
+    <MudAlert Severity="@(status.IsOverdue ? Severity.Warning : Severity.Info)" Class="mb-4">
+        <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Wrap="Wrap.Wrap" Spacing="2">
+            <MudText>
+                @if (status.IsOverdue)
+                {
+                    @(_latestSuccessfulBackup != null
+                        ? $"Letztes erfolgreiches Backup vor {status.DaysSinceLastBackup} Tagen."
+                        : "Noch kein erfolgreiches Backup vorhanden.")
+                }
+                else
+                {
+                    @($"Letztes Backup: {_latestSuccessfulBackup!.CompletedAt?.ToLocalTime():dd.MM.yyyy HH:mm}")
+                }
+            </MudText>
+            <MudStack Row="true" Spacing="2">
+                @if (_latestSuccessfulBackup != null)
+                {
+                    <MudButton Variant="Variant.Outlined" Size="Size.Small" Color="Color.Inherit"
+                               StartIcon="@Icons.Material.Filled.Download"
+                               Disabled="@_downloadingBackup"
+                               OnClick="DownloadLatestBackupAsync">
+                        Backup herunterladen
+                    </MudButton>
+                }
+                <MudButton Variant="Variant.Text" Size="Size.Small" Color="Color.Inherit" Href="/settings/backup">
+                    Backup-Einstellungen
+                </MudButton>
+            </MudStack>
+        </MudStack>
+    </MudAlert>
+}
+
 <MudGrid>
     <MudItem xs="12" md="6">
         <MudPaper Class="pa-4" Elevation="2">

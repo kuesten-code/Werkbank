@@ -1,0 +1,73 @@
+@using Kuestencode.Werkbank.Host.Models
+
+<MudDialog>
+    <DialogContent>
+        <MudTextField @bind-Value="_name" Label="Name" Required="true" Class="mb-3" />
+
+        <MudSelect @bind-Value="_type" Label="Typ" Class="mb-3">
+            <MudSelectItem Value="BackupTargetType.Local">Lokal</MudSelectItem>
+            <MudSelectItem Value="BackupTargetType.Sftp">SFTP</MudSelectItem>
+            <MudSelectItem Value="BackupTargetType.S3">S3</MudSelectItem>
+            <MudSelectItem Value="BackupTargetType.WebDav">WebDAV</MudSelectItem>
+        </MudSelect>
+
+        <MudSwitch @bind-Value="_enabled" Label="Aktiv" Color="Color.Primary" Class="mb-3" />
+
+        @if (_type == BackupTargetType.Local)
+        {
+            <MudAlert Severity="Severity.Info" Dense="true" Class="mb-3">
+                Muss ein Pfad sein, der per Docker-Volume auf die echte Platte gemountet ist -
+                sonst landet das Backup nur in der vergänglichen Container-Schicht und ist beim
+                nächsten Neustart weg. In der mitgelieferten docker-compose.yml ist dafür
+                <code>/app/backup-target</code> vorgesehen.
+            </MudAlert>
+            <MudTextField @bind-Value="_path" Label="Pfad" HelperText="z.B. /app/backup-target (siehe docker-compose.yml)" Required="true" Class="mb-3" />
+        }
+        else if (_type == BackupTargetType.Sftp)
+        {
+            <MudTextField @bind-Value="_host" Label="Host" Required="true" Class="mb-3" />
+            <MudNumericField @bind-Value="_port" Label="Port" Placeholder="22" Class="mb-3" />
+            <MudTextField @bind-Value="_username" Label="Benutzername" Required="true" Class="mb-3" />
+            <MudTextField @bind-Value="_passwordInput"
+                          Label="@(IsEdit ? "Neues Passwort (leer lassen zum Beibehalten)" : "Passwort")"
+                          InputType="InputType.Password" Class="mb-3" />
+            <MudTextField @bind-Value="_privateKeyInput"
+                          Label="@(IsEdit ? "Neuer Private Key (leer lassen zum Beibehalten)" : "Private Key (optional)")"
+                          Lines="4" Class="mb-3" />
+            <MudTextField @bind-Value="_path" Label="Zielpfad" HelperText="z.B. /backups" Class="mb-3" />
+        }
+        else if (_type == BackupTargetType.S3)
+        {
+            <MudTextField @bind-Value="_path" Label="Bucket/Prefix" HelperText="z.B. mein-bucket/werkbank" Required="true" Class="mb-3" />
+            <MudTextField @bind-Value="_host" Label="Endpoint (optional)" HelperText="z.B. für Hetzner Object Storage, MinIO - leer lassen für AWS" Class="mb-3" />
+            <MudTextField @bind-Value="_region" Label="Region" Placeholder="eu-central-1" Class="mb-3" />
+            <MudTextField @bind-Value="_accessKey" Label="Access Key" Required="true" Class="mb-3" />
+            <MudTextField @bind-Value="_secretKeyInput"
+                          Label="@(IsEdit ? "Neuer Secret Key (leer lassen zum Beibehalten)" : "Secret Key")"
+                          InputType="InputType.Password" Required="@(!IsEdit)" Class="mb-3" />
+        }
+        else if (_type == BackupTargetType.WebDav)
+        {
+            <MudSwitch @bind-Value="_useHttps" Label="HTTPS verwenden" Color="Color.Primary" Class="mb-3" />
+            @if (!_useHttps)
+            {
+                <MudAlert Severity="Severity.Info" Dense="true" Class="mb-3">
+                    Nur für interne/lokale WebDAV-Server ohne eigenes TLS (z.B. im selben Docker-Netzwerk) geeignet.
+                </MudAlert>
+            }
+            <MudTextField @bind-Value="_host" Label="Host" Required="true" Class="mb-3" />
+            <MudNumericField @bind-Value="_port" Label="Port" Placeholder="@(_useHttps ? "443" : "80")" Class="mb-3" />
+            <MudTextField @bind-Value="_username" Label="Benutzername" Required="true" Class="mb-3" />
+            <MudTextField @bind-Value="_passwordInput"
+                          Label="@(IsEdit ? "Neues Passwort (leer lassen zum Beibehalten)" : "Passwort")"
+                          InputType="InputType.Password" Class="mb-3" />
+            <MudTextField @bind-Value="_path" Label="Pfad" HelperText="z.B. /backups" Class="mb-3" />
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel" Variant="Variant.Text">Abbrechen</MudButton>
+        <MudButton OnClick="Save" Variant="Variant.Filled" Color="Color.Primary" Disabled="@(!CanSave)">
+            Speichern
+        </MudButton>
+    </DialogActions>
+</MudDialog>
