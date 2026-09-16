@@ -22,6 +22,7 @@ public class BackupService : IBackupService
     private readonly PasswordEncryptionService _passwordEncryption;
     private readonly IEmailEngine _emailEngine;
     private readonly IHttpClientFactory _httpClientFactory;
+    private readonly IBackupScheduleChangeSignal _scheduleChangeSignal;
     private readonly ILogger<BackupService> _logger;
 
     // Statisch, weil BackupService scoped registriert ist: ein laufendes Backup (manuell oder
@@ -36,6 +37,7 @@ public class BackupService : IBackupService
         PasswordEncryptionService passwordEncryption,
         IEmailEngine emailEngine,
         IHttpClientFactory httpClientFactory,
+        IBackupScheduleChangeSignal scheduleChangeSignal,
         ILogger<BackupService> logger)
     {
         _context = context;
@@ -45,6 +47,7 @@ public class BackupService : IBackupService
         _passwordEncryption = passwordEncryption;
         _emailEngine = emailEngine;
         _httpClientFactory = httpClientFactory;
+        _scheduleChangeSignal = scheduleChangeSignal;
         _logger = logger;
     }
 
@@ -146,6 +149,10 @@ public class BackupService : IBackupService
         existing.WarnAfterDays = settings.WarnAfterDays;
 
         await _context.SaveChangesAsync();
+
+        // Weckt BackupSchedulerService sofort auf, statt dass eine Zeitplan-Änderung erst nach
+        // Ablauf des zuvor berechneten (u.U. stunden-/tagelangen) Delays wirkt.
+        _scheduleChangeSignal.SignalChanged();
     }
 
     public Task<List<BackupTarget>> GetTargetsAsync() =>

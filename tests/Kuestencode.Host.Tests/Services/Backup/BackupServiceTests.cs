@@ -47,7 +47,8 @@ public class BackupServiceTests : IDisposable
 
         _service = new BackupService(
             _context, _env.Object, configuration, _providerFactory.Object, _passwordEncryption,
-            _emailEngine.Object, Mock.Of<IHttpClientFactory>(), NullLogger<BackupService>.Instance);
+            _emailEngine.Object, Mock.Of<IHttpClientFactory>(), new BackupScheduleChangeSignal(),
+            NullLogger<BackupService>.Instance);
     }
 
     public void Dispose()
@@ -401,7 +402,8 @@ public class BackupServiceTests : IDisposable
                 .Build();
             var serviceWithCustomSource = new BackupService(
                 _context, _env.Object, configuration, _providerFactory.Object, _passwordEncryption,
-                _emailEngine.Object, Mock.Of<IHttpClientFactory>(), NullLogger<BackupService>.Instance);
+                _emailEngine.Object, Mock.Of<IHttpClientFactory>(), new BackupScheduleChangeSignal(),
+                NullLogger<BackupService>.Instance);
 
             await SeedTargetAsync();
             _provider.Setup(p => p.UploadAsync(It.IsAny<BackupTarget>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))

@@ -47,6 +47,7 @@ public static class HostModule
 
         // Backup
         services.AddSingleton<IBackupTargetProviderFactory, BackupTargetProviderFactory>();
+        services.AddSingleton<IBackupScheduleChangeSignal, BackupScheduleChangeSignal>();
         services.AddScoped<IBackupService, BackupService>();
         services.AddHostedService<BackupSchedulerService>();
 
