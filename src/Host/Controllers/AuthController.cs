@@ -1,13 +1,10 @@
-using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
-using System.Text;
 using System.Text.Json;
 using Kuestencode.Werkbank.Host.Data;
 using Kuestencode.Werkbank.Host.Models;
 using Kuestencode.Werkbank.Host.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.IdentityModel.Tokens;
 
 namespace Kuestencode.Werkbank.Host.Controllers;
 
@@ -21,6 +18,7 @@ public class AuthController : ControllerBase
     private readonly IPasswordService _passwordService;
     private readonly HostDbContext _context;
     private readonly IConfiguration _configuration;
+    private readonly IJwtTokenService _jwtTokenService;
 
     public AuthController(
         IPasswordResetService passwordResetService,
@@ -28,7 +26,8 @@ public class AuthController : ControllerBase
         ITotpService totpService,
         IPasswordService passwordService,
         HostDbContext context,
-        IConfiguration configuration)
+        IConfiguration configuration,
+        IJwtTokenService jwtTokenService)
     {
         _passwordResetService = passwordResetService;
         _authService = authService;
@@ -36,6 +35,7 @@ public class AuthController : ControllerBase
         _passwordService = passwordService;
         _context = context;
         _configuration = configuration;
+        _jwtTokenService = jwtTokenService;
     }
 
     [HttpPost("login")]
@@ -265,51 +265,11 @@ public class AuthController : ControllerBase
 
     private ClaimsPrincipal? ValidateMfaToken(string token)
     {
-        try
-        {
-            var secret = GetJwtSecret();
-            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secret));
-            var issuer = _configuration["Jwt:Issuer"] ?? "KuestencodeWerkbank";
-
-            var handler = new JwtSecurityTokenHandler();
-            var principal = handler.ValidateToken(token, new TokenValidationParameters
-            {
-                ValidateIssuerSigningKey = true,
-                IssuerSigningKey = key,
-                ValidateIssuer = true,
-                ValidIssuer = issuer,
-                ValidateAudience = true,
-                ValidAudience = issuer,
-                ValidateLifetime = true,
-                ClockSkew = TimeSpan.FromSeconds(30)
-            }, out _);
-
-            if (principal.FindFirstValue("mfa_pending") != "true")
-                return null;
-
-            return principal;
-        }
-        catch
-        {
+        var principal = _jwtTokenService.ValidateToken(token);
+        if (principal == null || principal.FindFirstValue("mfa_pending") != "true")
             return null;
-        }
-    }
 
-    private string GetJwtSecret()
-    {
-        var secret = _configuration["Jwt:Secret"];
-        if (!string.IsNullOrWhiteSpace(secret) && secret.Length >= 32)
-            return secret;
-
-        var filePath = Path.Combine(AppContext.BaseDirectory, "data", "jwt-secret.txt");
-        if (System.IO.File.Exists(filePath))
-        {
-            var stored = System.IO.File.ReadAllText(filePath).Trim();
-            if (stored.Length >= 32)
-                return stored;
-        }
-
-        throw new InvalidOperationException("JWT-Secret nicht verfügbar.");
+        return principal;
     }
 }
 

@@ -82,7 +82,10 @@
 
     private async void OnAuthenticationStateChanged(Task<AuthenticationState> task)
     {
-        await CheckAuthStatus();
+        // Kann jetzt auch vom periodischen Re-Validierungs-Timer in WerkbankAuthStateProvider
+        // ausgelöst werden (läuft auf einem Threadpool-Thread) - StateHasChanged braucht daher
+        // zwingend InvokeAsync, sonst wirft der Renderer außerhalb des UI-Threads.
+        await InvokeAsync(CheckAuthStatus);
     }
 
     private async Task CheckAuthStatus()

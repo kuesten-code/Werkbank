@@ -1,37 +1,70 @@
-using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Kuestencode.Werkbank.Host.Models;
+using Kuestencode.Werkbank.Host.Services;
 
 namespace Kuestencode.Werkbank.Host.Auth;
 
-public class WerkbankAuthStateProvider : AuthenticationStateProvider
+public class WerkbankAuthStateProvider : AuthenticationStateProvider, IDisposable
 {
     private readonly ProtectedLocalStorage _localStorage;
     private readonly IHttpContextAccessor _httpContextAccessor;
     private readonly IServiceProvider _serviceProvider;
+    private readonly IJwtTokenService _jwtTokenService;
     private readonly ILogger<WerkbankAuthStateProvider> _logger;
 
     private const string TokenKey = "werkbank_auth_token";
     private const string CookieName = "werkbank_auth_cookie";
 
+    // Wie oft ein während des laufenden Circuits gecachtes JWT gegen Signatur und Ablauf
+    // neu geprüft wird - ohne das würde eine nachträglich ungültig gewordene Session (Secret-
+    // Rotation, Ablauf) erst beim nächsten Seitenwechsel auffallen, nicht während der Nutzer
+    // auf einer Seite verweilt.
+    private static readonly TimeSpan RevalidationInterval = TimeSpan.FromMinutes(2);
+
     // Cache the auth state from the initial HTTP request (prerender)
     // so it survives into the SignalR circuit where HttpContext is null.
     private AuthenticationState? _cachedState;
+
+    // Rohes JWT der zuletzt erfolgreich geparsten Session, für die periodische Re-Validierung.
+    // Bewusst kein erneuter ProtectedLocalStorage-Zugriff im Timer-Callback: der läuft auf
+    // einem Threadpool-Thread ohne Blazor-Circuit-Dispatcher, JS-Interop wäre dort unsicher.
+    private string? _lastKnownToken;
+    private readonly Timer _revalidationTimer;
 
     public WerkbankAuthStateProvider(
         ProtectedLocalStorage localStorage,
         IHttpContextAccessor httpContextAccessor,
         IServiceProvider serviceProvider,
+        IJwtTokenService jwtTokenService,
         ILogger<WerkbankAuthStateProvider> logger)
     {
         _localStorage = localStorage;
         _httpContextAccessor = httpContextAccessor;
         _serviceProvider = serviceProvider;
+        _jwtTokenService = jwtTokenService;
         _logger = logger;
+        _revalidationTimer = new Timer(RevalidateSession, null, RevalidationInterval, RevalidationInterval);
+    }
+
+    private void RevalidateSession(object? state)
+    {
+        var token = _lastKnownToken;
+        if (token == null || _jwtTokenService.ValidateToken(token) != null)
+            return;
+
+        _lastKnownToken = null;
+        var anonymousState = new AuthenticationState(new ClaimsPrincipal(new ClaimsIdentity()));
+        _cachedState = anonymousState;
+        NotifyAuthenticationStateChanged(Task.FromResult(anonymousState));
+    }
+
+    public void Dispose()
+    {
+        _revalidationTimer.Dispose();
     }
 
     public override async Task<AuthenticationState> GetAuthenticationStateAsync()
@@ -131,6 +164,7 @@ public class WerkbankAuthStateProvider : AuthenticationStateProvider
     {
         await _localStorage.DeleteAsync(TokenKey);
         _cachedState = null;
+        _lastKnownToken = null;
         NotifyAuthenticationStateChanged(GetAuthenticationStateAsync());
     }
 
@@ -147,31 +181,16 @@ public class WerkbankAuthStateProvider : AuthenticationStateProvider
         }
     }
 
-    private static IEnumerable<Claim>? ParseToken(string token)
+    private IEnumerable<Claim>? ParseToken(string token)
     {
-        try
-        {
-            var handler = new JwtSecurityTokenHandler();
-            var jwt = handler.ReadJwtToken(token);
-
-            if (jwt.ValidTo < DateTime.UtcNow)
-                return null;
-
-            // Map short JWT claim types to .NET ClaimTypes
-            return jwt.Claims.Select(c => new Claim(
-                c.Type switch
-                {
-                    "role" => ClaimTypes.Role,
-                    "name" => ClaimTypes.Name,
-                    "nameid" => ClaimTypes.NameIdentifier,
-                    "email" => ClaimTypes.Email,
-                    _ => c.Type
-                },
-                c.Value));
-        }
-        catch
-        {
+        // Echte Signatur- und Ablaufprüfung über den gleichen Validator wie AuthMiddleware -
+        // eine reine Ablaufprüfung (frühere Implementierung) würde eine Secret-Rotation nicht
+        // erkennen, solange das JWT selbst noch nicht abgelaufen ist.
+        var principal = _jwtTokenService.ValidateToken(token);
+        if (principal == null)
             return null;
-        }
+
+        _lastKnownToken = token;
+        return principal.Claims;
     }
 }

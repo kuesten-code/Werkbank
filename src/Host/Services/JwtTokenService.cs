@@ -10,6 +10,13 @@ namespace Kuestencode.Werkbank.Host.Services;
 public interface IJwtTokenService
 {
     string GenerateToken(TeamMember member);
+
+    /// <summary>
+    /// Validiert Signatur, Ablauf, Issuer und Audience eines JWT.
+    /// Einzige Stelle im Host, die das JWT-Secret zur Prüfung heranzieht
+    /// (AuthMiddleware, AuthController und WerkbankAuthStateProvider nutzen diese Methode).
+    /// </summary>
+    ClaimsPrincipal? ValidateToken(string token);
 }
 
 public class JwtTokenService : IJwtTokenService
@@ -48,6 +55,36 @@ public class JwtTokenService : IJwtTokenService
         );
 
         return new JwtSecurityTokenHandler().WriteToken(token);
+    }
+
+    public ClaimsPrincipal? ValidateToken(string token)
+    {
+        try
+        {
+            var secret = GetOrGenerateJwtSecret();
+            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secret));
+            var issuer = _configuration["Jwt:Issuer"] ?? "KuestencodeWerkbank";
+
+            var parameters = new TokenValidationParameters
+            {
+                ValidateIssuer = true,
+                ValidIssuer = issuer,
+                ValidateAudience = true,
+                ValidAudience = issuer,
+                ValidateLifetime = true,
+                ValidateIssuerSigningKey = true,
+                IssuerSigningKey = key,
+                ClockSkew = TimeSpan.FromMinutes(1)
+            };
+
+            var handler = new JwtSecurityTokenHandler();
+            return handler.ValidateToken(token, parameters, out _);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "JWT-Validierung fehlgeschlagen");
+            return null;
+        }
     }
 
     private string GetOrGenerateJwtSecret()
