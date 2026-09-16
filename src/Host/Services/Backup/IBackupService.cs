@@ -25,6 +25,11 @@ public interface IBackupService
     Task<Stream> OpenBackupFileForDownloadAsync(int targetId, string fileName);
 
     /// <summary>
+    /// Löscht eine einzelne Backup-Datei vom Ziel sowie die zugehörigen Historien-Einträge.
+    /// </summary>
+    Task DeleteBackupFileAsync(int targetId, string fileName);
+
+    /// <summary>
     /// Stellt ein Backup wieder her. Die Bestätigung (Admin-Passwort, "RESTORE" tippen)
     /// erfolgt in der UI, bevor dieser Aufruf ausgelöst wird.
     /// </summary>

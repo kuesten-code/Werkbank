@@ -23,6 +23,7 @@ public partial class Backup
     private string _encryptionPasswordInput = string.Empty;
 
     private string? _downloadingFileName;
+    private string? _deletingFileName;
 
     protected override async Task OnInitializedAsync()
     {
@@ -208,6 +209,38 @@ public partial class Backup
         finally
         {
             _downloadingFileName = null;
+        }
+    }
+
+    private async Task DeleteBackupFileAsync(BackupHistory entry)
+    {
+        var parameters = new DialogParameters<ConfirmDialog>
+        {
+            { x => x.ContentText, $"Backup-Datei '{entry.FileName}' wirklich unwiderruflich vom Ziel löschen?" },
+            { x => x.ConfirmButtonText, "Löschen" },
+            { x => x.ConfirmButtonColor, Color.Error }
+        };
+
+        var dialog = await DialogService.ShowAsync<ConfirmDialog>("Backup-Datei löschen", parameters);
+        var result = await dialog.Result;
+
+        if (result == null || result.Canceled)
+            return;
+
+        _deletingFileName = entry.FileName;
+        try
+        {
+            await BackupService.DeleteBackupFileAsync(entry.BackupTargetId, entry.FileName);
+            Snackbar.Add("Backup-Datei gelöscht.", Severity.Success);
+            _history = await BackupService.GetHistoryAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Löschen fehlgeschlagen: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _deletingFileName = null;
         }
     }
 

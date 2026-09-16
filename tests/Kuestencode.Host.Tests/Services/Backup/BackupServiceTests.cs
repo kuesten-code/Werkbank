@@ -469,6 +469,40 @@ public class BackupServiceTests : IDisposable
         File.Exists(tempPathUsed!).Should().BeFalse();
     }
 
+    // ─── DeleteBackupFileAsync ───────────────────────────────────────────────
+
+    [Fact]
+    public async Task DeleteBackupFileAsync_LoeschtBeimProviderUndEntferntHistorieneintraege()
+    {
+        var target = await SeedTargetAsync();
+        _context.BackupHistory.AddRange(
+            new BackupHistory { BackupTargetId = target.Id, StartedAt = DateTime.UtcNow, Status = BackupStatus.Success, FileName = "backup-2026-09-14-030000.tar.gz", Type = BackupType.Daily },
+            new BackupHistory { BackupTargetId = target.Id, StartedAt = DateTime.UtcNow, Status = BackupStatus.Success, FileName = "anderes-backup.tar.gz", Type = BackupType.Daily });
+        await _context.SaveChangesAsync();
+
+        BackupTarget? received = null;
+        string? deletedFileName = null;
+        _provider.Setup(p => p.DeleteAsync(It.IsAny<BackupTarget>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Callback<BackupTarget, string, CancellationToken>((t, f, _) => { received = t; deletedFileName = f; })
+            .Returns(Task.CompletedTask);
+
+        await _service.DeleteBackupFileAsync(target.Id, "backup-2026-09-14-030000.tar.gz");
+
+        deletedFileName.Should().Be("backup-2026-09-14-030000.tar.gz");
+        received!.Password.Should().Be("geheim");
+
+        var remaining = await _context.BackupHistory.Where(h => h.BackupTargetId == target.Id).ToListAsync();
+        remaining.Should().ContainSingle(h => h.FileName == "anderes-backup.tar.gz");
+    }
+
+    [Fact]
+    public async Task DeleteBackupFileAsync_UnbekanntesZiel_WirftException()
+    {
+        var act = async () => await _service.DeleteBackupFileAsync(9999, "backup-2026-09-14-030000.tar.gz");
+
+        await act.Should().ThrowAsync<InvalidOperationException>();
+    }
+
     // ─── History / Listing ────────────────────────────────────────────────────
 
     [Fact]
