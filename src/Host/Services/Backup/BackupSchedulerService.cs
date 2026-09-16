@@ -39,7 +39,11 @@ public class BackupSchedulerService : BackgroundService
                     continue;
                 }
 
-                var nextRun = cron.GetNextOccurrence(DateTime.UtcNow);
+                // Cron-Felder werden in der lokalen Zeitzone des Containers interpretiert
+                // (Dockerfile setzt TZ=Europe/Berlin), nicht in UTC - "0 3 * * *" soll für den
+                // Nutzer 03:00 Uhr deutsche Zeit bedeuten, genau wie es der Hilfetext im
+                // Einstellungs-Formular verspricht, nicht 03:00 UTC.
+                var nextRun = cron.GetNextOccurrence(DateTime.UtcNow, TimeZoneInfo.Local);
                 if (!nextRun.HasValue)
                 {
                     await Task.Delay(TimeSpan.FromMinutes(5), stoppingToken);
@@ -49,7 +53,8 @@ public class BackupSchedulerService : BackgroundService
                 var delay = nextRun.Value - DateTime.UtcNow;
                 if (delay > TimeSpan.Zero)
                 {
-                    _logger.LogInformation("Nächstes automatisches Backup: {NextRun:u}", nextRun.Value);
+                    _logger.LogInformation("Nächstes automatisches Backup: {NextRun:u} ({NextRunLocal} {TimeZone})",
+                        nextRun.Value, TimeZoneInfo.ConvertTimeFromUtc(nextRun.Value, TimeZoneInfo.Local), TimeZoneInfo.Local.Id);
                     await Task.Delay(delay, stoppingToken);
                 }
 
