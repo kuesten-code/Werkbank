@@ -634,6 +634,10 @@ public class BackupServiceTests : IDisposable
         // verloren gehen. Die kritische Garantie ist "die Daten existieren garantiert
         // irgendwo, nie nur halb": schlägt der Lösch-Schritt nach erfolgreichem Kopieren fehl,
         // bleibt das Original UND eine Kopie liegen (Platzverschwendung, aber kein Verlust).
+        // root ignoriert Verzeichnisrechte - der Fehlerfall lässt sich unter Linux dann nicht simulieren.
+        if (!OperatingSystem.IsWindows() && Environment.IsPrivilegedProcess)
+            return;
+
         var target = await SeedTargetAsync();
         var dataDir = Path.Combine(_contentRoot, "data");
 
@@ -644,10 +648,11 @@ public class BackupServiceTests : IDisposable
         var archive = await CreateArchiveAsync(("postgres/PG_VERSION", "16"), ("restored.txt", "neu"));
         ServeArchive(archive);
 
-        // Offener Handle ohne Delete-Share simuliert einen Lösch-Fehler nach erfolgreichem
-        // Kopieren (steht hier stellvertretend für z.B. "Access denied" bei fremdem Dateibesitzer
-        // wie Postgres' 0700-Datenordner).
-        await using (new FileStream(lockedFilePath, FileMode.Open, FileAccess.Read, FileShare.Read))
+        // Simuliert einen Lösch-Fehler nach erfolgreichem Kopieren (steht stellvertretend für z.B.
+        // "Access denied" bei fremdem Dateibesitzer wie Postgres' 0700-Datenordner). Windows: offener
+        // Handle ohne Delete-Share. Linux kennt keine Pflicht-Dateisperren, dort verhindert ein
+        // schreibgeschützter Ordner sowohl rename() als auch das Löschen seines Inhalts.
+        using (SimulateMoveFailure(lockedDir, lockedFilePath))
         {
             var firstAttempt = await _service.RestoreAsync(target.Id, "backup-2026-09-14-030000.tar.gz");
             firstAttempt.Success.Should().BeFalse();
@@ -783,6 +788,22 @@ public class BackupServiceTests : IDisposable
         result.Success.Should().BeTrue();
         _stackControl.Verify(s => s.StopAsync(It.IsAny<CancellationToken>()), Times.Never);
         _stackControl.Verify(s => s.StartAsync(It.IsAny<StackSnapshot>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    private static IDisposable SimulateMoveFailure(string directory, string fileInDirectory)
+    {
+        if (OperatingSystem.IsWindows())
+            return new FileStream(fileInDirectory, FileMode.Open, FileAccess.Read, FileShare.Read);
+
+        File.SetUnixFileMode(directory, UnixFileMode.UserRead | UnixFileMode.UserExecute);
+        return new RestoreDirectoryPermissions(directory);
+    }
+
+    [System.Runtime.Versioning.UnsupportedOSPlatform("windows")]
+    private sealed class RestoreDirectoryPermissions(string directory) : IDisposable
+    {
+        public void Dispose() => File.SetUnixFileMode(directory,
+            UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
     }
 
     private string SeedLivePostgres(string version = "16")
