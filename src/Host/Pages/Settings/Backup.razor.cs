@@ -189,7 +189,7 @@ public partial class Backup
 
         if (result is { Canceled: false })
         {
-            Snackbar.Add("Wiederherstellung abgeschlossen. Ein Neustart des Host-Containers ist erforderlich.", Severity.Success);
+            Snackbar.Add("Wiederherstellung abgeschlossen.", Severity.Success);
         }
     }
 

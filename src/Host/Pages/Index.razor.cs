@@ -9,6 +9,7 @@ using Kuestencode.Shared.UI.Services;
 using Kuestencode.Werkbank.Host.Models;
 using Kuestencode.Werkbank.Host.Services;
 using Kuestencode.Werkbank.Host.Services.Backup;
+using Kuestencode.Werkbank.Host.Services.Docker;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.JSInterop;
@@ -24,7 +25,7 @@ public partial class Index : IDisposable
 
     private bool _loadingStatus = true;
     private List<SystemStatusItem> _configItems = new();
-    private List<(string Name, bool Online)> _moduleStatus = new();
+    private List<(string Name, ModuleDisplayState State)> _moduleStatus = new();
 
     private bool _isAdmin;
     private BackupStatusInfo? _backupStatus;
@@ -36,6 +37,7 @@ public partial class Index : IDisposable
     [Inject] private AuthenticationStateProvider AuthStateProvider { get; set; } = default!;
     [Inject] private ICompanyService CompanyService { get; set; } = default!;
     [Inject] private IBackupService BackupService { get; set; } = default!;
+    [Inject] private IManuallyStoppedModules ManuallyStoppedModules { get; set; } = default!;
     [Inject] private ISnackbar Snackbar { get; set; } = default!;
     [Inject] private IJSRuntime JSRuntime { get; set; } = default!;
 
@@ -159,10 +161,7 @@ public partial class Index : IDisposable
 
     private void RefreshModuleStatus()
     {
-        _moduleStatus = ModuleRegistry.GetAllModulesWithStatus()
-            .OrderBy(x => x.Module.DisplayName)
-            .Select(x => (x.Module.DisplayName, x.IsOnline))
-            .ToList();
+        _moduleStatus = ModuleStatusResolver.Resolve(ModuleRegistry.GetAllModulesWithStatus(), ManuallyStoppedModules);
     }
 
     public void Dispose()

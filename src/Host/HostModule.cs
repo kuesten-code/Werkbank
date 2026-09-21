@@ -4,6 +4,7 @@ using Kuestencode.Werkbank.Host.Data;
 using Kuestencode.Werkbank.Host.Data.Repositories;
 using Kuestencode.Werkbank.Host.Services;
 using Kuestencode.Werkbank.Host.Services.Backup;
+using Kuestencode.Werkbank.Host.Services.Docker;
 using Kuestencode.Werkbank.Host.Services.Email;
 using Kuestencode.Werkbank.Host.Services.Pdf;
 using Microsoft.AspNetCore.Components.Authorization;
@@ -50,6 +51,18 @@ public static class HostModule
         services.AddSingleton<IBackupScheduleChangeSignal, BackupScheduleChangeSignal>();
         services.AddScoped<IBackupService, BackupService>();
         services.AddHostedService<BackupSchedulerService>();
+
+        // Docker-Steuerung (über den Socket-Proxy "docker-control", siehe docker-compose.yml)
+        services.AddHttpClient<IDockerControlService, DockerControlService>(client =>
+        {
+            client.BaseAddress = new Uri(configuration["DockerControl:BaseUrl"] ?? "http://docker-control:2375");
+            client.Timeout = TimeSpan.FromMinutes(2);
+        });
+
+        services.AddSingleton<IManuallyStoppedModules>(_ =>
+            new ManuallyStoppedModules(Path.Combine(AppContext.BaseDirectory, "data", "manually-stopped-modules.json")));
+        services.AddScoped<IModuleControlService, ModuleControlService>();
+        services.AddScoped<IStackControlService, StackControlService>();
 
         // HTTP Clients
         services.AddHttpClient();

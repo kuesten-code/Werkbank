@@ -4,10 +4,10 @@
 <MudDialog>
     <DialogContent>
         <MudAlert Severity="Severity.Error" Class="mb-4">
-            <strong>Achtung:</strong> Eine Wiederherstellung überschreibt alle aktuellen Daten unwiderruflich!
-            Da dabei auch die laufende PostgreSQL-Datenbank und die Daten der anderen Module überschrieben werden,
-            solltest du vorher alle Container außer diesem hier stoppen (<code>docker compose stop postgres faktura rapport offerte acta recepta saldo</code>)
-            und sie erst nach dem Neustart des Host-Containers wieder hochfahren.
+            <strong>Achtung:</strong> Eine Wiederherstellung ersetzt alle aktuellen Daten (Datenbank, Uploads, Keys)!
+            Dafür werden die Module und die Datenbank vorübergehend automatisch angehalten und die Werkbank
+            ist in dieser Zeit nicht nutzbar. Danach startet alles wieder. Startet die Datenbank mit den
+            wiederhergestellten Daten nicht, wird der vorherige Stand automatisch wiederhergestellt.
         </MudAlert>
 
         <MudSelect T="int" Value="_targetId" ValueChanged="OnTargetChangedAsync" Label="Backup-Ziel auswählen" Class="mb-4">

@@ -56,10 +56,12 @@
 
     private void HandleModulesChanged()
     {
-        // InvokeAsync because this is called from a background thread (module registration)
-        InvokeAsync(async () =>
+        // InvokeAsync because this is called from a background thread (module registration).
+        // Die Rolle wird hier bewusst NICHT neu aufgelöst: Modul-Änderungen berühren sie nicht, und
+        // eine Auflösung aus diesem Callback liefert teils "nicht angemeldet" - die Navigation
+        // zeigte dann nur noch das für "Mitarbeiter" Sichtbare (Rapport) bis zum nächsten Seitenwechsel.
+        InvokeAsync(() =>
         {
-            await LoadRoleAsync();
             RefreshNavItems();
             StateHasChanged();
         });

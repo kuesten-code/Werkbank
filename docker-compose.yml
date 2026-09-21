@@ -40,6 +40,7 @@ services:
       - ServiceUrls__Saldo=http://saldo:8086
       - APPLY_MIGRATIONS=true
       - Backup__SourcePath=/app/backup-source
+      - DockerControl__ContainerNamePattern=kuestencode_{0}_dev
     volumes:
       # Kompletter eigener Datenordner (Keys, JWT-Secret, ...) - ohne diesen Mount wird bei
       # jedem Neustart u.a. ein neues JWT-Secret generiert und alle Logins werden ungültig.
@@ -56,6 +57,38 @@ services:
     restart: unless-stopped
     networks:
       - kuestencode_network_dev
+      - kuestencode_docker_control_network_dev
+
+  # Socket-Proxy: einziger Container mit Docker-Socket, lässt nur Status + stop/start/restart der
+  # Werkbank-Container (nicht "host") durch. DOCKER_GID: unter Docker Desktop reicht 0, auf einem
+  # Linux-Server die Gruppen-ID von "docker" (getent group docker).
+  docker-control:
+    image: wollomatic/socket-proxy:1.13.1
+    container_name: kuestencode_docker_control_dev
+    user: "65534:${DOCKER_GID:-0}"
+    read_only: true
+    mem_limit: 64M
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges
+    command:
+      - '-loglevel=debug'
+      - '-listenip=0.0.0.0'
+      - '-allowfrom=host'
+      - '-allowGET=(/v1[.][0-9]{2})?/containers/kuestencode_(postgres|faktura|rapport|offerte|acta|recepta|saldo)_dev/json'
+      - '-allowPOST=(/v1[.][0-9]{2})?/containers/kuestencode_(postgres|faktura|rapport|offerte|acta|recepta|saldo)_dev/(stop|start|restart)'
+      - '-allowhealthcheck'
+    healthcheck:
+      test: ["CMD", "./healthcheck"]
+      interval: 10s
+      timeout: 5s
+      retries: 2
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    restart: unless-stopped
+    networks:
+      - kuestencode_docker_control_network_dev
 
   faktura:
     build:
@@ -275,3 +308,6 @@ services:
 networks:
   kuestencode_network_dev:
     driver: bridge
+  kuestencode_docker_control_network_dev:
+    driver: bridge
+    internal: true

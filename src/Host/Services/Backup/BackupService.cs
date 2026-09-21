@@ -4,6 +4,7 @@ using System.Security.Cryptography;
 using Kuestencode.Core.Interfaces;
 using Kuestencode.Werkbank.Host.Data;
 using Kuestencode.Werkbank.Host.Models;
+using Kuestencode.Werkbank.Host.Services.Docker;
 using Microsoft.EntityFrameworkCore;
 
 namespace Kuestencode.Werkbank.Host.Services.Backup;
@@ -23,6 +24,7 @@ public class BackupService : IBackupService
     private readonly IEmailEngine _emailEngine;
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly IBackupScheduleChangeSignal _scheduleChangeSignal;
+    private readonly IStackControlService _stackControl;
     private readonly ILogger<BackupService> _logger;
 
     // Statisch, weil BackupService scoped registriert ist: ein laufendes Backup (manuell oder
@@ -38,6 +40,7 @@ public class BackupService : IBackupService
         IEmailEngine emailEngine,
         IHttpClientFactory httpClientFactory,
         IBackupScheduleChangeSignal scheduleChangeSignal,
+        IStackControlService stackControl,
         ILogger<BackupService> logger)
     {
         _context = context;
@@ -48,6 +51,7 @@ public class BackupService : IBackupService
         _emailEngine = emailEngine;
         _httpClientFactory = httpClientFactory;
         _scheduleChangeSignal = scheduleChangeSignal;
+        _stackControl = stackControl;
         _logger = logger;
     }
 
@@ -269,6 +273,29 @@ public class BackupService : IBackupService
 
     public async Task<RestoreResult> RestoreAsync(int targetId, string fileName)
     {
+        // Backup und Restore dürfen nicht gleichzeitig laufen (derselbe Datenordner).
+        if (Interlocked.CompareExchange(ref _isRunning, 1, 0) != 0)
+            return new RestoreResult(false, "Es läuft bereits ein Backup oder eine Wiederherstellung");
+
+        try
+        {
+            return await RestoreCoreAsync(targetId, fileName);
+        }
+        finally
+        {
+            Interlocked.Exchange(ref _isRunning, 0);
+        }
+    }
+
+    // Ablauf in Phasen, damit vor dem ersten Eingriff in die Live-Daten alles geprüft ist und
+    // jeder spätere Fehler einen Rückweg hat:
+    //   A) herunterladen, entschlüsseln, Archiv prüfen        (Live-Daten unberührt)
+    //   B) Module + Postgres stoppen                          (nur wenn Postgres im Datenordner liegt)
+    //   C) Live-Daten beiseite schieben, Archiv entpacken
+    //   D) Postgres starten und auf "gesund" warten, Module starten - sonst Rollback
+    //   E) Aufräumen
+    private async Task<RestoreResult> RestoreCoreAsync(int targetId, string fileName)
+    {
         var settings = await GetSettingsAsync();
         var target = await _context.BackupTargets.FindAsync(targetId);
 
@@ -285,27 +312,28 @@ public class BackupService : IBackupService
         var preRestoreDirName = ".pre-restore-" + DateTime.UtcNow.ToString("yyyyMMddHHmmss");
         var preRestorePath = Path.Combine(dataPath, preRestoreDirName);
         var tempPath = Path.Combine(Path.GetTempPath(), fileName);
+        string? archivePath = null;
+
+        var usesPostgres = Directory.Exists(Path.Combine(dataPath, "postgres"));
+        StackSnapshot? stoppedStack = null;
 
         try
         {
+            // --- A) Vorbereiten und prüfen ---
             var provider = _providerFactory.GetProvider(target.Type);
-            var connectionTarget = DecryptForConnection(target);
+            await provider.DownloadAsync(DecryptForConnection(target), fileName, tempPath);
 
-            await provider.DownloadAsync(connectionTarget, fileName, tempPath);
-
-            var archivePath = tempPath;
+            archivePath = tempPath;
             if (fileName.EndsWith(".enc", StringComparison.OrdinalIgnoreCase))
             {
                 if (string.IsNullOrWhiteSpace(settings.EncryptionPassword))
-                {
-                    File.Delete(tempPath);
                     return new RestoreResult(false, "Verschlüsseltes Backup, aber kein Passwort konfiguriert");
-                }
 
                 archivePath = tempPath[..^".enc".Length];
                 await DecryptFileAsync(tempPath, archivePath, _passwordEncryption.Decrypt(settings.EncryptionPassword));
-                File.Delete(tempPath);
             }
+
+            await ValidateRestoreArchiveAsync(archivePath, dataPath, usesPostgres);
 
             // Reste eines vorherigen, nicht sauber abgeschlossenen Restores zuerst ZURÜCKSPIELEN,
             // niemals blind löschen: ein .pre-restore-* Ordner kann der einzige verbliebene Ort
@@ -314,76 +342,203 @@ public class BackupService : IBackupService
             // an einer Berechtigung scheiterte).
             foreach (var stale in Directory.GetDirectories(dataPath, ".pre-restore-*"))
             {
-                MoveDirectoryContents(stale, dataPath, excludeName: null);
-                if (!Directory.EnumerateFileSystemEntries(stale).Any())
-                    Directory.Delete(stale, true);
+                MoveDirectoryContents(stale, dataPath);
+                RemoveDirectoryIfEmpty(stale);
                 // Falls trotzdem noch etwas übrig ist (Namenskollision), bewusst liegen lassen -
                 // lieber eine Datenleiche als stillschweigend etwas zu überschreiben/verlieren.
             }
 
+            // --- B) Stack anhalten ---
+            if (usesPostgres)
+                stoppedStack = await _stackControl.StopAsync();
+
+            // --- C) Live-Daten beiseite, Archiv entpacken ---
             Directory.CreateDirectory(preRestorePath);
             try
             {
-                MoveDirectoryContents(dataPath, preRestorePath, excludeName: preRestoreDirName);
+                MoveDirectoryContents(dataPath, preRestorePath, preRestoreDirName);
+
+                if (Directory.EnumerateFileSystemEntries(dataPath).Any(e => Path.GetFileName(e) != preRestoreDirName))
+                    throw new InvalidOperationException("Die aktuellen Daten konnten nicht vollständig beiseite geschoben werden");
             }
             catch
             {
                 // Auch dieser Schritt kann mittendrin scheitern (z.B. fehlende Berechtigung auf
-                // einem bestimmten Unterordner) - alles bereits Verschobene sofort zurückholen,
-                // bevor der Fehler nach außen gereicht wird.
-                MoveDirectoryContents(preRestorePath, dataPath, excludeName: null);
-                if (!Directory.EnumerateFileSystemEntries(preRestorePath).Any())
-                    Directory.Delete(preRestorePath, true);
+                // einem bestimmten Unterordner) - alles bereits Verschobene sofort zurückholen.
+                // Hier bewusst nichts löschen: in dataPath liegen noch Live-Daten.
+                MoveDirectoryContents(preRestorePath, dataPath);
+                RemoveDirectoryIfEmpty(preRestorePath);
                 throw;
             }
 
             try
             {
-                // Archiv enthält "data/..." als Top-Level-Eintrag (siehe CreateTarGzAsync) -> in
-                // den *Elternordner* von dataPath entpacken, nicht in dataPath selbst.
-                await ExtractTarGzAsync(archivePath, Path.GetDirectoryName(dataPath) ?? ".", CancellationToken.None);
+                // Direkt in dataPath entpacken (tar als root behält die Dateibesitzer, u.a. uid 999
+                // auf dem Postgres-Ordner - Kopieren würde sie verlieren). Der oberste Ordner des
+                // Archivs ("data" bzw. "backup-source") wird abgestreift.
+                await ExtractTarGzAsync(archivePath, dataPath, CancellationToken.None, stripComponents: 1);
             }
             catch
             {
-                // Rollback: alles gerade Extrahierte verwerfen, alte Daten zurückholen.
-                foreach (var entry in Directory.GetFileSystemEntries(dataPath))
-                {
-                    if (Path.GetFileName(entry) == preRestoreDirName) continue;
-                    if (Directory.Exists(entry)) Directory.Delete(entry, true);
-                    else File.Delete(entry);
-                }
-                MoveDirectoryContents(preRestorePath, dataPath, excludeName: null);
-                Directory.Delete(preRestorePath, true);
+                // dataPath enthält jetzt nur Extrahiertes (Live-Daten liegen komplett in preRestorePath).
+                DeleteEntriesExceptPreRestore(dataPath);
+                MoveDirectoryContents(preRestorePath, dataPath);
+                RemoveDirectoryIfEmpty(preRestorePath);
                 throw;
             }
 
-            File.Delete(archivePath);
-            Directory.Delete(preRestorePath, true);
+            // --- D) Stack wieder hochfahren und verifizieren ---
+            if (stoppedStack != null)
+            {
+                var snapshot = stoppedStack;
+                stoppedStack = null;
 
-            _logger.LogWarning("Restore abgeschlossen. Neustart erforderlich!");
+                try
+                {
+                    await _stackControl.StartAsync(snapshot);
+                }
+                catch (Exception startEx)
+                {
+                    return await RollbackFailedStartAsync(snapshot, dataPath, preRestorePath, startEx);
+                }
+            }
+
+            // --- E) Aufräumen ---
+            try
+            {
+                Directory.Delete(preRestorePath, true);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Sicherung der vorherigen Daten in {Path} konnte nicht gelöscht werden", preRestorePath);
+            }
+
+            _logger.LogWarning("Restore abgeschlossen");
 
             return new RestoreResult(true, null);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Restore fehlgeschlagen");
+
+            // Live-Daten liegen an dieser Stelle wieder unverändert an ihrem Platz.
+            if (stoppedStack != null)
+                await TryRestartStackAsync(stoppedStack);
+
             return new RestoreResult(false, ex.Message);
+        }
+        finally
+        {
+            foreach (var path in new[] { tempPath, archivePath })
+            {
+                if (path != null && File.Exists(path))
+                    File.Delete(path);
+            }
         }
     }
 
-    // Kopieren+Löschen statt Directory.Move/File.Move (= rename()): auf manchen Docker-Desktop/
-    // WSL2-Bind-Mount-Übersetzungen scheitert rename() an Verzeichnissen mit restriktiven Rechten
-    // (z.B. Postgres' eigener 0700-Datenordner, Owner uid 999) - selbst wenn der Host-Container
-    // als root läuft und lesend/schreibend durchaus zugreifen kann ("Access denied" beim reinen
-    // Verschieben). Kopieren+anschließendes Löschen nutzt andere Syscalls und kommt damit öfter
-    // durch; im schlimmsten Fall bleibt bei einem fehlschlagenden Lösch-Schritt eine doppelte
-    // Kopie liegen (Platzverschwendung), aber nichts geht verloren.
-    private static void MoveDirectoryContents(string sourceDir, string targetDir, string? excludeName)
+    // Prüft das Archiv, BEVOR irgendetwas gestoppt oder verschoben wird. Das Auflisten liest es
+    // komplett durch und deckt damit auch beschädigte Downloads (gzip-Prüfsumme) auf.
+    private async Task ValidateRestoreArchiveAsync(string archivePath, string dataPath, bool usesPostgres)
+    {
+        var entries = await ListTarGzAsync(archivePath);
+
+        if (entries.Count == 0)
+            throw new InvalidOperationException("Das Backup-Archiv ist leer");
+
+        var topLevel = entries.Select(e => e.Split('/')[0]).Where(n => n.Length > 0).Distinct().ToList();
+        if (topLevel.Count != 1)
+            throw new InvalidOperationException("Ungültiges Backup-Archiv: unerwartete Ordnerstruktur");
+
+        if (!usesPostgres)
+            return;
+
+        var pgVersionEntry = $"{topLevel[0]}/postgres/PG_VERSION";
+        if (!entries.Contains(pgVersionEntry))
+            throw new InvalidOperationException(
+                "Das Backup enthält keine Postgres-Datenbank - die Wiederherstellung würde die aktuelle Datenbank entfernen und wurde abgebrochen");
+
+        var archiveVersion = (await ReadTarEntryAsync(archivePath, pgVersionEntry)).Trim();
+        var liveVersion = (await File.ReadAllTextAsync(Path.Combine(dataPath, "postgres", "PG_VERSION"))).Trim();
+        if (archiveVersion != liveVersion)
+            throw new InvalidOperationException(
+                $"Die Postgres-Version des Backups ({archiveVersion}) passt nicht zur laufenden Version ({liveVersion})");
+
+        if (!entries.Contains($"{topLevel[0]}/postgres/backup_label"))
+            _logger.LogWarning("Das Backup enthält kein backup_label (Sicherung ohne konsistenten Datenbank-Snapshot, z.B. älterer Stand). Postgres muss beim Start eine Absturz-Wiederherstellung durchführen");
+    }
+
+    private async Task<RestoreResult> RollbackFailedStartAsync(
+        StackSnapshot snapshot, string dataPath, string preRestorePath, Exception cause)
+    {
+        _logger.LogError(cause, "Postgres startet mit den wiederhergestellten Daten nicht - Rollback auf den vorherigen Stand");
+
+        try
+        {
+            await _stackControl.StopAsync();
+            DeleteEntriesExceptPreRestore(dataPath);
+            MoveDirectoryContents(preRestorePath, dataPath);
+            RemoveDirectoryIfEmpty(preRestorePath);
+        }
+        catch (Exception rollbackEx)
+        {
+            _logger.LogCritical(rollbackEx, "Rollback nach fehlgeschlagenem Restore ebenfalls fehlgeschlagen");
+            return new RestoreResult(false,
+                $"Wiederherstellung fehlgeschlagen ({cause.Message}), der Rollback ebenfalls ({rollbackEx.Message}). " +
+                $"Die vorherigen Daten liegen unverändert in '{preRestorePath}'.");
+        }
+
+        await TryRestartStackAsync(snapshot);
+
+        return new RestoreResult(false,
+            $"Postgres startet mit den wiederhergestellten Daten nicht ({cause.Message}). Der vorherige Stand wurde wiederhergestellt.");
+    }
+
+    private async Task TryRestartStackAsync(StackSnapshot snapshot)
+    {
+        try
+        {
+            await _stackControl.StartAsync(snapshot);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Module und Datenbank konnten nach dem Restore nicht wieder gestartet werden");
+        }
+    }
+
+    // Nur Extrahiertes wegräumen - Sicherungen früherer Restores (.pre-restore-*) nie anfassen.
+    private static void DeleteEntriesExceptPreRestore(string dataPath)
+    {
+        foreach (var entry in Directory.GetFileSystemEntries(dataPath))
+        {
+            if (Path.GetFileName(entry).StartsWith(".pre-restore-", StringComparison.Ordinal))
+                continue;
+
+            if (Directory.Exists(entry))
+                Directory.Delete(entry, true);
+            else
+                File.Delete(entry);
+        }
+    }
+
+    private static void RemoveDirectoryIfEmpty(string path)
+    {
+        if (!Directory.EnumerateFileSystemEntries(path).Any())
+            Directory.Delete(path, true);
+    }
+
+    // Erst rename() (behält Besitzer/Rechte, wichtig für Postgres' uid-999-Ordner), nur wenn das
+    // scheitert Kopieren+Löschen: auf manchen Docker-Desktop/WSL2-Bind-Mount-Übersetzungen scheitert
+    // rename() an Verzeichnissen mit restriktiven Rechten (z.B. Postgres' eigener 0700-Datenordner) -
+    // selbst wenn der Host-Container als root läuft. Kopieren+Löschen nutzt andere Syscalls und kommt
+    // damit öfter durch; im schlimmsten Fall bleibt bei einem fehlschlagenden Lösch-Schritt eine
+    // doppelte Kopie liegen (Platzverschwendung), aber nichts geht verloren.
+    private static void MoveDirectoryContents(string sourceDir, string targetDir, params string[] excludeNames)
     {
         foreach (var entry in Directory.GetFileSystemEntries(sourceDir))
         {
             var name = Path.GetFileName(entry);
-            if (name == excludeName) continue;
+            if (excludeNames.Contains(name)) continue;
 
             var destination = Path.Combine(targetDir, name);
 
@@ -393,15 +548,25 @@ public class BackupService : IBackupService
             if (Directory.Exists(destination) || File.Exists(destination))
                 continue;
 
-            if (Directory.Exists(entry))
+            try
             {
-                CopyDirectoryRecursive(entry, destination);
-                Directory.Delete(entry, true);
+                if (Directory.Exists(entry))
+                    Directory.Move(entry, destination);
+                else
+                    File.Move(entry, destination);
             }
-            else
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
-                File.Copy(entry, destination);
-                File.Delete(entry);
+                if (Directory.Exists(entry))
+                {
+                    CopyDirectoryRecursive(entry, destination);
+                    Directory.Delete(entry, true);
+                }
+                else
+                {
+                    File.Copy(entry, destination);
+                    File.Delete(entry);
+                }
             }
         }
     }
@@ -572,7 +737,32 @@ public class BackupService : IBackupService
         var fileName = BackupFileNaming.BuildFileName(timestampUtc);
         var tempPath = Path.Combine(Path.GetTempPath(), fileName);
 
-        await CreateTarGzAsync(dataPath, tempPath, ct);
+        var postgresLiveDir = Path.Combine(dataPath, "postgres");
+        string? stagingRoot = null;
+
+        try
+        {
+            if (Directory.Exists(postgresLiveDir))
+            {
+                // Ein rohes tar eines LAUFENDEN Postgres-Datenverzeichnisses ist nicht
+                // konsistent (Dateien können mitten im Schreiben erwischt werden -> defekte
+                // WAL beim Restore). pg_backup_start/-stop ist Postgres' eigene, dafür
+                // vorgesehene API für Online-Backups: sie erzwingt einen Checkpoint und sorgt
+                // per Full-Page-Writes dafür, dass während des Kopierens verursachte
+                // "torn pages" beim Restore aus dem WAL repariert werden können - daher muss
+                // die eigentliche Kopie zwischen Start und Stop passieren, nicht danach.
+                stagingRoot = Path.Combine(Path.GetTempPath(), $"backup-staging-{Guid.NewGuid()}");
+                var stagingPostgresDir = Path.Combine(stagingRoot, Path.GetFileName(dataPath), "postgres");
+                await CreateConsistentPostgresCopyAsync(postgresLiveDir, stagingPostgresDir, ct);
+            }
+
+            await CreateTarGzAsync(dataPath, stagingRoot, tempPath, ct);
+        }
+        finally
+        {
+            if (stagingRoot != null)
+                Directory.Delete(stagingRoot, recursive: true);
+        }
 
         if (settings.EncryptionEnabled && !string.IsNullOrWhiteSpace(settings.EncryptionPassword))
         {
@@ -586,17 +776,97 @@ public class BackupService : IBackupService
         return (tempPath, fileName, BackupFileNaming.DetermineBackupType(timestampUtc));
     }
 
-    private static async Task CreateTarGzAsync(string sourceDir, string outputPath, CancellationToken ct)
+    /// <summary>
+    /// Kopiert das Postgres-Datenverzeichnis in <paramref name="stagingPostgresDir"/>, umschlossen
+    /// von <c>pg_backup_start</c>/<c>pg_backup_stop</c> (Postgres' offizielle Online-Backup-API,
+    /// siehe PostgreSQL-Doku "Making a Base Backup Using the Low Level API"). Schreibt danach das
+    /// von <c>pg_backup_stop</c> gelieferte Label als <c>backup_label</c> in die Kopie - erst damit
+    /// erkennt Postgres beim Restore, dass hier ein Backup-konsistenter Wiederherstellungslauf
+    /// nötig ist, statt die Dateien für einen sauber heruntergefahrenen Cluster zu halten.
+    /// </summary>
+    private async Task CreateConsistentPostgresCopyAsync(string postgresLiveDir, string stagingPostgresDir, CancellationToken ct)
     {
-        var parentDir = Path.GetDirectoryName(sourceDir) ?? ".";
-        var dirName = Path.GetFileName(sourceDir);
+        await _context.Database.OpenConnectionAsync(ct);
+        try
+        {
+            var connection = _context.Database.GetDbConnection();
+
+            await using (var startCmd = connection.CreateCommand())
+            {
+                startCmd.CommandText = "SELECT pg_backup_start('werkbank-backup', true)";
+                await startCmd.ExecuteScalarAsync(ct);
+            }
+
+            // Postgres läuft weiter und recycelt dabei laufend WAL-Segmente: Dateien, die zwischen Auflisten
+            // und Kopieren verschwinden, sind normal (alte Segmente vor dem Start-Checkpoint) und kein Fehler.
+            var skipped = DirectoryCopy.CopyOverwriting(postgresLiveDir, stagingPostgresDir, tolerateVanishedSource: true);
+
+            string labelFile;
+            string spcmapFile;
+            await using (var stopCmd = connection.CreateCommand())
+            {
+                stopCmd.CommandText = "SELECT labelfile, spcmapfile FROM pg_backup_stop()";
+                await using var reader = await stopCmd.ExecuteReaderAsync(ct);
+                await reader.ReadAsync(ct);
+                labelFile = reader.GetString(0);
+                spcmapFile = reader.IsDBNull(1) ? "" : reader.GetString(1);
+            }
+
+            await File.WriteAllTextAsync(Path.Combine(stagingPostgresDir, "backup_label"), labelFile, ct);
+            if (!string.IsNullOrEmpty(spcmapFile))
+                await File.WriteAllTextAsync(Path.Combine(stagingPostgresDir, "tablespace_map"), spcmapFile, ct);
+
+            // Der End-of-Backup-Record wird erst von pg_backup_stop() geschrieben (samt Wechsel auf ein
+            // neues WAL-Segment) und fehlt deshalb in der Kopie von oben. Ohne ihn bricht Postgres beim
+            // Restore mit "WAL ends before end of online backup" ab. pg_wal daher nach dem Stop
+            // nochmal überschreibend nachziehen (Doku: alle WAL-Segmente von Start bis Stop müssen
+            // im Backup liegen, sofern kein WAL-Archiv verwendet wird).
+            skipped += DirectoryCopy.CopyOverwriting(
+                Path.Combine(postgresLiveDir, "pg_wal"), Path.Combine(stagingPostgresDir, "pg_wal"), tolerateVanishedSource: true);
+
+            if (skipped > 0)
+                _logger.LogInformation("Postgres-Snapshot: {Count} Datei(en) verschwanden während des Kopierens (normal bei laufender Datenbank)", skipped);
+        }
+        finally
+        {
+            // Schließt die Session-Verbindung - falls der Kopiervorgang oben fehlschlägt und
+            // pg_backup_stop() nie aufgerufen wird, beendet Postgres den Backup-Modus dieser
+            // Session automatisch beim Verbindungsabbau (siehe pg_backup_start-Doku).
+            await _context.Database.CloseConnectionAsync();
+        }
+    }
+
+    private static async Task CreateTarGzAsync(string dataPath, string? stagingRoot, string outputPath, CancellationToken ct)
+    {
+        var parentDir = Path.GetDirectoryName(dataPath) ?? ".";
+        var dirName = Path.GetFileName(dataPath);
 
         var processInfo = new ProcessStartInfo("tar") { RedirectStandardError = true, UseShellExecute = false };
         processInfo.ArgumentList.Add("czf");
         processInfo.ArgumentList.Add(outputPath);
         processInfo.ArgumentList.Add("-C");
         processInfo.ArgumentList.Add(parentDir);
-        processInfo.ArgumentList.Add(dirName);
+
+        if (stagingRoot == null)
+        {
+            processInfo.ArgumentList.Add(dirName);
+        }
+        else
+        {
+            // "postgres" kommt aus dem konsistenten Staging-Verzeichnis, alles andere direkt
+            // aus dem laufenden dataPath - beides landet unter demselben "<dirName>/..."-Präfix
+            // im Archiv, damit sich am Restore-seitigen Layout nichts ändert.
+            var otherEntries = Directory.GetFileSystemEntries(dataPath)
+                .Select(Path.GetFileName)
+                .Where(name => name != "postgres");
+
+            foreach (var entry in otherEntries)
+                processInfo.ArgumentList.Add($"{dirName}/{entry}");
+
+            processInfo.ArgumentList.Add("-C");
+            processInfo.ArgumentList.Add(stagingRoot);
+            processInfo.ArgumentList.Add($"{dirName}/postgres");
+        }
 
         using var process = Process.Start(processInfo)!;
         var error = await process.StandardError.ReadToEndAsync(ct);
@@ -606,20 +876,53 @@ public class BackupService : IBackupService
             throw new InvalidOperationException($"tar fehlgeschlagen: {error}");
     }
 
-    private static async Task ExtractTarGzAsync(string archivePath, string targetDir, CancellationToken ct)
+    private static async Task ExtractTarGzAsync(string archivePath, string targetDir, CancellationToken ct, int stripComponents = 0)
     {
-        var processInfo = new ProcessStartInfo("tar") { RedirectStandardError = true, UseShellExecute = false };
-        processInfo.ArgumentList.Add("xzf");
-        processInfo.ArgumentList.Add(archivePath);
-        processInfo.ArgumentList.Add("-C");
-        processInfo.ArgumentList.Add(targetDir);
+        var args = new List<string> { "xzf", archivePath, "-C", targetDir };
+        if (stripComponents > 0)
+            args.Add($"--strip-components={stripComponents}");
+
+        await RunTarAsync(args, ct);
+    }
+
+    private static async Task<HashSet<string>> ListTarGzAsync(string archivePath)
+    {
+        var output = await RunTarAsync(new[] { "tzf", archivePath }, CancellationToken.None);
+
+        return output.Split('\n')
+            .Select(line => line.Trim().TrimEnd('/'))
+            .Where(line => line.Length > 0)
+            .ToHashSet();
+    }
+
+    private static Task<string> ReadTarEntryAsync(string archivePath, string entry) =>
+        RunTarAsync(new[] { "xzOf", archivePath, entry }, CancellationToken.None);
+
+    private static async Task<string> RunTarAsync(IEnumerable<string> arguments, CancellationToken ct)
+    {
+        var processInfo = new ProcessStartInfo("tar")
+        {
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false
+        };
+        foreach (var argument in arguments)
+            processInfo.ArgumentList.Add(argument);
 
         using var process = Process.Start(processInfo)!;
-        var error = await process.StandardError.ReadToEndAsync(ct);
+
+        // Beide Ströme parallel lesen, sonst kann tar bei viel Ausgabe an einem vollen Puffer hängen.
+        var outputTask = process.StandardOutput.ReadToEndAsync(ct);
+        var errorTask = process.StandardError.ReadToEndAsync(ct);
         await process.WaitForExitAsync(ct);
+
+        var output = await outputTask;
+        var error = await errorTask;
 
         if (process.ExitCode != 0)
             throw new InvalidOperationException($"tar fehlgeschlagen: {error}");
+
+        return output;
     }
 
     private static async Task EncryptFileAsync(string inputPath, string outputPath, string password)

@@ -17,6 +17,7 @@ public class PdfMergeService : IPdfMergeService
     public byte[] MergeForPrint(byte[] invoicePdf, IEnumerable<InvoiceAttachment> attachments)
     {
         var pdfAttachments = attachments
+            .Where(a => !a.IsFrozenSnapshot)
             .Where(a =>
                 (a.ContentType?.Contains("pdf", StringComparison.OrdinalIgnoreCase) ?? false) ||
                 a.FileName.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase))
