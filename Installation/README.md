@@ -30,13 +30,17 @@ Alle Secrets werden in der `.env` Datei verwaltet. Diese Datei wird nie ins Repo
 | `POSTGRES_PASSWORD` | Datenbankpasswort – beliebig wählen, vor dem ersten Start setzen |
 | `JWT_SECRET`        | Mindestens 32 Zeichen, zufällig generieren: `openssl rand -base64 32` |
 | `HOST_PORT`         | Externer Port (Standard: 8080) – anpassen wenn der Port bereits belegt ist |
+| `DOCKER_GID`        | Gruppen-ID des Docker-Sockets für die Docker-Steuerung. Leer lassen, `./setup.sh` trägt sie ein. Manuell: `stat -c %g /var/run/docker.sock` (Docker Desktop: `0`) |
 
 Beispiel `.env`:
 ```
 POSTGRES_PASSWORD=sicheres_passwort_hier
 JWT_SECRET=abcdefghijklmnopqrstuvwxyz123456
 HOST_PORT=8080
+DOCKER_GID=
 ```
+
+**Bewahre die `.env` (und das Backup-Verschlüsselungspasswort) getrennt vom Server auf** – sie ist nicht im Backup enthalten, wird aber für eine Wiederherstellung benötigt.
 
 ## Stoppen
 
@@ -54,6 +58,42 @@ Optionen:
 - `-f` / `--force` – Container neu starten, auch wenn kein Update gefunden
 - `-c` / `--check` – Nur prüfen und Images laden, Container nicht neu starten
 - `-h` / `--help`  – Hilfe anzeigen
+
+## Modulsteuerung
+
+Unter *Einstellungen → Modulsteuerung* lassen sich einzelne Module stoppen und wieder starten, z. B. um
+Arbeitsspeicher zu sparen. Gestoppte Module bleiben auch nach einem Server-Neustart aus. Module, die du aus
+der `docker-compose.yml` entfernst, erscheinen dort nicht.
+
+Dafür läuft der Container `docker-control` ([wollomatic/socket-proxy](https://github.com/wollomatic/socket-proxy)).
+Er ist der einzige mit Zugriff auf den Docker-Socket, erlaubt nur Status sowie Stoppen/Starten der
+Werkbank-Container (nicht des Hosts, keine fremden Container) und ist nur über ein internes Netzwerk erreichbar.
+Kommen eigene Module hinzu oder werden Container umbenannt, müssen die Namen in der Regex des Proxys angepasst
+werden (`-allowGET` / `-allowPOST`) sowie `DockerControl__ContainerNamePattern` beim Host.
+
+## Backup und Wiederherstellung
+
+Unter *Einstellungen → Backup* werden der komplette `data/`-Ordner (Datenbank, Uploads, Keys) automatisch
+oder manuell auf SFTP, S3, WebDAV oder ein lokales Ziel gesichert (mit Rotation und optionaler Verschlüsselung).
+
+**Nicht im Backup:** `.env` (`POSTGRES_PASSWORD`, `JWT_SECRET`), `docker-compose.yml`, Reverse-Proxy und
+Zertifikate.
+
+Die Wiederherstellung läuft ebenfalls in der Oberfläche: Die Werkbank hält dafür Module und Datenbank kurz an,
+prüft das Backup, tauscht die Daten und startet alles wieder. Startet die Datenbank mit den wiederhergestellten
+Daten nicht, wird automatisch der vorherige Stand zurückgeholt.
+
+**Umzug auf einen neuen Server:**
+1. `.env` des alten Servers sichern – `POSTGRES_PASSWORD` und `JWT_SECRET` müssen **identisch** bleiben (das
+   Datenbankpasswort steckt in den wiederhergestellten Daten).
+2. Neu installieren (diese Anleitung) und die gesicherte `.env` verwenden.
+3. Ersteinrichtung durchführen, unter *Backup* das alte Ziel neu anlegen und – falls verschlüsselt – das
+   Verschlüsselungspasswort eintragen.
+4. Backup wiederherstellen (mit Passwort des neuen Admins und `RESTORE` bestätigen). Danach gelten die Benutzer
+   des alten Servers.
+5. `docker compose restart host` – der Host lädt damit die wiederhergestellten Schlüssel; anschließend SMTP und
+   Backup-Ziel einmal testen.
+6. Den alten Server abschalten, damit nicht zwei Instanzen in dasselbe Backup-Ziel schreiben.
 
 ## Erreichbarkeit
 
