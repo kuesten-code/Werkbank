@@ -58,7 +58,7 @@
   docker-control:
     image: wollomatic/socket-proxy:1.13.1
     container_name: kuestencode_werkbank_docker_control
-    user: "65534:${DOCKER_GID:?DOCKER_GID in .env setzen (Gruppen-ID der Gruppe docker: getent group docker)}"
+    user: "65534:${DOCKER_GID:?DOCKER_GID in .env setzen: ./setup.sh ausfuehren oder Wert mit stat -c %g /var/run/docker.sock ermitteln}"
     read_only: true
     mem_limit: 64M
     cap_drop:
