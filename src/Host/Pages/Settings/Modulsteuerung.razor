@@ -1,0 +1,77 @@
+@page "/settings/modulsteuerung"
+@attribute [Authorize]
+@using Kuestencode.Werkbank.Host.Services.Docker
+@inject IModuleControlService ModuleControl
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+
+<PageTitle>Einstellungen | Modulsteuerung - Küstencode Werkbank</PageTitle>
+
+<RoleGuard AllowedRoles="@(new List<UserRole> { UserRole.Admin })" RedirectTo="/rapport">
+<MudContainer MaxWidth="MaxWidth.Medium" Class="mt-4">
+    <MudText Typo="Typo.h4" GutterBottom="true">Einstellungen | Modulsteuerung</MudText>
+    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">
+        Nicht benötigte Module stoppen, um Arbeitsspeicher zu sparen. Gestoppte Module bleiben auch nach
+        einem Server-Neustart aus, bis sie hier wieder gestartet werden.
+    </MudText>
+
+    @if (_errorMessage != null)
+    {
+        <MudAlert Severity="Severity.Error" Class="mb-4">@_errorMessage</MudAlert>
+    }
+
+    @if (_loading)
+    {
+        <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+    }
+    else
+    {
+        <MudTable Items="@_modules" Hover="true" Dense="true" Class="mb-4">
+            <HeaderContent>
+                <MudTh>Modul</MudTh>
+                <MudTh>Status</MudTh>
+                <MudTh Style="text-align: right">Aktionen</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd>@context.Module.DisplayName</MudTd>
+                <MudTd>
+                    @if (context.IsRunning)
+                    {
+                        <MudChip T="string" Color="Color.Success" Size="Size.Small">Läuft</MudChip>
+                    }
+                    else
+                    {
+                        <MudChip T="string" Color="Color.Default" Size="Size.Small">Gestoppt</MudChip>
+                    }
+                </MudTd>
+                <MudTd Style="text-align: right">
+                    @if (context.IsRunning)
+                    {
+                        <MudTooltip Text="Stoppen">
+                            <MudIconButton Icon="@Icons.Material.Filled.Stop" Size="Size.Small" Color="Color.Warning"
+                                           Disabled="@(_busyKey != null)"
+                                           OnClick="@(() => StopAsync(context))" />
+                        </MudTooltip>
+                    }
+                    else
+                    {
+                        <MudTooltip Text="Starten">
+                            <MudIconButton Icon="@Icons.Material.Filled.PlayArrow" Size="Size.Small" Color="Color.Success"
+                                           Disabled="@(_busyKey != null)"
+                                           OnClick="@(() => StartAsync(context))" />
+                        </MudTooltip>
+                    }
+                </MudTd>
+            </RowTemplate>
+            <NoRecordsContent>
+                <MudText Color="Color.Secondary">Keine steuerbaren Module gefunden.</MudText>
+            </NoRecordsContent>
+        </MudTable>
+
+        <MudButton Variant="Variant.Text" StartIcon="@Icons.Material.Filled.Refresh"
+                   Disabled="@(_busyKey != null)" OnClick="LoadAsync">
+            Aktualisieren
+        </MudButton>
+    }
+</MudContainer>
+</RoleGuard>

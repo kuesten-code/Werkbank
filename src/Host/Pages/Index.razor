@@ -1,25 +1,19 @@
 @page "/"
 @attribute [Authorize]
+@using Kuestencode.Werkbank.Host.Services.Docker
 
 <PageTitle>Übersicht - Küstencode Werkbank</PageTitle>
 
 <MudText Typo="Typo.h4" GutterBottom="true">Küstencode Werkbank</MudText>
 
-@if (_isAdmin && _backupStatus is { } status && (status.IsOverdue || _latestSuccessfulBackup != null))
+@if (_isAdmin && _backupStatus is { IsOverdue: true } status)
 {
-    <MudAlert Severity="@(status.IsOverdue ? Severity.Warning : Severity.Info)" Class="mb-4">
+    <MudAlert Severity="Severity.Warning" Class="mb-4">
         <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Wrap="Wrap.Wrap" Spacing="2">
             <MudText>
-                @if (status.IsOverdue)
-                {
-                    @(_latestSuccessfulBackup != null
-                        ? $"Letztes erfolgreiches Backup vor {status.DaysSinceLastBackup} Tagen."
-                        : "Noch kein erfolgreiches Backup vorhanden.")
-                }
-                else
-                {
-                    @($"Letztes Backup: {_latestSuccessfulBackup!.CompletedAt?.ToLocalTime():dd.MM.yyyy HH:mm}")
-                }
+                @(_latestSuccessfulBackup != null
+                    ? $"Letztes erfolgreiches Backup vor {status.DaysSinceLastBackup} Tagen."
+                    : "Noch kein erfolgreiches Backup vorhanden.")
             </MudText>
             <MudStack Row="true" Spacing="2">
                 @if (_latestSuccessfulBackup != null)
@@ -111,14 +105,23 @@
                 <MudItem xs="12" md="6">
                     <MudText Typo="Typo.subtitle2" Color="Color.Secondary" Class="mb-2">Module</MudText>
                     <MudStack Spacing="2">
-                        @foreach (var (name, online) in _moduleStatus)
+                        @foreach (var (name, state) in _moduleStatus)
                         {
                             <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
                                 <MudIcon Icon="@Icons.Material.Filled.Circle"
-                                         Color="@(online ? Color.Success : Color.Error)"
+                                         Color="@(state switch
+                                                  {
+                                                      ModuleDisplayState.Online => Color.Success,
+                                                      ModuleDisplayState.ManuallyStopped => Color.Warning,
+                                                      _ => Color.Error
+                                                  })"
                                          Size="Size.Small" />
                                 <MudText Typo="Typo.body2">@name</MudText>
-                                @if (!online)
+                                @if (state == ModuleDisplayState.ManuallyStopped)
+                                {
+                                    <MudText Typo="Typo.caption" Color="Color.Warning">Manuell gestoppt</MudText>
+                                }
+                                else if (state == ModuleDisplayState.Offline)
                                 {
                                     <MudText Typo="Typo.caption" Color="Color.Error">Nicht erreichbar</MudText>
                                 }

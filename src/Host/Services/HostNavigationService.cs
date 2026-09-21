@@ -168,6 +168,15 @@ public class HostNavigationService : IHostNavigationService
             AllowedRoles = new List<UserRole> { UserRole.Admin }
         });
 
+        settingsByCategory[NavSettingsCategory.Allgemein].Add(new NavItemDto
+        {
+            Label = "Modulsteuerung",
+            Href = "/settings/modulsteuerung",
+            Icon = "",
+            Type = NavItemType.Link,
+            AllowedRoles = new List<UserRole> { UserRole.Admin }
+        });
+
         // Add Host email settings to "Versand" - nur Admin
         settingsByCategory[NavSettingsCategory.Versand].Add(new NavItemDto
         {

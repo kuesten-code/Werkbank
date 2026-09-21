@@ -5,6 +5,7 @@ using Kuestencode.Werkbank.Host.Data;
 using Kuestencode.Werkbank.Host.Models;
 using Kuestencode.Werkbank.Host.Services;
 using Kuestencode.Werkbank.Host.Services.Backup;
+using Kuestencode.Werkbank.Host.Services.Docker;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
@@ -21,6 +22,7 @@ public class BackupServiceTests : IDisposable
     private readonly Mock<IBackupTargetProviderFactory> _providerFactory = new();
     private readonly Mock<IBackupTargetProvider> _provider = new();
     private readonly Mock<IEmailEngine> _emailEngine = new();
+    private readonly Mock<IStackControlService> _stackControl = new();
     private readonly Mock<IWebHostEnvironment> _env = new();
     private readonly PasswordEncryptionService _passwordEncryption;
     private readonly string _contentRoot;
@@ -38,6 +40,9 @@ public class BackupServiceTests : IDisposable
         File.WriteAllText(Path.Combine(_contentRoot, "data", "dummy.txt"), "content");
         _env.Setup(e => e.ContentRootPath).Returns(_contentRoot);
 
+        _stackControl.Setup(s => s.StopAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new StackSnapshot(true, new List<StackModule>()));
+
         _providerFactory.Setup(f => f.GetProvider(It.IsAny<BackupTargetType>())).Returns(_provider.Object);
         _provider.Setup(p => p.ListFilesAsync(It.IsAny<BackupTarget>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<BackupFileInfo>());
@@ -48,7 +53,7 @@ public class BackupServiceTests : IDisposable
         _service = new BackupService(
             _context, _env.Object, configuration, _providerFactory.Object, _passwordEncryption,
             _emailEngine.Object, Mock.Of<IHttpClientFactory>(), new BackupScheduleChangeSignal(),
-            NullLogger<BackupService>.Instance);
+            _stackControl.Object, NullLogger<BackupService>.Instance);
     }
 
     public void Dispose()
@@ -403,7 +408,7 @@ public class BackupServiceTests : IDisposable
             var serviceWithCustomSource = new BackupService(
                 _context, _env.Object, configuration, _providerFactory.Object, _passwordEncryption,
                 _emailEngine.Object, Mock.Of<IHttpClientFactory>(), new BackupScheduleChangeSignal(),
-                NullLogger<BackupService>.Instance);
+                _stackControl.Object, NullLogger<BackupService>.Instance);
 
             await SeedTargetAsync();
             _provider.Setup(p => p.UploadAsync(It.IsAny<BackupTarget>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
@@ -626,25 +631,18 @@ public class BackupServiceTests : IDisposable
         // Regressionstest für einen Bug, der den "keys"-Ordner gekostet hat: Wenn das
         // Beiseiteräumen der aktuellen Daten mittendrin fehlschlägt (z.B. fehlende
         // Berechtigung auf einem bestimmten Unterordner wie "postgres"), darf dabei NICHTS
-        // verloren gehen. Seit dem Umstieg von Directory.Move (rename()) auf Kopieren+Löschen
-        // ist die kritische Garantie nicht mehr "kein Ordner bleibt zurück", sondern "die Daten
-        // existieren garantiert irgendwo, nie nur halb": schlägt der Lösch-Schritt nach
-        // erfolgreichem Kopieren fehl, bleibt das Original UND eine Kopie liegen (Platz-
-        // verschwendung, aber kein Verlust) statt dass die Daten zwischen den Ordnern verschwinden.
+        // verloren gehen. Die kritische Garantie ist "die Daten existieren garantiert
+        // irgendwo, nie nur halb": schlägt der Lösch-Schritt nach erfolgreichem Kopieren fehl,
+        // bleibt das Original UND eine Kopie liegen (Platzverschwendung, aber kein Verlust).
         var target = await SeedTargetAsync();
         var dataDir = Path.Combine(_contentRoot, "data");
 
-        var lockedDir = Path.Combine(dataDir, "postgres");
-        Directory.CreateDirectory(lockedDir);
+        var lockedDir = SeedLivePostgres();
         var lockedFilePath = Path.Combine(lockedDir, "wichtig.txt");
         await File.WriteAllTextAsync(lockedFilePath, "unverzichtbare Daten");
 
-        _provider.Setup(p => p.DownloadAsync(It.IsAny<BackupTarget>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .Returns<BackupTarget, string, string, CancellationToken>((_, _, localPath, _) =>
-            {
-                File.WriteAllBytes(localPath, new byte[] { 1, 2, 3 });
-                return Task.CompletedTask;
-            });
+        var archive = await CreateArchiveAsync(("postgres/PG_VERSION", "16"), ("restored.txt", "neu"));
+        ServeArchive(archive);
 
         // Offener Handle ohne Delete-Share simuliert einen Lösch-Fehler nach erfolgreichem
         // Kopieren (steht hier stellvertretend für z.B. "Access denied" bei fremdem Dateibesitzer
@@ -658,17 +656,179 @@ public class BackupServiceTests : IDisposable
         // Kritisch: Der Originalinhalt ist so oder so noch da - im schlimmsten Fall doppelt
         // (dataDir behält ihn, weil das Löschen scheiterte), aber niemals weg.
         File.ReadAllText(Path.Combine(dataDir, "dummy.txt")).Should().Be("content");
-        File.Exists(lockedFilePath).Should().BeTrue();
         File.ReadAllText(lockedFilePath).Should().Be("unverzichtbare Daten");
+        File.Exists(Path.Combine(dataDir, "restored.txt")).Should().BeFalse();
 
-        // Zweiter Versuch (Sperre jetzt freigegeben, Archiv weiterhin ungültig) darf ebenfalls
-        // nichts verlieren.
-        var secondAttempt = await _service.RestoreAsync(target.Id, "backup-2026-09-14-030000.tar.gz");
+        // Der zuvor angehaltene Stack wird wieder gestartet, auch wenn der Restore scheitert.
+        _stackControl.Verify(s => s.StartAsync(It.IsAny<StackSnapshot>(), It.IsAny<CancellationToken>()), Times.Once);
+    }
 
-        secondAttempt.Success.Should().BeFalse();
+    [Fact]
+    public async Task RestoreAsync_MitPostgres_StopptStackTauschtDatenUndStartetStackWieder()
+    {
+        var target = await SeedTargetAsync();
+        var dataDir = Path.Combine(_contentRoot, "data");
+        SeedLivePostgres("16");
+
+        var order = new List<string>();
+        _stackControl.Setup(s => s.StopAsync(It.IsAny<CancellationToken>()))
+            .Callback(() => order.Add("stop"))
+            .ReturnsAsync(new StackSnapshot(true, new List<StackModule>()));
+        _stackControl.Setup(s => s.StartAsync(It.IsAny<StackSnapshot>(), It.IsAny<CancellationToken>()))
+            .Callback(() => order.Add("start"))
+            .Returns(Task.CompletedTask);
+
+        var archive = await CreateArchiveAsync(("postgres/PG_VERSION", "16\n"), ("postgres/backup_label", "label"), ("restored.txt", "neu"));
+        ServeArchive(archive);
+
+        var result = await _service.RestoreAsync(target.Id, "backup-2026-09-14-030000.tar.gz");
+
+        result.Success.Should().BeTrue();
+        order.Should().Equal("stop", "start");
+        File.ReadAllText(Path.Combine(dataDir, "restored.txt")).Should().Be("neu");
+        File.Exists(Path.Combine(dataDir, "postgres", "backup_label")).Should().BeTrue();
+        File.Exists(Path.Combine(dataDir, "postgres", "live.dat")).Should().BeFalse();
+        File.Exists(Path.Combine(dataDir, "dummy.txt")).Should().BeFalse();
+        Directory.GetDirectories(dataDir, ".pre-restore-*").Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task RestoreAsync_PostgresVersionPasstNicht_BrichtVorDemStoppenAbUndLaesstDatenUnberuehrt()
+    {
+        var target = await SeedTargetAsync();
+        var dataDir = Path.Combine(_contentRoot, "data");
+        SeedLivePostgres("16");
+        ServeArchive(await CreateArchiveAsync(("postgres/PG_VERSION", "15"), ("restored.txt", "neu")));
+
+        var result = await _service.RestoreAsync(target.Id, "backup-2026-09-14-030000.tar.gz");
+
+        result.Success.Should().BeFalse();
+        result.Error.Should().Contain("Version").And.Contain("15").And.Contain("16");
+        _stackControl.Verify(s => s.StopAsync(It.IsAny<CancellationToken>()), Times.Never);
+        File.ReadAllText(Path.Combine(dataDir, "postgres", "live.dat")).Should().Be("live");
+        File.Exists(Path.Combine(dataDir, "restored.txt")).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task RestoreAsync_ArchivOhnePostgresBeiLaufenderDatenbank_WirdAbgelehnt()
+    {
+        var target = await SeedTargetAsync();
+        var dataDir = Path.Combine(_contentRoot, "data");
+        SeedLivePostgres("16");
+        ServeArchive(await CreateArchiveAsync(("restored.txt", "neu")));
+
+        var result = await _service.RestoreAsync(target.Id, "backup-2026-09-14-030000.tar.gz");
+
+        result.Success.Should().BeFalse();
+        result.Error.Should().Contain("keine Postgres-Datenbank");
+        _stackControl.Verify(s => s.StopAsync(It.IsAny<CancellationToken>()), Times.Never);
+        File.ReadAllText(Path.Combine(dataDir, "postgres", "live.dat")).Should().Be("live");
+    }
+
+    [Fact]
+    public async Task RestoreAsync_PostgresStartetMitWiederhergestelltenDatenNicht_RolltAufVorherigenStandZurueck()
+    {
+        var target = await SeedTargetAsync();
+        var dataDir = Path.Combine(_contentRoot, "data");
+        SeedLivePostgres("16");
+        ServeArchive(await CreateArchiveAsync(("postgres/PG_VERSION", "16"), ("restored.txt", "neu")));
+
+        _stackControl.SetupSequence(s => s.StartAsync(It.IsAny<StackSnapshot>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("Postgres wurde nach 120s nicht gesund"))
+            .Returns(Task.CompletedTask);
+
+        var result = await _service.RestoreAsync(target.Id, "backup-2026-09-14-030000.tar.gz");
+
+        result.Success.Should().BeFalse();
+        result.Error.Should().Contain("nicht gesund").And.Contain("vorherige Stand");
+
+        File.ReadAllText(Path.Combine(dataDir, "postgres", "live.dat")).Should().Be("live");
         File.ReadAllText(Path.Combine(dataDir, "dummy.txt")).Should().Be("content");
-        File.Exists(lockedFilePath).Should().BeTrue();
-        File.ReadAllText(lockedFilePath).Should().Be("unverzichtbare Daten");
+        File.Exists(Path.Combine(dataDir, "restored.txt")).Should().BeFalse();
+        Directory.GetDirectories(dataDir, ".pre-restore-*").Should().BeEmpty();
+
+        // Stack: anhalten, hochfahren (scheitert), erneut anhalten (Rollback), wieder hochfahren.
+        _stackControl.Verify(s => s.StopAsync(It.IsAny<CancellationToken>()), Times.Exactly(2));
+        _stackControl.Verify(s => s.StartAsync(It.IsAny<StackSnapshot>(), It.IsAny<CancellationToken>()), Times.Exactly(2));
+    }
+
+    [Fact]
+    public async Task RestoreAsync_StackLaesstSichNichtStoppen_BrichtAbOhneDatenAnzufassen()
+    {
+        var target = await SeedTargetAsync();
+        var dataDir = Path.Combine(_contentRoot, "data");
+        SeedLivePostgres("16");
+        ServeArchive(await CreateArchiveAsync(("postgres/PG_VERSION", "16"), ("restored.txt", "neu")));
+
+        _stackControl.Setup(s => s.StopAsync(It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("Postgres-Container nicht gefunden"));
+
+        var result = await _service.RestoreAsync(target.Id, "backup-2026-09-14-030000.tar.gz");
+
+        result.Success.Should().BeFalse();
+        result.Error.Should().Contain("Postgres-Container nicht gefunden");
+        File.ReadAllText(Path.Combine(dataDir, "postgres", "live.dat")).Should().Be("live");
+        File.ReadAllText(Path.Combine(dataDir, "dummy.txt")).Should().Be("content");
+        Directory.GetDirectories(dataDir, ".pre-restore-*").Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task RestoreAsync_ObneLaufendenPostgresOrdner_BenoetigtKeineDockerSteuerung()
+    {
+        var target = await SeedTargetAsync();
+        ServeArchive(await CreateArchiveAsync(("restored.txt", "neu")));
+
+        var result = await _service.RestoreAsync(target.Id, "backup-2026-09-14-030000.tar.gz");
+
+        result.Success.Should().BeTrue();
+        _stackControl.Verify(s => s.StopAsync(It.IsAny<CancellationToken>()), Times.Never);
+        _stackControl.Verify(s => s.StartAsync(It.IsAny<StackSnapshot>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    private string SeedLivePostgres(string version = "16")
+    {
+        var postgresDir = Path.Combine(_contentRoot, "data", "postgres");
+        Directory.CreateDirectory(postgresDir);
+        File.WriteAllText(Path.Combine(postgresDir, "PG_VERSION"), version + "\n");
+        File.WriteAllText(Path.Combine(postgresDir, "live.dat"), "live");
+        return postgresDir;
+    }
+
+    private void ServeArchive(string archivePath)
+    {
+        _provider.Setup(p => p.DownloadAsync(It.IsAny<BackupTarget>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Returns<BackupTarget, string, string, CancellationToken>((_, _, localPath, _) =>
+            {
+                File.Copy(archivePath, localPath, overwrite: true);
+                return Task.CompletedTask;
+            });
+    }
+
+    private async Task<string> CreateArchiveAsync(params (string RelativePath, string Content)[] files)
+    {
+        var archivePath = Path.Combine(_contentRoot, "test-archive-" + Guid.NewGuid() + ".tar.gz");
+        var stagingRoot = Directory.CreateTempSubdirectory("werkbank-restore-stage-").FullName;
+        try
+        {
+            foreach (var (relativePath, content) in files)
+            {
+                var fullPath = Path.Combine(stagingRoot, "data", relativePath);
+                Directory.CreateDirectory(Path.GetDirectoryName(fullPath)!);
+                await File.WriteAllTextAsync(fullPath, content);
+            }
+
+            var processInfo = new ProcessStartInfo("tar") { RedirectStandardError = true, UseShellExecute = false };
+            foreach (var argument in new[] { "czf", archivePath, "-C", stagingRoot, "data" })
+                processInfo.ArgumentList.Add(argument);
+
+            using var process = Process.Start(processInfo)!;
+            await process.WaitForExitAsync();
+            return archivePath;
+        }
+        finally
+        {
+            Directory.Delete(stagingRoot, true);
+        }
     }
 
     private static async Task CreateArchiveWithDataFolderAsync(string archivePath, string innerFileName, string content)
