@@ -69,14 +69,13 @@ public class PdfDownPaymentDetailBuilder
                 foreach (var downPayment in invoice.DownPayments)
                 {
                     index++;
-                    var (referenceNet, referenceGross) = ReferenceTotals(downPayment, invoice);
-                    var (net, vat) = DownPaymentAllocationCalculator.Split(downPayment.Amount, referenceNet, referenceGross);
-                    netSum += net;
-                    vatSum += vat;
+                    netSum += downPayment.NetAmount;
+                    vatSum += downPayment.VatAmount;
                     grossSum += downPayment.Amount;
 
                     var invoiceNumber = downPayment.SourceInvoice?.InvoiceNumber ?? downPayment.Description;
-                    AddDetailRow(table, $"{index}. Abschlagsrechnung", invoiceNumber, -net, -vat, -downPayment.Amount);
+                    var label = $"{index}. Abschlagsrechnung ({downPayment.VatRate.ToString("0.##", _germanCulture)} % MwSt.)";
+                    AddDetailRow(table, label, invoiceNumber, -downPayment.NetAmount, -downPayment.VatAmount, -downPayment.Amount);
                 }
 
                 table.Cell().ColumnSpan(5).PaddingTop(5).BorderTop(1).BorderColor(DividerColor);
@@ -143,17 +142,6 @@ public class PdfDownPaymentDetailBuilder
                     bold: true);
             });
         });
-    }
-
-    /// <summary>
-    /// Ermittelt die Netto/Brutto-Referenzwerte für die MwSt-Aufteilung eines Abschlags:
-    /// bevorzugt die verknüpfte Abschlagsrechnung, sonst die aktuelle Rechnung selbst.
-    /// </summary>
-    private static (decimal Net, decimal Gross) ReferenceTotals(DownPayment downPayment, Invoice invoice)
-    {
-        return downPayment.SourceInvoice != null
-            ? (downPayment.SourceInvoice.TotalNetAfterDiscount, downPayment.SourceInvoice.TotalGross)
-            : (invoice.TotalNetAfterDiscount, invoice.TotalGross);
     }
 
     private void AddDetailRow(TableDescriptor table, string label, string invoiceNumber, decimal net, decimal vat, decimal gross, bool bold = false)

@@ -63,6 +63,8 @@ public record DownPaymentDto
     public int Id { get; init; }
     public int InvoiceId { get; init; }
     public string Description { get; init; } = string.Empty;
+    public decimal NetAmount { get; init; }
+    public decimal VatRate { get; init; }
     public decimal Amount { get; init; }
     public DateTime? PaymentDate { get; init; }
     public DateTime CreatedAt { get; init; }

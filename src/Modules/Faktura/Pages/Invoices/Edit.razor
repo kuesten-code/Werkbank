@@ -284,7 +284,9 @@
                         <HeaderContent>
                             <MudTh>Beschreibung</MudTh>
                             <MudTh Style="width: 220px">Abschlagsrechnung (optional)</MudTh>
-                            <MudTh Style="width: 150px; text-align: right">Betrag</MudTh>
+                            <MudTh Style="width: 140px; text-align: right">Netto</MudTh>
+                            <MudTh Style="width: 100px; text-align: right">MwSt %</MudTh>
+                            <MudTh Style="width: 140px; text-align: right">Brutto</MudTh>
                             <MudTh Style="width: 150px">Datum</MudTh>
                             <MudTh Style="width: 60px"></MudTh>
                         </HeaderContent>
@@ -308,11 +310,23 @@
                                     </ItemTemplate>
                                 </MudAutocomplete>
                             </MudTd>
-                            <MudTd DataLabel="Betrag" Style="text-align: right">
-                                <MudNumericField @bind-Value="downPayment.Amount" Margin="Margin.Dense"
-                                                Variant="Variant.Outlined" Min="0.01m" Step="1m"
-                                                Format="C2" HideSpinButtons="true" Culture="@_culture"
-                                                OnBlur="RecalculateTotals" />
+                            <MudTd DataLabel="Netto" Style="text-align: right">
+                                <MudNumericField T="decimal" Value="downPayment.NetAmount"
+                                                ValueChanged="@(v => OnDownPaymentNetAmountChanged(downPayment, v))"
+                                                Margin="Margin.Dense" Variant="Variant.Outlined" Min="0m" Step="1m"
+                                                Format="C2" HideSpinButtons="true" Culture="@_culture" />
+                            </MudTd>
+                            <MudTd DataLabel="MwSt %" Style="text-align: right">
+                                <MudNumericField T="decimal" Value="downPayment.VatRate"
+                                                ValueChanged="@(v => OnDownPaymentVatRateChanged(downPayment, v))"
+                                                Margin="Margin.Dense" Variant="Variant.Outlined" Min="0m" Max="100m" Step="1m"
+                                                Format="0.##" HideSpinButtons="true" Culture="@_culture" />
+                            </MudTd>
+                            <MudTd DataLabel="Brutto" Style="text-align: right">
+                                <MudNumericField T="decimal" Value="downPayment.Amount"
+                                                ValueChanged="@(v => OnDownPaymentGrossAmountChanged(downPayment, v))"
+                                                Margin="Margin.Dense" Variant="Variant.Outlined" Min="0m" Step="1m"
+                                                Format="C2" HideSpinButtons="true" Culture="@_culture" />
                             </MudTd>
                             <MudTd DataLabel="Datum">
                                 <MudDatePicker @bind-Date="downPayment.PaymentDate" Margin="Margin.Dense"
