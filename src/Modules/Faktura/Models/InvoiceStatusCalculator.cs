@@ -8,10 +8,10 @@ public static class InvoiceStatusCalculator
             return InvoiceStatus.Paid;
         if (totalGross < 0 && totalPaid <= totalGross)
             return InvoiceStatus.Paid;
-        if (totalPaid != 0)
-            return InvoiceStatus.PartiallyPaid;
         if (dueDate.HasValue && dueDate.Value < DateTime.UtcNow)
             return InvoiceStatus.Overdue;
+        if (totalPaid != 0)
+            return InvoiceStatus.PartiallyPaid;
         return InvoiceStatus.Sent;
     }
 }

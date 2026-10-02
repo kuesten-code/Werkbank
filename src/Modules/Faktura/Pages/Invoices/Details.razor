@@ -85,6 +85,13 @@
                                     <td>@_invoice.DueDate.Value.ToString("dd.MM.yyyy")</td>
                                 </tr>
                             }
+                            @if (_invoice.RevisedDueDate.HasValue)
+                            {
+                                <tr>
+                                    <td><strong>Neues Zahlungsziel:</strong></td>
+                                    <td>@_invoice.RevisedDueDate.Value.ToString("dd.MM.yyyy")</td>
+                                </tr>
+                            }
                             @if (_invoice.PaidDate.HasValue)
                             {
                                 <tr>
@@ -544,6 +551,31 @@
                             <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
                         }
                         Speichern
+                    </MudButton>
+                </MudStack>
+            </MudPaper>
+        }
+
+        @if (_zahlungszielModalOpen)
+        {
+            <MudOverlay Visible="true" DarkBackground="true" ZIndex="1200" />
+            <MudPaper Style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 1300; min-width: 360px; max-width: 440px;"
+                      Elevation="8" Class="pa-6">
+                <MudText Typo="Typo.h6" GutterBottom="true">Neues Zahlungsziel setzen?</MudText>
+                <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">
+                    Die Rechnung ist teilweise bezahlt, offen sind noch @_invoice.RemainingAmount.ToString("C2", _culture).
+                    Das Fälligkeitsdatum auf der Rechnung selbst bleibt unverändert.
+                </MudText>
+                <MudDatePicker Label="Neues Zahlungsziel" @bind-Date="_zahlungszielInput"
+                               DateFormat="dd.MM.yyyy" Variant="Variant.Outlined"
+                               MinDate="DateTime.Today" />
+                <MudStack Row="true" Justify="Justify.FlexEnd" Class="mt-4" Spacing="2">
+                    <MudButton Variant="Variant.Text" OnClick="CloseZahlungszielModal">Nein</MudButton>
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                               StartIcon="@Icons.Material.Filled.Event"
+                               OnClick="SetzeZahlungsziel"
+                               Disabled="@(!_zahlungszielInput.HasValue)">
+                        Setzen
                     </MudButton>
                 </MudStack>
             </MudPaper>

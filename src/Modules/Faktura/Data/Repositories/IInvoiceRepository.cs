@@ -15,6 +15,7 @@ public interface IInvoiceRepository : IRepository<Invoice>
     Task<IEnumerable<Invoice>> GetByTypeAsync(InvoiceType type);
     Task<IEnumerable<Invoice>> GetPaidByDateRangeAsync(DateTime paidFrom, DateTime paidTo);
     Task<IEnumerable<Invoice>> GetOverdueInvoicesAsync();
+    Task<IEnumerable<Invoice>> GetOpenInvoicesByInvoiceDateRangeAsync(DateTime from, DateTime to);
     Task<Invoice?> GetWithDetailsAsync(int id);
     Task<IEnumerable<Invoice>> GetByProjectIdAsync(int projectId);
 }

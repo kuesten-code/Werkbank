@@ -47,14 +47,10 @@ public class InvoiceOverdueService : BackgroundService
 
         var now = DateTime.UtcNow;
 
-        // Finde alle Fakturen, die:
-        // 1. Status "Sent" haben
-        // 2. Ein Fälligkeitsdatum haben
-        // 3. Das Fälligkeitsdatum überschritten ist
+        // Ein nach Teilzahlung neu vereinbartes Zahlungsziel ersetzt das ursprüngliche Fälligkeitsdatum
         var overdueInvoices = await context.Invoices
-            .Where(i => i.Status == InvoiceStatus.Sent &&
-                       i.DueDate.HasValue &&
-                       i.DueDate.Value < now)
+            .Where(i => (i.Status == InvoiceStatus.Sent || i.Status == InvoiceStatus.PartiallyPaid) &&
+                       (i.RevisedDueDate ?? i.DueDate) < now)
             .ToListAsync();
 
         if (overdueInvoices.Any())
@@ -66,7 +62,7 @@ public class InvoiceOverdueService : BackgroundService
                 invoice.Status = InvoiceStatus.Overdue;
                 _logger.LogInformation("Marked invoice {InvoiceNumber} as overdue (Due: {DueDate})",
                     invoice.InvoiceNumber,
-                    invoice.DueDate);
+                    invoice.EffectiveDueDate);
             }
 
             await context.SaveChangesAsync();

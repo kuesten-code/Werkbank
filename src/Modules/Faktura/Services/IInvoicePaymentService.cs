@@ -10,6 +10,7 @@ public interface IInvoicePaymentService
     Task<IEnumerable<InvoicePayment>> GetZahlungenAsync(int invoiceId);
     Task ZahlungErfassenAsync(int invoiceId, decimal betrag, DateTime datum, string? notiz);
     Task ZahlungLoeschenAsync(int zahlungId);
+    Task ZahlungszielSetzenAsync(int invoiceId, DateTime zahlungsziel);
     Task<IEnumerable<InvoicePayment>> GetByPaymentDateRangeAsync(DateTime von, DateTime bis);
 }
 
@@ -57,6 +58,16 @@ public class InvoicePaymentService : IInvoicePaymentService
         await RecalculateStatusAsync(invoiceId);
     }
 
+    public async Task ZahlungszielSetzenAsync(int invoiceId, DateTime zahlungsziel)
+    {
+        var invoice = await _context.Invoices.FindAsync(invoiceId)
+            ?? throw new InvalidOperationException($"Rechnung {invoiceId} nicht gefunden.");
+
+        invoice.RevisedDueDate = DateTime.SpecifyKind(zahlungsziel.Date, DateTimeKind.Utc);
+        await _context.SaveChangesAsync();
+        await RecalculateStatusAsync(invoiceId);
+    }
+
     public async Task<IEnumerable<InvoicePayment>> GetByPaymentDateRangeAsync(DateTime von, DateTime bis)
     {
         return await _paymentRepository.GetByPaymentDateRangeAsync(von, bis);
@@ -75,7 +86,7 @@ public class InvoicePaymentService : IInvoicePaymentService
         if (invoice == null) return;
         if (invoice.Status is InvoiceStatus.Draft or InvoiceStatus.Cancelled) return;
 
-        var newStatus = InvoiceStatusCalculator.Calculate(invoice.TotalGross, totalPaid, invoice.DueDate);
+        var newStatus = InvoiceStatusCalculator.Calculate(invoice.TotalGross, totalPaid, invoice.EffectiveDueDate);
         invoice.Status = newStatus;
 
         if (newStatus == InvoiceStatus.Paid)

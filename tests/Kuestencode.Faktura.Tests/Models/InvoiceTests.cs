@@ -204,4 +204,25 @@ public class InvoiceTests
         inv.Payments.Add(new InvoicePayment { Amount = -595m });
         inv.TotalPaidNet.Should().Be(-500m);
     }
+
+    // ─── EffectiveDueDate ─────────────────────────────────────────────────────
+
+    [Fact]
+    public void EffectiveDueDate_OhneNeuesZahlungsziel_IstFaelligkeitsdatum()
+    {
+        var inv = MakeInvoice();
+        inv.DueDate = new DateTime(2026, 3, 1);
+
+        inv.EffectiveDueDate.Should().Be(new DateTime(2026, 3, 1));
+    }
+
+    [Fact]
+    public void EffectiveDueDate_MitNeuemZahlungsziel_IstNeuesZahlungsziel()
+    {
+        var inv = MakeInvoice();
+        inv.DueDate = new DateTime(2026, 3, 1);
+        inv.RevisedDueDate = new DateTime(2026, 4, 15);
+
+        inv.EffectiveDueDate.Should().Be(new DateTime(2026, 4, 15));
+    }
 }
