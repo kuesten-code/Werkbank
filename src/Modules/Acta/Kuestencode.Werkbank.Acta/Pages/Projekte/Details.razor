@@ -203,7 +203,8 @@
                 <MudTabPanel Text="Übersicht" Icon="@Icons.Material.Filled.Dashboard">
                     @if (_fakturaAvailable || _receptaAvailable || _rapportAvailable)
                     {
-                        var einnahmen = _projectInvoices?.TotalNet ?? 0m;
+                        var einnahmen = _projectInvoices?.TotalPaidNet ?? 0m;
+                        var fakturiert = _projectInvoices?.TotalNet ?? 0m;
                         var material = _projectExpenses?.TotalNet ?? 0m;
                         var arbeit = _projektAbrechnung?.ArbeitszeitkostenNetto ?? 0m;
                         var ausgaben = material + arbeit;
@@ -213,6 +214,10 @@
                                 <MudItem xs="12" sm="4" Class="d-flex flex-column align-center">
                                     <MudText Typo="Typo.caption" Color="Color.Secondary">Einnahmen (netto)</MudText>
                                     <MudText Typo="Typo.h6" Color="Color.Success">@einnahmen.ToString("N2", _culture) €</MudText>
+                                    @if (fakturiert != einnahmen)
+                                    {
+                                        <MudText Typo="Typo.caption" Color="Color.Secondary">von @fakturiert.ToString("N2", _culture) € fakturiert</MudText>
+                                    }
                                 </MudItem>
                                 <MudItem xs="12" sm="4" Class="d-flex flex-column align-center">
                                     <MudText Typo="Typo.caption" Color="Color.Secondary">Ausgaben (netto)</MudText>
@@ -617,6 +622,7 @@
                                                 <MudTh>Status</MudTh>
                                                 <MudTh Style="text-align: right;">Netto</MudTh>
                                                 <MudTh Style="text-align: right;">Brutto</MudTh>
+                                                <MudTh Style="text-align: right;">Bezahlt (brutto)</MudTh>
                                             </HeaderContent>
                                             <RowTemplate>
                                                 <MudTd DataLabel="Rechnungsnr.">
@@ -630,6 +636,7 @@
                                                 </MudTd>
                                                 <MudTd DataLabel="Netto" Style="text-align: right;">@context.TotalNetAfterDiscount.ToString("N2", _culture) €</MudTd>
                                                 <MudTd DataLabel="Brutto" Style="text-align: right;">@context.TotalGross.ToString("N2", _culture) €</MudTd>
+                                                <MudTd DataLabel="Bezahlt (brutto)" Style="text-align: right;">@context.TotalPaid.ToString("N2", _culture) €</MudTd>
                                             </RowTemplate>
                                         </MudTable>
                                         <MudPaper Class="pa-3 mt-2" Elevation="0">
@@ -639,6 +646,9 @@
                                                 </MudText>
                                                 <MudText Typo="Typo.subtitle2">
                                                     Gesamt Brutto: <strong>@_projectInvoices.TotalGross.ToString("N2", _culture) €</strong>
+                                                </MudText>
+                                                <MudText Typo="Typo.subtitle2">
+                                                    Bezahlt Brutto: <strong>@_projectInvoices.TotalPaidGross.ToString("N2", _culture) €</strong>
                                                 </MudText>
                                             </MudStack>
                                         </MudPaper>
@@ -998,6 +1008,7 @@
     private static Color GetInvoiceStatusColor(string status) => status switch
     {
         "Paid" => Color.Success,
+        "PartiallyPaid" => Color.Warning,
         "Sent" => Color.Info,
         "Overdue" => Color.Error,
         "Cancelled" => Color.Default,
@@ -1009,6 +1020,7 @@
         "Draft" => "Entwurf",
         "Sent" => "Versendet",
         "Paid" => "Bezahlt",
+        "PartiallyPaid" => "Teilbezahlt",
         "Overdue" => "Überfällig",
         "Cancelled" => "Storniert",
         _ => status

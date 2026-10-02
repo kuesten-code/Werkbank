@@ -153,4 +153,55 @@ public class InvoiceTests
         var inv = MakeInvoice(MakeItem(1, 200m, vatRate: 0m));
         inv.AmountDue.Should().Be(200m);
     }
+
+    // ─── TotalPaidNet ─────────────────────────────────────────────────────────
+
+    [Fact]
+    public void TotalPaidNet_Teilzahlung_IstAnteiligerNettobetrag()
+    {
+        var inv = MakeInvoice(MakeItem(1, 1000m));
+        inv.Payments.Add(new InvoicePayment { Amount = 595m });
+        inv.TotalPaidNet.Should().Be(500m);
+    }
+
+    [Fact]
+    public void TotalPaidNet_MehrereTeilzahlungen_WerdenSummiert()
+    {
+        var inv = MakeInvoice(MakeItem(1, 1000m));
+        inv.Payments.Add(new InvoicePayment { Amount = 238m });
+        inv.Payments.Add(new InvoicePayment { Amount = 357m });
+        inv.TotalPaidNet.Should().Be(500m);
+    }
+
+    [Fact]
+    public void TotalPaidNet_VollstaendigBezahlt_GleichNettoNachRabatt()
+    {
+        var inv = MakeInvoice(MakeItem(1, 1000m));
+        inv.DiscountType = DiscountType.Percentage;
+        inv.DiscountValue = 10m;
+        inv.Payments.Add(new InvoicePayment { Amount = inv.TotalGross });
+        inv.TotalPaidNet.Should().Be(900m);
+    }
+
+    [Fact]
+    public void TotalPaidNet_OhneZahlung_IstNull()
+    {
+        MakeInvoice(MakeItem(1, 1000m)).TotalPaidNet.Should().Be(0m);
+    }
+
+    [Fact]
+    public void TotalPaidNet_OhnePositionen_IstNull()
+    {
+        var inv = MakeInvoice();
+        inv.Payments.Add(new InvoicePayment { Amount = 100m });
+        inv.TotalPaidNet.Should().Be(0m);
+    }
+
+    [Fact]
+    public void TotalPaidNet_TeilweiseErstatteteGutschrift_IstAnteiligNegativ()
+    {
+        var inv = MakeInvoice(MakeItem(-1, 1000m));
+        inv.Payments.Add(new InvoicePayment { Amount = -595m });
+        inv.TotalPaidNet.Should().Be(-500m);
+    }
 }

@@ -38,6 +38,8 @@ public record InvoiceDto
     public decimal TotalGross { get; init; }
     public decimal TotalDownPayments { get; init; }
     public decimal AmountDue { get; init; }
+    public decimal TotalPaid { get; init; }
+    public decimal TotalPaidNet { get; init; }
     public List<InvoiceItemDto> Items { get; init; } = [];
     public List<DownPaymentDto> DownPayments { get; init; } = [];
 }

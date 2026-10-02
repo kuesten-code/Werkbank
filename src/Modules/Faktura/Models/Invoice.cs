@@ -150,4 +150,8 @@ public class Invoice
 
     [NotMapped]
     public decimal RemainingAmount => TotalGross - TotalPaid;
+
+    // Wie in Saldo (§11 EStG): Zahlungen sind brutto, der Netto-Anteil wird im Verhältnis zum Rechnungsbrutto umgelegt
+    [NotMapped]
+    public decimal TotalPaidNet => TotalGross == 0 ? 0 : TotalNetAfterDiscount * TotalPaid / TotalGross;
 }

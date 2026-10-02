@@ -450,6 +450,8 @@ public class InvoiceController : ControllerBase
                 ProjectId = projectId,
                 TotalNet = dtos.Sum(i => i.TotalNetAfterDiscount),
                 TotalGross = dtos.Sum(i => i.TotalGross),
+                TotalPaidNet = dtos.Sum(i => i.TotalPaidNet),
+                TotalPaidGross = dtos.Sum(i => i.TotalPaid),
                 InvoiceCount = dtos.Count,
                 Invoices = dtos
             };
@@ -526,6 +528,8 @@ public class InvoiceController : ControllerBase
             TotalGross = invoice.TotalGross,
             TotalDownPayments = invoice.TotalDownPayments,
             AmountDue = invoice.AmountDue,
+            TotalPaid = invoice.TotalPaid,
+            TotalPaidNet = invoice.TotalPaidNet,
             Items = invoice.Items.Select(item => new InvoiceItemDto
             {
                 Id = item.Id,
