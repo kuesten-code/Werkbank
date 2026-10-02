@@ -208,6 +208,9 @@ namespace Kuestencode.Faktura.Data.Migrations
                     b.Property<int?>("RelatedInvoiceId")
                         .HasColumnType("integer");
 
+                    b.Property<DateTime?>("RevisedDueDate")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<DateTime?>("ServicePeriodEnd")
                         .HasColumnType("timestamp with time zone");
 

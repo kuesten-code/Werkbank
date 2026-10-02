@@ -41,4 +41,18 @@ public class InvoiceStatusCalculatorTests
         var result = InvoiceStatusCalculator.Calculate(totalGross: 119m, totalPaid: 0m, dueDate: DateTime.UtcNow.AddDays(-1));
         result.Should().Be(InvoiceStatus.Overdue);
     }
+
+    [Fact]
+    public void Calculate_TeilgezahltUeberfaellig_GibtOverdueZurueck()
+    {
+        var result = InvoiceStatusCalculator.Calculate(totalGross: 119m, totalPaid: 50m, dueDate: DateTime.UtcNow.AddDays(-1));
+        result.Should().Be(InvoiceStatus.Overdue);
+    }
+
+    [Fact]
+    public void Calculate_TeilgezahltNochNichtFaellig_GibtPartiallyPaidZurueck()
+    {
+        var result = InvoiceStatusCalculator.Calculate(totalGross: 119m, totalPaid: 50m, dueDate: DateTime.UtcNow.AddDays(7));
+        result.Should().Be(InvoiceStatus.PartiallyPaid);
+    }
 }

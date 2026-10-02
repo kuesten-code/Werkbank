@@ -184,6 +184,28 @@ public class InvoiceRepository : Repository<Invoice>, IInvoiceRepository
         return invoices;
     }
 
+    public async Task<IEnumerable<Invoice>> GetOpenInvoicesByInvoiceDateRangeAsync(DateTime from, DateTime to)
+    {
+        var fromUtc = DateTime.SpecifyKind(from.Date, DateTimeKind.Utc);
+        var toExclusiveUtc = DateTime.SpecifyKind(to.Date.AddDays(1), DateTimeKind.Utc);
+
+        var invoices = await _dbSet
+            .Include(i => i.Items)
+            .Include(i => i.Payments)
+            .Where(i => i.Type == InvoiceType.Invoice &&
+                       (i.Status == InvoiceStatus.Sent ||
+                        i.Status == InvoiceStatus.Overdue ||
+                        i.Status == InvoiceStatus.PartiallyPaid) &&
+                       i.InvoiceDate >= fromUtc &&
+                       i.InvoiceDate < toExclusiveUtc)
+            .OrderBy(i => i.InvoiceDate)
+            .ThenBy(i => i.InvoiceNumber)
+            .ToListAsync();
+
+        await LoadCustomersAsync(invoices);
+        return invoices;
+    }
+
     public async Task<Invoice?> GetWithDetailsAsync(int id)
     {
         var invoice = await _dbSet

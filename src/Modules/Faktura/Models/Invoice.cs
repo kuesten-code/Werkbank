@@ -21,6 +21,15 @@ public class Invoice
 
     public DateTime? DueDate { get; set; }
 
+    /// <summary>
+    /// Nach einer Teilzahlung vereinbartes Zahlungsziel. Bleibt bewusst getrennt von <see cref="DueDate"/>,
+    /// damit das gedruckte/versendete Dokument unverändert bleibt (GoBD).
+    /// </summary>
+    public DateTime? RevisedDueDate { get; set; }
+
+    [NotMapped]
+    public DateTime? EffectiveDueDate => RevisedDueDate ?? DueDate;
+
     [Required]
     public int CustomerId { get; set; }
 

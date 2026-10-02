@@ -23,7 +23,7 @@ public class FakturaDbContext : DbContext
         [typeof(Invoice)] = new AuditedEntityConfig(new[]
         {
             nameof(Invoice.Status), nameof(Invoice.InvoiceDate), nameof(Invoice.DueDate),
-            nameof(Invoice.Notes), nameof(Invoice.CustomerId), nameof(Invoice.DiscountType),
+            nameof(Invoice.RevisedDueDate), nameof(Invoice.Notes), nameof(Invoice.CustomerId), nameof(Invoice.DiscountType),
             nameof(Invoice.DiscountValue), nameof(Invoice.IsReverseCharge),
             nameof(Invoice.CancelledAt), nameof(Invoice.CancellationReason)
         }),

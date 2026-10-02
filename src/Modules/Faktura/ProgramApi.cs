@@ -273,6 +273,14 @@ public class ProgramApi
                     Type = NavItemType.Link,
                     AllowedRoles = new List<UserRole> { UserRole.Buero, UserRole.Admin }
                 },
+                new NavItemDto
+                {
+                    Label = "OP-Listen",
+                    Href = "/faktura/op-listen",
+                    Icon = "",
+                    Type = NavItemType.Link,
+                    AllowedRoles = new List<UserRole> { UserRole.Buero, UserRole.Admin }
+                },
                 // Settings: PDF-Anpassung unter "Dokumente" - nur Admin
                 new NavItemDto
                 {

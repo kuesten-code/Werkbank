@@ -39,6 +39,9 @@ public partial class Details
     private string? _zahlungNotiz;
     private bool _zahlungSaving = false;
 
+    private bool _zahlungszielModalOpen = false;
+    private DateTime? _zahlungszielInput;
+
     protected override async Task OnInitializedAsync()
     {
         var queryParams = QueryHelpers.ParseQuery(new Uri(NavigationManager.Uri).Query);
@@ -270,6 +273,12 @@ public partial class Details
             _zahlungModalOpen = false;
             Snackbar.Add($"Zahlung über {_zahlungBetrag.ToString("C2", _culture)} wurde erfasst.", Severity.Success);
             await LoadInvoice();
+
+            if (_invoice is { TotalPaid: > 0, RemainingAmount: > 0 })
+            {
+                _zahlungszielInput = null;
+                _zahlungszielModalOpen = true;
+            }
         }
         catch (Exception ex)
         {
@@ -278,6 +287,28 @@ public partial class Details
         finally
         {
             _zahlungSaving = false;
+        }
+    }
+
+    private void CloseZahlungszielModal()
+    {
+        _zahlungszielModalOpen = false;
+    }
+
+    private async Task SetzeZahlungsziel()
+    {
+        if (_invoice == null || !_zahlungszielInput.HasValue) return;
+
+        _zahlungszielModalOpen = false;
+        try
+        {
+            await PaymentService.ZahlungszielSetzenAsync(_invoice.Id, _zahlungszielInput.Value);
+            Snackbar.Add($"Neues Zahlungsziel {_zahlungszielInput.Value:dd.MM.yyyy} wurde gesetzt.", Severity.Success);
+            await LoadInvoice();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Fehler beim Setzen des Zahlungsziels: {ex.Message}", Severity.Error);
         }
     }
 

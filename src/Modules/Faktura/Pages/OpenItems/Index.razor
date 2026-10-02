@@ -1,0 +1,75 @@
+@page "/op-listen"
+@inject IOpenItemsService OpenItemsService
+@inject ISnackbar Snackbar
+@inject IJSRuntime JSRuntime
+
+<PageTitle>OP-Listen - Küstencode Faktura</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4">
+    <MudText Typo="Typo.h4" GutterBottom="true">Offene-Posten-Listen</MudText>
+
+    <MudPaper Class="pa-4 mt-4">
+        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">
+            Enthält alle Rechnungen mit Rechnungsdatum im gewählten Zeitraum, die heute noch offen sind.
+        </MudText>
+        <MudGrid>
+            <MudItem xs="12" sm="4">
+                <MudDatePicker Label="Rechnungsdatum von" @bind-Date="_from"
+                               DateFormat="dd.MM.yyyy" Variant="Variant.Outlined" />
+            </MudItem>
+            <MudItem xs="12" sm="4">
+                <MudDatePicker Label="Rechnungsdatum bis" @bind-Date="_to"
+                               DateFormat="dd.MM.yyyy" Variant="Variant.Outlined" />
+            </MudItem>
+            <MudItem xs="12" sm="4" Class="d-flex align-center gap-2">
+                <MudButton Variant="Variant.Outlined" Color="Color.Primary"
+                           StartIcon="@Icons.Material.Filled.Search"
+                           OnClick="LoadAsync" Disabled="@(!IsRangeValid || _loading)">
+                    Anzeigen
+                </MudButton>
+                <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                           StartIcon="@Icons.Material.Filled.Download"
+                           OnClick="DownloadCsvAsync" Disabled="@(!IsRangeValid || _loading)">
+                    CSV herunterladen
+                </MudButton>
+            </MudItem>
+        </MudGrid>
+        @if (_from.HasValue && _to.HasValue && _from > _to)
+        {
+            <MudAlert Severity="Severity.Warning" Class="mt-4">Das Startdatum liegt nach dem Enddatum.</MudAlert>
+        }
+    </MudPaper>
+
+    @if (_items != null)
+    {
+        <MudPaper Class="pa-4 mt-4">
+            <MudTable Items="@_items" Dense="true" Hover="true" Elevation="0" Breakpoint="Breakpoint.Sm" T="OpenItem">
+                <HeaderContent>
+                    <MudTh>Rechnungsnr.</MudTh>
+                    <MudTh>Rechnungsdatum</MudTh>
+                    <MudTh>Kundenname</MudTh>
+                    <MudTh>Fälligkeitsdatum</MudTh>
+                    <MudTh Style="text-align: right">Brutto</MudTh>
+                    <MudTh Style="text-align: right">Gezahlt</MudTh>
+                    <MudTh Style="text-align: right">Offener Betrag</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd DataLabel="Rechnungsnr.">@context.InvoiceNumber</MudTd>
+                    <MudTd DataLabel="Rechnungsdatum">@context.InvoiceDate.ToString("dd.MM.yyyy")</MudTd>
+                    <MudTd DataLabel="Kundenname">@context.CustomerName</MudTd>
+                    <MudTd DataLabel="Fälligkeitsdatum">@context.DueDate?.ToString("dd.MM.yyyy")</MudTd>
+                    <MudTd DataLabel="Brutto" Style="text-align: right">@context.TotalGross.ToString("C2", _culture)</MudTd>
+                    <MudTd DataLabel="Gezahlt" Style="text-align: right">@context.TotalPaid.ToString("C2", _culture)</MudTd>
+                    <MudTd DataLabel="Offener Betrag" Style="text-align: right">@context.OpenAmount.ToString("C2", _culture)</MudTd>
+                </RowTemplate>
+                <NoRecordsContent>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">Keine offenen Posten im gewählten Zeitraum.</MudText>
+                </NoRecordsContent>
+                <FooterContent>
+                    <MudTd colspan="6"><strong>Summe offen</strong></MudTd>
+                    <MudTd Style="text-align: right"><strong>@_items.Sum(i => i.OpenAmount).ToString("C2", _culture)</strong></MudTd>
+                </FooterContent>
+            </MudTable>
+        </MudPaper>
+    }
+</MudContainer>
