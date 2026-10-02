@@ -260,22 +260,17 @@ public partial class Edit
         return result.Where(s => s.Header != null || s.Items.Count > 0).ToList();
     }
 
+    private decimal DefaultVatRate => _company?.IsKleinunternehmer == true || _isReverseCharge ? 0 : 19;
+
     private void AddItem()
     {
         if (_invoice == null) return;
 
-        decimal vatRate;
-        if (_company?.IsKleinunternehmer == true)
-            vatRate = 0;
-        else if (_isReverseCharge)
-            vatRate = 0;
-        else
-            vatRate = 19;
         _invoice.Items.Add(new InvoiceItem
         {
             Quantity = 1,
             UnitPrice = 0,
-            VatRate = vatRate,
+            VatRate = DefaultVatRate,
             InvoiceId = _invoice.Id
         });
         ReorderItems();
@@ -356,11 +351,29 @@ public partial class Edit
         _invoice.DownPayments.Add(new DownPayment
         {
             Description = string.Empty,
-            Amount = 0,
+            VatRate = DefaultVatRate,
             PaymentDate = null,
             InvoiceId = _invoice.Id
         });
         StateHasChanged();
+    }
+
+    private void OnDownPaymentNetAmountChanged(DownPayment downPayment, decimal netAmount)
+    {
+        downPayment.ApplyNetAmount(netAmount);
+        RecalculateTotals();
+    }
+
+    private void OnDownPaymentVatRateChanged(DownPayment downPayment, decimal vatRate)
+    {
+        downPayment.ApplyVatRate(vatRate);
+        RecalculateTotals();
+    }
+
+    private void OnDownPaymentGrossAmountChanged(DownPayment downPayment, decimal grossAmount)
+    {
+        downPayment.ApplyGrossAmount(grossAmount);
+        RecalculateTotals();
     }
 
     private void RemoveDownPayment(DownPayment downPayment)
@@ -381,7 +394,7 @@ public partial class Edit
             downPayment.Description = downPayment.SourceInvoice.InvoiceNumber;
 
         if (downPayment.Amount == 0)
-            downPayment.Amount = downPayment.SourceInvoice.TotalGross;
+            downPayment.ApplySourceInvoice(downPayment.SourceInvoice);
 
         RecalculateTotals();
     }
@@ -459,13 +472,7 @@ public partial class Edit
         if (_invoice == null) return;
 
         // Ensure all items have the correct VAT rate based on company settings
-        decimal vatRate;
-        if (_company?.IsKleinunternehmer == true)
-            vatRate = 0;
-        else if (_isReverseCharge)
-            vatRate = 0;
-        else
-            vatRate = 19;
+        var vatRate = DefaultVatRate;
         foreach (var item in _invoice.Items)
         {
             item.VatRate = vatRate;

@@ -187,6 +187,8 @@ public static class DemoSeedData
                     new DownPayment
                     {
                         Description = "Anzahlung 40 % gemäß Angebot AN-2025-0047",
+                        NetAmount = 2352.94m,
+                        VatRate = 19m,
                         Amount = 2800.00m,
                         PaymentDate = D(2025, 11, 10)
                     }

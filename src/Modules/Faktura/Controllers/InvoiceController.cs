@@ -548,6 +548,8 @@ public class InvoiceController : ControllerBase
                 Id = dp.Id,
                 InvoiceId = dp.InvoiceId,
                 Description = dp.Description,
+                NetAmount = dp.NetAmount,
+                VatRate = dp.VatRate,
                 Amount = dp.Amount,
                 PaymentDate = dp.PaymentDate,
                 CreatedAt = dp.CreatedAt,

@@ -112,11 +112,19 @@ namespace Kuestencode.Faktura.Data.Migrations
                     b.Property<int>("InvoiceId")
                         .HasColumnType("integer");
 
+                    b.Property<decimal>("NetAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
                     b.Property<DateTime?>("PaymentDate")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<int?>("SourceInvoiceId")
                         .HasColumnType("integer");
+
+                    b.Property<decimal>("VatRate")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("numeric(5,2)");
 
                     b.HasKey("Id");
 
