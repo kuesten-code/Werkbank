@@ -6,6 +6,9 @@ using Kuestencode.Werkbank.Host.Services;
 using Kuestencode.Werkbank.Host.Services.Backup;
 using Kuestencode.Werkbank.Host.Services.Docker;
 using Kuestencode.Werkbank.Host.Services.Email;
+using Kuestencode.Werkbank.Host.Services.Feedback;
+using Kuestencode.Werkbank.Host.Services.Feedback.Client;
+using Kuestencode.Werkbank.Host.Services.Feedback.Hub;
 using Kuestencode.Werkbank.Host.Services.Pdf;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.EntityFrameworkCore;
@@ -52,6 +55,21 @@ public static class HostModule
         services.AddScoped<IBackupService, BackupService>();
         services.AddHostedService<BackupSchedulerService>();
 
+        // Feedback (Rolle Client oder Hub, siehe /settings/feedback)
+        services.AddSingleton<IFeedbackModeState, FeedbackModeState>();
+        services.AddSingleton<IFeedbackFileStore, FeedbackFileStore>();
+        services.AddScoped<IFeedbackSettingsService, FeedbackSettingsService>();
+        services.AddScoped<IFeedbackInstanceService, FeedbackInstanceService>();
+        services.AddScoped<IFeedbackHubApiService, FeedbackHubApiService>();
+        services.AddScoped<IFeedbackNotifier, FeedbackMailNotifier>();
+        services.AddScoped<IFeedbackBoardService, FeedbackBoardService>();
+        services.AddSingleton<IFeedbackOutboxSignal, FeedbackOutboxSignal>();
+        services.AddScoped<IFeedbackHubClient, FeedbackHubClient>();
+        services.AddScoped<IFeedbackClientService, FeedbackClientService>();
+        services.AddScoped<IFeedbackSyncService, FeedbackSyncService>();
+        services.AddHostedService<FeedbackSyncBackgroundService>();
+        services.AddHttpClient(FeedbackHubClient.HttpClientName, client => client.Timeout = TimeSpan.FromSeconds(60));
+
         // Docker-Steuerung (über den Socket-Proxy "docker-control", siehe docker-compose.yml)
         services.AddHttpClient<IDockerControlService, DockerControlService>(client =>
         {
@@ -88,5 +106,15 @@ public static class HostModule
         var hostContext = scope.ServiceProvider.GetRequiredService<HostDbContext>();
 
         await hostContext.Database.MigrateAsync();
+    }
+
+    /// <summary>
+    /// Lädt die Feedback-Rolle in den prozessweiten Cache, bevor Navigation oder Hub-API sie abfragen.
+    /// </summary>
+    public static async Task InitializeFeedbackModeAsync(this WebApplication app)
+    {
+        using var scope = app.Services.CreateScope();
+        var settings = await scope.ServiceProvider.GetRequiredService<IFeedbackSettingsService>().GetSettingsAsync();
+        app.Services.GetRequiredService<IFeedbackModeState>().SetRole(settings.Role);
     }
 }

@@ -1,0 +1,87 @@
+@page "/feedback/hub"
+@attribute [Authorize]
+@using Kuestencode.Shared.Contracts.Feedback
+@using Kuestencode.Werkbank.Host.Models.Feedback
+@using Kuestencode.Werkbank.Host.Services.Feedback
+
+<PageTitle>Feedback-Hub - Küstencode Werkbank</PageTitle>
+
+<RoleGuard AllowedRoles="@(new List<UserRole> { UserRole.Admin })" RedirectTo="/">
+<MudContainer MaxWidth="MaxWidth.ExtraExtraLarge" Class="mt-4">
+    <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-4">
+        <MudText Typo="Typo.h4">Feedback-Hub</MudText>
+        <MudSpacer />
+        <MudButton Variant="Variant.Outlined" Href="/feedback/hub/instances" StartIcon="@Icons.Material.Filled.Key">
+            Kunden-Instanzen
+        </MudButton>
+    </MudStack>
+
+    @if (ModeState.Role != FeedbackRole.Hub)
+    {
+        <MudAlert Severity="Severity.Info">Diese Werkbank ist nicht als Hub konfiguriert (Einstellungen › Allgemein › Feedback).</MudAlert>
+    }
+    else
+    {
+        <MudPaper Class="pa-3 mb-4" Outlined="true">
+            <MudGrid Spacing="2">
+                <MudItem xs="12" sm="4">
+                    <MudSelect T="int?" Label="Kunde" Value="_filter.InstanceId" ValueChanged="@(v => ApplyFilterAsync(_filter with { InstanceId = v }))" Clearable="true">
+                        @foreach (var instance in _instances)
+                        {
+                            <MudSelectItem T="int?" Value="@((int?)instance.Id)">@instance.Name</MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudItem>
+                <MudItem xs="12" sm="4">
+                    <MudSelect T="FeedbackType?" Label="Typ" Value="_filter.Type" ValueChanged="@(v => ApplyFilterAsync(_filter with { Type = v }))" Clearable="true">
+                        <MudSelectItem T="FeedbackType?" Value="@((FeedbackType?)FeedbackType.Bug)">Bug</MudSelectItem>
+                        <MudSelectItem T="FeedbackType?" Value="@((FeedbackType?)FeedbackType.Wunsch)">Wunsch</MudSelectItem>
+                    </MudSelect>
+                </MudItem>
+                <MudItem xs="12" sm="4">
+                    <MudSelect T="string" Label="Modul" Value="_filter.Module" ValueChanged="@(v => ApplyFilterAsync(_filter with { Module = v }))" Clearable="true">
+                        @foreach (var module in _modules)
+                        {
+                            <MudSelectItem T="string" Value="@module">@module</MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudItem>
+            </MudGrid>
+        </MudPaper>
+
+        <MudDropContainer T="FeedbackReport" @ref="_dropContainer" Items="_reports"
+                          ItemsSelector="@((item, zone) => item.Status.ToString() == zone)"
+                          ItemDropped="OnItemDroppedAsync"
+                          Class="d-flex flex-row gap-3" Style="overflow-x: auto;">
+            <ChildContent>
+                @foreach (var status in Enum.GetValues<FeedbackStatus>())
+                {
+                    <MudPaper Elevation="0" Outlined="true" Class="pa-2 d-flex flex-column" Style="min-width: 240px; flex: 1 1 0;">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2 px-1">
+                            <MudText Typo="Typo.subtitle1"><strong>@FeedbackLabels.Of(status)</strong></MudText>
+                            <MudSpacer />
+                            <MudChip T="string" Size="Size.Small" Color="@FeedbackLabels.ColorOf(status)">@_reports.Count(r => r.Status == status)</MudChip>
+                        </MudStack>
+                        <MudDropZone T="FeedbackReport" Identifier="@status.ToString()" Class="flex-grow-1" Style="min-height: 200px;" />
+                    </MudPaper>
+                }
+            </ChildContent>
+            <ItemRenderer>
+                <MudCard Class="mb-2" Outlined="true" Style="cursor: grab;">
+                    <MudCardContent Class="pa-2">
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">#@context.Id · @context.Instance.Name</MudText>
+                        <MudLink Href="@($"/feedback/hub/{context.Id}")" Typo="Typo.body1" Class="d-block">@context.Title</MudLink>
+                        <div class="mt-1">
+                            <FeedbackChips Type="context.Type" Module="@context.Module" />
+                            @if (context.DuplicateOfId.HasValue)
+                            {
+                                <MudChip T="string" Size="Size.Small" Variant="Variant.Text">Duplikat von #@context.DuplicateOfId</MudChip>
+                            }
+                        </div>
+                    </MudCardContent>
+                </MudCard>
+            </ItemRenderer>
+        </MudDropContainer>
+    }
+</MudContainer>
+</RoleGuard>

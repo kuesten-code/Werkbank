@@ -297,6 +297,8 @@ if (applyMigrations)
     }
 }
 
+await app.InitializeFeedbackModeAsync();
+
 // Configure the HTTP request pipeline
 if (!app.Environment.IsDevelopment())
 {

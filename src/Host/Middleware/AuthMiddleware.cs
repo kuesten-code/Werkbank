@@ -26,7 +26,8 @@ public class AuthMiddleware
     private static readonly string[] PublicPathPrefixes = new[]
     {
         "/api/mobile/",  // Mobile API (Token-Status, PIN setzen/prüfen)
-        "/m/"            // Mobile Blazor-Seiten
+        "/m/",           // Mobile Blazor-Seiten
+        "/api/v1/"       // Feedback-Hub-API: authentifiziert per X-Api-Key (FeedbackApiKeyFilter)
     };
 
     public AuthMiddleware(RequestDelegate next, IJwtTokenService jwtTokenService, ILogger<AuthMiddleware> logger)

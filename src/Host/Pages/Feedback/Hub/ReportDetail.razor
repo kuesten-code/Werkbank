@@ -1,0 +1,147 @@
+@page "/feedback/hub/{ReportId:int}"
+@attribute [Authorize]
+@using Kuestencode.Shared.Contracts.Feedback
+@using Kuestencode.Werkbank.Host.Services.Feedback
+
+<PageTitle>Meldung #@ReportId - Feedback-Hub</PageTitle>
+
+<RoleGuard AllowedRoles="@(new List<UserRole> { UserRole.Admin })" RedirectTo="/">
+<MudContainer MaxWidth="MaxWidth.Large" Class="mt-4">
+    <MudButton Variant="Variant.Text" Href="/feedback/hub" StartIcon="@Icons.Material.Filled.ArrowBack" Class="mb-2">Zum Board</MudButton>
+
+    @if (_loading)
+    {
+        <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+    }
+    else if (_report == null)
+    {
+        <MudAlert Severity="Severity.Warning">Meldung #@ReportId nicht gefunden.</MudAlert>
+    }
+    else
+    {
+        <MudGrid>
+            <MudItem xs="12" md="8">
+                <MudPaper Class="pa-4 mb-4">
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">#@_report.Id · @_report.Instance.Name</MudText>
+                    <MudText Typo="Typo.h5" GutterBottom="true">@_report.Title</MudText>
+                    <FeedbackChips Type="_report.Type" Status="_report.Status" Module="@_report.Module" />
+
+                    @if (_report.DuplicateOfId.HasValue)
+                    {
+                        <MudAlert Severity="Severity.Info" Dense="true" Class="mt-3">
+                            Duplikat von <MudLink Href="@($"/feedback/hub/{_report.DuplicateOfId}")">Meldung #@_report.DuplicateOfId</MudLink>
+                        </MudAlert>
+                    }
+
+                    @if (!string.IsNullOrEmpty(_report.Expected))
+                    {
+                        <MudText Typo="Typo.subtitle2" Class="mt-4">Erwartung</MudText>
+                        <MudText Typo="Typo.body2" Style="white-space: pre-wrap;">@_report.Expected</MudText>
+                    }
+                    <MudText Typo="Typo.subtitle2" Class="mt-4">@(_report.Type == FeedbackType.Bug ? "Ist-Zustand" : "Beschreibung")</MudText>
+                    <MudText Typo="Typo.body2" Style="white-space: pre-wrap;">@_report.Actual</MudText>
+
+                    @if (_report.Attachments.Count > 0)
+                    {
+                        <MudText Typo="Typo.subtitle2" Class="mt-4 mb-2">Screenshots</MudText>
+                        <MudStack Row="true" Wrap="Wrap.Wrap" Spacing="2">
+                            @foreach (var attachment in _report.Attachments)
+                            {
+                                var url = $"/api/feedback/attachments/{attachment.Id}";
+                                <MudPaper Outlined="true" Class="pa-2" Style="width: 220px;">
+                                    <a href="@url" target="_blank" rel="noopener">
+                                        @if (attachment.ContentType.StartsWith("image/"))
+                                        {
+                                            <img src="@url" alt="@attachment.FileName" style="width: 100%; height: 140px; object-fit: cover;" />
+                                        }
+                                        else
+                                        {
+                                            <MudIcon Icon="@Icons.Material.Filled.PictureAsPdf" Style="width: 100%; height: 140px;" />
+                                        }
+                                    </a>
+                                    <MudText Typo="Typo.caption" Style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block;">
+                                        @attachment.FileName (@(attachment.Size / 1024) KB)
+                                    </MudText>
+                                </MudPaper>
+                            }
+                        </MudStack>
+                    }
+                </MudPaper>
+
+                <MudPaper Class="pa-4">
+                    <MudText Typo="Typo.h6" Class="mb-2">Kommentare</MudText>
+                    @if (_report.Comments.Count == 0)
+                    {
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">Noch keine Kommentare.</MudText>
+                    }
+                    @foreach (var comment in _report.Comments.OrderBy(c => c.CreatedAt))
+                    {
+                        <MudPaper Outlined="true" Class="pa-2 mb-2"
+                                  Style="@(comment.IsInternal ? "background-color: var(--mud-palette-warning-lighten); border-left: 4px solid var(--mud-palette-warning);" : comment.Author == FeedbackCommentAuthor.Hub ? "border-left: 4px solid var(--mud-palette-primary);" : "")">
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                                <MudText Typo="Typo.caption"><strong>@(comment.Author == FeedbackCommentAuthor.Hub ? "Hub" : "Kunde")</strong></MudText>
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">@comment.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</MudText>
+                                @if (comment.IsInternal)
+                                {
+                                    <MudChip T="string" Size="Size.Small" Color="Color.Warning" Icon="@Icons.Material.Filled.Lock">Intern — für den Kunden unsichtbar</MudChip>
+                                }
+                            </MudStack>
+                            <MudText Typo="Typo.body2" Style="white-space: pre-wrap;">@comment.Text</MudText>
+                        </MudPaper>
+                    }
+
+                    <MudTextField @bind-Value="_commentText" Label="Kommentar" Lines="3" AutoGrow="true" Class="mt-2" />
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Class="mt-2">
+                        <MudSwitch @bind-Value="_commentInternal" Color="Color.Warning" Label="Intern (nicht an den Kunden)" />
+                        <MudSpacer />
+                        <MudButton Variant="Variant.Filled" Color="@(_commentInternal ? Color.Warning : Color.Primary)"
+                                   OnClick="AddCommentAsync" Disabled="@string.IsNullOrWhiteSpace(_commentText)">
+                            @(_commentInternal ? "Intern speichern" : "An Kunden senden")
+                        </MudButton>
+                    </MudStack>
+                </MudPaper>
+            </MudItem>
+
+            <MudItem xs="12" md="4">
+                <MudPaper Class="pa-4 mb-4">
+                    <MudText Typo="Typo.h6" Class="mb-2">Status</MudText>
+                    <MudStack Spacing="1">
+                        @foreach (var status in Enum.GetValues<FeedbackStatus>())
+                        {
+                            <MudButton Variant="@(_report.Status == status ? Variant.Filled : Variant.Outlined)"
+                                       Color="@FeedbackLabels.ColorOf(status)"
+                                       OnClick="@(() => SetStatusAsync(status))" FullWidth="true">
+                                @FeedbackLabels.Of(status)
+                            </MudButton>
+                        }
+                    </MudStack>
+                </MudPaper>
+
+                <MudPaper Class="pa-4 mb-4">
+                    <MudText Typo="Typo.h6" Class="mb-2">Als Duplikat markieren</MudText>
+                    <MudNumericField T="int?" @bind-Value="_duplicateOfId" Label="Original-Meldung #" Min="1" HideSpinButtons="true" />
+                    <MudButton Variant="Variant.Outlined" OnClick="MarkAsDuplicateAsync" Disabled="@(!_duplicateOfId.HasValue)" Class="mt-2" FullWidth="true">
+                        Als Duplikat von … markieren
+                    </MudButton>
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">Die Karte wandert nach „Abgelehnt“, der Kunde sieht den Verweis.</MudText>
+                </MudPaper>
+
+                <MudPaper Class="pa-4">
+                    <MudText Typo="Typo.h6" Class="mb-2">Details</MudText>
+                    <MudSimpleTable Dense="true" Elevation="0">
+                        <tbody>
+                            <tr><td>Kunde</td><td>@_report.Instance.Name</td></tr>
+                            <tr><td>Gemeldet von</td><td>@_report.ReporterName</td></tr>
+                            <tr><td>Seite</td><td style="word-break: break-all;">@_report.PageUrl</td></tr>
+                            <tr><td>Version</td><td>@_report.AppVersion</td></tr>
+                            <tr><td>Erstellt</td><td>@_report.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</td></tr>
+                            <tr><td>Geändert</td><td>@_report.UpdatedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</td></tr>
+                            <tr><td>Client-ID</td><td style="word-break: break-all;">@_report.ClientReportId</td></tr>
+                        </tbody>
+                    </MudSimpleTable>
+                </MudPaper>
+            </MudItem>
+        </MudGrid>
+    }
+</MudContainer>
+</RoleGuard>

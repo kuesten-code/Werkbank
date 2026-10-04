@@ -1,0 +1,66 @@
+@page "/feedback/hub/instances"
+@attribute [Authorize]
+
+<PageTitle>Kunden-Instanzen - Feedback-Hub</PageTitle>
+
+<RoleGuard AllowedRoles="@(new List<UserRole> { UserRole.Admin })" RedirectTo="/">
+<MudContainer MaxWidth="MaxWidth.Medium" Class="mt-4">
+    <MudButton Variant="Variant.Text" Href="/feedback/hub" StartIcon="@Icons.Material.Filled.ArrowBack" Class="mb-2">Zum Board</MudButton>
+    <MudText Typo="Typo.h4" GutterBottom="true">Kunden-Instanzen</MudText>
+    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">
+        Jede Kunden-Werkbank meldet sich mit einem eigenen API-Key an und sieht ausschließlich ihre eigenen Meldungen.
+    </MudText>
+
+    @if (_shownApiKey != null)
+    {
+        <MudAlert Severity="Severity.Success" Class="mb-4" ShowCloseIcon="true" CloseIconClicked="@(() => _shownApiKey = null)">
+            <MudText Typo="Typo.body2"><strong>API-Key für „@_shownApiKeyFor“</strong> — wird nur jetzt angezeigt, bitte sofort in die Feedback-Einstellungen der Kunden-Werkbank übernehmen:</MudText>
+            <MudStack Row="true" AlignItems="AlignItems.Center" Class="mt-2">
+                <MudTextField Value="_shownApiKey" ReadOnly="true" Variant="Variant.Outlined" Margin="Margin.Dense" Style="font-family: monospace;" />
+                <MudIconButton Icon="@Icons.Material.Filled.ContentCopy" OnClick="CopyApiKeyAsync" aria-label="Kopieren" />
+            </MudStack>
+        </MudAlert>
+    }
+
+    <MudPaper Class="pa-4 mb-4">
+        <MudStack Row="true" AlignItems="AlignItems.End">
+            <MudTextField @bind-Value="_newName" Label="Name der Kunden-Instanz" Placeholder="z. B. Tischlerei Nord" Style="flex: 1;" />
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
+                       OnClick="CreateAsync" Disabled="@string.IsNullOrWhiteSpace(_newName)">
+                Anlegen
+            </MudButton>
+        </MudStack>
+    </MudPaper>
+
+    <MudTable Items="@_instances" Hover="true" Dense="true">
+        <HeaderContent>
+            <MudTh>Name</MudTh>
+            <MudTh>Angelegt</MudTh>
+            <MudTh>Status</MudTh>
+            <MudTh Style="text-align: right">Aktionen</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd>@context.Name</MudTd>
+            <MudTd>@context.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy")</MudTd>
+            <MudTd>
+                <MudChip T="string" Size="Size.Small" Color="@(context.IsActive ? Color.Success : Color.Default)">
+                    @(context.IsActive ? "Aktiv" : "Deaktiviert")
+                </MudChip>
+            </MudTd>
+            <MudTd Style="text-align: right">
+                <MudTooltip Text="API-Key neu erzeugen">
+                    <MudIconButton Icon="@Icons.Material.Filled.Autorenew" Size="Size.Small" OnClick="@(() => RegenerateAsync(context))" />
+                </MudTooltip>
+                <MudTooltip Text="@(context.IsActive ? "Deaktivieren" : "Aktivieren")">
+                    <MudIconButton Icon="@(context.IsActive ? Icons.Material.Filled.Block : Icons.Material.Filled.CheckCircle)"
+                                   Size="Size.Small" Color="@(context.IsActive ? Color.Error : Color.Success)"
+                                   OnClick="@(() => ToggleActiveAsync(context))" />
+                </MudTooltip>
+            </MudTd>
+        </RowTemplate>
+        <NoRecordsContent>
+            <MudText Color="Color.Secondary">Noch keine Kunden-Instanzen angelegt.</MudText>
+        </NoRecordsContent>
+    </MudTable>
+</MudContainer>
+</RoleGuard>
