@@ -1,6 +1,8 @@
 using Kuestencode.Shared.Contracts.Host;
 using Kuestencode.Shared.Contracts.Navigation;
 using Kuestencode.Shared.UI.Services;
+using Kuestencode.Werkbank.Host.Models.Feedback;
+using Kuestencode.Werkbank.Host.Services.Feedback;
 
 namespace Kuestencode.Werkbank.Host.Services;
 
@@ -12,11 +14,15 @@ public interface IHostNavigationService
 
 public class HostNavigationService : IHostNavigationService
 {
-    private readonly IModuleRegistry _moduleRegistry;
+    private static readonly List<UserRole> AllRoles = new() { UserRole.Admin, UserRole.Buero, UserRole.Mitarbeiter };
 
-    public HostNavigationService(IModuleRegistry moduleRegistry)
+    private readonly IModuleRegistry _moduleRegistry;
+    private readonly IFeedbackModeState _feedbackMode;
+
+    public HostNavigationService(IModuleRegistry moduleRegistry, IFeedbackModeState feedbackMode)
     {
         _moduleRegistry = moduleRegistry;
+        _feedbackMode = feedbackMode;
     }
 
     public List<NavItemDto> GetNavigationItems()
@@ -88,6 +94,14 @@ public class HostNavigationService : IHostNavigationService
             moduleSettingsItems.AddRange(settingsItems);
         }
 
+        // Über die Host-Navigation erscheinen die Feedback-Links auch in allen Modulen.
+        var feedbackItems = BuildFeedbackItems(_feedbackMode.Role);
+        if (feedbackItems.Count > 0)
+        {
+            items.Add(new NavItemDto { Type = NavItemType.Divider });
+            items.AddRange(feedbackItems);
+        }
+
         // Build aggregated Einstellungen group
         var settingsGroup = BuildSettingsGroup(moduleSettingsItems);
         items.Add(new NavItemDto { Type = NavItemType.Divider });
@@ -107,6 +121,24 @@ public class HostNavigationService : IHostNavigationService
 
         return NavigationFilterService.FilterNavigationByRole(allItems, currentUserRole);
     }
+
+    private static List<NavItemDto> BuildFeedbackItems(FeedbackRole role) => role switch
+    {
+        FeedbackRole.Client => new List<NavItemDto>
+        {
+            new() { Label = "Problem melden", Href = "/feedback/new", Icon = "", Type = NavItemType.Link, AllowedRoles = AllRoles },
+            new() { Label = "Meine Meldungen", Href = "/feedback", Icon = "", Type = NavItemType.Link, AllowedRoles = AllRoles }
+        },
+        FeedbackRole.Hub => new List<NavItemDto>
+        {
+            new()
+            {
+                Label = "Feedback-Hub", Href = "/feedback/hub", Icon = "", Type = NavItemType.Link,
+                AllowedRoles = new List<UserRole> { UserRole.Admin }
+            }
+        },
+        _ => new List<NavItemDto>()
+    };
 
     private static NavItemDto BuildSettingsGroup(List<NavItemDto> moduleSettingsItems)
     {
@@ -163,6 +195,15 @@ public class HostNavigationService : IHostNavigationService
         {
             Label = "Backup",
             Href = "/settings/backup",
+            Icon = "",
+            Type = NavItemType.Link,
+            AllowedRoles = new List<UserRole> { UserRole.Admin }
+        });
+
+        settingsByCategory[NavSettingsCategory.Allgemein].Add(new NavItemDto
+        {
+            Label = "Feedback",
+            Href = "/settings/feedback",
             Icon = "",
             Type = NavItemType.Link,
             AllowedRoles = new List<UserRole> { UserRole.Admin }

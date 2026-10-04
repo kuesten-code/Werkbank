@@ -1,0 +1,142 @@
+@page "/feedback"
+@attribute [Authorize]
+@using Kuestencode.Shared.Contracts.Feedback
+@using Kuestencode.Werkbank.Host.Models.Feedback
+@using Kuestencode.Werkbank.Host.Services.Feedback
+
+<PageTitle>Meine Meldungen - Küstencode Werkbank</PageTitle>
+
+<RoleGuard AllowedRoles="@(new List<UserRole> { UserRole.Admin, UserRole.Buero, UserRole.Mitarbeiter })" RedirectTo="/">
+<MudContainer MaxWidth="MaxWidth.Large" Class="mt-4">
+    <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-4">
+        <MudText Typo="Typo.h4">Meine Meldungen</MudText>
+        <MudSpacer />
+        <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Sync" OnClick="SyncAsync" Disabled="@_syncing">
+            @if (_syncing)
+            {
+                <MudProgressCircular Class="me-2" Size="Size.Small" Indeterminate="true" />
+            }
+            Aktualisieren
+        </MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" Href="/feedback/new" StartIcon="@Icons.Material.Filled.BugReport">
+            Problem melden
+        </MudButton>
+    </MudStack>
+
+    @if (!string.IsNullOrEmpty(_syncError))
+    {
+        <MudAlert Severity="Severity.Warning" Class="mb-4">
+            Abgleich mit dem Support derzeit nicht möglich: @_syncError — angezeigt wird der zuletzt bekannte Stand.
+        </MudAlert>
+    }
+
+    @if (_loading)
+    {
+        <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+    }
+    else if (_reports.Count == 0)
+    {
+        <MudText Color="Color.Secondary">Noch keine Meldungen vorhanden.</MudText>
+    }
+    else
+    {
+        <MudExpansionPanels MultiExpansion="true">
+            @foreach (var report in _reports)
+            {
+                <MudExpansionPanel>
+                    <TitleContent>
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap" Spacing="1">
+                            <MudText Typo="Typo.subtitle1" Class="mr-2">
+                                @if (report.HubReportId.HasValue)
+                                {
+                                    <span>#@report.HubReportId </span>
+                                }
+                                @report.Title
+                            </MudText>
+                            <FeedbackChips Type="report.Type" Module="@report.Module"
+                                           Status="@(report.SyncState == FeedbackSyncState.Gesendet ? report.Status : null)" />
+                            @if (report.SyncState != FeedbackSyncState.Gesendet)
+                            {
+                                <MudTooltip Text="@(report.LastError ?? "")">
+                                    <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined"
+                                             Color="@(report.SyncState == FeedbackSyncState.Fehlgeschlagen ? Color.Error : Color.Default)">
+                                        @FeedbackLabels.Of(report.SyncState)
+                                    </MudChip>
+                                </MudTooltip>
+                            }
+                            <MudSpacer />
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                @report.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm") · @report.ReporterName
+                            </MudText>
+                        </MudStack>
+                    </TitleContent>
+                    <ChildContent>
+                        @if (report.DuplicateOfHubId.HasValue)
+                        {
+                            <MudAlert Severity="Severity.Info" Dense="true" Class="mb-3">
+                                Diese Meldung wurde als Duplikat von Meldung #@report.DuplicateOfHubId geschlossen.
+                            </MudAlert>
+                        }
+                        @if (report.SyncState == FeedbackSyncState.Fehlgeschlagen)
+                        {
+                            <MudAlert Severity="Severity.Error" Dense="true" Class="mb-3">
+                                Der Support hat die Meldung abgelehnt: @report.LastError
+                            </MudAlert>
+                        }
+
+                        @if (!string.IsNullOrEmpty(report.Expected))
+                        {
+                            <MudText Typo="Typo.subtitle2">Erwartung</MudText>
+                            <MudText Typo="Typo.body2" Class="mb-2" Style="white-space: pre-wrap;">@report.Expected</MudText>
+                        }
+                        <MudText Typo="Typo.subtitle2">@(report.Type == FeedbackType.Bug ? "Ist-Zustand" : "Beschreibung")</MudText>
+                        <MudText Typo="Typo.body2" Class="mb-2" Style="white-space: pre-wrap;">@report.Actual</MudText>
+                        @if (report.Attachments.Count > 0)
+                        {
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                Anhänge: @string.Join(", ", report.Attachments.Select(a => a.FileName))
+                            </MudText>
+                        }
+
+                        <MudDivider Class="my-3" />
+                        <MudText Typo="Typo.subtitle2" Class="mb-2">Verlauf</MudText>
+                        @if (report.Comments.Count == 0)
+                        {
+                            <MudText Typo="Typo.body2" Color="Color.Secondary">Noch keine Kommentare.</MudText>
+                        }
+                        @foreach (var comment in report.Comments.OrderBy(c => c.CreatedAt))
+                        {
+                            <MudPaper Outlined="true" Class="pa-2 mb-2"
+                                      Style="@(comment.Author == FeedbackCommentAuthor.Hub ? "border-left: 4px solid var(--mud-palette-primary);" : "")">
+                                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                                    <MudText Typo="Typo.caption"><strong>@(comment.Author == FeedbackCommentAuthor.Hub ? "Support" : "Sie")</strong></MudText>
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary">@comment.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</MudText>
+                                    @if (comment.SyncState != FeedbackSyncState.Gesendet)
+                                    {
+                                        <MudText Typo="Typo.caption" Color="@(comment.SyncState == FeedbackSyncState.Fehlgeschlagen ? Color.Error : Color.Secondary)">
+                                            · @FeedbackLabels.Of(comment.SyncState)
+                                        </MudText>
+                                    }
+                                </MudStack>
+                                <MudText Typo="Typo.body2" Style="white-space: pre-wrap;">@comment.Text</MudText>
+                            </MudPaper>
+                        }
+
+                        @if (report.SyncState != FeedbackSyncState.Fehlgeschlagen)
+                        {
+                            <MudStack Row="true" AlignItems="AlignItems.End" Class="mt-2">
+                                <MudTextField T="string" Value="@GetReplyText(report.Id)" ValueChanged="@(v => _replyTexts[report.Id] = v)"
+                                              Label="Antwort oder Ergänzung" Lines="2" AutoGrow="true" Style="flex: 1;" />
+                                <MudButton Variant="Variant.Outlined" Color="Color.Primary" OnClick="@(() => ReplyAsync(report.Id))"
+                                           Disabled="@string.IsNullOrWhiteSpace(GetReplyText(report.Id))">
+                                    Senden
+                                </MudButton>
+                            </MudStack>
+                        }
+                    </ChildContent>
+                </MudExpansionPanel>
+            }
+        </MudExpansionPanels>
+    }
+</MudContainer>
+</RoleGuard>

@@ -1,0 +1,116 @@
+@page "/settings/feedback"
+@attribute [Authorize]
+@using Kuestencode.Werkbank.Host.Models.Feedback
+@using Kuestencode.Werkbank.Host.Services.Feedback
+
+<PageTitle>Einstellungen | Feedback - Küstencode Werkbank</PageTitle>
+
+<RoleGuard AllowedRoles="@(new List<UserRole> { UserRole.Admin })" RedirectTo="/rapport">
+<MudContainer MaxWidth="MaxWidth.Medium" Class="mt-4">
+    <MudText Typo="Typo.h4" GutterBottom="true">Einstellungen | Feedback</MudText>
+    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">
+        Bugs und Wünsche direkt aus der Werkbank an einen zentralen Hub melden, oder als Hub Meldungen empfangen und bearbeiten.
+    </MudText>
+
+    @if (_loading)
+    {
+        <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+    }
+    else
+    {
+        @if (!string.IsNullOrEmpty(_errorMessage))
+        {
+            <MudAlert Severity="Severity.Error" Class="mb-4">@_errorMessage</MudAlert>
+        }
+
+        <MudCard Class="mb-4">
+            <MudCardContent>
+                <MudSelect T="FeedbackRole" Label="Rolle dieser Werkbank" @bind-Value="_settings.Role">
+                    @foreach (var role in Enum.GetValues<FeedbackRole>())
+                    {
+                        <MudSelectItem T="FeedbackRole" Value="@role">@FeedbackLabels.Of(role)</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudCardContent>
+        </MudCard>
+
+        @if (_settings.Role == FeedbackRole.Client)
+        {
+            <MudCard Class="mb-4">
+                <MudCardHeader>
+                    <CardHeaderContent>
+                        <MudText Typo="Typo.h6">Verbindung zum Hub</MudText>
+                    </CardHeaderContent>
+                </MudCardHeader>
+                <MudCardContent>
+                    <MudTextField @bind-Value="_settings.HubUrl"
+                                  Label="Hub-URL"
+                                  Placeholder="https://hub.example.com"
+                                  HelperText="Öffentliche Adresse der Hub-Werkbank. Die Verbindung wird nur von hier aus aufgebaut." />
+                    @if (_settings.HubUrl?.StartsWith("http://", StringComparison.OrdinalIgnoreCase) == true)
+                    {
+                        <MudAlert Severity="Severity.Warning" Dense="true" Class="mt-2">
+                            Unverschlüsselte Verbindung — nur für lokale Tests verwenden.
+                        </MudAlert>
+                    }
+                    <MudTextField @bind-Value="_apiKeyInput"
+                                  Label="@(_hasStoredApiKey ? "Neuer API-Key (leer lassen zum Beibehalten)" : "API-Key")"
+                                  InputType="InputType.Password"
+                                  Class="mt-4" />
+                    <MudButton Variant="Variant.Outlined"
+                               Color="Color.Primary"
+                               StartIcon="@Icons.Material.Filled.Wifi"
+                               OnClick="TestConnectionAsync"
+                               Disabled="@_testing"
+                               Class="mt-4">
+                        @if (_testing)
+                        {
+                            <MudProgressCircular Class="me-2" Size="Size.Small" Indeterminate="true" />
+                        }
+                        Verbindung testen
+                    </MudButton>
+                    @if (_testResult.HasValue)
+                    {
+                        <MudAlert Severity="@(_testResult.Value.Success ? Severity.Success : Severity.Error)" Dense="true" Class="mt-2">
+                            @_testResult.Value.Message
+                        </MudAlert>
+                    }
+                </MudCardContent>
+            </MudCard>
+        }
+
+        @if (_settings.Role == FeedbackRole.Hub)
+        {
+            <MudCard Class="mb-4">
+                <MudCardHeader>
+                    <CardHeaderContent>
+                        <MudText Typo="Typo.h6">Hub</MudText>
+                    </CardHeaderContent>
+                </MudCardHeader>
+                <MudCardContent>
+                    <MudButton Variant="Variant.Text" Color="Color.Primary" Href="/feedback/hub/instances"
+                               StartIcon="@Icons.Material.Filled.Key">
+                        Kunden-Instanzen und API-Keys verwalten
+                    </MudButton>
+
+                    <MudSwitch @bind-Value="_settings.NotifyOnNewReport" Label="Bei neuer Meldung per E-Mail benachrichtigen"
+                               Color="Color.Primary" Class="mt-4" />
+                    @if (_settings.NotifyOnNewReport)
+                    {
+                        <MudTextField @bind-Value="_settings.NotificationEmail" Label="E-Mail-Adresse"
+                                      InputType="InputType.Email" HelperText="Versand über den konfigurierten SMTP-Server." />
+                    }
+
+                    <MudText Typo="Typo.subtitle2" Class="mt-6">Upload-Grenzen für Screenshots (png, jpg, webp, pdf)</MudText>
+                    <MudNumericField @bind-Value="_settings.MaxFileSizeMb" Label="Maximale Größe pro Datei (MB)" Min="1" Max="50" />
+                    <MudNumericField @bind-Value="_settings.MaxReportSizeMb" Label="Maximale Größe pro Meldung (MB)" Min="1" Max="50" />
+                </MudCardContent>
+            </MudCard>
+        }
+
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveAsync" Disabled="@_saving">
+            Speichern
+        </MudButton>
+    }
+</MudContainer>
+</RoleGuard>

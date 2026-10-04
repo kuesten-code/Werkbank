@@ -1,5 +1,6 @@
 using Kuestencode.Core.Models;
 using Kuestencode.Werkbank.Host.Models;
+using Kuestencode.Werkbank.Host.Models.Feedback;
 using Microsoft.EntityFrameworkCore;
 
 namespace Kuestencode.Werkbank.Host.Data;
@@ -24,6 +25,14 @@ public class HostDbContext : DbContext
     public DbSet<BackupSettings> BackupSettings => Set<BackupSettings>();
     public DbSet<BackupTarget> BackupTargets => Set<BackupTarget>();
     public DbSet<BackupHistory> BackupHistory => Set<BackupHistory>();
+    public DbSet<FeedbackSettings> FeedbackSettings => Set<FeedbackSettings>();
+    public DbSet<FeedbackInstance> FeedbackInstances => Set<FeedbackInstance>();
+    public DbSet<FeedbackReport> FeedbackReports => Set<FeedbackReport>();
+    public DbSet<FeedbackComment> FeedbackComments => Set<FeedbackComment>();
+    public DbSet<FeedbackAttachment> FeedbackAttachments => Set<FeedbackAttachment>();
+    public DbSet<FeedbackClientReport> FeedbackClientReports => Set<FeedbackClientReport>();
+    public DbSet<FeedbackClientComment> FeedbackClientComments => Set<FeedbackClientComment>();
+    public DbSet<FeedbackClientAttachment> FeedbackClientAttachments => Set<FeedbackClientAttachment>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -199,6 +208,136 @@ public class HostDbContext : DbContext
             entity.HasOne(e => e.Target)
                 .WithMany()
                 .HasForeignKey(e => e.BackupTargetId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        ConfigureFeedback(modelBuilder);
+    }
+
+    private static void ConfigureFeedback(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<FeedbackSettings>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Role).HasConversion<int>();
+            entity.Property(e => e.HubUrl).HasMaxLength(500);
+            entity.Property(e => e.ApiKey).HasMaxLength(1000);
+            entity.Property(e => e.NotificationEmail).HasMaxLength(200);
+            entity.Property(e => e.MaxFileSizeMb).HasDefaultValue(5);
+            entity.Property(e => e.MaxReportSizeMb).HasDefaultValue(20);
+            entity.Property(e => e.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
+            entity.Property(e => e.UpdatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
+        });
+
+        modelBuilder.Entity<FeedbackInstance>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Name).HasMaxLength(200).IsRequired();
+            entity.Property(e => e.ApiKeyHash).HasMaxLength(64).IsRequired();
+            entity.HasIndex(e => e.ApiKeyHash).IsUnique();
+            entity.Property(e => e.IsActive).HasDefaultValue(true);
+            entity.Property(e => e.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
+            entity.Property(e => e.UpdatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
+        });
+
+        modelBuilder.Entity<FeedbackReport>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Type).HasConversion<int>();
+            entity.Property(e => e.Status).HasConversion<int>();
+            entity.Property(e => e.Module).HasMaxLength(100);
+            entity.Property(e => e.Title).HasMaxLength(200).IsRequired();
+            entity.Property(e => e.Actual).IsRequired();
+            entity.Property(e => e.ReporterName).HasMaxLength(200).IsRequired();
+            entity.Property(e => e.PageUrl).HasMaxLength(1000).IsRequired();
+            entity.Property(e => e.AppVersion).HasMaxLength(50).IsRequired();
+            entity.Property(e => e.GithubIssueUrl).HasMaxLength(500);
+            entity.Property(e => e.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
+            entity.Property(e => e.UpdatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+            entity.HasIndex(e => new { e.InstanceId, e.ClientReportId }).IsUnique();
+            entity.HasIndex(e => new { e.InstanceId, e.UpdatedAt });
+
+            entity.HasOne(e => e.Instance)
+                .WithMany()
+                .HasForeignKey(e => e.InstanceId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne<FeedbackReport>()
+                .WithMany()
+                .HasForeignKey(e => e.DuplicateOfId)
+                .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        modelBuilder.Entity<FeedbackComment>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Author).HasConversion<int>();
+            entity.Property(e => e.Text).IsRequired();
+            entity.HasIndex(e => new { e.ReportId, e.ClientCommentId }).IsUnique();
+
+            entity.HasOne<FeedbackReport>()
+                .WithMany(r => r.Comments)
+                .HasForeignKey(e => e.ReportId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<FeedbackAttachment>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.FileName).HasMaxLength(255).IsRequired();
+            entity.Property(e => e.ContentType).HasMaxLength(100).IsRequired();
+            entity.Property(e => e.StoragePath).HasMaxLength(500).IsRequired();
+
+            entity.HasOne<FeedbackReport>()
+                .WithMany(r => r.Attachments)
+                .HasForeignKey(e => e.ReportId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<FeedbackClientReport>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Type).HasConversion<int>();
+            entity.Property(e => e.Status).HasConversion<int>();
+            entity.Property(e => e.SyncState).HasConversion<int>();
+            entity.Property(e => e.Module).HasMaxLength(100);
+            entity.Property(e => e.Title).HasMaxLength(200).IsRequired();
+            entity.Property(e => e.Actual).IsRequired();
+            entity.Property(e => e.ReporterName).HasMaxLength(200).IsRequired();
+            entity.Property(e => e.PageUrl).HasMaxLength(1000).IsRequired();
+            entity.Property(e => e.AppVersion).HasMaxLength(50).IsRequired();
+            entity.Property(e => e.LastError).HasMaxLength(1000);
+            entity.Property(e => e.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
+            entity.Property(e => e.UpdatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
+            entity.HasIndex(e => e.ClientReportId).IsUnique();
+            entity.HasIndex(e => e.HubReportId);
+        });
+
+        modelBuilder.Entity<FeedbackClientComment>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Author).HasConversion<int>();
+            entity.Property(e => e.SyncState).HasConversion<int>();
+            entity.Property(e => e.Text).IsRequired();
+            entity.Property(e => e.LastError).HasMaxLength(1000);
+
+            entity.HasOne<FeedbackClientReport>()
+                .WithMany(r => r.Comments)
+                .HasForeignKey(e => e.ClientReportId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<FeedbackClientAttachment>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.FileName).HasMaxLength(255).IsRequired();
+            entity.Property(e => e.ContentType).HasMaxLength(100).IsRequired();
+            entity.Property(e => e.StoragePath).HasMaxLength(500).IsRequired();
+
+            entity.HasOne<FeedbackClientReport>()
+                .WithMany(r => r.Attachments)
+                .HasForeignKey(e => e.ClientReportId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
     }

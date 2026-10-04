@@ -5,6 +5,9 @@
 @inject IConfiguration Configuration
 @using Kuestencode.Werkbank.Host.Auth
 @using Kuestencode.Werkbank.Host.Services
+@using Kuestencode.Werkbank.Host.Models.Feedback
+@using Kuestencode.Werkbank.Host.Services.Feedback
+@inject IFeedbackModeState FeedbackMode
 @implements IDisposable
 
 <MudThemeProvider @ref="_themeProvider" Theme="@_theme" IsDarkMode="@_isDarkMode" />
@@ -19,6 +22,14 @@
             <MudText Typo="Typo.h5">Küstencode Werkbank</MudText>
         </MudStack>
         <MudSpacer />
+        @if (FeedbackMode.Role == FeedbackRole.Client)
+        {
+            <MudTooltip Text="Problem melden">
+                <MudIconButton Icon="@Icons.Material.Filled.BugReport"
+                              Color="Color.Inherit"
+                              OnClick="@OpenFeedbackForm" />
+            </MudTooltip>
+        }
         <MudTooltip Text="@(_isDarkMode ? "Hell-Modus" : "Dunkel-Modus")">
             <MudIconButton Icon="@(_isDarkMode ? Icons.Material.Filled.LightMode : Icons.Material.Filled.DarkMode)"
                           Color="Color.Inherit"
@@ -53,10 +64,7 @@
     private bool _authEnabled = false;
     private MudBlazor.MudTheme _theme = KuestenCodeTheme.Theme;
     private MudThemeProvider? _themeProvider;
-    private string _hostVersion => Configuration["MODULE_VERSION"]
-        ?? Configuration["IMAGE_TAG"]
-        ?? Configuration["DOCKER_IMAGE_TAG"]
-        ?? "dev";
+    private string _hostVersion => HostVersion.Get(Configuration);
 
     protected override async Task OnInitializedAsync()
     {
@@ -103,6 +111,11 @@
         {
             _authEnabled = false;
         }
+    }
+
+    void OpenFeedbackForm()
+    {
+        NavigationManager.NavigateTo($"/feedback/new?page={Uri.EscapeDataString(NavigationManager.Uri)}");
     }
 
     void DrawerToggle()

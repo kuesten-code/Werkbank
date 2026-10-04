@@ -1,0 +1,124 @@
+@page "/feedback/new"
+@attribute [Authorize]
+@using Kuestencode.Shared.Contracts.Feedback
+@using Kuestencode.Werkbank.Host.Models.Feedback
+@using Kuestencode.Werkbank.Host.Services.Feedback
+@implements IAsyncDisposable
+
+<PageTitle>Problem melden - Küstencode Werkbank</PageTitle>
+
+<RoleGuard AllowedRoles="@(new List<UserRole> { UserRole.Admin, UserRole.Buero, UserRole.Mitarbeiter })" RedirectTo="/">
+<MudContainer MaxWidth="MaxWidth.Medium" Class="mt-4">
+    <MudPaper Class="pa-4">
+        <MudText Typo="Typo.h4" GutterBottom="true">Problem melden</MudText>
+
+        @if (ModeState.Role != FeedbackRole.Client)
+        {
+            <MudAlert Severity="Severity.Info">
+                Das Feedback-System ist auf dieser Werkbank nicht eingerichtet (Einstellungen › Allgemein › Feedback).
+            </MudAlert>
+        }
+        else
+        {
+            <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">
+                Ihr Name, die aktuelle Seite und die Werkbank-Version werden automatisch mitgeschickt.
+            </MudText>
+
+            @if (_errors.Count > 0)
+            {
+                <MudAlert Severity="Severity.Error" Class="mb-4">
+                    @foreach (var error in _errors)
+                    {
+                        <div>@error</div>
+                    }
+                </MudAlert>
+            }
+
+            <MudGrid>
+                <MudItem xs="12">
+                    <MudRadioGroup T="FeedbackType" @bind-Value="_request.Type">
+                        <MudRadio T="FeedbackType" Value="FeedbackType.Bug" Color="Color.Error">Bug — etwas funktioniert nicht</MudRadio>
+                        <MudRadio T="FeedbackType" Value="FeedbackType.Wunsch" Color="Color.Secondary">Wunsch — Idee oder Verbesserung</MudRadio>
+                    </MudRadioGroup>
+                </MudItem>
+
+                <MudItem xs="12">
+                    <MudSelect T="string" Label="@(IsBug ? "Modul" : "Modul (optional)")" @bind-Value="_request.Module"
+                               Required="@IsBug" Clearable="true">
+                        @foreach (var module in _modules)
+                        {
+                            <MudSelectItem T="string" Value="@module">@module</MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudItem>
+
+                <MudItem xs="12">
+                    <MudTextField @bind-Value="_request.Title" Label="Titel" Required="true"
+                                  MaxLength="@FeedbackReportValidator.TitleMaxLength" Counter="@FeedbackReportValidator.TitleMaxLength" />
+                </MudItem>
+
+                @if (IsBug)
+                {
+                    <MudItem xs="12">
+                        <MudTextField @bind-Value="_request.Expected" Label="Erwartung — was hätte passieren sollen?"
+                                      Required="true" Lines="3" AutoGrow="true" />
+                    </MudItem>
+                }
+
+                <MudItem xs="12">
+                    <MudTextField @bind-Value="_request.Actual"
+                                  Label="@(IsBug ? "Ist-Zustand — was ist stattdessen passiert?" : "Beschreibung")"
+                                  Required="true" Lines="4" AutoGrow="true" />
+                </MudItem>
+
+                <MudItem xs="12">
+                    <MudText Typo="Typo.subtitle2">Screenshots</MudText>
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">
+                        png, jpg, webp oder pdf, max. @FeedbackUploadPolicy.DefaultMaxFileSizeMb MB pro Datei — oder einfach mit Strg+V aus der Zwischenablage einfügen.
+                    </MudText>
+                    <div class="mt-2">
+                        <InputFile id="@FileInputId" OnChange="OnFilesSelectedAsync" multiple accept=".png,.jpg,.jpeg,.webp,.pdf" hidden />
+                        <MudButton HtmlTag="label" for="@FileInputId" Variant="Variant.Outlined"
+                                   StartIcon="@Icons.Material.Filled.AttachFile">
+                            Dateien auswählen
+                        </MudButton>
+                    </div>
+                    @if (_files.Count > 0)
+                    {
+                        <MudStack Row="true" Wrap="Wrap.Wrap" Spacing="2" Class="mt-3">
+                            @foreach (var file in _files)
+                            {
+                                <MudPaper Outlined="true" Class="pa-2" Style="width: 160px;">
+                                    @if (file.PreviewUrl != null)
+                                    {
+                                        <img src="@file.PreviewUrl" alt="@file.Upload.FileName" style="width: 100%; height: 90px; object-fit: cover;" />
+                                    }
+                                    else
+                                    {
+                                        <MudIcon Icon="@Icons.Material.Filled.PictureAsPdf" Style="width: 100%; height: 90px;" />
+                                    }
+                                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="0">
+                                        <MudText Typo="Typo.caption" Style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1;">
+                                            @file.Upload.FileName
+                                        </MudText>
+                                        <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small"
+                                                       OnClick="@(() => _files.Remove(file))" aria-label="Entfernen" />
+                                    </MudStack>
+                                </MudPaper>
+                            }
+                        </MudStack>
+                    }
+                </MudItem>
+
+                <MudItem xs="12" Class="d-flex justify-end gap-2">
+                    <MudButton Variant="Variant.Text" Href="/feedback">Meine Meldungen</MudButton>
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SubmitAsync" Disabled="@_saving"
+                               StartIcon="@Icons.Material.Filled.Send">
+                        Melden
+                    </MudButton>
+                </MudItem>
+            </MudGrid>
+        }
+    </MudPaper>
+</MudContainer>
+</RoleGuard>

@@ -1,0 +1,25 @@
+@using Kuestencode.Shared.Contracts.Feedback
+@using Kuestencode.Werkbank.Host.Services.Feedback
+
+@if (Type.HasValue)
+{
+    <MudChip T="string" Size="Size.Small" Color="@FeedbackLabels.ColorOf(Type.Value)" Variant="Variant.Outlined">
+        @FeedbackLabels.Of(Type.Value)
+    </MudChip>
+}
+@if (Status.HasValue)
+{
+    <MudChip T="string" Size="Size.Small" Color="@FeedbackLabels.ColorOf(Status.Value)">
+        @FeedbackLabels.Of(Status.Value)
+    </MudChip>
+}
+@if (!string.IsNullOrEmpty(Module))
+{
+    <MudChip T="string" Size="Size.Small" Variant="Variant.Text">@Module</MudChip>
+}
+
+@code {
+    [Parameter] public FeedbackType? Type { get; set; }
+    [Parameter] public FeedbackStatus? Status { get; set; }
+    [Parameter] public string? Module { get; set; }
+}
