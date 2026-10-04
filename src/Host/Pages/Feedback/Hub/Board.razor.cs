@@ -19,6 +19,8 @@ public partial class Board
     private List<FeedbackInstance> _instances = new();
     private List<string> _modules = new();
     private FeedbackBoardFilter _filter = new();
+    private bool _loaded;
+    private int _containerVersion;
 
     protected override async Task OnInitializedAsync()
     {
@@ -28,28 +30,39 @@ public partial class Board
         _instances = await InstanceService.GetInstancesAsync();
         _modules = await BoardService.GetModulesAsync();
         _reports = await BoardService.GetReportsAsync(_filter);
+        _loaded = true;
     }
 
     private async Task ApplyFilterAsync(FeedbackBoardFilter filter)
     {
         _filter = filter;
         _reports = await BoardService.GetReportsAsync(_filter);
-        _dropContainer?.Refresh();
+        _containerVersion++;
     }
 
+    // Optimistisch: Karte sofort in die Zielspalte setzen, bei einem Fehler zurück.
     private async Task OnItemDroppedAsync(MudItemDropInfo<FeedbackReport> dropInfo)
     {
-        if (dropInfo.Item == null || !Enum.TryParse<FeedbackStatus>(dropInfo.DropzoneIdentifier, out var status)
-            || dropInfo.Item.Status == status)
-        {
+        var report = dropInfo.Item;
+        if (report == null || !Enum.TryParse<FeedbackStatus>(dropInfo.DropzoneIdentifier, out var status) || report.Status == status)
             return;
-        }
 
-        await BoardService.SetStatusAsync(dropInfo.Item.Id, status);
-        dropInfo.Item.Status = status;
+        var previousStatus = report.Status;
+        var previousDuplicateOfId = report.DuplicateOfId;
+        report.Status = status;
         if (status != FeedbackStatus.Abgelehnt)
-            dropInfo.Item.DuplicateOfId = null;
+            report.DuplicateOfId = null;
 
-        Snackbar.Add($"#{dropInfo.Item.Id} → {FeedbackLabels.Of(status)}", Severity.Success);
+        try
+        {
+            await BoardService.SetStatusAsync(report.Id, status);
+        }
+        catch (Exception ex)
+        {
+            report.Status = previousStatus;
+            report.DuplicateOfId = previousDuplicateOfId;
+            _dropContainer?.Refresh();
+            Snackbar.Add($"#{report.Id} konnte nicht verschoben werden: {ex.Message}", Severity.Error);
+        }
     }
 }

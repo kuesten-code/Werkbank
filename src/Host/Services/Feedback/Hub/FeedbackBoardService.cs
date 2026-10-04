@@ -82,20 +82,63 @@ public class FeedbackBoardService : IFeedbackBoardService
         await _context.SaveChangesAsync();
     }
 
+    public Task<List<FeedbackReport>> GetDuplicateCandidatesAsync(int reportId) =>
+        _context.FeedbackReports.AsNoTracking()
+            .Include(r => r.Instance)
+            .Where(r => r.Id != reportId && r.DuplicateOfId == null && r.HubDuplicateOfId == null)
+            .OrderByDescending(r => r.Id)
+            .ToListAsync();
+
+    public Task<List<FeedbackReport>> GetHubDuplicatesOfAsync(int reportId) =>
+        _context.FeedbackReports.AsNoTracking()
+            .Include(r => r.Instance)
+            .Where(r => r.HubDuplicateOfId == reportId)
+            .OrderBy(r => r.Id)
+            .ToListAsync();
+
     public async Task MarkAsDuplicateAsync(int reportId, int originalReportId)
+    {
+        var (report, original) = await LoadDuplicatePairAsync(reportId, originalReportId);
+
+        if (original.InstanceId != report.InstanceId)
+            throw new FeedbackValidationException(new[] { $"Meldung #{originalReportId} gehört zu einem anderen Kunden — bitte als Hub-Duplikat verknüpfen." });
+        if (original.DuplicateOfId.HasValue)
+            throw new FeedbackValidationException(new[] { $"Meldung #{originalReportId} ist selbst ein Duplikat von #{original.DuplicateOfId} — bitte auf das Original verweisen." });
+
+        report.DuplicateOfId = originalReportId;
+        report.Status = FeedbackStatus.Abgelehnt;
+        await _context.SaveChangesAsync();
+    }
+
+    public async Task MarkAsHubDuplicateAsync(int reportId, int originalReportId)
+    {
+        var (report, original) = await LoadDuplicatePairAsync(reportId, originalReportId);
+
+        if (original.InstanceId == report.InstanceId)
+            throw new FeedbackValidationException(new[] { $"Meldung #{originalReportId} gehört zum selben Kunden — bitte als normales Duplikat markieren." });
+        if (original.HubDuplicateOfId.HasValue)
+            throw new FeedbackValidationException(new[] { $"Meldung #{originalReportId} ist selbst ein Hub-Duplikat von #{original.HubDuplicateOfId} — bitte auf das Original verweisen." });
+
+        report.HubDuplicateOfId = originalReportId;
+        await _context.SaveChangesAsync();
+    }
+
+    public async Task RemoveHubDuplicateAsync(int reportId)
+    {
+        var report = await FindTrackedAsync(reportId);
+        report.HubDuplicateOfId = null;
+        await _context.SaveChangesAsync();
+    }
+
+    private async Task<(FeedbackReport Report, FeedbackReport Original)> LoadDuplicatePairAsync(int reportId, int originalReportId)
     {
         if (reportId == originalReportId)
             throw new FeedbackValidationException(new[] { "Eine Meldung kann kein Duplikat von sich selbst sein." });
 
         var original = await _context.FeedbackReports.AsNoTracking().FirstOrDefaultAsync(r => r.Id == originalReportId)
             ?? throw new FeedbackValidationException(new[] { $"Meldung #{originalReportId} existiert nicht." });
-        if (original.DuplicateOfId.HasValue)
-            throw new FeedbackValidationException(new[] { $"Meldung #{originalReportId} ist selbst ein Duplikat von #{original.DuplicateOfId} — bitte auf das Original verweisen." });
 
-        var report = await FindTrackedAsync(reportId);
-        report.DuplicateOfId = originalReportId;
-        report.Status = FeedbackStatus.Abgelehnt;
-        await _context.SaveChangesAsync();
+        return (await FindTrackedAsync(reportId), original);
     }
 
     public async Task<(FeedbackAttachment Attachment, Stream Content)?> OpenAttachmentAsync(int attachmentId)

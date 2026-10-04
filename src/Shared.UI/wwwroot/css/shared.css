@@ -190,3 +190,22 @@
 }
 
 
+
+/* Seitenbreite aller Layouts: Der Weißraum links und rechts neben dem Inhalt ist gegenüber
+   der früheren festen Maximalbreite (1280px = MaxWidth.Large) um den hier eingestellten
+   Anteil verringert. 0 = alte Breite, 1 = volle Breite. */
+:root {
+    --werkbank-whitespace-reduction: 0.1;
+}
+
+.werkbank-content {
+    max-width: calc(1280px + (100% - 1280px) * var(--werkbank-whitespace-reduction));
+}
+
+/* Seiten, die selbst "breit" anfordern (Large und größer), dürfen die Layoutbreite voll nutzen.
+   Schmale Seiten (Formulare mit Small/Medium) bleiben bewusst schmal. */
+.werkbank-content .mud-container-maxwidth-lg,
+.werkbank-content .mud-container-maxwidth-xl,
+.werkbank-content .mud-container-maxwidth-xxl {
+    max-width: 100%;
+}

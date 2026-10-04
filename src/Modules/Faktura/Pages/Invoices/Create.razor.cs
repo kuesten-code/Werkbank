@@ -57,7 +57,7 @@ public partial class Create
     private DateTime? _dueDate;
     private bool _saving = false;
     private string? _errorMessage;
-    private decimal _totalNet, _totalVat, _totalGross, _totalDownPayments, _amountDue;
+    private decimal _totalNet, _totalGross, _totalDownPayments, _amountDue;
     private List<Invoice> _downPaymentInvoiceCandidates = new();
     private decimal _discountAmount, _totalNetAfterDiscount;
     private bool _enableDiscount = false;
@@ -532,7 +532,6 @@ public partial class Create
         _totalNet = _invoice.TotalNet;
         _discountAmount = _invoice.DiscountAmount;
         _totalNetAfterDiscount = _invoice.TotalNetAfterDiscount;
-        _totalVat = _invoice.TotalVat;
         _totalGross = _invoice.TotalGross;
         _totalDownPayments = _invoice.TotalDownPayments;
         _amountDue = _invoice.AmountDue;

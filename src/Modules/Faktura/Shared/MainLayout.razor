@@ -17,6 +17,7 @@
             <MudText Typo="Typo.h5">Küstencode Faktura</MudText>
         </MudStack>
         <MudSpacer />
+        <ModuleReportProblemButton />
         <MudTooltip Text="@(_isDarkMode ? "Hell-Modus" : "Dunkel-Modus")">
             <MudIconButton Icon="@(_isDarkMode ? Icons.Material.Filled.LightMode : Icons.Material.Filled.DarkMode)"
                           Color="Color.Inherit"
@@ -32,7 +33,7 @@
         <NavMenu />
     </MudDrawer>
     <MudMainContent>
-        <MudContainer MaxWidth="MaxWidth.Large" Class="my-4 pt-4">
+        <MudContainer MaxWidth="MaxWidth.False" Class="my-4 pt-4 werkbank-content">
             @Body
         </MudContainer>
     </MudMainContent>

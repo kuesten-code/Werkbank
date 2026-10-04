@@ -899,6 +899,9 @@ namespace Kuestencode.Werkbank.Host.Data.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)");
 
+                    b.Property<int?>("HubDuplicateOfId")
+                        .HasColumnType("integer");
+
                     b.Property<int>("InstanceId")
                         .HasColumnType("integer");
 
@@ -935,6 +938,8 @@ namespace Kuestencode.Werkbank.Host.Data.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("DuplicateOfId");
+
+                    b.HasIndex("HubDuplicateOfId");
 
                     b.HasIndex("InstanceId", "ClientReportId")
                         .IsUnique();
@@ -1221,6 +1226,11 @@ namespace Kuestencode.Werkbank.Host.Data.Migrations
                     b.HasOne("Kuestencode.Werkbank.Host.Models.Feedback.FeedbackReport", null)
                         .WithMany()
                         .HasForeignKey("DuplicateOfId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("Kuestencode.Werkbank.Host.Models.Feedback.FeedbackReport", null)
+                        .WithMany()
+                        .HasForeignKey("HubDuplicateOfId")
                         .OnDelete(DeleteBehavior.SetNull);
 
                     b.HasOne("Kuestencode.Werkbank.Host.Models.Feedback.FeedbackInstance", "Instance")

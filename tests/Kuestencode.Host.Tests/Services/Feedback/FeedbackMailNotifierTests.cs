@@ -1,7 +1,7 @@
 using FluentAssertions;
-using Kuestencode.Core.Interfaces;
 using Kuestencode.Shared.Contracts.Feedback;
 using Kuestencode.Werkbank.Host.Models.Feedback;
+using Kuestencode.Werkbank.Host.Services.Email;
 using Kuestencode.Werkbank.Host.Services.Feedback;
 using Kuestencode.Werkbank.Host.Services.Feedback.Hub;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -13,39 +13,50 @@ namespace Kuestencode.Host.Tests.Services.Feedback;
 public class FeedbackMailNotifierTests
 {
     private readonly Mock<IFeedbackSettingsService> _settingsService = new();
-    private readonly Mock<IEmailEngine> _emailEngine = new();
+    private readonly Mock<IInternalEmailSender> _emailSender = new();
     private readonly FeedbackMailNotifier _notifier;
-    private readonly FeedbackReport _report = new() { Id = 12, Type = FeedbackType.Bug, Module = "Faktura", Title = "<b>Fehler</b>" };
+    private readonly FeedbackReport _report = new()
+    {
+        Id = 12, Type = FeedbackType.Bug, Module = "Faktura", Title = "<b>Fehler</b>", Actual = "Absturz beim Speichern", ReporterName = "Erika"
+    };
 
     public FeedbackMailNotifierTests()
     {
-        _notifier = new FeedbackMailNotifier(_settingsService.Object, _emailEngine.Object, NullLogger<FeedbackMailNotifier>.Instance);
+        _notifier = new FeedbackMailNotifier(_settingsService.Object, _emailSender.Object, NullLogger<FeedbackMailNotifier>.Instance);
     }
 
     private void SetupSettings(bool notify, string? email) =>
         _settingsService.Setup(s => s.GetSettingsAsync())
             .ReturnsAsync(new FeedbackSettings { NotifyOnNewReport = notify, NotificationEmail = email });
 
-    private void VerifyMailSent(Times times) =>
-        _emailEngine.Verify(e => e.SendEmailAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(),
-            It.IsAny<string?>(), It.IsAny<IEnumerable<EmailAttachment>?>(), It.IsAny<string?>(), It.IsAny<string?>(),
-            It.IsAny<string?>(), It.IsAny<bool>()), times);
-
     [Fact]
-    public async Task Aktiviert_SendetHinweisMitEscaptemTitel()
+    public async Task Aktiviert_SendetInterneMailMitEckdatenUndEscaptemTitel()
     {
         SetupSettings(true, "ich@example.com");
-        string? html = null;
-        _emailEngine.Setup(e => e.SendEmailAsync("ich@example.com", It.IsAny<string>(), It.IsAny<string>(),
-                It.IsAny<string?>(), It.IsAny<IEnumerable<EmailAttachment>?>(), It.IsAny<string?>(), It.IsAny<string?>(),
-                It.IsAny<string?>(), It.IsAny<bool>()))
-            .Callback<string, string, string, string?, IEnumerable<EmailAttachment>?, string?, string?, string?, bool>(
-                (_, _, content, _, _, _, _, _, _) => html = content)
+        string? subject = null, html = null, text = null;
+        _emailSender.Setup(e => e.SendInternalEmailAsync("ich@example.com", It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
+            .Callback<string, string, string, string>((_, s, h, t) => (subject, html, text) = (s, h, t))
             .ReturnsAsync(true);
 
         await _notifier.NotifyNewReportAsync(_report, "Kunde A");
 
-        html.Should().Contain("&lt;b&gt;Fehler&lt;/b&gt;").And.Contain("Kunde A");
+        subject.Should().Be("[Feedback-Hub] #12 Bug von Kunde A: <b>Fehler</b>");
+        html.Should().Contain("&lt;b&gt;Fehler&lt;/b&gt;").And.Contain("Kunde A").And.Contain("Faktura").And.Contain("Erika");
+        text.Should().Contain("Absturz beim Speichern");
+    }
+
+    [Fact]
+    public async Task Mail_EnthaeltKeineKundenAnredeOderGrussformel()
+    {
+        SetupSettings(true, "ich@example.com");
+        string? html = null;
+        _emailSender.Setup(e => e.SendInternalEmailAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
+            .Callback<string, string, string, string>((_, _, h, _) => html = h)
+            .ReturnsAsync(true);
+
+        await _notifier.NotifyNewReportAsync(_report, "Kunde A");
+
+        html.Should().NotContain("Sehr geehrte").And.NotContain("Mit freundlichen Grüßen");
     }
 
     [Theory]
@@ -58,17 +69,15 @@ public class FeedbackMailNotifierTests
 
         await _notifier.NotifyNewReportAsync(_report, "Kunde A");
 
-        VerifyMailSent(Times.Never());
+        _emailSender.Verify(e => e.SendInternalEmailAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()), Times.Never);
     }
 
     [Fact]
     public async Task MailFehler_WirdGeschlucktUndNurGeloggt()
     {
         SetupSettings(true, "ich@example.com");
-        _emailEngine.Setup(e => e.SendEmailAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(),
-                It.IsAny<string?>(), It.IsAny<IEnumerable<EmailAttachment>?>(), It.IsAny<string?>(), It.IsAny<string?>(),
-                It.IsAny<string?>(), It.IsAny<bool>()))
-            .ThrowsAsync(new InvalidOperationException("SMTP nicht konfiguriert"));
+        _emailSender.Setup(e => e.SendInternalEmailAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
+            .ThrowsAsync(new InvalidOperationException("SMTP kaputt"));
 
         var act = () => _notifier.NotifyNewReportAsync(_report, "Kunde A");
 

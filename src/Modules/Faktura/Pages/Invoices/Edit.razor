@@ -484,14 +484,7 @@
                                 <MudText>@_totalNetAfterDiscount.ToString("C2", _culture)</MudText>
                             </MudStack>
                         }
-                        <MudStack Row="true" Justify="Justify.SpaceBetween">
-                            <MudText>@(_company?.IsKleinunternehmer == true
-                                ? "MwSt (0%, §19 UStG):"
-                                : _isReverseCharge
-                                    ? "MwSt (0%, §13b UStG):"
-                                    : "MwSt (19%):")</MudText>
-                            <MudText>@_totalVat.ToString("C2", _culture)</MudText>
-                        </MudStack>
+                        <VatSummaryRows Invoice="_invoice" IsKleinunternehmer="@(_company?.IsKleinunternehmer == true)" />
                         <MudDivider />
                         <MudStack Row="true" Justify="Justify.SpaceBetween">
                             <MudText Typo="Typo.subtitle1">Bruttosumme:</MudText>

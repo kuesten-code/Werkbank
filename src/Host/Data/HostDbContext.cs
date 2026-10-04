@@ -267,6 +267,11 @@ public class HostDbContext : DbContext
                 .WithMany()
                 .HasForeignKey(e => e.DuplicateOfId)
                 .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasOne<FeedbackReport>()
+                .WithMany()
+                .HasForeignKey(e => e.HubDuplicateOfId)
+                .OnDelete(DeleteBehavior.SetNull);
         });
 
         modelBuilder.Entity<FeedbackComment>(entity =>

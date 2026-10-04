@@ -145,6 +145,8 @@ public class XRechnungService : IXRechnungService
 
             if (string.IsNullOrWhiteSpace(company.Country))
                 missingFields.Add("Firmen Land");
+            else if (ResolveCountryCode(company.Country) == null)
+                missingFields.Add($"Firmen Land \"{company.Country}\" nicht als ISO-Ländercode erkennbar");
 
             if (string.IsNullOrWhiteSpace(company.TaxNumber) && string.IsNullOrWhiteSpace(company.VatId))
                 missingFields.Add("Steuernummer oder USt-IdNr.");
@@ -181,6 +183,8 @@ public class XRechnungService : IXRechnungService
 
                 if (string.IsNullOrWhiteSpace(invoice.Customer.Country))
                     missingFields.Add("Kunden Land");
+                else if (ResolveCountryCode(invoice.Customer.Country) == null)
+                    missingFields.Add($"Kunden Land \"{invoice.Customer.Country}\" nicht als ISO-Ländercode erkennbar");
             }
 
             // Rechnungspositionen validieren
@@ -246,7 +250,7 @@ public class XRechnungService : IXRechnungService
                 new XElement(Rsm + "SupplyChainTradeTransaction",
 
                     // Line Items
-                    BuildLineItems(invoice.Items, company.IsKleinunternehmer, invoice.IsReverseCharge),
+                    BuildLineItems(invoice, company),
 
                     // Header Trade Agreement
                     new XElement(Ram + "ApplicableHeaderTradeAgreement",
@@ -276,13 +280,19 @@ public class XRechnungService : IXRechnungService
         return doc;
     }
 
-    private IEnumerable<XElement> BuildLineItems(ICollection<InvoiceItem> items, bool isKleinunternehmer, bool isReverseCharge = false)
+    private IEnumerable<XElement> BuildLineItems(Invoice invoice, Company company)
     {
         var culture = CultureInfo.InvariantCulture;
+        var sign = DocumentSign(invoice);
         int lineId = 1;
 
-        foreach (var item in items.Where(i => !string.IsNullOrWhiteSpace(i.Description)))
+        foreach (var item in invoice.Items.Where(i => !i.IsHeader && !string.IsNullOrWhiteSpace(i.Description)))
         {
+            var (categoryCode, rate) = LineTaxCategory(item.VatRate, invoice, company);
+
+            // BR-27: Der Nettopreis darf nicht negativ sein — Minderungen (z.B. Nachlass-Positionen) laufen über die Menge
+            var quantity = sign * item.UnitPrice < 0 ? -item.Quantity : item.Quantity;
+
             yield return new XElement(Ram + "IncludedSupplyChainTradeLineItem",
                 new XElement(Ram + "AssociatedDocumentLineDocument",
                     new XElement(Ram + "LineID", lineId.ToString())
@@ -298,19 +308,17 @@ public class XRechnungService : IXRechnungService
                 new XElement(Ram + "SpecifiedLineTradeDelivery",
                     new XElement(Ram + "BilledQuantity",
                         new XAttribute("unitCode", "C62"), // Unit: piece
-                        item.Quantity.ToString("F3", culture)
+                        quantity.ToString("F3", culture)
                     )
                 ),
                 new XElement(Ram + "SpecifiedLineTradeSettlement",
                     new XElement(Ram + "ApplicableTradeTax",
                         new XElement(Ram + "TypeCode", "VAT"),
-                        new XElement(Ram + "CategoryCode",
-                            isKleinunternehmer ? "E" : isReverseCharge ? "AE" : "S"),
-                        new XElement(Ram + "RateApplicablePercent",
-                            (isKleinunternehmer || isReverseCharge) ? "0.00" : item.VatRate.ToString("F2", culture))
+                        new XElement(Ram + "CategoryCode", categoryCode),
+                        new XElement(Ram + "RateApplicablePercent", rate.ToString("F2", culture))
                     ),
                     new XElement(Ram + "SpecifiedTradeSettlementLineMonetarySummation",
-                        new XElement(Ram + "LineTotalAmount", Math.Abs(item.TotalNet).ToString("F2", culture))
+                        new XElement(Ram + "LineTotalAmount", (sign * item.TotalNet).ToString("F2", culture))
                     )
                 )
             );
@@ -318,6 +326,44 @@ public class XRechnungService : IXRechnungService
             lineId++;
         }
     }
+
+    // Gutschriften (TypeCode 381) werden in der XRechnung mit positiven Beträgen übermittelt
+    private static int DocumentSign(Invoice invoice) => invoice.Type == InvoiceType.CreditNote ? -1 : 1;
+
+    private static (string CategoryCode, decimal Rate) LineTaxCategory(decimal vatRate, Invoice invoice, Company company) =>
+        company.IsKleinunternehmer ? ("E", 0m)
+        : invoice.IsReverseCharge ? ("AE", 0m)
+        : vatRate > 0 ? ("S", vatRate)
+        : ("Z", 0m);
+
+    private sealed record TaxGroup(string CategoryCode, decimal Rate, string? ExemptionReasonCode, decimal LineNet, decimal Basis, decimal Vat);
+
+    /// <summary>
+    /// BG-23: eine Steueraufschlüsselung je Kategorie/Steuersatz. Bei §19/§13b gibt es nur eine Gruppe ohne Steuer.
+    /// </summary>
+    private static List<TaxGroup> BuildTaxGroups(Invoice invoice, Company company)
+    {
+        var sign = DocumentSign(invoice);
+
+        if (company.IsKleinunternehmer || invoice.IsReverseCharge)
+        {
+            var (categoryCode, _) = LineTaxCategory(0, invoice, company);
+            var exemptionReasonCode = company.IsKleinunternehmer ? "VATEX-EU-O" : "VATEX-EU-AE";
+            return [new TaxGroup(categoryCode, 0m, exemptionReasonCode,
+                sign * invoice.TotalNet, RoundAmount(sign * invoice.TotalNetAfterDiscount), 0m)];
+        }
+
+        return invoice.VatBreakdown
+            .Select(g =>
+            {
+                var (categoryCode, rate) = LineTaxCategory(g.Rate, invoice, company);
+                return new TaxGroup(categoryCode, rate, null,
+                    sign * g.LineNet, RoundAmount(sign * g.NetAfterDiscount), RoundAmount(sign * g.Vat));
+            })
+            .ToList();
+    }
+
+    private static decimal RoundAmount(decimal amount) => Math.Round(amount, 2, MidpointRounding.AwayFromZero);
 
     private XElement BuildSellerTradeParty(Company company)
     {
@@ -388,7 +434,7 @@ public class XRechnungService : IXRechnungService
                 new XElement(Ram + "PostcodeCode", company.PostalCode),
                 new XElement(Ram + "LineOne", company.Address),
                 new XElement(Ram + "CityName", company.City),
-                new XElement(Ram + "CountryID", GetCountryCode(company.Country))
+                new XElement(Ram + "CountryID", ResolveCountryCode(company.Country)!)
             ),
 
             // BT-34: Seller electronic address (PFLICHT seit XRechnung 3.0.1 / BR-DE-31)
@@ -444,7 +490,7 @@ public class XRechnungService : IXRechnungService
                 new XElement(Ram + "PostcodeCode", customer.PostalCode),
                 new XElement(Ram + "LineOne", customer.Address),
                 new XElement(Ram + "CityName", customer.City),
-                new XElement(Ram + "CountryID", GetCountryCode(customer.Country))
+                new XElement(Ram + "CountryID", ResolveCountryCode(customer.Country)!)
             ),
             
             // BT-49: Buyer electronic address (optional, aber wenn vorhanden mit schemeID)
@@ -466,9 +512,13 @@ public class XRechnungService : IXRechnungService
     private XElement BuildHeaderTradeSettlement(Invoice invoice, Company company)
     {
         var culture = CultureInfo.InvariantCulture;
-        var totalNet = Math.Abs(invoice.Items.Sum(i => i.TotalNet));
-        var totalVat = Math.Abs(invoice.Items.Sum(i => i.TotalVat));
-        var totalGross = Math.Abs(invoice.Items.Sum(i => i.TotalGross));
+        var taxGroups = BuildTaxGroups(invoice, company);
+
+        var lineTotal = taxGroups.Sum(g => g.LineNet);
+        var taxBasisTotal = taxGroups.Sum(g => g.Basis);
+        var taxTotal = taxGroups.Sum(g => g.Vat);
+        var grandTotal = taxBasisTotal + taxTotal;
+        var prepaid = invoice.TotalDownPayments;
 
         var elements = new List<XElement?>
         {
@@ -488,71 +538,109 @@ public class XRechnungService : IXRechnungService
                 new XElement(Ram + "PayeeSpecifiedCreditorFinancialInstitution",
                     new XElement(Ram + "Name", company.BankName)
                 )
-            ),
-
-            // MwSt-Informationen
-            new XElement(Ram + "ApplicableTradeTax",
-                new XElement(Ram + "CalculatedAmount", totalVat.ToString("F2", culture)),
-                new XElement(Ram + "TypeCode", "VAT"),
-                new XElement(Ram + "BasisAmount", totalNet.ToString("F2", culture)),
-                new XElement(Ram + "CategoryCode",
-                    company.IsKleinunternehmer ? "E" : invoice.IsReverseCharge ? "AE" : "S"),
-                company.IsKleinunternehmer
-                    ? new XElement(Ram + "ExemptionReasonCode", "VATEX-EU-O")
-                    : invoice.IsReverseCharge
-                        ? new XElement(Ram + "ExemptionReasonCode", "VATEX-EU-AE")
-                        : null,
-                new XElement(Ram + "RateApplicablePercent",
-                    (company.IsKleinunternehmer || invoice.IsReverseCharge) ? "0.00" : "19.00")
-            ),
-
-            // Zahlungsbedingungen (optional)
-            invoice.DueDate.HasValue
-                ? new XElement(Ram + "SpecifiedTradePaymentTerms",
-                    new XElement(Ram + "DueDateDateTime",
-                        new XElement(Udt + "DateTimeString",
-                            new XAttribute("format", "102"),
-                            invoice.DueDate.Value.ToString("yyyyMMdd")
-                        )
-                    )
-                  )
-                : null,
-
-            // Geldsummen
-            new XElement(Ram + "SpecifiedTradeSettlementHeaderMonetarySummation",
-                new XElement(Ram + "LineTotalAmount", totalNet.ToString("F2", culture)),
-                new XElement(Ram + "ChargeTotalAmount", "0.00"),
-                new XElement(Ram + "AllowanceTotalAmount", "0.00"),
-                new XElement(Ram + "TaxBasisTotalAmount", totalNet.ToString("F2", culture)),
-                new XElement(Ram + "TaxTotalAmount",
-                    new XAttribute("currencyID", "EUR"),
-                    totalVat.ToString("F2", culture)
-                ),
-                new XElement(Ram + "GrandTotalAmount", totalGross.ToString("F2", culture)),
-                new XElement(Ram + "DuePayableAmount", totalGross.ToString("F2", culture))
             )
         };
+
+        elements.AddRange(taxGroups.Select(g =>
+            new XElement(Ram + "ApplicableTradeTax",
+                new XElement(Ram + "CalculatedAmount", g.Vat.ToString("F2", culture)),
+                new XElement(Ram + "TypeCode", "VAT"),
+                new XElement(Ram + "BasisAmount", g.Basis.ToString("F2", culture)),
+                new XElement(Ram + "CategoryCode", g.CategoryCode),
+                g.ExemptionReasonCode != null ? new XElement(Ram + "ExemptionReasonCode", g.ExemptionReasonCode) : null,
+                new XElement(Ram + "RateApplicablePercent", g.Rate.ToString("F2", culture))
+            )));
+
+        // BG-20: Rabatt als Nachlass auf Belegebene je Steuergruppe, damit BR-CO-13 (Positionen − Nachlass = Steuerbasis) aufgeht
+        elements.AddRange(taxGroups
+            .Where(g => g.LineNet != g.Basis)
+            .Select(g =>
+                new XElement(Ram + "SpecifiedTradeAllowanceCharge",
+                    new XElement(Ram + "ChargeIndicator", new XElement(Udt + "Indicator", "false")),
+                    new XElement(Ram + "ActualAmount", (g.LineNet - g.Basis).ToString("F2", culture)),
+                    new XElement(Ram + "Reason", "Rabatt"),
+                    new XElement(Ram + "CategoryTradeTax",
+                        new XElement(Ram + "TypeCode", "VAT"),
+                        new XElement(Ram + "CategoryCode", g.CategoryCode),
+                        new XElement(Ram + "RateApplicablePercent", g.Rate.ToString("F2", culture))
+                    )
+                )));
+
+        elements.Add(invoice.DueDate.HasValue
+            ? new XElement(Ram + "SpecifiedTradePaymentTerms",
+                new XElement(Ram + "DueDateDateTime",
+                    new XElement(Udt + "DateTimeString",
+                        new XAttribute("format", "102"),
+                        invoice.DueDate.Value.ToString("yyyyMMdd")
+                    )
+                )
+              )
+            : null);
+
+        elements.Add(new XElement(Ram + "SpecifiedTradeSettlementHeaderMonetarySummation",
+            new XElement(Ram + "LineTotalAmount", lineTotal.ToString("F2", culture)),
+            new XElement(Ram + "ChargeTotalAmount", "0.00"),
+            new XElement(Ram + "AllowanceTotalAmount", (lineTotal - taxBasisTotal).ToString("F2", culture)),
+            new XElement(Ram + "TaxBasisTotalAmount", taxBasisTotal.ToString("F2", culture)),
+            new XElement(Ram + "TaxTotalAmount",
+                new XAttribute("currencyID", "EUR"),
+                taxTotal.ToString("F2", culture)
+            ),
+            new XElement(Ram + "GrandTotalAmount", grandTotal.ToString("F2", culture)),
+            prepaid != 0 ? new XElement(Ram + "TotalPrepaidAmount", prepaid.ToString("F2", culture)) : null,
+            new XElement(Ram + "DuePayableAmount", (grandTotal - prepaid).ToString("F2", culture))
+        ));
 
         return new XElement(Ram + "ApplicableHeaderTradeSettlement",
             elements.Where(e => e != null)
         );
     }
 
-    private string GetCountryCode(string country)
+    private static readonly Dictionary<string, string> CountryCodesByGermanName = new(StringComparer.OrdinalIgnoreCase)
     {
-        // Konvertiere Ländernamen zu ISO 3166-1 Alpha-2 Codes
-        return country.ToUpper() switch
+        ["Deutschland"] = "DE", ["Österreich"] = "AT", ["Schweiz"] = "CH", ["Liechtenstein"] = "LI",
+        ["Frankreich"] = "FR", ["Niederlande"] = "NL", ["Belgien"] = "BE", ["Luxemburg"] = "LU",
+        ["Dänemark"] = "DK", ["Schweden"] = "SE", ["Norwegen"] = "NO", ["Finnland"] = "FI",
+        ["Polen"] = "PL", ["Tschechien"] = "CZ", ["Slowakei"] = "SK", ["Ungarn"] = "HU",
+        ["Italien"] = "IT", ["Spanien"] = "ES", ["Griechenland"] = "GR", ["Irland"] = "IE",
+        ["Großbritannien"] = "GB", ["Vereinigtes Königreich"] = "GB", ["Slowenien"] = "SI",
+        ["Kroatien"] = "HR", ["Rumänien"] = "RO", ["Bulgarien"] = "BG", ["Estland"] = "EE",
+        ["Lettland"] = "LV", ["Litauen"] = "LT", ["Zypern"] = "CY", ["Vereinigte Staaten"] = "US", ["USA"] = "US"
+    };
+
+    // Englische und landessprachliche Namen (z.B. "Germany", "France", "Italia") liefert .NET selbst
+    private static readonly Lazy<Dictionary<string, string>> CountryCodesByRegionName = new(() =>
+        CultureInfo.GetCultures(CultureTypes.SpecificCultures)
+            .Select(c => new RegionInfo(c.Name))
+            .SelectMany(r => new[] { (Name: r.EnglishName, Code: r.TwoLetterISORegionName), (Name: r.NativeName, Code: r.TwoLetterISORegionName) })
+            .GroupBy(x => x.Name, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.First().Code, StringComparer.OrdinalIgnoreCase));
+
+    /// <summary>
+    /// ISO 3166-1 Alpha-2 zu einem frei erfassten Ländernamen; null, wenn das Land nicht erkennbar ist.
+    /// </summary>
+    private static string? ResolveCountryCode(string country)
+    {
+        var value = country.Trim();
+
+        if (CountryCodesByGermanName.TryGetValue(value, out var code) ||
+            CountryCodesByRegionName.Value.TryGetValue(value, out code))
+            return code;
+
+        return value.Length == 2 && value.All(char.IsAsciiLetter) && IsKnownRegion(value)
+            ? value.ToUpperInvariant()
+            : null;
+    }
+
+    private static bool IsKnownRegion(string twoLetterCode)
+    {
+        try
         {
-            "DEUTSCHLAND" => "DE",
-            "GERMANY" => "DE",
-            "ÖSTERREICH" => "AT",
-            "AUSTRIA" => "AT",
-            "SCHWEIZ" => "CH",
-            "SWITZERLAND" => "CH",
-            "DE" => "DE",
-            "AT" => "AT",
-            "CH" => "CH",
-            _ => country.Length == 2 ? country.ToUpper() : "DE" // Fallback
-        };
+            return new RegionInfo(twoLetterCode).TwoLetterISORegionName.Equals(twoLetterCode, StringComparison.OrdinalIgnoreCase);
+        }
+        catch (ArgumentException)
+        {
+            return false;
+        }
     }
 }

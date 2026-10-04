@@ -49,7 +49,15 @@
             </MudGrid>
         </MudPaper>
 
-        <MudDropContainer T="FeedbackReport" @ref="_dropContainer" Items="_reports"
+        @if (!_loaded)
+        {
+            <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+        }
+        else
+        {
+        @* @key erzwingt einen neuen Container je Filterstand: MudDropContainer übernimmt
+           geänderte Items sonst erst beim nächsten Rendern (Filter wirkte "einen Schritt verzögert"). *@
+        <MudDropContainer T="FeedbackReport" @ref="_dropContainer" @key="_containerVersion" Items="_reports"
                           ItemsSelector="@((item, zone) => item.Status.ToString() == zone)"
                           ItemDropped="OnItemDroppedAsync"
                           Class="d-flex flex-row gap-3" Style="overflow-x: auto;">
@@ -77,11 +85,16 @@
                             {
                                 <MudChip T="string" Size="Size.Small" Variant="Variant.Text">Duplikat von #@context.DuplicateOfId</MudChip>
                             }
+                            @if (context.HubDuplicateOfId.HasValue)
+                            {
+                                <MudChip T="string" Size="Size.Small" Variant="Variant.Text" Icon="@Icons.Material.Filled.Link">Hub-Duplikat von #@context.HubDuplicateOfId</MudChip>
+                            }
                         </div>
                     </MudCardContent>
                 </MudCard>
             </ItemRenderer>
         </MudDropContainer>
+        }
     }
 </MudContainer>
 </RoleGuard>

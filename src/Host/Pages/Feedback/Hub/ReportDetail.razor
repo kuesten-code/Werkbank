@@ -1,6 +1,7 @@
 @page "/feedback/hub/{ReportId:int}"
 @attribute [Authorize]
 @using Kuestencode.Shared.Contracts.Feedback
+@using Kuestencode.Werkbank.Host.Models.Feedback
 @using Kuestencode.Werkbank.Host.Services.Feedback
 
 <PageTitle>Meldung #@ReportId - Feedback-Hub</PageTitle>
@@ -29,7 +30,13 @@
                     @if (_report.DuplicateOfId.HasValue)
                     {
                         <MudAlert Severity="Severity.Info" Dense="true" Class="mt-3">
-                            Duplikat von <MudLink Href="@($"/feedback/hub/{_report.DuplicateOfId}")">Meldung #@_report.DuplicateOfId</MudLink>
+                            Duplikat von <MudLink Href="@($"/feedback/hub/{_report.DuplicateOfId}")">Meldung #@_report.DuplicateOfId</MudLink> (für den Kunden sichtbar)
+                        </MudAlert>
+                    }
+                    @if (_report.HubDuplicateOfId.HasValue)
+                    {
+                        <MudAlert Severity="Severity.Normal" Dense="true" Icon="@Icons.Material.Filled.Link" Class="mt-3">
+                            Hub-Duplikat von <MudLink Href="@($"/feedback/hub/{_report.HubDuplicateOfId}")">Meldung #@_report.HubDuplicateOfId</MudLink> (nur intern)
                         </MudAlert>
                     }
 
@@ -95,7 +102,7 @@
                         <MudSwitch @bind-Value="_commentInternal" Color="Color.Warning" Label="Intern (nicht an den Kunden)" />
                         <MudSpacer />
                         <MudButton Variant="Variant.Filled" Color="@(_commentInternal ? Color.Warning : Color.Primary)"
-                                   OnClick="AddCommentAsync" Disabled="@string.IsNullOrWhiteSpace(_commentText)">
+                                   OnClick="AddCommentAsync">
                             @(_commentInternal ? "Intern speichern" : "An Kunden senden")
                         </MudButton>
                     </MudStack>
@@ -119,11 +126,48 @@
 
                 <MudPaper Class="pa-4 mb-4">
                     <MudText Typo="Typo.h6" Class="mb-2">Als Duplikat markieren</MudText>
-                    <MudNumericField T="int?" @bind-Value="_duplicateOfId" Label="Original-Meldung #" Min="1" HideSpinButtons="true" />
-                    <MudButton Variant="Variant.Outlined" OnClick="MarkAsDuplicateAsync" Disabled="@(!_duplicateOfId.HasValue)" Class="mt-2" FullWidth="true">
-                        Als Duplikat von … markieren
+                    <MudAutocomplete T="FeedbackReport" @bind-Value="_duplicateOriginal"
+                                     Label="@($"Original von {_report.Instance.Name}")"
+                                     SearchFunc="SearchSameCustomerAsync" ToStringFunc="DescribeReport"
+                                     Clearable="true" ResetValueOnEmptyText="true" MaxItems="50" />
+                    <MudButton Variant="Variant.Outlined" OnClick="MarkAsDuplicateAsync" Class="mt-2" FullWidth="true">
+                        Als Duplikat markieren
                     </MudButton>
                     <MudText Typo="Typo.caption" Color="Color.Secondary">Die Karte wandert nach „Abgelehnt“, der Kunde sieht den Verweis.</MudText>
+                </MudPaper>
+
+                <MudPaper Class="pa-4 mb-4">
+                    <MudText Typo="Typo.h6" Class="mb-2">Hub-Duplikat (intern)</MudText>
+                    @if (_report.HubDuplicateOfId.HasValue)
+                    {
+                        <MudAlert Severity="Severity.Normal" Dense="true" Icon="@Icons.Material.Filled.Link" Class="mb-2">
+                            Verknüpft mit <MudLink Href="@($"/feedback/hub/{_report.HubDuplicateOfId}")">Meldung #@_report.HubDuplicateOfId</MudLink>
+                        </MudAlert>
+                        <MudButton Variant="Variant.Text" Color="Color.Error" OnClick="RemoveHubDuplicateAsync" FullWidth="true">
+                            Verknüpfung lösen
+                        </MudButton>
+                    }
+                    else
+                    {
+                        <MudAutocomplete T="FeedbackReport" @bind-Value="_hubDuplicateOriginal"
+                                         Label="Original eines anderen Kunden"
+                                         SearchFunc="SearchOtherCustomersAsync" ToStringFunc="DescribeReportWithCustomer"
+                                         Clearable="true" ResetValueOnEmptyText="true" MaxItems="50" />
+                        <MudButton Variant="Variant.Outlined" OnClick="MarkAsHubDuplicateAsync" Class="mt-2" FullWidth="true">
+                            Als Hub-Duplikat verknüpfen
+                        </MudButton>
+                    }
+                    @if (_hubDuplicates.Count > 0)
+                    {
+                        <MudText Typo="Typo.subtitle2" Class="mt-3">Verknüpfte Meldungen anderer Kunden</MudText>
+                        @foreach (var duplicate in _hubDuplicates)
+                        {
+                            <MudLink Href="@($"/feedback/hub/{duplicate.Id}")" Class="d-block">@DescribeReportWithCustomer(duplicate)</MudLink>
+                        }
+                    }
+                    <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mt-2 d-block">
+                        Nur für die Bearbeitung im Hub — Status und Kundenansicht bleiben unverändert.
+                    </MudText>
                 </MudPaper>
 
                 <MudPaper Class="pa-4">

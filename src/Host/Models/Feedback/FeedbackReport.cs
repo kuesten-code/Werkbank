@@ -20,7 +20,14 @@ public class FeedbackReport : BaseEntity
     public string AppVersion { get; set; } = "";
 
     public FeedbackStatus Status { get; set; } = FeedbackStatus.Neu;
+    /// <summary>Duplikat innerhalb desselben Kunden; der Kunde sieht den Verweis.</summary>
     public int? DuplicateOfId { get; set; }
+
+    /// <summary>
+    /// Rein interne Verknüpfung (auch über Kunden hinweg) für die Bearbeitung im Hub —
+    /// wird nie an Kunden-Instanzen übertragen und ändert den Status nicht.
+    /// </summary>
+    public int? HubDuplicateOfId { get; set; }
     public string? GithubIssueUrl { get; set; }
 
     public FeedbackInstance Instance { get; set; } = null!;

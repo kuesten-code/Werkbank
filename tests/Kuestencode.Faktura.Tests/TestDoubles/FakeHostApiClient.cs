@@ -72,4 +72,5 @@ public class FakeHostApiClient : IHostApiClient
     public Task<bool> SendEmailAsync(SendEmailRequest request) => Task.FromResult(true);
 
     public Task<(bool Success, string? ErrorMessage)> TestEmailConnectionAsync() => Task.FromResult<(bool, string?)>((true, null));
+    public Task<bool> IsFeedbackReportingEnabledAsync() => Task.FromResult(false);
 }

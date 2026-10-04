@@ -44,7 +44,7 @@ public partial class Create
     private DateTime? _dueDate;
     private bool _saving = false;
     private string? _errorMessage;
-    private decimal _totalNet, _totalVat, _totalGross;
+    private decimal _totalNet, _totalGross;
     private bool _isReverseCharge = false;
     private System.Globalization.CultureInfo _culture = new System.Globalization.CultureInfo("de-DE");
     private const long MaxAttachmentSize = 10 * 1024 * 1024;
@@ -317,7 +317,6 @@ public partial class Create
         }
 
         _totalNet = _invoice.TotalNet;
-        _totalVat = _invoice.TotalVat;
         _totalGross = _invoice.TotalGross;
 
         StateHasChanged();

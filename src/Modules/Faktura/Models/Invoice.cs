@@ -148,6 +148,28 @@ public class Invoice
     [NotMapped]
     public decimal TotalGross => TotalNetAfterDiscount + TotalVat;
 
+    /// <summary>
+    /// MwSt je Steuersatz (§14 Abs. 4 Nr. 8 UStG), Rabatt anteilig wie in <see cref="TotalVat"/> verteilt.
+    /// </summary>
+    [NotMapped]
+    public IReadOnlyList<VatGroup> VatBreakdown
+    {
+        get
+        {
+            var discountRatio = TotalNet == 0 ? 0 : TotalNetAfterDiscount / TotalNet;
+            return Items
+                .Where(i => !i.IsHeader)
+                .GroupBy(i => i.VatRate)
+                .OrderByDescending(g => g.Key)
+                .Select(g => new VatGroup(
+                    g.Key,
+                    g.Sum(i => i.TotalNet),
+                    g.Sum(i => i.TotalNet) * discountRatio,
+                    g.Sum(i => i.TotalVat) * discountRatio))
+                .ToList();
+        }
+    }
+
     [NotMapped]
     public decimal TotalDownPayments => DownPayments?.Sum(d => d.Amount) ?? 0;
 
@@ -157,10 +179,13 @@ public class Invoice
     [NotMapped]
     public decimal TotalPaid => Payments?.Sum(p => p.Amount) ?? 0;
 
+    // Abschläge wurden bereits über die Abschlagsrechnungen bezahlt — offen ist nur der Rest von "Zu zahlen"
     [NotMapped]
-    public decimal RemainingAmount => TotalGross - TotalPaid;
+    public decimal RemainingAmount => AmountDue - TotalPaid;
 
     // Wie in Saldo (§11 EStG): Zahlungen sind brutto, der Netto-Anteil wird im Verhältnis zum Rechnungsbrutto umgelegt
     [NotMapped]
     public decimal TotalPaidNet => TotalGross == 0 ? 0 : TotalNetAfterDiscount * TotalPaid / TotalGross;
 }
+
+public record VatGroup(decimal Rate, decimal LineNet, decimal NetAfterDiscount, decimal Vat);

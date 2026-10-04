@@ -61,7 +61,6 @@
                                Color="Color.Primary"
                                StartIcon="@Icons.Material.Filled.Wifi"
                                OnClick="TestConnectionAsync"
-                               Disabled="@_testing"
                                Class="mt-4">
                         @if (_testing)
                         {
@@ -108,7 +107,7 @@
             </MudCard>
         }
 
-        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveAsync" Disabled="@_saving">
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveAsync">
             Speichern
         </MudButton>
     }

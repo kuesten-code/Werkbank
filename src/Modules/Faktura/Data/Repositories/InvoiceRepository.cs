@@ -16,23 +16,6 @@ public class InvoiceRepository : Repository<Invoice>, IInvoiceRepository
         _hostApiClient = hostApiClient;
     }
 
-    public async Task<Invoice?> GetByInvoiceNumberAsync(string invoiceNumber)
-    {
-        var invoice = await _dbSet
-            .Include(i => i.Items)
-            .Include(i => i.DownPayments)
-            .Include(i => i.Attachments)
-            .Include(i => i.Payments)
-            .FirstOrDefaultAsync(i => i.InvoiceNumber == invoiceNumber);
-
-        if (invoice != null)
-        {
-            await LoadCustomerAsync(invoice);
-        }
-
-        return invoice;
-    }
-
     public async Task<bool> InvoiceNumberExistsAsync(string invoiceNumber)
     {
         return await _dbSet
@@ -100,21 +83,6 @@ public class InvoiceRepository : Repository<Invoice>, IInvoiceRepository
             : "GS-YYYY-XXXX";
     }
 
-    public async Task<IEnumerable<Invoice>> GetByCustomerIdAsync(int customerId)
-    {
-        var invoices = await _dbSet
-            .Include(i => i.Items)
-            .Include(i => i.DownPayments)
-            .Include(i => i.Attachments)
-            .Include(i => i.Payments)
-            .Where(i => i.CustomerId == customerId)
-            .OrderByDescending(i => i.InvoiceDate)
-            .ToListAsync();
-
-        await LoadCustomersAsync(invoices);
-        return invoices;
-    }
-
     public async Task<IEnumerable<Invoice>> GetByStatusAsync(InvoiceStatus status)
     {
         var invoices = await _dbSet
@@ -159,25 +127,6 @@ public class InvoiceRepository : Repository<Invoice>, IInvoiceRepository
                        i.PaidDate.Value >= from &&
                        i.PaidDate.Value <= to)
             .OrderBy(i => i.PaidDate)
-            .ToListAsync();
-
-        await LoadCustomersAsync(invoices);
-        return invoices;
-    }
-
-    public async Task<IEnumerable<Invoice>> GetOverdueInvoicesAsync()
-    {
-        var today = DateTime.Today;
-
-        var invoices = await _dbSet
-            .Include(i => i.Items)
-            .Include(i => i.DownPayments)
-            .Include(i => i.Attachments)
-            .Include(i => i.Payments)
-            .Where(i => i.Status == InvoiceStatus.Sent &&
-                       i.DueDate.HasValue &&
-                       i.DueDate.Value < today)
-            .OrderBy(i => i.DueDate)
             .ToListAsync();
 
         await LoadCustomersAsync(invoices);

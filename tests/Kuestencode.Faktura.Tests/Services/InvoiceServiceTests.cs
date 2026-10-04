@@ -521,4 +521,135 @@ public class InvoiceServiceTests
         var result = await _service.CalculateTotalGrossAsync(new List<InvoiceItem>(), false);
         result.Should().Be(0m);
     }
+
+    // ─── GetByTypeAsync / GetByProjectIdAsync ─────────────────────────────────
+
+    [Fact]
+    public async Task GetByType_DelegiertAnRepository()
+    {
+        _repo.Setup(r => r.GetByTypeAsync(InvoiceType.CreditNote))
+            .ReturnsAsync(new List<Invoice> { MakeInvoice(1) });
+
+        var result = await _service.GetByTypeAsync(InvoiceType.CreditNote);
+
+        result.Should().ContainSingle();
+    }
+
+    [Fact]
+    public async Task GetByProjectId_DelegiertAnRepository()
+    {
+        _repo.Setup(r => r.GetByProjectIdAsync(7))
+            .ReturnsAsync(new List<Invoice> { MakeInvoice(1), MakeInvoice(2) });
+
+        var result = await _service.GetByProjectIdAsync(7);
+
+        result.Should().HaveCount(2);
+    }
+
+    [Fact]
+    public async Task GetAll_RepositoryWirft_ExceptionWirdWeitergereicht()
+    {
+        _repo.Setup(r => r.GetAllAsync()).ThrowsAsync(new InvalidOperationException("DB weg"));
+
+        var act = () => _service.GetAllAsync();
+
+        await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("DB weg");
+    }
+
+    // ─── Nummernformate ───────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task NummernformatTeile_DelegiertAnRepository()
+    {
+        _repo.Setup(r => r.GetInvoiceNumberFormatPartsAsync()).ReturnsAsync(("2026-", "", 4));
+        _repo.Setup(r => r.GetCreditNoteNumberFormatPartsAsync()).ReturnsAsync(("GS-2026-", "", 4));
+        _repo.Setup(r => r.GenerateCreditNoteNumberAsync()).ReturnsAsync("GS-2026-0001");
+
+        (await _service.GetInvoiceNumberFormatPartsAsync()).Should().Be(("2026-", "", 4));
+        (await _service.GetCreditNoteNumberFormatPartsAsync()).Should().Be(("GS-2026-", "", 4));
+        (await _service.GenerateCreditNoteNumberAsync()).Should().Be("GS-2026-0001");
+    }
+
+    // ─── Audit-Log / Hashkette ────────────────────────────────────────────────
+
+    private async Task<Invoice> PersistInvoiceWithStatusChangeAsync()
+    {
+        var invoice = new Invoice { InvoiceNumber = "R-2026-0100", InvoiceDate = DateTime.UtcNow, CustomerId = 1 };
+        _context.Invoices.Add(invoice);
+        await _context.SaveChangesAsync();
+        invoice.Status = InvoiceStatus.Sent;
+        await _context.SaveChangesAsync();
+        return invoice;
+    }
+
+    [Fact]
+    public async Task GetAuditLog_LiefertNurEintraegeDieserRechnungNeuesteZuerst()
+    {
+        var invoice = await PersistInvoiceWithStatusChangeAsync();
+        _context.Invoices.Add(new Invoice { InvoiceNumber = "R-2026-0101", InvoiceDate = DateTime.UtcNow, CustomerId = 1 });
+        await _context.SaveChangesAsync();
+
+        var log = await _service.GetAuditLogAsync(invoice.Id);
+
+        log.Should().HaveCountGreaterThanOrEqualTo(2);
+        log.Should().BeInDescendingOrder(e => e.ChangedAt);
+        log.Should().Contain(e => e.Action == "Modified" && e.FieldName == "Status" && e.OldValue == "Draft" && e.NewValue == "Sent");
+        log.Should().Contain(e => e.Action == "Created");
+    }
+
+    [Fact]
+    public async Task GetAuditLog_UnbekannteRechnung_LeereListe()
+    {
+        await PersistInvoiceWithStatusChangeAsync();
+
+        var log = await _service.GetAuditLogAsync(999);
+
+        log.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task VerifyAuditLogChain_UnveraenderteKette_IstGueltig()
+    {
+        await PersistInvoiceWithStatusChangeAsync();
+
+        var result = await _service.VerifyAuditLogChainAsync();
+
+        result.IsValid.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task VerifyAuditLogChain_LeereKette_IstGueltig()
+    {
+        var result = await _service.VerifyAuditLogChainAsync();
+
+        result.IsValid.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task VerifyAuditLogChain_NachtraeglichManipulierterEintrag_MeldetBruchAnDieserStelle()
+    {
+        await PersistInvoiceWithStatusChangeAsync();
+        var tampered = await _context.AuditLogEntries.SingleAsync(e => e.FieldName == "Status");
+        tampered.NewValue = "Paid";
+        await _context.SaveChangesAsync();
+
+        var result = await _service.VerifyAuditLogChainAsync();
+
+        result.IsValid.Should().BeFalse();
+        result.BrokenAtSequenceNumber.Should().Be(tampered.SequenceNumber);
+    }
+
+    [Fact]
+    public async Task MarkAsPaid_SchlussrechnungMitAbschlag_BuchtNurDenRestOhneAbschlag()
+    {
+        var inv = MakeInvoice(1, InvoiceStatus.Sent);
+        inv.Items.Add(MakeItem(1, 1000m, 19m));
+        inv.DownPayments.Add(new DownPayment { Amount = 595m });
+        inv.Payments.Add(new InvoicePayment { Amount = 95m });
+        _repo.Setup(r => r.GetByIdAsync(1)).ReturnsAsync(inv);
+
+        await _service.MarkAsPaidAsync(1, new DateTime(2026, 3, 15, 0, 0, 0, DateTimeKind.Utc));
+
+        _paymentService.Verify(p => p.ZahlungErfassenAsync(1, 500m, It.IsAny<DateTime>(), It.IsAny<string>()), Times.Once);
+    }
 }

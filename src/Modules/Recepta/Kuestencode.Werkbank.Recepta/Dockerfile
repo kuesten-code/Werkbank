@@ -1,5 +1,6 @@
-# Build Stage
-FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
+# Build Stage — runs natively on the build host and cross-compiles for TARGETARCH, avoiding slow QEMU emulation
+FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:9.0 AS build
+ARG TARGETARCH
 WORKDIR /src
 
 # Copy project files (order matters for effective layer caching)
@@ -12,17 +13,13 @@ COPY ["src/Modules/Recepta/Kuestencode.Werkbank.Recepta.Data/Kuestencode.Werkban
 COPY ["src/Modules/Recepta/Kuestencode.Werkbank.Recepta/Kuestencode.Werkbank.Recepta.csproj", "src/Modules/Recepta/Kuestencode.Werkbank.Recepta/"]
 
 # Restore dependencies
-RUN dotnet restore "src/Modules/Recepta/Kuestencode.Werkbank.Recepta/Kuestencode.Werkbank.Recepta.csproj"
+RUN dotnet restore "src/Modules/Recepta/Kuestencode.Werkbank.Recepta/Kuestencode.Werkbank.Recepta.csproj" -a $TARGETARCH
 
 # Copy everything else
 COPY . .
 
-# Build
-RUN dotnet build "src/Modules/Recepta/Kuestencode.Werkbank.Recepta/Kuestencode.Werkbank.Recepta.csproj" -c Release -o /app/build
-
-# Publish Stage
-FROM build AS publish
-RUN dotnet publish "src/Modules/Recepta/Kuestencode.Werkbank.Recepta/Kuestencode.Werkbank.Recepta.csproj" -c Release -o /app/publish /p:UseAppHost=false
+# Publish
+RUN dotnet publish "src/Modules/Recepta/Kuestencode.Werkbank.Recepta/Kuestencode.Werkbank.Recepta.csproj" -c Release -a $TARGETARCH -o /app/publish /p:UseAppHost=false
 
 # Runtime Stage
 FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS final
@@ -44,6 +41,6 @@ ARG DOCKER_IMAGE_TAG=dev
 ENV DOCKER_IMAGE_TAG=${DOCKER_IMAGE_TAG}
 
 # Copy published output
-COPY --from=publish /app/publish .
+COPY --from=build /app/publish .
 
 ENTRYPOINT ["dotnet", "Kuestencode.Werkbank.Recepta.dll"]

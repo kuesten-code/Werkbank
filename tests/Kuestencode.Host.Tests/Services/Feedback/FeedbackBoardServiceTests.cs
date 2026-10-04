@@ -85,9 +85,79 @@ public class FeedbackBoardServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task MarkAsDuplicateAsync_SetztVerweisUndAbgelehnt()
+    public async Task MarkAsDuplicateAsync_OriginalEinesAnderenKunden_WirdAbgelehnt()
     {
         var original = await AddReportAsync(_instanceB);
+        var duplicate = await AddReportAsync(_instanceA);
+
+        (await FluentActions.Invoking(() => _service.MarkAsDuplicateAsync(duplicate.Id, original.Id))
+            .Should().ThrowAsync<FeedbackValidationException>()).Which.Errors.Single().Should().Contain("Hub-Duplikat");
+        (await _context.FeedbackReports.AsNoTracking().SingleAsync(r => r.Id == duplicate.Id)).DuplicateOfId.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task MarkAsHubDuplicateAsync_VerknuepftUeberKundenHinwegOhneStatusAenderung()
+    {
+        var original = await AddReportAsync(_instanceB);
+        var duplicate = await AddReportAsync(_instanceA);
+
+        await _service.MarkAsHubDuplicateAsync(duplicate.Id, original.Id);
+
+        var stored = await _context.FeedbackReports.AsNoTracking().SingleAsync(r => r.Id == duplicate.Id);
+        stored.HubDuplicateOfId.Should().Be(original.Id);
+        stored.DuplicateOfId.Should().BeNull();
+        stored.Status.Should().Be(FeedbackStatus.Neu);
+        (await _service.GetHubDuplicatesOfAsync(original.Id)).Single().Id.Should().Be(duplicate.Id);
+    }
+
+    [Fact]
+    public async Task MarkAsHubDuplicateAsync_UngueltigeOriginale_WerdenAbgelehnt()
+    {
+        var a1 = await AddReportAsync(_instanceA);
+        var a2 = await AddReportAsync(_instanceA);
+        var b1 = await AddReportAsync(_instanceB);
+        var b2 = await AddReportAsync(_instanceB);
+        await _service.MarkAsHubDuplicateAsync(b1.Id, a1.Id);
+
+        await FluentActions.Invoking(() => _service.MarkAsHubDuplicateAsync(a2.Id, a1.Id)).Should().ThrowAsync<FeedbackValidationException>();
+        await FluentActions.Invoking(() => _service.MarkAsHubDuplicateAsync(a2.Id, b1.Id)).Should().ThrowAsync<FeedbackValidationException>();
+        await FluentActions.Invoking(() => _service.MarkAsHubDuplicateAsync(b2.Id, b2.Id)).Should().ThrowAsync<FeedbackValidationException>();
+        await FluentActions.Invoking(() => _service.MarkAsHubDuplicateAsync(b2.Id, 999)).Should().ThrowAsync<FeedbackValidationException>();
+    }
+
+    [Fact]
+    public async Task RemoveHubDuplicateAsync_LoestVerknuepfung()
+    {
+        var original = await AddReportAsync(_instanceB);
+        var duplicate = await AddReportAsync(_instanceA);
+        await _service.MarkAsHubDuplicateAsync(duplicate.Id, original.Id);
+
+        await _service.RemoveHubDuplicateAsync(duplicate.Id);
+
+        (await _context.FeedbackReports.AsNoTracking().SingleAsync(r => r.Id == duplicate.Id)).HubDuplicateOfId.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task GetDuplicateCandidatesAsync_ListetAndereMeldungenOhneDuplikate()
+    {
+        var self = await AddReportAsync(_instanceA);
+        var sameCustomer = await AddReportAsync(_instanceA);
+        var otherCustomer = await AddReportAsync(_instanceB);
+        var alreadyDuplicate = await AddReportAsync(_instanceA);
+        var alreadyHubDuplicate = await AddReportAsync(_instanceB);
+        await _service.MarkAsDuplicateAsync(alreadyDuplicate.Id, sameCustomer.Id);
+        await _service.MarkAsHubDuplicateAsync(alreadyHubDuplicate.Id, sameCustomer.Id);
+
+        var candidates = await _service.GetDuplicateCandidatesAsync(self.Id);
+
+        candidates.Select(c => c.Id).Should().BeEquivalentTo(new[] { sameCustomer.Id, otherCustomer.Id });
+        candidates.Should().OnlyContain(c => c.Instance != null);
+    }
+
+    [Fact]
+    public async Task MarkAsDuplicateAsync_SetztVerweisUndAbgelehnt()
+    {
+        var original = await AddReportAsync(_instanceA);
         var duplicate = await AddReportAsync(_instanceA);
 
         await _service.MarkAsDuplicateAsync(duplicate.Id, original.Id);
