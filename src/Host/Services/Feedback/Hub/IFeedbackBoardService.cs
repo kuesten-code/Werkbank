@@ -17,9 +17,30 @@ public interface IFeedbackBoardService
     /// <exception cref="FeedbackValidationException">Bei leerem oder zu langem Text.</exception>
     Task AddHubCommentAsync(int reportId, string text, bool isInternal);
 
-    /// <summary>Verweist auf die Original-Meldung und schließt die Meldung als Abgelehnt.</summary>
-    /// <exception cref="FeedbackValidationException">Wenn das Original nicht existiert oder ungültig ist.</exception>
+    /// <summary>
+    /// Mögliche Originale für ein Duplikat: alle anderen Meldungen, die nicht selbst als
+    /// Duplikat markiert sind (die UI trennt nach eigenem und fremdem Kunden).
+    /// </summary>
+    Task<List<FeedbackReport>> GetDuplicateCandidatesAsync(int reportId);
+
+    /// <summary>Meldungen anderer Kunden, die intern als Hub-Duplikat auf diese Meldung verweisen.</summary>
+    Task<List<FeedbackReport>> GetHubDuplicatesOfAsync(int reportId);
+
+    /// <summary>
+    /// Verweist auf die Original-Meldung desselben Kunden und schließt die Meldung als Abgelehnt.
+    /// Der Kunde sieht den Verweis.
+    /// </summary>
+    /// <exception cref="FeedbackValidationException">Wenn das Original nicht existiert, einem anderen Kunden gehört oder selbst ein Duplikat ist.</exception>
     Task MarkAsDuplicateAsync(int reportId, int originalReportId);
+
+    /// <summary>
+    /// Verknüpft die Meldung intern mit der Meldung eines anderen Kunden. Status und
+    /// Kundenansicht bleiben unverändert.
+    /// </summary>
+    /// <exception cref="FeedbackValidationException">Wenn das Original nicht existiert, demselben Kunden gehört oder selbst ein Hub-Duplikat ist.</exception>
+    Task MarkAsHubDuplicateAsync(int reportId, int originalReportId);
+
+    Task RemoveHubDuplicateAsync(int reportId);
 
     Task<(FeedbackAttachment Attachment, Stream Content)?> OpenAttachmentAsync(int attachmentId);
 }

@@ -1,0 +1,13 @@
+@using Kuestencode.Shared.ApiClients
+@inject IHostApiClient HostApiClient
+
+<ReportProblemButton Visible="_visible" />
+
+@code {
+    private bool _visible;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _visible = await HostApiClient.IsFeedbackReportingEnabledAsync();
+    }
+}

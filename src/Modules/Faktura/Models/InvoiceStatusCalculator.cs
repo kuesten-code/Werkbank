@@ -2,11 +2,11 @@ namespace Kuestencode.Faktura.Models;
 
 public static class InvoiceStatusCalculator
 {
-    public static InvoiceStatus Calculate(decimal totalGross, decimal totalPaid, DateTime? dueDate)
+    public static InvoiceStatus Calculate(decimal amountDue, decimal totalPaid, DateTime? dueDate)
     {
-        if (totalGross > 0 && totalPaid >= totalGross)
+        if (amountDue > 0 && totalPaid >= amountDue)
             return InvoiceStatus.Paid;
-        if (totalGross < 0 && totalPaid <= totalGross)
+        if (amountDue < 0 && totalPaid <= amountDue)
             return InvoiceStatus.Paid;
         if (dueDate.HasValue && dueDate.Value < DateTime.UtcNow)
             return InvoiceStatus.Overdue;

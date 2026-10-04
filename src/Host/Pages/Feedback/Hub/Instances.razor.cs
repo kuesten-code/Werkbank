@@ -26,6 +26,12 @@ public partial class Instances
 
     private async Task CreateAsync()
     {
+        if (string.IsNullOrWhiteSpace(_newName))
+        {
+            Snackbar.Add("Bitte einen Namen für die Kunden-Instanz eingeben.", Severity.Warning);
+            return;
+        }
+
         var (instance, apiKey) = await InstanceService.CreateInstanceAsync(_newName);
         ShowApiKey(instance.Name, apiKey);
         _newName = string.Empty;

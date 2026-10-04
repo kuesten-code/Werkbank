@@ -81,12 +81,13 @@ public class InvoicePaymentService : IInvoicePaymentService
 
         var invoice = await _context.Invoices
             .Include(i => i.Items)
+            .Include(i => i.DownPayments)
             .FirstOrDefaultAsync(i => i.Id == invoiceId);
 
         if (invoice == null) return;
         if (invoice.Status is InvoiceStatus.Draft or InvoiceStatus.Cancelled) return;
 
-        var newStatus = InvoiceStatusCalculator.Calculate(invoice.TotalGross, totalPaid, invoice.EffectiveDueDate);
+        var newStatus = InvoiceStatusCalculator.Calculate(invoice.AmountDue, totalPaid, invoice.EffectiveDueDate);
         invoice.Status = newStatus;
 
         if (newStatus == InvoiceStatus.Paid)

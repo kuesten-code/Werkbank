@@ -42,8 +42,8 @@ public partial class NewReport
 
     protected override void OnInitialized()
     {
-        _modules = ModuleRegistry.GetAllModulesWithStatus()
-            .Select(m => m.Module.ModuleName)
+        _modules = ModuleRegistry.GetAllModules()
+            .Select(m => m.ModuleName)
             .OrderBy(name => name)
             .Prepend(GeneralModule)
             .ToList();
@@ -94,6 +94,10 @@ public partial class NewReport
 
     private async Task SubmitAsync()
     {
+        // Schutz gegen Doppelklick: jede Absendung erzeugt eine neue ClientReportId.
+        if (_saving)
+            return;
+
         _saving = true;
         _errors = new List<string>();
         try

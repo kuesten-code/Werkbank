@@ -13,7 +13,7 @@ namespace Kuestencode.Werkbank.Host.Services.Email;
 /// Wickelt jeden Inhalt über <see cref="EmailTemplateRenderer"/> in das eine, firmenweite
 /// Layout — es gibt bewusst kein modul- oder layoutspezifisches Styling mehr.
 /// </summary>
-public class EmailEngine : IEmailEngine
+public class EmailEngine : IEmailEngine, IInternalEmailSender
 {
     private readonly ICompanyService _companyService;
     private readonly IEnumerable<IEmailTemplateProvider> _templateProviders;
@@ -74,6 +74,31 @@ public class EmailEngine : IEmailEngine
         catch (Exception ex)
         {
             _logger.LogError(ex, "Fehler beim Senden der E-Mail an {Recipient}", recipientEmail);
+            return false;
+        }
+    }
+
+    public async Task<bool> SendInternalEmailAsync(string recipientEmail, string subject, string contentHtml, string contentText)
+    {
+        try
+        {
+            var company = await _companyService.GetCompanyAsync();
+
+            if (!company.IsEmailConfigured())
+            {
+                _logger.LogWarning("Interne E-Mail nicht gesendet: SMTP nicht konfiguriert");
+                return false;
+            }
+
+            var message = CreateMessage(company, recipientEmail, subject, contentHtml, contentText, null, null, null);
+            await SendMessageAsync(company, message);
+
+            _logger.LogInformation("Interne E-Mail erfolgreich gesendet an {Recipient}", recipientEmail);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Fehler beim Senden der internen E-Mail an {Recipient}", recipientEmail);
             return false;
         }
     }

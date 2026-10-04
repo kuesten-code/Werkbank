@@ -111,21 +111,42 @@ public class PdfSummaryBlockBuilder
 
     private void RenderVat(ColumnDescriptor sumColumn, Invoice invoice, Company company, string? textColor = null)
     {
+        if (company.IsKleinunternehmer)
+        {
+            RenderVatRow(sumColumn, "MwSt (0% §19 UStG):", DisplayAmount(invoice, invoice.TotalVat), textColor);
+            return;
+        }
+
+        if (invoice.IsReverseCharge)
+        {
+            RenderVatRow(sumColumn, "MwSt (0%, §13b UStG):", DisplayAmount(invoice, invoice.TotalVat), textColor);
+            return;
+        }
+
+        var groups = invoice.VatBreakdown;
+        if (groups.Count == 0)
+        {
+            RenderVatRow(sumColumn, "MwSt (0%):", 0, textColor);
+            return;
+        }
+
+        foreach (var group in groups)
+        {
+            RenderVatRow(sumColumn, $"MwSt ({group.Rate.ToString("0.##", _germanCulture)}%):", DisplayAmount(invoice, group.Vat), textColor);
+        }
+    }
+
+    private void RenderVatRow(ColumnDescriptor sumColumn, string label, decimal amount, string? textColor)
+    {
         sumColumn.Item().PaddingTop(3).Row(row =>
         {
-            var vatText = company.IsKleinunternehmer
-                ? "MwSt (0% §19 UStG):"
-                : invoice.IsReverseCharge
-                    ? "MwSt (0%, §13b UStG):"
-                    : $"MwSt ({invoice.Items.FirstOrDefault(i => !i.IsHeader)?.VatRate ?? 0}%):";
-
-            var labelText = row.RelativeItem().Text(vatText).FontSize(10);
+            var labelText = row.RelativeItem().Text(label).FontSize(10);
             if (textColor != null)
                 labelText.FontColor(textColor);
             else
                 labelText.FontColor(TextSecondaryColor);
 
-            var amountText = row.ConstantItem(100).AlignRight().Text(DisplayAmount(invoice, invoice.TotalVat).ToString("C2", _germanCulture)).FontSize(10);
+            var amountText = row.ConstantItem(100).AlignRight().Text(amount.ToString("C2", _germanCulture)).FontSize(10);
             if (textColor != null) amountText.FontColor(textColor);
         });
     }

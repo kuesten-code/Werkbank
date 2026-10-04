@@ -24,6 +24,17 @@ public partial class FeedbackSettingsPage
     protected override async Task OnInitializedAsync()
     {
         await LoadAsync();
+        await ShowConnectionStatusAsync();
+    }
+
+    // Zeigt beim Öffnen direkt, als welche Kunden-Instanz diese Werkbank am Hub angemeldet ist.
+    private async Task ShowConnectionStatusAsync()
+    {
+        if (_settings.Role != FeedbackRole.Client || string.IsNullOrWhiteSpace(_settings.HubUrl) || !_hasStoredApiKey)
+            return;
+
+        StateHasChanged();
+        await TestConnectionAsync();
     }
 
     private async Task LoadAsync()
@@ -47,6 +58,9 @@ public partial class FeedbackSettingsPage
 
     private async Task TestConnectionAsync()
     {
+        if (_testing)
+            return;
+
         _testing = true;
         _testResult = null;
         try
@@ -61,6 +75,9 @@ public partial class FeedbackSettingsPage
 
     private async Task SaveAsync()
     {
+        if (_saving)
+            return;
+
         _saving = true;
         _errorMessage = null;
         try
@@ -68,6 +85,8 @@ public partial class FeedbackSettingsPage
             await SettingsService.UpdateSettingsAsync(_settings, _apiKeyInput);
             Snackbar.Add("Feedback-Einstellungen gespeichert. Die Navigation aktualisiert sich beim nächsten Seitenaufruf.", Severity.Success);
             await LoadAsync();
+            _testResult = null;
+            await ShowConnectionStatusAsync();
         }
         catch (Exception ex)
         {

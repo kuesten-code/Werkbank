@@ -20,7 +20,8 @@ public class AuthMiddleware
         "/api/modules/register",
         "/api/modules/health",
         "/api/setup/required",
-        "/api/setup/complete"
+        "/api/setup/complete",
+        "/api/feedback/status"
     };
 
     private static readonly string[] PublicPathPrefixes = new[]

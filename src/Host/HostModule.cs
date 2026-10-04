@@ -92,6 +92,7 @@ public static class HostModule
 
         // Engines
         services.AddScoped<IEmailEngine, EmailEngine>();
+        services.AddScoped<IInternalEmailSender, EmailEngine>();
         services.AddScoped<IPdfEngine, PdfEngine>();
 
         return services;

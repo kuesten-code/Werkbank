@@ -1,6 +1,7 @@
 using System.Net.Http.Json;
 using Kuestencode.Shared.Contracts.Acta;
 using Kuestencode.Shared.Contracts.Faktura;
+using Kuestencode.Shared.Contracts.Feedback;
 using Kuestencode.Shared.Contracts.Host;
 using Kuestencode.Shared.Contracts.Navigation;
 using Kuestencode.Shared.Contracts.Rapport;
@@ -246,6 +247,21 @@ public class HostApiClient : IHostApiClient
         catch (Exception ex)
         {
             return (false, ex.Message);
+        }
+    }
+
+    public async Task<bool> IsFeedbackReportingEnabledAsync()
+    {
+        try
+        {
+            var response = await _httpClient.GetAsync("/api/feedback/status").ConfigureAwait(false);
+            if (!response.IsSuccessStatusCode) return false;
+            var status = await response.Content.ReadFromJsonAsync<FeedbackStatusDto>().ConfigureAwait(false);
+            return status?.ReportingEnabled ?? false;
+        }
+        catch
+        {
+            return false;
         }
     }
 }

@@ -11,7 +11,7 @@
     <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-4">
         <MudText Typo="Typo.h4">Meine Meldungen</MudText>
         <MudSpacer />
-        <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Sync" OnClick="SyncAsync" Disabled="@_syncing">
+        <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Sync" OnClick="SyncAsync">
             @if (_syncing)
             {
                 <MudProgressCircular Class="me-2" Size="Size.Small" Indeterminate="true" />
@@ -127,8 +127,7 @@
                             <MudStack Row="true" AlignItems="AlignItems.End" Class="mt-2">
                                 <MudTextField T="string" Value="@GetReplyText(report.Id)" ValueChanged="@(v => _replyTexts[report.Id] = v)"
                                               Label="Antwort oder Ergänzung" Lines="2" AutoGrow="true" Style="flex: 1;" />
-                                <MudButton Variant="Variant.Outlined" Color="Color.Primary" OnClick="@(() => ReplyAsync(report.Id))"
-                                           Disabled="@string.IsNullOrWhiteSpace(GetReplyText(report.Id))">
+                                <MudButton Variant="Variant.Outlined" Color="Color.Primary" OnClick="@(() => ReplyAsync(report.Id))">
                                     Senden
                                 </MudButton>
                             </MudStack>

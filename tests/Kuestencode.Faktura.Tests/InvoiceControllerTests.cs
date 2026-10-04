@@ -1,12 +1,12 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
-using System.Text;
 using FluentAssertions;
 using Kuestencode.Faktura.Data;
 using Kuestencode.Faktura.Models;
 using Kuestencode.Shared.Contracts.Faktura;
 using Microsoft.Extensions.DependencyInjection;
+using Kuestencode.Faktura.Tests.TestDoubles;
 using Xunit;
 
 namespace Kuestencode.Faktura.Tests;
@@ -20,27 +20,7 @@ public class InvoiceControllerTests : IClassFixture<FakturaWebApplicationFactory
     {
         _factory = factory;
         _client = factory.CreateClient();
-        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", CreateTestAdminJwt());
-    }
-
-    /// <summary>
-    /// Erzeugt ein unsigniertes, aber syntaktisch gültiges JWT mit Admin-Rolle.
-    /// JwtPrincipalParser (Kuestencode.Shared.UI) validiert nur die Struktur/Ablaufzeit,
-    /// keine Signatur — analog dazu, wie JwtUserContextMiddleware einem bereits vom Host
-    /// geprüften Token vertraut. Reicht für [RequireRole] in diesen Controller-Tests.
-    /// </summary>
-    private static string CreateTestAdminJwt()
-    {
-        static string Base64Url(string json) => Convert.ToBase64String(Encoding.UTF8.GetBytes(json))
-            .TrimEnd('=').Replace('+', '-').Replace('/', '_');
-
-        var header = Base64Url("""{"alg":"none","typ":"JWT"}""");
-        var exp = DateTimeOffset.UtcNow.AddHours(1).ToUnixTimeSeconds();
-        var payload = Base64Url($$"""
-            {"http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier":"{{Guid.NewGuid()}}","http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name":"Test Admin","http://schemas.microsoft.com/ws/2008/06/identity/claims/role":"Admin","exp":{{exp}}}
-            """);
-
-        return $"{header}.{payload}.unsigned";
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", TestJwt.Create("Admin"));
     }
 
     private static CreateInvoiceRequest MakeCreateRequest(int customerId = 1) => new()

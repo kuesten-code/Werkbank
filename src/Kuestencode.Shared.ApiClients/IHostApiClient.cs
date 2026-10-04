@@ -28,4 +28,7 @@ public interface IHostApiClient
     Task<List<MitarbeiterRolleDto>> GetMitarbeiterRollenAsync();
     Task<bool> SendEmailAsync(SendEmailRequest request);
     Task<(bool Success, string? ErrorMessage)> TestEmailConnectionAsync();
+
+    /// <summary>Ob der Host als Feedback-Kunde konfiguriert ist; false auch bei Fehlern.</summary>
+    Task<bool> IsFeedbackReportingEnabledAsync();
 }

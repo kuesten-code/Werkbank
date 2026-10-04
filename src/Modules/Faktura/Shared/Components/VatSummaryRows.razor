@@ -1,0 +1,43 @@
+@* MwSt-Zeilen der Summenübersicht: §19 / §13b als eine Zeile, sonst eine Zeile je Steuersatz (§14 Abs. 4 Nr. 8 UStG) *@
+
+@if (IsKleinunternehmer)
+{
+    <MudStack Row="true" Justify="Justify.SpaceBetween">
+        <MudText>MwSt (0%, §19 UStG):</MudText>
+        <MudText>@Format(Invoice.TotalVat)</MudText>
+    </MudStack>
+}
+else if (Invoice.IsReverseCharge)
+{
+    <MudStack Row="true" Justify="Justify.SpaceBetween">
+        <MudText>MwSt (0%, §13b UStG):</MudText>
+        <MudText>@Format(Invoice.TotalVat)</MudText>
+    </MudStack>
+}
+else if (Invoice.VatBreakdown.Count == 0)
+{
+    <MudStack Row="true" Justify="Justify.SpaceBetween">
+        <MudText>MwSt:</MudText>
+        <MudText>@Format(0)</MudText>
+    </MudStack>
+}
+else
+{
+    @foreach (var group in Invoice.VatBreakdown)
+    {
+        <MudStack Row="true" Justify="Justify.SpaceBetween">
+            <MudText>MwSt (@group.Rate.ToString("0.##", Culture)%):</MudText>
+            <MudText>@Format(group.Vat)</MudText>
+        </MudStack>
+    }
+}
+
+@code {
+    private static readonly System.Globalization.CultureInfo Culture = new("de-DE");
+
+    [Parameter, EditorRequired] public Invoice Invoice { get; set; } = null!;
+    [Parameter] public bool IsKleinunternehmer { get; set; }
+
+    private string Format(decimal amount) =>
+        (Invoice.Type == InvoiceType.CreditNote ? Math.Abs(amount) : amount).ToString("C2", Culture);
+}

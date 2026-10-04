@@ -1,0 +1,20 @@
+@inject NavigationManager NavigationManager
+
+@if (Visible)
+{
+    <MudTooltip Text="Problem melden">
+        <MudIconButton Icon="@Icons.Material.Filled.BugReport"
+                       Color="Color.Inherit"
+                       OnClick="OpenFeedbackForm"
+                       aria-label="Problem melden" />
+    </MudTooltip>
+}
+
+@code {
+    [Parameter, EditorRequired]
+    public bool Visible { get; set; }
+
+    // forceLoad, weil das Formular im Host liegt und Module eigene Blazor-Apps sind.
+    private void OpenFeedbackForm() =>
+        NavigationManager.NavigateTo($"/feedback/new?page={Uri.EscapeDataString(NavigationManager.Uri)}", forceLoad: true);
+}

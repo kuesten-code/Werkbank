@@ -37,6 +37,9 @@ public partial class MyReports
 
     private async Task SyncAsync()
     {
+        if (_syncing)
+            return;
+
         _syncing = true;
         try
         {
@@ -56,10 +59,11 @@ public partial class MyReports
     {
         try
         {
+            // Die Antwort steht sofort im Verlauf ("Wird gesendet …"); das Senden übernimmt
+            // die Outbox im Hintergrund, die Seite wartet nicht auf den Hub.
             await ClientService.AddReplyAsync(reportId, GetReplyText(reportId));
             _replyTexts.Remove(reportId);
-            Snackbar.Add("Antwort gespeichert, sie wird an den Support übertragen.", Severity.Success);
-            await SyncAsync();
+            _reports = await ClientService.GetReportsAsync();
         }
         catch (FeedbackValidationException ex)
         {

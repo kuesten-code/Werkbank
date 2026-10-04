@@ -37,10 +37,10 @@ public class InvoiceItem
 
     // Computed Properties
     [NotMapped]
-    public decimal TotalNet => IsHeader ? 0 : Math.Round(Quantity * UnitPrice, 2);
+    public decimal TotalNet => IsHeader ? 0 : Math.Round(Quantity * UnitPrice, 2, MidpointRounding.AwayFromZero);
 
     [NotMapped]
-    public decimal TotalVat => IsHeader ? 0 : Math.Round(TotalNet * VatRate / 100, 2);
+    public decimal TotalVat => IsHeader ? 0 : Math.Round(TotalNet * VatRate / 100, 2, MidpointRounding.AwayFromZero);
 
     [NotMapped]
     public decimal TotalGross => TotalNet + TotalVat;

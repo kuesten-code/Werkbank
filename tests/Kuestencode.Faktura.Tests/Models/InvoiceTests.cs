@@ -225,4 +225,64 @@ public class InvoiceTests
 
         inv.EffectiveDueDate.Should().Be(new DateTime(2026, 4, 15));
     }
+
+    // ─── RemainingAmount / VatBreakdown ───────────────────────────────────────
+
+    [Fact]
+    public void RemainingAmount_SchlussrechnungMitAbschlag_IstZuZahlenAbzueglichZahlungen()
+    {
+        var invoice = new Invoice
+        {
+            Items = [new InvoiceItem { Quantity = 1, UnitPrice = 1000m, VatRate = 19 }],
+            DownPayments = [new DownPayment { Amount = 595m }],
+            Payments = [new InvoicePayment { Amount = 200m }]
+        };
+
+        invoice.AmountDue.Should().Be(595m);
+        invoice.RemainingAmount.Should().Be(395m);
+    }
+
+    [Fact]
+    public void VatBreakdown_GruppiertNachSteuersatzAbsteigendOhneUeberschriften()
+    {
+        var invoice = new Invoice
+        {
+            Items =
+            [
+                new InvoiceItem { Quantity = 1, UnitPrice = 100m, VatRate = 7 },
+                new InvoiceItem { Quantity = 1, UnitPrice = 200m, VatRate = 19 },
+                new InvoiceItem { Quantity = 2, UnitPrice = 50m, VatRate = 19 },
+                new InvoiceItem { IsHeader = true, Quantity = 1, UnitPrice = 999m, VatRate = 0 }
+            ]
+        };
+
+        invoice.VatBreakdown.Should().Equal(
+            new VatGroup(19, 300m, 300m, 57m),
+            new VatGroup(7, 100m, 100m, 7m));
+    }
+
+    [Fact]
+    public void VatBreakdown_RabattWirdAnteiligVerteiltUndSummeEntsprichtTotalVat()
+    {
+        var invoice = new Invoice
+        {
+            DiscountType = DiscountType.Percentage,
+            DiscountValue = 10,
+            Items =
+            [
+                new InvoiceItem { Quantity = 1, UnitPrice = 100m, VatRate = 7 },
+                new InvoiceItem { Quantity = 1, UnitPrice = 100m, VatRate = 19 }
+            ]
+        };
+
+        invoice.VatBreakdown.Select(g => (g.Rate, g.LineNet, g.NetAfterDiscount, g.Vat))
+            .Should().Equal((19m, 100m, 90m, 17.1m), (7m, 100m, 90m, 6.3m));
+        invoice.VatBreakdown.Sum(g => g.Vat).Should().Be(invoice.TotalVat);
+    }
+
+    [Fact]
+    public void VatBreakdown_OhnePositionen_Leer()
+    {
+        new Invoice().VatBreakdown.Should().BeEmpty();
+    }
 }

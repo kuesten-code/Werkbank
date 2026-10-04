@@ -63,4 +63,23 @@ public class InvoiceItemTests
         var item = MakeItem(5, 20m, vatRate: 0m);
         item.TotalGross.Should().Be(100m);
     }
+
+    // ─── Kaufmännische Rundung ────────────────────────────────────────────────
+
+    [Theory]
+    [InlineData(1.5, 10.03, 15.05)]   // 15,045
+    [InlineData(0.5, 0.01, 0.01)]     // 0,005
+    [InlineData(-1.5, 10.03, -15.05)] // Gutschrift: betragsmäßig aufrunden
+    public void TotalNet_HalbeCentsWerdenKaufmaennischAufgerundet(decimal quantity, decimal unitPrice, decimal expected)
+    {
+        MakeItem(quantity, unitPrice).TotalNet.Should().Be(expected);
+    }
+
+    [Theory]
+    [InlineData(3.50, 19, 0.67)]  // 0,665
+    [InlineData(2.50, 7, 0.18)]   // 0,175
+    public void TotalVat_HalbeCentsWerdenKaufmaennischAufgerundet(decimal unitPrice, decimal vatRate, decimal expected)
+    {
+        MakeItem(1, unitPrice, vatRate).TotalVat.Should().Be(expected);
+    }
 }
