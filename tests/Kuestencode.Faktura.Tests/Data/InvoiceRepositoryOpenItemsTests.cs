@@ -12,15 +12,16 @@ namespace Kuestencode.Faktura.Tests.Data;
 
 public class InvoiceRepositoryOpenItemsTests
 {
+    private readonly DbContextOptions<FakturaDbContext> _options;
     private readonly FakturaDbContext _context;
     private readonly InvoiceRepository _repository;
 
     public InvoiceRepositoryOpenItemsTests()
     {
-        var options = new DbContextOptionsBuilder<FakturaDbContext>()
+        _options = new DbContextOptionsBuilder<FakturaDbContext>()
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
             .Options;
-        _context = new FakturaDbContext(options);
+        _context = new FakturaDbContext(_options);
 
         var hostApiClient = new Mock<IHostApiClient>();
         hostApiClient.Setup(c => c.GetAllCustomersAsync())
@@ -72,5 +73,25 @@ public class InvoiceRepositoryOpenItemsTests
             new DateTime(2026, 3, 1), new DateTime(2026, 3, 1));
 
         result.Single().Customer!.Name.Should().Be("Hafen GmbH");
+    }
+
+    [Fact]
+    public async Task GetOpenInvoicesByInvoiceDateRange_LaedtAbschlaege_OffenerBetragOhneAbschlag()
+    {
+        // Eigener Context fürs Seeden, damit das Change-Tracking ein fehlendes Include nicht verdeckt
+        await using (var seedContext = new FakturaDbContext(_options))
+        {
+            var invoice = MakeInvoice(1, new DateTime(2026, 3, 1), InvoiceStatus.PartiallyPaid);
+            invoice.Items.Add(new InvoiceItem { Quantity = 1, UnitPrice = 1000m, VatRate = 19m });
+            invoice.DownPayments.Add(new DownPayment { Description = "AR-1", Amount = 595m });
+            invoice.Payments.Add(new InvoicePayment { Amount = 200m, PaymentDate = DateTime.UtcNow });
+            seedContext.Invoices.Add(invoice);
+            await seedContext.SaveChangesAsync();
+        }
+
+        var result = await _repository.GetOpenInvoicesByInvoiceDateRangeAsync(
+            new DateTime(2026, 3, 1), new DateTime(2026, 3, 1));
+
+        result.Single().RemainingAmount.Should().Be(395m);
     }
 }

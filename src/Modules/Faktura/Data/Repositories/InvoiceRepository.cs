@@ -140,6 +140,7 @@ public class InvoiceRepository : Repository<Invoice>, IInvoiceRepository
 
         var invoices = await _dbSet
             .Include(i => i.Items)
+            .Include(i => i.DownPayments)
             .Include(i => i.Payments)
             .Where(i => i.Type == InvoiceType.Invoice &&
                        (i.Status == InvoiceStatus.Sent ||
