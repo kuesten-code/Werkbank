@@ -94,6 +94,68 @@ public class AngebotValidatorTests
     }
 
     [Fact]
+    public void Validieren_UeberschriftAnErsterStelle_KeineFehler()
+    {
+        // Arrange
+        var angebot = CreateValidAngebot();
+        angebot.Positionen[0].Position = 2;
+        angebot.Positionen.Insert(0, CreateUeberschrift(position: 1));
+
+        // Act
+        var fehler = _validator.Validieren(angebot);
+
+        // Assert
+        fehler.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void Validieren_UeberschriftZwischenPositionen_KeineFehler()
+    {
+        // Arrange
+        var angebot = CreateValidAngebot();
+        angebot.Positionen[0].Position = 1;
+        angebot.Positionen.Add(CreateUeberschrift(position: 2));
+        angebot.Positionen.Add(new Angebotsposition { Position = 3, Text = "Zweite", Menge = 2, Einzelpreis = 50, Steuersatz = 19 });
+
+        // Act
+        var fehler = _validator.Validieren(angebot);
+
+        // Assert
+        fehler.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void Validieren_NurUeberschriften_Fehler()
+    {
+        // Arrange
+        var angebot = CreateValidAngebot();
+        angebot.Positionen.Clear();
+        angebot.Positionen.Add(CreateUeberschrift(position: 1));
+
+        // Act
+        var fehler = _validator.Validieren(angebot);
+
+        // Assert
+        fehler.Should().ContainSingle().Which.Should().Contain("mindestens eine Position");
+    }
+
+    [Fact]
+    public void Validieren_FehlerNachUeberschrift_NummeriertOhneUeberschriften()
+    {
+        // Arrange
+        var angebot = CreateValidAngebot();
+        angebot.Positionen[0].Position = 2;
+        angebot.Positionen[0].Menge = 0;
+        angebot.Positionen.Insert(0, CreateUeberschrift(position: 1));
+
+        // Act
+        var fehler = _validator.Validieren(angebot);
+
+        // Assert
+        fehler.Should().ContainSingle().Which.Should().StartWith("Position 1:");
+    }
+
+    [Fact]
     public void ValidierenPosition_OhneText_Fehler()
     {
         // Arrange
@@ -168,6 +230,17 @@ public class AngebotValidatorTests
         // Act & Assert
         _validator.IstGueltig(angebot).Should().BeFalse();
     }
+
+    private static Angebotsposition CreateUeberschrift(int position) => new()
+    {
+        Id = Guid.NewGuid(),
+        Position = position,
+        Text = "Abschnitt",
+        IsHeader = true,
+        Menge = 0,
+        Einzelpreis = 0,
+        Steuersatz = 0
+    };
 
     private static Angebot CreateValidAngebot()
     {

@@ -32,19 +32,21 @@ public class AngebotValidator
             fehler.Add("Das Gültigkeitsdatum muss in der Zukunft liegen.");
         }
 
-        // Mindestens eine Position erforderlich
-        if (angebot.Positionen == null || angebot.Positionen.Count == 0)
+        // Überschriften tragen keine Mengen/Preise und zählen in der UI-Nummerierung nicht mit
+        var positionen = angebot.Positionen?
+            .OrderBy(p => p.Position)
+            .Where(p => !p.IsHeader)
+            .ToList() ?? [];
+
+        if (positionen.Count == 0)
         {
             fehler.Add("Das Angebot muss mindestens eine Position enthalten.");
         }
         else
         {
-            // Positionen validieren
-            for (int i = 0; i < angebot.Positionen.Count; i++)
+            for (int i = 0; i < positionen.Count; i++)
             {
-                var position = angebot.Positionen[i];
-                var positionsFehler = ValidierenPosition(position, i + 1);
-                fehler.AddRange(positionsFehler);
+                fehler.AddRange(ValidierenPosition(positionen[i], i + 1));
             }
         }
 
