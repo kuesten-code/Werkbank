@@ -159,6 +159,56 @@ public class AngebotRepositoryTests : IDisposable
         updated!.Referenz.Should().Be("Neue Referenz");
     }
 
+    [Fact]
+    public async Task UpdateAsync_GeladenesAngebotMitNeuerPosition_FuegtPositionHinzu()
+    {
+        var angebot = MakeAngebot();
+        angebot.Positionen.Add(new Angebotsposition { Id = Guid.NewGuid(), AngebotId = angebot.Id, Position = 1, Text = "Bestehend" });
+        await _repository.AddAsync(angebot);
+
+        var repository = CreateRepositoryOnFreshContext();
+        var geladen = await repository.GetByIdAsync(angebot.Id);
+        geladen!.Positionen.Add(new Angebotsposition { Id = Guid.NewGuid(), AngebotId = angebot.Id, Position = 2, Text = "Neu" });
+
+        await repository.UpdateAsync(geladen);
+
+        var result = await CreateRepositoryOnFreshContext().GetByIdAsync(angebot.Id);
+        result!.Positionen.Select(p => p.Text).Should().BeEquivalentTo("Bestehend", "Neu");
+    }
+
+    [Fact]
+    public async Task UpdateAsync_GeladenesAngebotMitErsetzterPosition_EntferntAlteUndFuegtNeueHinzu()
+    {
+        var angebot = MakeAngebot();
+        angebot.Positionen.Add(new Angebotsposition { Id = Guid.NewGuid(), AngebotId = angebot.Id, Position = 1, Text = "Alt" });
+        await _repository.AddAsync(angebot);
+
+        var repository = CreateRepositoryOnFreshContext();
+        var geladen = await repository.GetByIdAsync(angebot.Id);
+        geladen!.Positionen.Clear();
+        geladen.Positionen.Add(new Angebotsposition { Id = Guid.NewGuid(), AngebotId = angebot.Id, Position = 1, Text = "Neu" });
+
+        await repository.UpdateAsync(geladen);
+
+        var result = await CreateRepositoryOnFreshContext().GetByIdAsync(angebot.Id);
+        result!.Positionen.Select(p => p.Text).Should().BeEquivalentTo("Neu");
+    }
+
+    [Fact]
+    public async Task UpdateAsync_DetachedAngebotMitNeuerPosition_FuegtPositionHinzu()
+    {
+        var angebot = MakeAngebot();
+        await _repository.AddAsync(angebot);
+
+        var detached = await CreateRepositoryOnFreshContext().GetByIdAsync(angebot.Id);
+        detached!.Positionen.Add(new Angebotsposition { Id = Guid.NewGuid(), AngebotId = angebot.Id, Position = 1, Text = "Neu" });
+
+        await CreateRepositoryOnFreshContext().UpdateAsync(detached);
+
+        var result = await CreateRepositoryOnFreshContext().GetByIdAsync(angebot.Id);
+        result!.Positionen.Select(p => p.Text).Should().BeEquivalentTo("Neu");
+    }
+
     // ─── DeleteAsync ────────────────────────────────────────────────────────
 
     [Fact]

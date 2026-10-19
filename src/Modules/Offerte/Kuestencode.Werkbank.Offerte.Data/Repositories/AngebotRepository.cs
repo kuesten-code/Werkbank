@@ -75,7 +75,20 @@ public class AngebotRepository : IAngebotRepository
 
     public async Task UpdateAsync(Angebot angebot)
     {
+        var gespeichertePositionIds = await _context.Angebotspositionen
+            .Where(p => p.AngebotId == angebot.Id)
+            .Select(p => p.Id)
+            .ToListAsync();
+
         _context.Angebote.Update(angebot);
+
+        // Neue Positionen tragen bereits eine clientseitig erzeugte Guid. EF Core wertet einen gesetzten
+        // Schlüssel als "existiert schon" und würde UPDATE statt INSERT ausführen (→ 0 betroffene Zeilen).
+        foreach (var position in angebot.Positionen.Where(p => !gespeichertePositionIds.Contains(p.Id)))
+        {
+            _context.Entry(position).State = EntityState.Added;
+        }
+
         await _context.SaveChangesAsync();
     }
 
