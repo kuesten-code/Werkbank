@@ -199,6 +199,59 @@ public class InvoiceServiceTests
     }
 
     [Fact]
+    public async Task CreateCreditNote_RechnungMitRabattUndAbschlag_GutschriftbetragOhneAbschlaege()
+    {
+        var periodStart = new DateTime(2026, 3, 1, 0, 0, 0, DateTimeKind.Utc);
+        var periodEnd = new DateTime(2026, 3, 31, 0, 0, 0, DateTimeKind.Utc);
+        var source = MakeInvoice(1, InvoiceStatus.Sent);
+        source.ServicePeriodStart = periodStart;
+        source.ServicePeriodEnd = periodEnd;
+        source.DiscountType = DiscountType.Absolute;
+        source.DiscountValue = 100m;
+        source.Items.Add(MakeItem(1, 1100m));
+        source.DownPayments.Add(new DownPayment
+        {
+            Description = "AR-2026-0003", NetAmount = 400m, VatRate = 19m, Amount = 476m,
+            PaymentDate = periodStart, SourceInvoiceId = 3
+        });
+        _repo.Setup(r => r.GetByIdAsync(1)).ReturnsAsync(source);
+        _repo.Setup(r => r.GenerateCreditNoteNumberAsync()).ReturnsAsync("GS-2026-0003");
+        _repo.Setup(r => r.InvoiceNumberExistsAsync("GS-2026-0003")).ReturnsAsync(false);
+        _repo.Setup(r => r.AddAsync(It.IsAny<Invoice>())).ReturnsAsync((Invoice i) => i);
+
+        var result = await _service.CreateCreditNoteFromInvoiceAsync(1, DateTime.UtcNow);
+
+        result.ServicePeriodStart.Should().Be(periodStart);
+        result.ServicePeriodEnd.Should().Be(periodEnd);
+        result.DiscountType.Should().Be(DiscountType.Absolute);
+        result.DiscountValue.Should().Be(100m);
+        result.DownPayments.Should().ContainSingle().Which.Should().BeEquivalentTo(new
+        {
+            Description = "AR-2026-0003", NetAmount = 400m, VatRate = 19m, Amount = 476m,
+            PaymentDate = (DateTime?)periodStart, SourceInvoiceId = (int?)3
+        });
+        result.DownPayments[0].Should().NotBeSameAs(source.DownPayments[0]);
+        result.TotalGross.Should().Be(-source.TotalGross);
+        result.AmountDue.Should().Be(-source.AmountDue).And.Be(-714m);
+    }
+
+    [Fact]
+    public async Task CreateCreditNote_ReverseChargeRechnung_UebernimmtReverseCharge()
+    {
+        var source = MakeInvoice(1, InvoiceStatus.Sent);
+        source.IsReverseCharge = true;
+        source.Items.Add(MakeItem(1, 100m, 0m));
+        _repo.Setup(r => r.GetByIdAsync(1)).ReturnsAsync(source);
+        _repo.Setup(r => r.GenerateCreditNoteNumberAsync()).ReturnsAsync("GS-2026-0004");
+        _repo.Setup(r => r.InvoiceNumberExistsAsync("GS-2026-0004")).ReturnsAsync(false);
+        _repo.Setup(r => r.AddAsync(It.IsAny<Invoice>())).ReturnsAsync((Invoice i) => i);
+
+        var result = await _service.CreateCreditNoteFromInvoiceAsync(1, DateTime.UtcNow);
+
+        result.IsReverseCharge.Should().BeTrue();
+    }
+
+    [Fact]
     public async Task CreateCreditNote_QuellrechnungNichtGefunden_WirftException()
     {
         _repo.Setup(r => r.GetByIdAsync(It.IsAny<int>())).ReturnsAsync((Invoice?)null);

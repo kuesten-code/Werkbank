@@ -166,13 +166,14 @@
                                                         OnBlur="RecalculateTotals" />
                                     </td>
                                     <td style="text-align: right">
-                                        <MudNumericField @bind-Value="item.UnitPrice" Margin="Margin.Dense"
+                                        <MudNumericField T="decimal" Value="Math.Abs(item.UnitPrice)"
+                                                        ValueChanged="@(v => OnUnitPriceChanged(item, v))"
+                                                        Margin="Margin.Dense"
                                                         Variant="Variant.Outlined" Min="0m" Step="1m"
-                                                        Format="C2" HideSpinButtons="true" Culture="@_culture"
-                                                        OnBlur="RecalculateTotals" />
+                                                        Format="C2" HideSpinButtons="true" Culture="@_culture" />
                                     </td>
                                     <td style="text-align: right">
-                                        <MudText Typo="Typo.body2">@item.TotalNet.ToString("C2", _culture)</MudText>
+                                        <MudText Typo="Typo.body2">@Math.Abs(item.TotalNet).ToString("C2", _culture)</MudText>
                                     </td>
                                     <td style="text-align: center">
                                         <MudStack Row="true" Spacing="0">
@@ -196,7 +197,7 @@
                                         Zwischensumme:
                                     </td>
                                     <td style="text-align: right; font-weight: 600; padding: 4px 8px; border-top: 1px solid var(--mud-palette-divider);">
-                                        @itemGroup.Items.Sum(i => i.TotalNet).ToString("C2", _culture)
+                                        @Math.Abs(itemGroup.Items.Sum(i => i.TotalNet)).ToString("C2", _culture)
                                     </td>
                                     <td></td>
                                 </tr>
@@ -217,6 +218,14 @@
                         Überschrift hinzufügen
                     </MudButton>
                 </MudStack>
+
+                <DiscountEditor Invoice="_invoice" OnChanged="RecalculateTotals" />
+
+                <DownPaymentEditor Invoice="_invoice"
+                                   SourceInvoiceCandidates="_downPaymentInvoiceCandidates"
+                                   CustomerId="_selectedCustomer?.Id"
+                                   DefaultVatRate="DefaultVatRate"
+                                   OnChanged="RecalculateTotals" />
 
                 <!-- Anhänge (optional) -->
                 <MudText Typo="Typo.h6" Class="mt-6 mb-2">Anhänge (optional)</MudText>
@@ -273,16 +282,7 @@
                 <MudPaper Elevation="2" Class="pa-4 mt-6" Style="max-width: 400px; margin-left: auto;">
                     <MudText Typo="Typo.h6" GutterBottom="true">Summen</MudText>
                     <MudStack Spacing="2">
-                        <MudStack Row="true" Justify="Justify.SpaceBetween">
-                            <MudText>Nettosumme:</MudText>
-                            <MudText>@Math.Abs(_totalNet).ToString("C2", _culture)</MudText>
-                        </MudStack>
-                        <VatSummaryRows Invoice="_invoice" IsKleinunternehmer="@(_company?.IsKleinunternehmer == true)" />
-                        <MudDivider />
-                        <MudStack Row="true" Justify="Justify.SpaceBetween">
-                            <MudText Typo="Typo.subtitle1">Gutschriftbetrag:</MudText>
-                            <MudText Typo="Typo.subtitle1">@Math.Abs(_totalGross).ToString("C2", _culture)</MudText>
-                        </MudStack>
+                        <CreditNoteTotals CreditNote="_invoice" IsKleinunternehmer="@(_company?.IsKleinunternehmer == true)" />
                         @if (_company?.IsKleinunternehmer == true)
                         {
                             <MudAlert Severity="Severity.Info" Dense="true" Class="mt-2">

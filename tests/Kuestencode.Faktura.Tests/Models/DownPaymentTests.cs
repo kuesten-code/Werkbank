@@ -111,4 +111,50 @@ public class DownPaymentTests
         downPayment.Amount.Should().Be(0m);
         downPayment.VatRate.Should().Be(0m);
     }
+
+    // ─── SelectSourceInvoice ──────────────────────────────────────────────────
+
+    private static Invoice MakeSourceInvoice() => new()
+    {
+        Id = 5,
+        InvoiceNumber = "AR-2026-0005",
+        Items = [new InvoiceItem { Quantity = 1, UnitPrice = 500m, VatRate = 19m }]
+    };
+
+    [Fact]
+    public void SelectSourceInvoice_LeererAbschlag_UebernimmtNummerUndBetraege()
+    {
+        var downPayment = new DownPayment();
+
+        downPayment.SelectSourceInvoice(MakeSourceInvoice());
+
+        downPayment.SourceInvoiceId.Should().Be(5);
+        downPayment.Description.Should().Be("AR-2026-0005");
+        downPayment.NetAmount.Should().Be(500m);
+        downPayment.Amount.Should().Be(595m);
+    }
+
+    [Fact]
+    public void SelectSourceInvoice_ErfassteWerte_BleibenErhalten()
+    {
+        var downPayment = new DownPayment { Description = "Anzahlung", NetAmount = 100m, VatRate = 19m, Amount = 119m };
+
+        downPayment.SelectSourceInvoice(MakeSourceInvoice());
+
+        downPayment.SourceInvoiceId.Should().Be(5);
+        downPayment.Description.Should().Be("Anzahlung");
+        downPayment.Amount.Should().Be(119m);
+    }
+
+    [Fact]
+    public void SelectSourceInvoice_Null_EntferntVerknuepfung()
+    {
+        var downPayment = new DownPayment { SourceInvoiceId = 5, SourceInvoice = MakeSourceInvoice(), Amount = 595m };
+
+        downPayment.SelectSourceInvoice(null);
+
+        downPayment.SourceInvoiceId.Should().BeNull();
+        downPayment.SourceInvoice.Should().BeNull();
+        downPayment.Amount.Should().Be(595m);
+    }
 }

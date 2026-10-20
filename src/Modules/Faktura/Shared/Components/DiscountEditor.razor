@@ -1,0 +1,78 @@
+@* Rabatt auf Belegebene. Bei Gutschriften wird der Rabatt als positiver Betrag erfasst, siehe Invoice.DocumentSign *@
+
+<MudText Typo="Typo.h6" Class="mt-6 mb-2">Rabatt (optional)</MudText>
+@if (Invoice.DiscountType != DiscountType.None)
+{
+    <MudSimpleTable Dense="true" Hover="true" Bordered="true">
+        <thead>
+            <tr>
+                <th>Typ</th>
+                <th style="width: 200px; text-align: right">Wert</th>
+                <th style="width: 60px"></th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>
+                    <MudSelect @bind-Value="Invoice.DiscountType" T="DiscountType" Margin="Margin.Dense"
+                               Variant="Variant.Outlined" @bind-Value:after="NotifyChanged">
+                        <MudSelectItem Value="@DiscountType.Percentage">Prozentual (%)</MudSelectItem>
+                        <MudSelectItem Value="@DiscountType.Absolute">Absolut (€)</MudSelectItem>
+                    </MudSelect>
+                </td>
+                <td style="text-align: right">
+                    <MudNumericField @bind-Value="Invoice.DiscountValue"
+                                     Margin="Margin.Dense"
+                                     Variant="Variant.Outlined"
+                                     Min="0.01m"
+                                     Step="1m"
+                                     Format="@(Invoice.DiscountType == DiscountType.Percentage ? "N2" : "C2")"
+                                     HideSpinButtons="true"
+                                     Culture="@Culture"
+                                     OnBlur="NotifyChanged" />
+                </td>
+                <td>
+                    <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small"
+                                   Color="Color.Error" OnClick="RemoveDiscount" />
+                </td>
+            </tr>
+        </tbody>
+    </MudSimpleTable>
+    @if (Math.Abs(Invoice.DiscountAmount) > Math.Abs(Invoice.TotalNet) / 2)
+    {
+        <MudAlert Severity="Severity.Warning" Dense="true" Class="mt-2">
+            Warnung: Rabatt über 50% ist ungewöhnlich hoch
+        </MudAlert>
+    }
+}
+else
+{
+    <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small"
+               StartIcon="@Icons.Material.Filled.Add" OnClick="AddDiscount" Class="mt-2"
+               Style="width: 230px">
+        Rabatt hinzufügen
+    </MudButton>
+}
+
+@code {
+    private static readonly System.Globalization.CultureInfo Culture = new("de-DE");
+
+    [Parameter, EditorRequired] public Invoice Invoice { get; set; } = null!;
+    [Parameter] public EventCallback OnChanged { get; set; }
+
+    private Task AddDiscount()
+    {
+        Invoice.DiscountType = DiscountType.Percentage;
+        Invoice.DiscountValue = 0;
+        return NotifyChanged();
+    }
+
+    private Task RemoveDiscount()
+    {
+        Invoice.DiscountType = DiscountType.None;
+        Invoice.DiscountValue = null;
+        return NotifyChanged();
+    }
+
+    private Task NotifyChanged() => OnChanged.InvokeAsync();
+}

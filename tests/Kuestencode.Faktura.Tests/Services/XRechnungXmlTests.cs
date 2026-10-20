@@ -488,6 +488,21 @@ public class XRechnungXmlTests
     }
 
     [Fact]
+    public async Task GutschriftMitAbschlag_BetraegePositivUndZahlbetragOhneAbschlag()
+    {
+        var invoice = MakeInvoice(new InvoiceItem { Description = "Leistung", Quantity = 1, UnitPrice = -1000m, VatRate = 19 });
+        invoice.Type = InvoiceType.CreditNote;
+        invoice.DownPayments.Add(new DownPayment { Description = "AR-1", Amount = 595m });
+
+        var doc = await GenerateAsync(invoice);
+
+        var sum = Summation(doc);
+        sum.Element(Ram + "GrandTotalAmount")!.Value.Should().Be("1190.00");
+        sum.Element(Ram + "TotalPrepaidAmount")!.Value.Should().Be("595.00");
+        sum.Element(Ram + "DuePayableAmount")!.Value.Should().Be("595.00");
+    }
+
+    [Fact]
     public async Task OhneAbschlag_KeinTotalPrepaidAmount()
     {
         var doc = await GenerateAsync(MakeInvoice());

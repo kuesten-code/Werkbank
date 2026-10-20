@@ -43,8 +43,8 @@ public partial class Edit
     private bool _loading = true;
     private bool _saving = false;
     private string? _errorMessage;
-    private decimal _totalNet, _totalVat, _totalGross;
     private bool _isReverseCharge = false;
+    private List<Invoice> _downPaymentInvoiceCandidates = new();
     private System.Globalization.CultureInfo _culture = new System.Globalization.CultureInfo("de-DE");
     private const long MaxAttachmentSize = 10 * 1024 * 1024;
     private static readonly HashSet<string> AllowedAttachmentExtensions = new(StringComparer.OrdinalIgnoreCase)
@@ -73,6 +73,7 @@ public partial class Edit
             // Load customers and company data
             _customers = await CustomerService.GetAllAsync();
             _company = await CompanyService.GetCompanyAsync();
+            _downPaymentInvoiceCandidates = await InvoiceService.GetByTypeAsync(InvoiceType.Invoice);
 
             // Set selected customer
             _selectedCustomer = _invoice.Customer;
@@ -88,13 +89,6 @@ public partial class Edit
 
             // Initialize project selection from existing credit note
             _selectedProjectExternalId = _invoice.ProjectId;
-
-            // Gespeicherte Positionen tragen negative Einzelpreise (Vorzeichenkonvention Gutschrift) -
-            // für die Bearbeitung zeigt das Grid positive Werte an.
-            foreach (var item in _invoice.Items.Where(i => !i.IsHeader))
-            {
-                item.UnitPrice = Math.Abs(item.UnitPrice);
-            }
 
             RecalculateTotals();
         }
@@ -204,25 +198,27 @@ public partial class Edit
         return result.Where(s => s.Header != null || s.Items.Count > 0).ToList();
     }
 
+    private decimal DefaultVatRate => _company?.IsKleinunternehmer == true || _isReverseCharge ? 0 : 19;
+
     private void AddItem()
     {
         if (_invoice == null) return;
 
-        decimal vatRate;
-        if (_company?.IsKleinunternehmer == true)
-            vatRate = 0;
-        else if (_isReverseCharge)
-            vatRate = 0;
-        else
-            vatRate = 19;
         _invoice.Items.Add(new InvoiceItem
         {
             Quantity = 1,
             UnitPrice = 0,
-            VatRate = vatRate,
+            VatRate = DefaultVatRate,
             InvoiceId = _invoice.Id
         });
         ReorderItems();
+        RecalculateTotals();
+    }
+
+    // Gutschriftpositionen werden negativ gespeichert, im Grid aber als Betrag erfasst
+    private void OnUnitPriceChanged(InvoiceItem item, decimal unitPrice)
+    {
+        item.UnitPrice = -Math.Abs(unitPrice);
         RecalculateTotals();
     }
 
@@ -305,22 +301,11 @@ public partial class Edit
     {
         if (_invoice == null) return;
 
-        // Ensure all items have the correct VAT rate based on company settings
-        decimal vatRate;
-        if (_company?.IsKleinunternehmer == true)
-            vatRate = 0;
-        else if (_isReverseCharge)
-            vatRate = 0;
-        else
-            vatRate = 19;
-        foreach (var item in _invoice.Items)
+        foreach (var item in _invoice.Items.Where(i => !i.IsHeader))
         {
-            item.VatRate = vatRate;
+            item.VatRate = DefaultVatRate;
         }
 
-        _totalNet = _invoice.Items.Sum(i => i.TotalNet);
-        _totalVat = _invoice.Items.Sum(i => i.TotalVat);
-        _totalGross = _totalNet + _totalVat;
         StateHasChanged();
     }
 
@@ -358,11 +343,15 @@ public partial class Edit
             return;
         }
 
-        if (nonHeaderItems.Any(i => i.UnitPrice <= 0))
+        if (nonHeaderItems.Any(i => i.UnitPrice == 0))
         {
             _errorMessage = "Einzelpreis muss größer als 0 sein.";
             return;
         }
+
+        _errorMessage = InvoiceAdjustmentValidator.Validate(_invoice);
+        if (_errorMessage != null)
+            return;
 
         // Validate credit note date
         if (_invoiceDate == null)
@@ -390,11 +379,6 @@ public partial class Edit
 
             // Set credit note status based on asDraft parameter
             _invoice.Status = asDraft ? InvoiceStatus.Draft : InvoiceStatus.Sent;
-
-            foreach (var item in _invoice.Items.Where(i => !i.IsHeader))
-            {
-                item.UnitPrice = -Math.Abs(item.UnitPrice);
-            }
 
             await InvoiceService.UpdateAsync(_invoice);
 

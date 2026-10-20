@@ -1,0 +1,44 @@
+@* Summenzeilen einer Gutschrift. Beträge sind intern negativ gespeichert und werden als Beträge angezeigt *@
+
+<MudStack Row="true" Justify="Justify.SpaceBetween">
+    <MudText>Nettosumme:</MudText>
+    <MudText>@Format(CreditNote.TotalNet)</MudText>
+</MudStack>
+@if (CreditNote.DiscountAmount != 0)
+{
+    <MudStack Row="true" Justify="Justify.SpaceBetween">
+        <MudText>Rabatt @(CreditNote.DiscountType == DiscountType.Percentage ? $"({CreditNote.DiscountValue}%)" : ""):</MudText>
+        <MudText Color="Color.Success">-@Format(CreditNote.DiscountAmount)</MudText>
+    </MudStack>
+    <MudStack Row="true" Justify="Justify.SpaceBetween">
+        <MudText>Zwischensumme:</MudText>
+        <MudText>@Format(CreditNote.TotalNetAfterDiscount)</MudText>
+    </MudStack>
+}
+<VatSummaryRows Invoice="CreditNote" IsKleinunternehmer="IsKleinunternehmer" />
+<MudDivider />
+<MudStack Row="true" Justify="Justify.SpaceBetween">
+    <MudText Typo="Typo.subtitle1">Gutschriftbetrag:</MudText>
+    <MudText Typo="Typo.subtitle1">@Format(CreditNote.TotalGross)</MudText>
+</MudStack>
+@if (CreditNote.TotalDownPayments != 0)
+{
+    <MudStack Row="true" Justify="Justify.SpaceBetween">
+        <MudText>Abschläge:</MudText>
+        <MudText Color="Color.Error">-@Format(CreditNote.TotalDownPayments)</MudText>
+    </MudStack>
+    <MudDivider DividerType="DividerType.FullWidth" Style="border-width: 2px;" />
+    <MudStack Row="true" Justify="Justify.SpaceBetween">
+        <MudText Typo="Typo.h6">Zu erstatten:</MudText>
+        <MudText Typo="Typo.h6">@Format(CreditNote.AmountDue)</MudText>
+    </MudStack>
+}
+
+@code {
+    private static readonly System.Globalization.CultureInfo Culture = new("de-DE");
+
+    [Parameter, EditorRequired] public Invoice CreditNote { get; set; } = null!;
+    [Parameter] public bool IsKleinunternehmer { get; set; }
+
+    private static string Format(decimal amount) => Math.Abs(amount).ToString("C2", Culture);
+}

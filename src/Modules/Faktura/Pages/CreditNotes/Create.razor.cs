@@ -44,7 +44,6 @@ public partial class Create
     private DateTime? _dueDate;
     private bool _saving = false;
     private string? _errorMessage;
-    private decimal _totalNet, _totalGross;
     private bool _isReverseCharge = false;
     private System.Globalization.CultureInfo _culture = new System.Globalization.CultureInfo("de-DE");
     private const long MaxAttachmentSize = 10 * 1024 * 1024;
@@ -220,22 +219,24 @@ public partial class Create
         return result.Where(s => s.Header != null || s.Items.Count > 0).ToList();
     }
 
+    private decimal DefaultVatRate => _company?.IsKleinunternehmer == true || _isReverseCharge ? 0 : 19;
+
     private void AddItem()
     {
-        decimal vatRate;
-        if (_company?.IsKleinunternehmer == true)
-            vatRate = 0;
-        else if (_isReverseCharge)
-            vatRate = 0;
-        else
-            vatRate = 19;
         _invoice.Items.Add(new InvoiceItem
         {
             Quantity = 1,
             UnitPrice = 0,
-            VatRate = vatRate
+            VatRate = DefaultVatRate
         });
         ReorderItems();
+    }
+
+    // Gutschriftpositionen werden negativ gespeichert, im Grid aber als Betrag erfasst
+    private void OnUnitPriceChanged(InvoiceItem item, decimal unitPrice)
+    {
+        item.UnitPrice = -Math.Abs(unitPrice);
+        RecalculateTotals();
     }
 
     private void AddHeader()
@@ -303,21 +304,10 @@ public partial class Create
 
     private void RecalculateTotals()
     {
-        // Ensure all items have the correct VAT rate based on company settings
-        decimal vatRate;
-        if (_company?.IsKleinunternehmer == true)
-            vatRate = 0;
-        else if (_isReverseCharge)
-            vatRate = 0;
-        else
-            vatRate = 19;
         foreach (var item in _invoice.Items.Where(i => !i.IsHeader))
         {
-            item.VatRate = vatRate;
+            item.VatRate = DefaultVatRate;
         }
-
-        _totalNet = _invoice.TotalNet;
-        _totalGross = _invoice.TotalGross;
 
         StateHasChanged();
     }
@@ -360,11 +350,15 @@ public partial class Create
             return false;
         }
 
-        if (nonHeaderItems.Any(i => i.UnitPrice <= 0))
+        if (nonHeaderItems.Any(i => i.UnitPrice == 0))
         {
             _errorMessage = "Einzelpreis muss größer als 0 sein.";
             return false;
         }
+
+        _errorMessage = InvoiceAdjustmentValidator.Validate(_invoice);
+        if (_errorMessage != null)
+            return false;
 
         // Gutschriftdatum: Pflicht
         if (_invoiceDate == null)
@@ -380,14 +374,6 @@ public partial class Create
         }
 
         return true;
-    }
-
-    private void ApplySignConvention()
-    {
-        foreach (var item in _invoice.Items.Where(i => !i.IsHeader))
-        {
-            item.UnitPrice = -Math.Abs(item.UnitPrice);
-        }
     }
 
     private async Task SaveAsync(bool asDraft)
@@ -412,8 +398,6 @@ public partial class Create
             _invoice.DueDate            = _dueDate.HasValue ? DateTime.SpecifyKind(_dueDate.Value, DateTimeKind.Utc) : null;
 
             _invoice.Status = asDraft ? InvoiceStatus.Draft : InvoiceStatus.Sent;
-
-            ApplySignConvention();
 
             await InvoiceService.CreateAsync(_invoice);
 
@@ -462,8 +446,6 @@ public partial class Create
             _invoice.DueDate            = _dueDate.HasValue ? DateTime.SpecifyKind(_dueDate.Value, DateTimeKind.Utc) : null;
 
             _invoice.Status = InvoiceStatus.Sent;
-
-            ApplySignConvention();
 
             var createdCreditNote = await InvoiceService.CreateAsync(_invoice);
 

@@ -25,7 +25,8 @@ public class PdfDownPaymentDetailBuilder
         {
             column.Item().Element(c => RenderAbschlagsrechnungstabelle(c, invoice, company));
 
-            if (invoice.DownPayments.Any(d => d.SourceInvoice != null))
+            // Zahlungen auf Abschlagsrechnungen betreffen nur die Forderung, nicht deren Gutschrift
+            if (invoice.Type == InvoiceType.Invoice && invoice.DownPayments.Any(d => d.SourceInvoice != null))
             {
                 column.Item().PaddingTop(15).Element(c => RenderZahlungsuebersicht(c, invoice, company));
             }
@@ -58,8 +59,12 @@ public class PdfDownPaymentDetailBuilder
                     header.Cell().Background(company.PdfPrimaryColor).Padding(5).AlignRight().Text("Summe").FontColor("#FFFFFF").FontSize(9).Bold();
                 });
 
-                AddDetailRow(table, "Gesamtrechnungsbetrag", string.Empty,
-                    invoice.TotalNetAfterDiscount, invoice.TotalVat, invoice.TotalGross);
+                var sign = invoice.DocumentSign;
+                var totalNet = sign * invoice.TotalNetAfterDiscount;
+                var totalVat = sign * invoice.TotalVat;
+                var totalGross = sign * invoice.TotalGross;
+
+                AddDetailRow(table, "Gesamtrechnungsbetrag", string.Empty, totalNet, totalVat, totalGross);
 
                 var netSum = 0m;
                 var vatSum = 0m;
@@ -80,8 +85,8 @@ public class PdfDownPaymentDetailBuilder
 
                 table.Cell().ColumnSpan(5).PaddingTop(5).BorderTop(1).BorderColor(DividerColor);
 
-                AddDetailRow(table, "Rechnungsbetrag", string.Empty,
-                    invoice.TotalNetAfterDiscount - netSum, invoice.TotalVat - vatSum, invoice.TotalGross - grossSum,
+                AddDetailRow(table, invoice.Type == InvoiceType.CreditNote ? "Gutschriftbetrag" : "Rechnungsbetrag", string.Empty,
+                    totalNet - netSum, totalVat - vatSum, totalGross - grossSum,
                     bold: true);
             });
         });

@@ -186,6 +186,11 @@ public class InvoiceService : IInvoiceService
                 InvoiceDate = creditNoteDate.Kind == DateTimeKind.Utc ? creditNoteDate : DateTime.SpecifyKind(creditNoteDate.Date, DateTimeKind.Utc),
                 CustomerId = sourceInvoice.CustomerId,
                 ProjectId = sourceInvoice.ProjectId,
+                ServicePeriodStart = sourceInvoice.ServicePeriodStart,
+                ServicePeriodEnd = sourceInvoice.ServicePeriodEnd,
+                IsReverseCharge = sourceInvoice.IsReverseCharge,
+                DiscountType = sourceInvoice.DiscountType,
+                DiscountValue = sourceInvoice.DiscountValue,
                 Status = InvoiceStatus.Draft,
                 Items = sourceInvoice.Items.Select(item => new InvoiceItem
                 {
@@ -195,6 +200,16 @@ public class InvoiceService : IInvoiceService
                     UnitPrice = -Math.Abs(item.UnitPrice),
                     VatRate = item.VatRate,
                     IsHeader = item.IsHeader
+                }).ToList(),
+                // Bereits über Abschlagsrechnungen abgerechnete Beträge dürfen nicht erneut gutgeschrieben werden
+                DownPayments = sourceInvoice.DownPayments.Select(downPayment => new DownPayment
+                {
+                    Description = downPayment.Description,
+                    NetAmount = downPayment.NetAmount,
+                    VatRate = downPayment.VatRate,
+                    Amount = downPayment.Amount,
+                    PaymentDate = downPayment.PaymentDate,
+                    SourceInvoiceId = downPayment.SourceInvoiceId
                 }).ToList()
             };
 

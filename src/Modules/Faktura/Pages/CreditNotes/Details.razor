@@ -280,39 +280,7 @@
                 <MudItem xs="12" Class="mt-4">
                     <MudPaper Elevation="2" Class="pa-4" Style="max-width: 400px; margin-left: auto;">
                         <MudStack Spacing="2">
-                            <MudStack Row="true" Justify="Justify.SpaceBetween">
-                                <MudText>Nettosumme:</MudText>
-                                <MudText>@Math.Abs(_invoice.TotalNet).ToString("C2", _culture)</MudText>
-                            </MudStack>
-                            @if (_invoice.DiscountAmount > 0)
-                            {
-                                <MudStack Row="true" Justify="Justify.SpaceBetween">
-                                    <MudText>Rabatt @(_invoice.DiscountType == DiscountType.Percentage ? $"({_invoice.DiscountValue}%)" : ""):</MudText>
-                                    <MudText Color="Color.Success">-@Math.Abs(_invoice.DiscountAmount).ToString("C2", _culture)</MudText>
-                                </MudStack>
-                                <MudStack Row="true" Justify="Justify.SpaceBetween">
-                                    <MudText>Zwischensumme:</MudText>
-                                    <MudText>@Math.Abs(_invoice.TotalNetAfterDiscount).ToString("C2", _culture)</MudText>
-                                </MudStack>
-                            }
-                            <VatSummaryRows Invoice="_invoice" IsKleinunternehmer="@(_company?.IsKleinunternehmer == true)" />
-                            <MudDivider />
-                            <MudStack Row="true" Justify="Justify.SpaceBetween">
-                                <MudText Typo="Typo.subtitle1">Gutschriftbetrag:</MudText>
-                                <MudText Typo="Typo.subtitle1">@Math.Abs(_invoice.TotalGross).ToString("C2", _culture)</MudText>
-                            </MudStack>
-                            @if (_invoice.TotalDownPayments > 0)
-                            {
-                                <MudStack Row="true" Justify="Justify.SpaceBetween">
-                                    <MudText>Abschl&auml;ge:</MudText>
-                                    <MudText Color="Color.Error">-@Math.Abs(_invoice.TotalDownPayments).ToString("C2", _culture)</MudText>
-                                </MudStack>
-                                <MudDivider DividerType="DividerType.FullWidth" Style="border-width: 2px;" />
-                                <MudStack Row="true" Justify="Justify.SpaceBetween">
-                                    <MudText Typo="Typo.h6">Zu erstatten:</MudText>
-                                    <MudText Typo="Typo.h6">@Math.Abs(_invoice.AmountDue).ToString("C2", _culture)</MudText>
-                                </MudStack>
-                            }
+                            <CreditNoteTotals CreditNote="_invoice" IsKleinunternehmer="@(_company?.IsKleinunternehmer == true)" />
                             @if (_company?.IsKleinunternehmer == true)
                             {
                                 <MudAlert Severity="Severity.Info" Dense="true" Class="mt-2">

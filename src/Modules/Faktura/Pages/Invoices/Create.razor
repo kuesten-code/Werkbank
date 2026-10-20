@@ -226,131 +226,13 @@
                 </MudButton>
             </MudStack>
 
-            <!-- Rabatt (optional) -->
-            <MudText Typo="Typo.h6" Class="mt-6 mb-2">Rabatt (optional)</MudText>
-            @if (_enableDiscount)
-            {
-                <MudSimpleTable Dense="true" Hover="true" Bordered="true">
-                    <thead>
-                        <tr>
-                            <th>Typ</th>
-                            <th style="width: 200px; text-align: right">Wert</th>
-                            <th style="width: 60px"></th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td>
-                                <MudSelect @bind-Value="_invoice.DiscountType" T="DiscountType" Margin="Margin.Dense"
-                                           Variant="Variant.Outlined" @bind-Value:after="RecalculateTotals">
-                                    <MudSelectItem Value="@DiscountType.Percentage">Prozentual (%)</MudSelectItem>
-                                    <MudSelectItem Value="@DiscountType.Absolute">Absolut (€)</MudSelectItem>
-                                </MudSelect>
-                            </td>
-                            <td style="text-align: right">
-                                <MudNumericField @bind-Value="_invoice.DiscountValue"
-                                                Margin="Margin.Dense"
-                                                Variant="Variant.Outlined"
-                                                Min="0.01m"
-                                                Step="1m"
-                                                Format="@(_invoice.DiscountType == DiscountType.Percentage ? "N2" : "C2")"
-                                                HideSpinButtons="true"
-                                                Culture="@_culture"
-                                                OnBlur="RecalculateTotals" />
-                            </td>
-                            <td>
-                                <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small"
-                                              Color="Color.Error" OnClick="RemoveDiscount" />
-                            </td>
-                        </tr>
-                    </tbody>
-                </MudSimpleTable>
-                @if (_discountWarning)
-                {
-                    <MudAlert Severity="Severity.Warning" Dense="true" Class="mt-2">
-                        Ungewöhnlich hoher Rabatt (>50%)
-                    </MudAlert>
-                }
-            }
-            @if (!_enableDiscount)
-            {
-                <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small"
-                          StartIcon="@Icons.Material.Filled.Add" OnClick="AddDiscount" Class="mt-2"
-                          Style="width: 230px">
-                    Rabatt hinzufügen
-                </MudButton>
-            }
+            <DiscountEditor Invoice="_invoice" OnChanged="RecalculateTotals" />
 
-            <!-- Abschläge (optional) -->
-            <MudText Typo="Typo.h6" Class="mt-6 mb-2">Abschläge (optional)</MudText>
-            @if (_invoice.DownPayments.Count > 0)
-            {
-                <MudTable Items="@_invoice.DownPayments" Dense="true" Hover="true" Breakpoint="Breakpoint.Sm">
-                    <HeaderContent>
-                        <MudTh>Beschreibung</MudTh>
-                        <MudTh Style="width: 220px">Abschlagsrechnung (optional)</MudTh>
-                        <MudTh Style="width: 140px; text-align: right">Netto</MudTh>
-                        <MudTh Style="width: 100px; text-align: right">MwSt %</MudTh>
-                        <MudTh Style="width: 140px; text-align: right">Brutto</MudTh>
-                        <MudTh Style="width: 150px">Datum</MudTh>
-                        <MudTh Style="width: 60px"></MudTh>
-                    </HeaderContent>
-                    <RowTemplate Context="downPayment">
-                        <MudTd DataLabel="Beschreibung">
-                            <MudTextField @bind-Value="downPayment.Description" Margin="Margin.Dense"
-                                         Variant="Variant.Outlined" Required="true"
-                                         Placeholder="z.B. Anzahlung vom 15.12.2024"
-                                         OnBlur="RecalculateTotals" />
-                        </MudTd>
-                        <MudTd DataLabel="Abschlagsrechnung">
-                            <MudAutocomplete T="Invoice"
-                                @bind-Value="downPayment.SourceInvoice"
-                                @bind-Value:after="@(() => OnDownPaymentSourceInvoiceChanged(downPayment))"
-                                SearchFunc="@SearchDownPaymentInvoices"
-                                ToStringFunc="@(i => i?.InvoiceNumber ?? string.Empty)"
-                                Margin="Margin.Dense" Variant="Variant.Outlined"
-                                ResetValueOnEmptyText="true" CoerceText="true" CoerceValue="false">
-                                <ItemTemplate Context="candidate">
-                                    <MudText>@candidate.InvoiceNumber</MudText>
-                                </ItemTemplate>
-                            </MudAutocomplete>
-                        </MudTd>
-                        <MudTd DataLabel="Netto" Style="text-align: right">
-                            <MudNumericField T="decimal" Value="downPayment.NetAmount"
-                                            ValueChanged="@(v => OnDownPaymentNetAmountChanged(downPayment, v))"
-                                            Margin="Margin.Dense" Variant="Variant.Outlined" Min="0m" Step="1m"
-                                            Format="C2" HideSpinButtons="true" Culture="@_culture" />
-                        </MudTd>
-                        <MudTd DataLabel="MwSt %" Style="text-align: right">
-                            <MudNumericField T="decimal" Value="downPayment.VatRate"
-                                            ValueChanged="@(v => OnDownPaymentVatRateChanged(downPayment, v))"
-                                            Margin="Margin.Dense" Variant="Variant.Outlined" Min="0m" Max="100m" Step="1m"
-                                            Format="0.##" HideSpinButtons="true" Culture="@_culture" />
-                        </MudTd>
-                        <MudTd DataLabel="Brutto" Style="text-align: right">
-                            <MudNumericField T="decimal" Value="downPayment.Amount"
-                                            ValueChanged="@(v => OnDownPaymentGrossAmountChanged(downPayment, v))"
-                                            Margin="Margin.Dense" Variant="Variant.Outlined" Min="0m" Step="1m"
-                                            Format="C2" HideSpinButtons="true" Culture="@_culture" />
-                        </MudTd>
-                        <MudTd DataLabel="Datum">
-                            <MudDatePicker @bind-Date="downPayment.PaymentDate" Margin="Margin.Dense"
-                                          Variant="Variant.Outlined" DateFormat="dd.MM.yyyy"
-                                          Placeholder="Optional" />
-                        </MudTd>
-                        <MudTd DataLabel="">
-                            <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small"
-                                          Color="Color.Error" OnClick="@(() => RemoveDownPayment(downPayment))" />
-                        </MudTd>
-                    </RowTemplate>
-                </MudTable>
-            }
-
-            <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small"
-                      StartIcon="@Icons.Material.Filled.Add" OnClick="AddDownPayment" Class="mt-2"
-                      Style="width: 230px">
-                Abschlag hinzufügen
-            </MudButton>
+            <DownPaymentEditor Invoice="_invoice"
+                               SourceInvoiceCandidates="_downPaymentInvoiceCandidates"
+                               CustomerId="_selectedCustomer?.Id"
+                               DefaultVatRate="DefaultVatRate"
+                               OnChanged="RecalculateTotals" />
 
             <!-- Anhänge (optional) -->
             <MudText Typo="Typo.h6" Class="mt-6 mb-2">Anhänge (optional)</MudText>

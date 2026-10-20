@@ -55,7 +55,6 @@ public partial class Edit
     private string? _errorMessage;
     private decimal _totalNet, _totalVat, _totalGross, _totalDownPayments, _amountDue;
     private decimal _discountAmount, _totalNetAfterDiscount;
-    private bool _hasDiscount = false;
     private bool _isReverseCharge = false;
     private System.Globalization.CultureInfo _culture = new System.Globalization.CultureInfo("de-DE");
     private const long MaxAttachmentSize = 10 * 1024 * 1024;
@@ -112,9 +111,6 @@ public partial class Edit
             _servicePeriodStart = _invoice.ServicePeriodStart;
             _servicePeriodEnd = _invoice.ServicePeriodEnd;
             _dueDate = _invoice.DueDate;
-
-            // Initialize discount toggle
-            _hasDiscount = _invoice.DiscountType != DiscountType.None;
 
             // Initialize reverse-charge toggle
             _isReverseCharge = _invoice.IsReverseCharge;
@@ -344,95 +340,6 @@ public partial class Edit
         }
     }
 
-    private void AddDownPayment()
-    {
-        if (_invoice == null) return;
-
-        _invoice.DownPayments.Add(new DownPayment
-        {
-            Description = string.Empty,
-            VatRate = DefaultVatRate,
-            PaymentDate = null,
-            InvoiceId = _invoice.Id
-        });
-        StateHasChanged();
-    }
-
-    private void OnDownPaymentNetAmountChanged(DownPayment downPayment, decimal netAmount)
-    {
-        downPayment.ApplyNetAmount(netAmount);
-        RecalculateTotals();
-    }
-
-    private void OnDownPaymentVatRateChanged(DownPayment downPayment, decimal vatRate)
-    {
-        downPayment.ApplyVatRate(vatRate);
-        RecalculateTotals();
-    }
-
-    private void OnDownPaymentGrossAmountChanged(DownPayment downPayment, decimal grossAmount)
-    {
-        downPayment.ApplyGrossAmount(grossAmount);
-        RecalculateTotals();
-    }
-
-    private void RemoveDownPayment(DownPayment downPayment)
-    {
-        if (_invoice == null) return;
-
-        _invoice.DownPayments.Remove(downPayment);
-        RecalculateTotals();
-    }
-
-    private void OnDownPaymentSourceInvoiceChanged(DownPayment downPayment)
-    {
-        downPayment.SourceInvoiceId = downPayment.SourceInvoice?.Id;
-
-        if (downPayment.SourceInvoice == null) return;
-
-        if (string.IsNullOrWhiteSpace(downPayment.Description))
-            downPayment.Description = downPayment.SourceInvoice.InvoiceNumber;
-
-        if (downPayment.Amount == 0)
-            downPayment.ApplySourceInvoice(downPayment.SourceInvoice);
-
-        RecalculateTotals();
-    }
-
-    private async Task<IEnumerable<Invoice>> SearchDownPaymentInvoices(string value, CancellationToken token)
-    {
-        await Task.CompletedTask;
-
-        if (_selectedCustomer == null)
-            return [];
-
-        var candidates = _downPaymentInvoiceCandidates.Where(i => i.CustomerId == _selectedCustomer.Id);
-
-        if (string.IsNullOrWhiteSpace(value))
-            return candidates;
-
-        return candidates.Where(i =>
-            i.InvoiceNumber.Contains(value, StringComparison.OrdinalIgnoreCase));
-    }
-
-    private void AddDiscount()
-    {
-        if (_invoice == null) return;
-        _hasDiscount = true;
-        _invoice.DiscountType = DiscountType.Percentage;
-        _invoice.DiscountValue = 0;
-        RecalculateTotals();
-    }
-
-    private void RemoveDiscount()
-    {
-        if (_invoice == null) return;
-        _hasDiscount = false;
-        _invoice.DiscountType = DiscountType.None;
-        _invoice.DiscountValue = null;
-        RecalculateTotals();
-    }
-
     private void AddTimesheet()
     {
         _attachTimesheet = true;
@@ -478,41 +385,13 @@ public partial class Edit
             item.VatRate = vatRate;
         }
 
-        _totalNet = _invoice.Items.Sum(i => i.TotalNet);
-
-        // Calculate discount
-        if (_invoice.DiscountType != DiscountType.None && _invoice.DiscountValue.HasValue)
-        {
-            if (_invoice.DiscountType == DiscountType.Percentage)
-            {
-                _discountAmount = _totalNet * (_invoice.DiscountValue.Value / 100);
-            }
-            else
-            {
-                _discountAmount = _invoice.DiscountValue.Value;
-            }
-        }
-        else
-        {
-            _discountAmount = 0;
-        }
-
-        _totalNetAfterDiscount = _totalNet - _discountAmount;
-
-        // Calculate VAT proportionally after discount
-        if (_totalNet > 0)
-        {
-            var discountRatio = _totalNetAfterDiscount / _totalNet;
-            _totalVat = _invoice.Items.Sum(i => i.TotalVat) * discountRatio;
-        }
-        else
-        {
-            _totalVat = 0;
-        }
-
-        _totalGross = _totalNetAfterDiscount + _totalVat;
-        _totalDownPayments = _invoice.DownPayments.Sum(d => d.Amount);
-        _amountDue = _totalGross - _totalDownPayments;
+        _totalNet = _invoice.TotalNet;
+        _discountAmount = _invoice.DiscountAmount;
+        _totalNetAfterDiscount = _invoice.TotalNetAfterDiscount;
+        _totalVat = _invoice.TotalVat;
+        _totalGross = _invoice.TotalGross;
+        _totalDownPayments = _invoice.TotalDownPayments;
+        _amountDue = _invoice.AmountDue;
         StateHasChanged();
     }
 
@@ -563,46 +442,9 @@ public partial class Edit
             return;
         }
 
-        // Abschläge: Validierung
-        if (_invoice.DownPayments.Any(d => d.Amount <= 0))
-        {
-            _errorMessage = "Abschlag-Betrag muss größer als 0 sein.";
+        _errorMessage = InvoiceAdjustmentValidator.Validate(_invoice);
+        if (_errorMessage != null)
             return;
-        }
-
-        if (_invoice.DownPayments.Any(d => string.IsNullOrWhiteSpace(d.Description)))
-        {
-            _errorMessage = "Beschreibung für Abschläge ist erforderlich.";
-            return;
-        }
-
-        if (_totalDownPayments > Math.Abs(_totalGross))
-        {
-            _errorMessage = "Abschläge dürfen die Bruttosumme nicht übersteigen.";
-            return;
-        }
-
-        // Rabatt: Validierung
-        if (_invoice.DiscountType != DiscountType.None)
-        {
-            if (!_invoice.DiscountValue.HasValue || _invoice.DiscountValue.Value <= 0)
-            {
-                _errorMessage = "Rabatt muss größer als 0 sein.";
-                return;
-            }
-
-            if (_invoice.DiscountType == DiscountType.Percentage && _invoice.DiscountValue.Value > 100)
-            {
-                _errorMessage = "Prozentualer Rabatt darf nicht über 100% liegen.";
-                return;
-            }
-
-            if (_invoice.DiscountType == DiscountType.Absolute && _invoice.DiscountValue.Value > Math.Abs(_totalNet))
-            {
-                _errorMessage = "Absoluter Rabatt darf die Nettosumme nicht übersteigen.";
-                return;
-            }
-        }
 
         _saving = true;
 

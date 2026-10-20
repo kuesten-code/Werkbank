@@ -182,6 +182,28 @@ public class PdfTaxContentTests : IClassFixture<FakturaWebApplicationFactory>
 
     [Theory]
     [MemberData(nameof(Layouts))]
+    public void GutschriftMitRabattUndAbschlag_ZeigtZuErstattenOhneAbschlag(PdfLayout layout)
+    {
+        var invoice = MakeInvoice();
+        invoice.Type = InvoiceType.CreditNote;
+        invoice.Items[0].UnitPrice = -100m;
+        invoice.DiscountType = DiscountType.Absolute;
+        invoice.DiscountValue = 20m;
+        invoice.DownPayments.Add(new DownPayment { Description = "Abschlag 1", Amount = 100m, NetAmount = 84.03m, VatRate = 19 });
+
+        var text = Render(invoice, MakeCompany(layout));
+
+        text.Should().Contain("Rabatt:");
+        text.Should().Contain("-20,00 €");
+        text.Should().Contain("214,20 €");
+        text.Should().Contain("Zu erstatten:");
+        text.Should().Contain("114,20 €");
+        text.Should().NotContain("Zu zahlen:");
+        text.Should().NotContain("-214,20 €");
+    }
+
+    [Theory]
+    [MemberData(nameof(Layouts))]
     public void GemischteSteuersaetze_WeistMwStJeSatzAus(PdfLayout layout)
     {
         var invoice = MakeInvoice();

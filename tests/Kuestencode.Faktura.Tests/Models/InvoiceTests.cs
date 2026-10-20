@@ -285,4 +285,75 @@ public class InvoiceTests
     {
         new Invoice().VatBreakdown.Should().BeEmpty();
     }
+
+    // ─── Gutschrift: Vorzeichen ───────────────────────────────────────────────
+
+    private static Invoice MakeCreditNote(params InvoiceItem[] items)
+    {
+        var creditNote = MakeInvoice(items);
+        creditNote.Type = InvoiceType.CreditNote;
+        return creditNote;
+    }
+
+    [Theory]
+    [InlineData(InvoiceType.Invoice, 1)]
+    [InlineData(InvoiceType.CreditNote, -1)]
+    public void DocumentSign_JeBelegtyp(InvoiceType type, int expected)
+    {
+        new Invoice { Type = type }.DocumentSign.Should().Be(expected);
+    }
+
+    [Fact]
+    public void Gutschrift_AbsoluterRabatt_MindertGutschriftbetrag()
+    {
+        var creditNote = MakeCreditNote(MakeItem(1, -1000m));
+        creditNote.DiscountType = DiscountType.Absolute;
+        creditNote.DiscountValue = 100m;
+
+        creditNote.DiscountAmount.Should().Be(-100m);
+        creditNote.TotalNetAfterDiscount.Should().Be(-900m);
+        creditNote.TotalGross.Should().Be(-1071m);
+    }
+
+    [Fact]
+    public void Gutschrift_ProzentRabatt_MindertGutschriftbetrag()
+    {
+        var creditNote = MakeCreditNote(MakeItem(1, -1000m));
+        creditNote.DiscountType = DiscountType.Percentage;
+        creditNote.DiscountValue = 10m;
+
+        creditNote.TotalNetAfterDiscount.Should().Be(-900m);
+        creditNote.TotalGross.Should().Be(-1071m);
+    }
+
+    [Fact]
+    public void Gutschrift_Abschlaege_WerdenVomGutschriftbetragAbgezogen()
+    {
+        var creditNote = MakeCreditNote(MakeItem(1, -1000m));
+        creditNote.DownPayments.Add(new DownPayment { Description = "AR-1", NetAmount = 500m, VatRate = 19m, Amount = 595m });
+
+        creditNote.TotalGross.Should().Be(-1190m);
+        creditNote.TotalDownPayments.Should().Be(-595m);
+        creditNote.AmountDue.Should().Be(-595m);
+    }
+
+    [Fact]
+    public void Gutschrift_NegativeErstattung_RestbetragNull()
+    {
+        var creditNote = MakeCreditNote(MakeItem(1, -1000m));
+        creditNote.DownPayments.Add(new DownPayment { Description = "AR-1", Amount = 595m });
+        creditNote.Payments.Add(new InvoicePayment { Amount = -595m });
+
+        creditNote.RemainingAmount.Should().Be(0m);
+    }
+
+    [Fact]
+    public void Rechnung_Abschlaege_BleibenPositiv()
+    {
+        var invoice = MakeInvoice(MakeItem(1, 1000m));
+        invoice.DownPayments.Add(new DownPayment { Description = "AR-1", Amount = 595m });
+
+        invoice.TotalDownPayments.Should().Be(595m);
+        invoice.AmountDue.Should().Be(595m);
+    }
 }

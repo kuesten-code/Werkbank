@@ -22,8 +22,7 @@ public class PdfQRCodeGenerator
             ? company.AccountHolder
             : company.OwnerFullName;
 
-        // Use AmountDue if there are down payments, otherwise use TotalGross
-        var paymentAmount = invoice.TotalDownPayments > 0 ? invoice.AmountDue : invoice.TotalGross;
+        var paymentAmount = invoice.AmountDue;
         var amount = paymentAmount.ToString("F2", System.Globalization.CultureInfo.InvariantCulture);
         var purpose = $"Rechnung {invoice.InvoiceNumber}";
 

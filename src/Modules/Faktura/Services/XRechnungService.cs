@@ -280,10 +280,11 @@ public class XRechnungService : IXRechnungService
         return doc;
     }
 
+    // Gutschriften (TypeCode 381) werden in der XRechnung mit positiven Beträgen übermittelt
     private IEnumerable<XElement> BuildLineItems(Invoice invoice, Company company)
     {
         var culture = CultureInfo.InvariantCulture;
-        var sign = DocumentSign(invoice);
+        var sign = invoice.DocumentSign;
         int lineId = 1;
 
         foreach (var item in invoice.Items.Where(i => !i.IsHeader && !string.IsNullOrWhiteSpace(i.Description)))
@@ -327,9 +328,6 @@ public class XRechnungService : IXRechnungService
         }
     }
 
-    // Gutschriften (TypeCode 381) werden in der XRechnung mit positiven Beträgen übermittelt
-    private static int DocumentSign(Invoice invoice) => invoice.Type == InvoiceType.CreditNote ? -1 : 1;
-
     private static (string CategoryCode, decimal Rate) LineTaxCategory(decimal vatRate, Invoice invoice, Company company) =>
         company.IsKleinunternehmer ? ("E", 0m)
         : invoice.IsReverseCharge ? ("AE", 0m)
@@ -343,7 +341,7 @@ public class XRechnungService : IXRechnungService
     /// </summary>
     private static List<TaxGroup> BuildTaxGroups(Invoice invoice, Company company)
     {
-        var sign = DocumentSign(invoice);
+        var sign = invoice.DocumentSign;
 
         if (company.IsKleinunternehmer || invoice.IsReverseCharge)
         {
@@ -518,7 +516,7 @@ public class XRechnungService : IXRechnungService
         var taxBasisTotal = taxGroups.Sum(g => g.Basis);
         var taxTotal = taxGroups.Sum(g => g.Vat);
         var grandTotal = taxBasisTotal + taxTotal;
-        var prepaid = invoice.TotalDownPayments;
+        var prepaid = invoice.DocumentSign * invoice.TotalDownPayments;
 
         var elements = new List<XElement?>
         {

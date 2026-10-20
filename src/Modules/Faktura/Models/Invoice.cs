@@ -105,6 +105,11 @@ public class Invoice
     [NotMapped]
     public string DocumentLabel => Type == InvoiceType.CreditNote ? "Gutschrift" : "Rechnung";
 
+    // Gutschriften tragen negative Positionen und Zahlungen; absoluter Rabatt und Abschläge werden als
+    // positive Beträge erfasst und erst hier mit dem Belegvorzeichen verrechnet
+    [NotMapped]
+    public int DocumentSign => Type == InvoiceType.CreditNote ? -1 : 1;
+
     public List<InvoiceItem> Items { get; set; } = new();
     public List<DownPayment> DownPayments { get; set; } = new();
     public List<InvoiceAttachment> Attachments { get; set; } = new();
@@ -125,7 +130,7 @@ public class Invoice
             if (DiscountType == DiscountType.Percentage)
                 return TotalNet * (DiscountValue.Value / 100);
 
-            return DiscountValue.Value; // Absolute
+            return DocumentSign * DiscountValue.Value;
         }
     }
 
@@ -171,7 +176,7 @@ public class Invoice
     }
 
     [NotMapped]
-    public decimal TotalDownPayments => DownPayments?.Sum(d => d.Amount) ?? 0;
+    public decimal TotalDownPayments => DocumentSign * (DownPayments?.Sum(d => d.Amount) ?? 0);
 
     [NotMapped]
     public decimal AmountDue => TotalGross - TotalDownPayments;

@@ -13,7 +13,7 @@ public class HtmlEmailTemplateRenderer : IEmailTemplateRenderer
     public string RenderContentHtml(Invoice invoice, Company company)
     {
         var culture = new CultureInfo("de-DE");
-        var paymentAmount = invoice.TotalDownPayments > 0 ? invoice.AmountDue : invoice.TotalGross;
+        var paymentAmount = invoice.AmountDue;
         var formattedTotal = paymentAmount.ToString("C", culture);
         var formattedDate = invoice.InvoiceDate.ToString("dd.MM.yyyy", culture);
         var formattedDueDate = invoice.DueDate?.ToString("dd.MM.yyyy", culture) ?? "Sofort fällig";
@@ -22,7 +22,7 @@ public class HtmlEmailTemplateRenderer : IEmailTemplateRenderer
             <p>anbei erhalten Sie die Rechnung <strong>{invoice.InvoiceNumber}</strong>.</p>
             <table style="width:100%; border-collapse:collapse; background-color:white; padding:15px; margin:15px 0;">
                 <tr><td><strong>Rechnungsbetrag:</strong></td><td><strong>{formattedTotal}</strong></td></tr>
-                {(invoice.DiscountAmount > 0 ? $"""<tr><td colspan="2" style="font-size:12px; color:#666;"><em>inkl. Rabatt: {(invoice.DiscountType == DiscountType.Percentage ? $"{invoice.DiscountValue}%" : invoice.DiscountAmount.ToString("C", culture))}</em></td></tr>""" : "")}
+                {(invoice.DiscountAmount != 0 ? $"""<tr><td colspan="2" style="font-size:12px; color:#666;"><em>inkl. Rabatt: {(invoice.DiscountType == DiscountType.Percentage ? $"{invoice.DiscountValue}%" : Math.Abs(invoice.DiscountAmount).ToString("C", culture))}</em></td></tr>""" : "")}
                 <tr><td><strong>Rechnungsnummer:</strong></td><td>{invoice.InvoiceNumber}</td></tr>
                 <tr><td><strong>Rechnungsdatum:</strong></td><td>{formattedDate}</td></tr>
                 <tr><td><strong>Fällig am:</strong></td><td>{formattedDueDate}</td></tr>
@@ -42,7 +42,7 @@ public class HtmlEmailTemplateRenderer : IEmailTemplateRenderer
     public string RenderContentText(Invoice invoice, Company company)
     {
         var culture = new CultureInfo("de-DE");
-        var paymentAmount = invoice.TotalDownPayments > 0 ? invoice.AmountDue : invoice.TotalGross;
+        var paymentAmount = invoice.AmountDue;
         var formattedTotal = paymentAmount.ToString("C", culture);
         var formattedDate = invoice.InvoiceDate.ToString("dd.MM.yyyy", culture);
         var formattedDueDate = invoice.DueDate?.ToString("dd.MM.yyyy", culture) ?? "Sofort fällig";
@@ -53,7 +53,7 @@ public class HtmlEmailTemplateRenderer : IEmailTemplateRenderer
             RECHNUNGSDETAILS:
             ------------------
             Rechnungsbetrag: {formattedTotal}
-            {(invoice.DiscountAmount > 0 ? $"  (inkl. Rabatt: {(invoice.DiscountType == DiscountType.Percentage ? $"{invoice.DiscountValue}%" : invoice.DiscountAmount.ToString("C", culture))})\n" : "")}Rechnungsnummer: {invoice.InvoiceNumber}
+            {(invoice.DiscountAmount != 0 ? $"  (inkl. Rabatt: {(invoice.DiscountType == DiscountType.Percentage ? $"{invoice.DiscountValue}%" : Math.Abs(invoice.DiscountAmount).ToString("C", culture))})\n" : "")}Rechnungsnummer: {invoice.InvoiceNumber}
             Rechnungsdatum:  {formattedDate}
             Fällig am:       {formattedDueDate}
 

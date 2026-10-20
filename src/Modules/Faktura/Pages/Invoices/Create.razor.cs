@@ -60,9 +60,7 @@ public partial class Create
     private decimal _totalNet, _totalGross, _totalDownPayments, _amountDue;
     private List<Invoice> _downPaymentInvoiceCandidates = new();
     private decimal _discountAmount, _totalNetAfterDiscount;
-    private bool _enableDiscount = false;
     private bool _isReverseCharge = false;
-    private bool _discountWarning = false;
     private System.Globalization.CultureInfo _culture = new System.Globalization.CultureInfo("de-DE");
     private const long MaxAttachmentSize = 10 * 1024 * 1024;
     private static readonly HashSet<string> AllowedAttachmentExtensions = new(StringComparer.OrdinalIgnoreCase)
@@ -395,89 +393,6 @@ public partial class Create
         }
     }
 
-    private void AddDownPayment()
-    {
-        _invoice.DownPayments.Add(new DownPayment
-        {
-            Description = string.Empty,
-            VatRate = DefaultVatRate,
-            PaymentDate = null
-        });
-        StateHasChanged();
-    }
-
-    private void OnDownPaymentNetAmountChanged(DownPayment downPayment, decimal netAmount)
-    {
-        downPayment.ApplyNetAmount(netAmount);
-        RecalculateTotals();
-    }
-
-    private void OnDownPaymentVatRateChanged(DownPayment downPayment, decimal vatRate)
-    {
-        downPayment.ApplyVatRate(vatRate);
-        RecalculateTotals();
-    }
-
-    private void OnDownPaymentGrossAmountChanged(DownPayment downPayment, decimal grossAmount)
-    {
-        downPayment.ApplyGrossAmount(grossAmount);
-        RecalculateTotals();
-    }
-
-    private void RemoveDownPayment(DownPayment downPayment)
-    {
-        _invoice.DownPayments.Remove(downPayment);
-        RecalculateTotals();
-    }
-
-    private void OnDownPaymentSourceInvoiceChanged(DownPayment downPayment)
-    {
-        downPayment.SourceInvoiceId = downPayment.SourceInvoice?.Id;
-
-        if (downPayment.SourceInvoice == null) return;
-
-        if (string.IsNullOrWhiteSpace(downPayment.Description))
-            downPayment.Description = downPayment.SourceInvoice.InvoiceNumber;
-
-        if (downPayment.Amount == 0)
-            downPayment.ApplySourceInvoice(downPayment.SourceInvoice);
-
-        RecalculateTotals();
-    }
-
-    private async Task<IEnumerable<Invoice>> SearchDownPaymentInvoices(string value, CancellationToken token)
-    {
-        await Task.CompletedTask;
-
-        if (_selectedCustomer == null)
-            return [];
-
-        var candidates = _downPaymentInvoiceCandidates.Where(i => i.CustomerId == _selectedCustomer.Id);
-
-        if (string.IsNullOrWhiteSpace(value))
-            return candidates;
-
-        return candidates.Where(i =>
-            i.InvoiceNumber.Contains(value, StringComparison.OrdinalIgnoreCase));
-    }
-
-    private void AddDiscount()
-    {
-        _enableDiscount = true;
-        _invoice.DiscountType = DiscountType.Percentage;
-        _invoice.DiscountValue = 0;
-        RecalculateTotals();
-    }
-
-    private void RemoveDiscount()
-    {
-        _enableDiscount = false;
-        _invoice.DiscountType = DiscountType.None;
-        _invoice.DiscountValue = null;
-        _discountWarning = false;
-        RecalculateTotals();
-    }
-
     private void AddTimesheet()
     {
         _attachTimesheet = true;
@@ -536,24 +451,6 @@ public partial class Create
         _totalDownPayments = _invoice.TotalDownPayments;
         _amountDue = _invoice.AmountDue;
 
-        // Check for discount warning
-        if (_invoice.DiscountType == DiscountType.Percentage &&
-            _invoice.DiscountValue.HasValue &&
-            _invoice.DiscountValue.Value > 50)
-        {
-            _discountWarning = true;
-        }
-        else if (_invoice.DiscountType == DiscountType.Absolute &&
-                 _totalNet > 0 &&
-                 _discountAmount / _totalNet > 0.5m)
-        {
-            _discountWarning = true;
-        }
-        else
-        {
-            _discountWarning = false;
-        }
-
         StateHasChanged();
     }
 
@@ -608,52 +505,8 @@ public partial class Create
             return false;
         }
 
-        // Rabatt: Validierung
-        if (_enableDiscount && _invoice.DiscountValue.HasValue)
-        {
-            if (_invoice.DiscountType == DiscountType.Percentage)
-            {
-                if (_invoice.DiscountValue.Value < 0 || _invoice.DiscountValue.Value > 100)
-                {
-                    _errorMessage = "Rabatt in Prozent muss zwischen 0 und 100 liegen.";
-                    return false;
-                }
-            }
-            else if (_invoice.DiscountType == DiscountType.Absolute)
-            {
-                if (_invoice.DiscountValue.Value <= 0)
-                {
-                    _errorMessage = "Rabatt-Betrag muss größer als 0 sein.";
-                    return false;
-                }
-                if (_invoice.DiscountValue.Value > Math.Abs(_totalNet))
-                {
-                    _errorMessage = "Rabatt-Betrag darf die Nettosumme nicht übersteigen.";
-                    return false;
-                }
-            }
-        }
-
-        // Abschläge: Validierung
-        if (_invoice.DownPayments.Any(d => d.Amount <= 0))
-        {
-            _errorMessage = "Abschlag-Betrag muss größer als 0 sein.";
-            return false;
-        }
-
-        if (_invoice.DownPayments.Any(d => string.IsNullOrWhiteSpace(d.Description)))
-        {
-            _errorMessage = "Beschreibung für Abschläge ist erforderlich.";
-            return false;
-        }
-
-        if (_totalDownPayments > Math.Abs(_totalGross))
-        {
-            _errorMessage = "Abschläge dürfen die Bruttosumme nicht übersteigen.";
-            return false;
-        }
-
-        return true;
+        _errorMessage = InvoiceAdjustmentValidator.Validate(_invoice);
+        return _errorMessage == null;
     }
 
     private async Task SaveAsync(bool asDraft)

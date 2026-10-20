@@ -58,6 +58,21 @@ public class DownPayment
         ApplyNetAmount(NetAmount);
     }
 
+    // Bereits erfasste Beschreibung und Beträge haben Vorrang vor den Werten der Abschlagsrechnung
+    public void SelectSourceInvoice(Invoice? sourceInvoice)
+    {
+        SourceInvoice = sourceInvoice;
+        SourceInvoiceId = sourceInvoice?.Id;
+
+        if (sourceInvoice == null) return;
+
+        if (string.IsNullOrWhiteSpace(Description))
+            Description = sourceInvoice.InvoiceNumber;
+
+        if (Amount == 0)
+            ApplySourceInvoice(sourceInvoice);
+    }
+
     // Bei gemischten Steuersätzen der Abschlagsrechnung ergibt sich ein effektiver Durchschnittssatz
     public void ApplySourceInvoice(Invoice sourceInvoice)
     {

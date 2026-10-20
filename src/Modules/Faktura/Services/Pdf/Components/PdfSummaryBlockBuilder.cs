@@ -77,7 +77,7 @@ public class PdfSummaryBlockBuilder
 
     private void RenderDiscount(ColumnDescriptor sumColumn, Invoice invoice, string? textColor = null)
     {
-        if (invoice.DiscountAmount > 0)
+        if (invoice.DiscountAmount != 0)
         {
             sumColumn.Item().PaddingTop(3).Row(row =>
             {
@@ -91,7 +91,7 @@ public class PdfSummaryBlockBuilder
                 else
                     labelText.FontColor(TextSecondaryColor);
 
-                var amountText = row.ConstantItem(100).AlignRight().Text($"-{invoice.DiscountAmount.ToString("C2", _germanCulture)}").FontSize(10);
+                var amountText = row.ConstantItem(100).AlignRight().Text($"-{DisplayAmount(invoice, invoice.DiscountAmount).ToString("C2", _germanCulture)}").FontSize(10);
                 if (textColor != null)
                     amountText.FontColor(textColor);
                 else
@@ -170,7 +170,7 @@ public class PdfSummaryBlockBuilder
 
     private void RenderDownPayments(ColumnDescriptor sumColumn, Invoice invoice, string? textColor = null)
     {
-        if (invoice.TotalDownPayments > 0)
+        if (invoice.TotalDownPayments != 0)
         {
             // Aufschlüsselung je Abschlag siehe Abschlagsrechnungstabelle/Zahlungsübersicht (PdfDownPaymentDetailBuilder)
             var borderColor = textColor == "#FFFFFF" ? "#FFFFFF" : DividerColor;
@@ -178,10 +178,11 @@ public class PdfSummaryBlockBuilder
 
             sumColumn.Item().Row(row =>
             {
-                var labelStyle = row.RelativeItem().Text("Zu zahlen:").FontSize(textColor == "#FFFFFF" ? 13 : 12).Bold();
+                var label = invoice.Type == InvoiceType.CreditNote ? "Zu erstatten:" : "Zu zahlen:";
+                var labelStyle = row.RelativeItem().Text(label).FontSize(textColor == "#FFFFFF" ? 13 : 12).Bold();
                 if (textColor != null) labelStyle.FontColor(textColor);
 
-                var amountStyle = row.ConstantItem(100).AlignRight().Text(invoice.AmountDue.ToString("C2", _germanCulture)).FontSize(textColor == "#FFFFFF" ? 13 : 12).Bold();
+                var amountStyle = row.ConstantItem(100).AlignRight().Text(DisplayAmount(invoice, invoice.AmountDue).ToString("C2", _germanCulture)).FontSize(textColor == "#FFFFFF" ? 13 : 12).Bold();
                 if (textColor != null) amountStyle.FontColor(textColor);
             });
         }

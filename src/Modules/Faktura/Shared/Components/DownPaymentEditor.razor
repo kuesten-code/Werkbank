@@ -1,0 +1,114 @@
+@* Abschläge auf Belegebene. Bei Gutschriften werden die Beträge positiv erfasst, siehe Invoice.DocumentSign *@
+
+<MudText Typo="Typo.h6" Class="mt-6 mb-2">Abschläge (optional)</MudText>
+@if (Invoice.DownPayments.Count > 0)
+{
+    <MudTable Items="@Invoice.DownPayments" Dense="true" Hover="true" Breakpoint="Breakpoint.Sm">
+        <HeaderContent>
+            <MudTh>Beschreibung</MudTh>
+            <MudTh Style="width: 220px">Abschlagsrechnung (optional)</MudTh>
+            <MudTh Style="width: 140px; text-align: right">Netto</MudTh>
+            <MudTh Style="width: 100px; text-align: right">MwSt %</MudTh>
+            <MudTh Style="width: 140px; text-align: right">Brutto</MudTh>
+            <MudTh Style="width: 150px">Datum</MudTh>
+            <MudTh Style="width: 60px"></MudTh>
+        </HeaderContent>
+        <RowTemplate Context="downPayment">
+            <MudTd DataLabel="Beschreibung">
+                <MudTextField @bind-Value="downPayment.Description" Margin="Margin.Dense"
+                              Variant="Variant.Outlined" Required="true"
+                              Placeholder="z.B. Anzahlung vom 15.12.2024"
+                              OnBlur="NotifyChanged" />
+            </MudTd>
+            <MudTd DataLabel="Abschlagsrechnung">
+                <MudAutocomplete T="Invoice"
+                                 @bind-Value="downPayment.SourceInvoice"
+                                 @bind-Value:after="@(() => OnSourceInvoiceChanged(downPayment))"
+                                 SearchFunc="@SearchSourceInvoices"
+                                 ToStringFunc="@(i => i?.InvoiceNumber ?? string.Empty)"
+                                 Margin="Margin.Dense" Variant="Variant.Outlined"
+                                 ResetValueOnEmptyText="true" CoerceText="true" CoerceValue="false">
+                    <ItemTemplate Context="candidate">
+                        <MudText>@candidate.InvoiceNumber</MudText>
+                    </ItemTemplate>
+                </MudAutocomplete>
+            </MudTd>
+            <MudTd DataLabel="Netto" Style="text-align: right">
+                <MudNumericField T="decimal" Value="downPayment.NetAmount"
+                                 ValueChanged="@(v => Apply(() => downPayment.ApplyNetAmount(v)))"
+                                 Margin="Margin.Dense" Variant="Variant.Outlined" Min="0m" Step="1m"
+                                 Format="C2" HideSpinButtons="true" Culture="@Culture" />
+            </MudTd>
+            <MudTd DataLabel="MwSt %" Style="text-align: right">
+                <MudNumericField T="decimal" Value="downPayment.VatRate"
+                                 ValueChanged="@(v => Apply(() => downPayment.ApplyVatRate(v)))"
+                                 Margin="Margin.Dense" Variant="Variant.Outlined" Min="0m" Max="100m" Step="1m"
+                                 Format="0.##" HideSpinButtons="true" Culture="@Culture" />
+            </MudTd>
+            <MudTd DataLabel="Brutto" Style="text-align: right">
+                <MudNumericField T="decimal" Value="downPayment.Amount"
+                                 ValueChanged="@(v => Apply(() => downPayment.ApplyGrossAmount(v)))"
+                                 Margin="Margin.Dense" Variant="Variant.Outlined" Min="0m" Step="1m"
+                                 Format="C2" HideSpinButtons="true" Culture="@Culture" />
+            </MudTd>
+            <MudTd DataLabel="Datum">
+                <MudDatePicker @bind-Date="downPayment.PaymentDate" Margin="Margin.Dense"
+                               Variant="Variant.Outlined" DateFormat="dd.MM.yyyy"
+                               Placeholder="Optional" />
+            </MudTd>
+            <MudTd DataLabel="">
+                <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small"
+                               Color="Color.Error" OnClick="@(() => Apply(() => Invoice.DownPayments.Remove(downPayment)))" />
+            </MudTd>
+        </RowTemplate>
+    </MudTable>
+}
+
+<MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small"
+           StartIcon="@Icons.Material.Filled.Add" OnClick="AddDownPayment" Class="mt-2"
+           Style="width: 230px">
+    Abschlag hinzufügen
+</MudButton>
+
+@code {
+    private static readonly System.Globalization.CultureInfo Culture = new("de-DE");
+
+    [Parameter, EditorRequired] public Invoice Invoice { get; set; } = null!;
+
+    // Abschlagsrechnungen, aus denen ein Abschlag übernommen werden kann
+    [Parameter] public IEnumerable<Invoice> SourceInvoiceCandidates { get; set; } = [];
+
+    [Parameter] public int? CustomerId { get; set; }
+    [Parameter] public decimal DefaultVatRate { get; set; }
+    [Parameter] public EventCallback OnChanged { get; set; }
+
+    private Task AddDownPayment() => Apply(() => Invoice.DownPayments.Add(new DownPayment
+    {
+        Description = string.Empty,
+        VatRate = DefaultVatRate,
+        InvoiceId = Invoice.Id
+    }));
+
+    private Task OnSourceInvoiceChanged(DownPayment downPayment) => Apply(() => downPayment.SelectSourceInvoice(downPayment.SourceInvoice));
+
+    private Task<IEnumerable<Invoice>> SearchSourceInvoices(string value, CancellationToken token)
+    {
+        if (CustomerId == null)
+            return Task.FromResult<IEnumerable<Invoice>>([]);
+
+        var candidates = SourceInvoiceCandidates.Where(i => i.CustomerId == CustomerId);
+
+        if (!string.IsNullOrWhiteSpace(value))
+            candidates = candidates.Where(i => i.InvoiceNumber.Contains(value, StringComparison.OrdinalIgnoreCase));
+
+        return Task.FromResult(candidates);
+    }
+
+    private Task Apply(Action change)
+    {
+        change();
+        return NotifyChanged();
+    }
+
+    private Task NotifyChanged() => OnChanged.InvokeAsync();
+}
