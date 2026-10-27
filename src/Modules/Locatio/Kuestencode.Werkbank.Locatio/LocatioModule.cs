@@ -1,4 +1,5 @@
 using Kuestencode.Werkbank.Locatio.Data;
+using Kuestencode.Werkbank.Locatio.Services;
 using Microsoft.EntityFrameworkCore;
 
 namespace Kuestencode.Werkbank.Locatio;
@@ -14,6 +15,18 @@ public static class LocatioModule
         // würden sonst parallele Operationen auf demselben Context auslösen.
         services.AddDbContextFactory<LocatioDbContext>(options =>
             options.UseNpgsql(configuration.GetConnectionString("DefaultConnection")));
+
+        services.AddScoped<IGebaeudeService, GebaeudeService>();
+        services.AddScoped<IEinheitService, EinheitService>();
+        services.AddScoped<IVeraeusserungService, VeraeusserungService>();
+        services.AddScoped<IVeraeusserungsgewinnService, VeraeusserungsgewinnService>();
+        services.AddScoped<IKategorieService, KategorieService>();
+        services.AddScoped<IKostenService, KostenService>();
+        services.AddScoped<IMieteingangService, MieteingangService>();
+        services.AddScoped<INebenkostenabrechnungService, NebenkostenabrechnungService>();
+        services.AddScoped<IDarlehenService, DarlehenService>();
+        services.AddScoped<IAfaService, AfaService>();
+        services.AddScoped<ISaldoBuchungService, SaldoBuchungService>();
 
         return services;
     }
