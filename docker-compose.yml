@@ -265,6 +265,7 @@ services:
       - ServiceUrls__Self=http://locatio:8087
       - APPLY_MIGRATIONS=true
     volumes:
+      - ./data/locatio:/app/data
       - ./data/keys:/app/data/keys
     depends_on:
       postgres:
