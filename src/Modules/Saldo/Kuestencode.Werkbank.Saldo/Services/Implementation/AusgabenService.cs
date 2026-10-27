@@ -11,6 +11,7 @@ namespace Kuestencode.Werkbank.Saldo.Services;
 public class AusgabenService : IAusgabenService
 {
     private readonly IReceptaDataService _receptaData;
+    private readonly ILocatioDataService _locatio;
     private readonly IKategorieKontoMappingRepository _mappingRepo;
     private readonly IKontoMappingOverrideRepository _overrideRepo;
     private readonly IKontoRepository _kontoRepo;
@@ -19,6 +20,7 @@ public class AusgabenService : IAusgabenService
 
     public AusgabenService(
         IReceptaDataService receptaData,
+        ILocatioDataService locatio,
         IKategorieKontoMappingRepository mappingRepo,
         IKontoMappingOverrideRepository overrideRepo,
         IKontoRepository kontoRepo,
@@ -26,6 +28,7 @@ public class AusgabenService : IAusgabenService
         ILogger<AusgabenService> logger)
     {
         _receptaData = receptaData;
+        _locatio = locatio;
         _mappingRepo = mappingRepo;
         _overrideRepo = overrideRepo;
         _kontoRepo = kontoRepo;
@@ -41,7 +44,7 @@ public class AusgabenService : IAusgabenService
         var mappings = await _mappingRepo.GetAllAsync(kontenrahmen);
         var konten = await _kontoRepo.GetByKontenrahmenAsync(kontenrahmen);
 
-        var fallbackKonto = kontenrahmen == "SKR04" ? "4900" : "4980";
+        var fallbackKonto = StandardKonten.SonstigeAusgaben(kontenrahmen);
 
         var buchungen = new List<BuchungDto>();
 
@@ -90,6 +93,9 @@ public class AusgabenService : IAusgabenService
                 });
             }
         }
+
+        var locatio = await _locatio.GetBuchungenAsync(von, bis);
+        buchungen.AddRange(locatio.Where(b => !b.IstEinnahme).Select(b => StandardKonten.AusLocatio(b, konten, kontenrahmen)));
 
         return buchungen.OrderBy(b => b.ZahlungsDatum).ToList();
     }

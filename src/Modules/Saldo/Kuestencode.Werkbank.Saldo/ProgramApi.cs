@@ -104,6 +104,15 @@ public class ProgramApi
             client.Timeout = TimeSpan.FromSeconds(60);
         });
 
+        // Locatio ist nur in Vermietungs-Instanzen vorhanden; ohne URL liefert der Service keine Buchungen.
+        builder.Services.AddHttpClient<ILocatioDataService, LocatioDataService>(client =>
+        {
+            var locatioUrl = builder.Configuration.GetValue<string>("ServiceUrls:Locatio");
+            if (!string.IsNullOrWhiteSpace(locatioUrl))
+                client.BaseAddress = new Uri(locatioUrl);
+            client.Timeout = TimeSpan.FromSeconds(30);
+        });
+
         builder.Services.AddScoped<ICompanyService, ApiCompanyService>();
         builder.Services.AddScoped<ICustomerService, ApiCustomerService>();
 

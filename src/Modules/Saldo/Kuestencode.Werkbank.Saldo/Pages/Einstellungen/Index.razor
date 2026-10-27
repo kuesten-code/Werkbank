@@ -28,6 +28,13 @@
                 <MudExpansionPanel Text="Buchhaltung" Expanded="true">
                     <MudGrid Class="mt-2">
                         <MudItem xs="12">
+                            <MudSelect T="Ermittlungsart" @bind-Value="_dto.Ermittlungsart" Label="Ermittlungsart" Variant="Variant.Outlined"
+                                       HelperText="Steuert nur die Begriffe in Auswertung und PDF, nicht die Berechnung.">
+                                <MudSelectItem T="Ermittlungsart" Value="Ermittlungsart.Euer">Einnahmen-Überschuss-Rechnung (Gewinn, Betriebsausgaben)</MudSelectItem>
+                                <MudSelectItem T="Ermittlungsart" Value="Ermittlungsart.VermietungUndVerpachtung">Vermietung und Verpachtung (Überschuss, Werbungskosten)</MudSelectItem>
+                            </MudSelect>
+                        </MudItem>
+                        <MudItem xs="12">
                             <MudSelect @bind-Value="_dto.Kontenrahmen" Label="Kontenrahmen" Required="true"
                                        Variant="Variant.Outlined" @bind-Value:after="OnKontenrahmenChanged">
                                 <MudSelectItem Value="@("SKR03")">SKR03 – Einnahmen-Überschuss-Rechnung (EÜR)</MudSelectItem>
@@ -120,7 +127,8 @@
                 Kontenrahmen          = settings.Kontenrahmen,
                 BeraterNummer         = settings.BeraterNummer,
                 MandantenNummer       = settings.MandantenNummer,
-                WirtschaftsjahrBeginn = settings.WirtschaftsjahrBeginn
+                WirtschaftsjahrBeginn = settings.WirtschaftsjahrBeginn,
+                Ermittlungsart        = settings.Ermittlungsart
             };
         }
         _loading = false;

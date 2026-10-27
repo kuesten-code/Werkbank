@@ -30,7 +30,8 @@ public class SaldoSettingsService : ISaldoSettingsService
                 Kontenrahmen = dto.Kontenrahmen,
                 BeraterNummer = dto.BeraterNummer,
                 MandantenNummer = dto.MandantenNummer,
-                WirtschaftsjahrBeginn = dto.WirtschaftsjahrBeginn
+                WirtschaftsjahrBeginn = dto.WirtschaftsjahrBeginn,
+                Ermittlungsart = dto.Ermittlungsart
             };
             settings = await _repository.CreateAsync(settings);
         }
@@ -40,6 +41,7 @@ public class SaldoSettingsService : ISaldoSettingsService
             settings.BeraterNummer = dto.BeraterNummer;
             settings.MandantenNummer = dto.MandantenNummer;
             settings.WirtschaftsjahrBeginn = dto.WirtschaftsjahrBeginn;
+            settings.Ermittlungsart = dto.Ermittlungsart;
             settings = await _repository.UpdateAsync(settings);
         }
 
@@ -52,6 +54,7 @@ public class SaldoSettingsService : ISaldoSettingsService
         Kontenrahmen = s.Kontenrahmen,
         BeraterNummer = s.BeraterNummer,
         MandantenNummer = s.MandantenNummer,
-        WirtschaftsjahrBeginn = s.WirtschaftsjahrBeginn
+        WirtschaftsjahrBeginn = s.WirtschaftsjahrBeginn,
+        Ermittlungsart = s.Ermittlungsart
     };
 }

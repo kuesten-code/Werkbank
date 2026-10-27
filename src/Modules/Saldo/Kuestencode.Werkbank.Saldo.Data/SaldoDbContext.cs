@@ -42,6 +42,7 @@ public class SaldoDbContext : DbContext
             entity.Property(e => e.Kontenrahmen).HasMaxLength(10).IsRequired();
             entity.Property(e => e.BeraterNummer).HasMaxLength(20);
             entity.Property(e => e.MandantenNummer).HasMaxLength(20);
+            entity.Property(e => e.Ermittlungsart).HasConversion<string>().HasMaxLength(30).HasDefaultValue(Ermittlungsart.Euer);
             entity.Property(e => e.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
             entity.Property(e => e.UpdatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
         });

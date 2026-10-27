@@ -2,6 +2,12 @@
 
 Das Saldo-Modul berechnet die **Einnahmen-Überschuss-Rechnung (EÜR)** nach dem **Zufluss-/Abflussprinzip** (§ 4 Abs. 3 EStG). Es aggregiert Daten aus den Modulen **Faktura** (Einnahmen) und **Recepta** (Ausgaben).
 
+In Vermietungs-Instanzen kommt **Locatio** als dritte Quelle hinzu (`GET /api/locatio/saldo-buchungen?from=&to=`, nur wenn `ServiceUrls__Locatio` gesetzt ist). Locatio liefert Mieteinnahmen, Werbungskosten (nur getragener Anteil), Darlehenszinsen, AfA und NK-Abrechnungsergebnisse – Tilgung nie. Das Konto kommt aus der Locatio-Kategorie; ohne Konto greifen die Fallbacks (Erlöskonto nach USt-Satz bzw. sonstige Aufwendungen).
+
+### Ermittlungsart
+
+Unter _Einstellungen_ wählbar: **EÜR** (Gewinn, Betriebsausgaben) oder **Vermietung und Verpachtung** (Überschuss der Einnahmen über die Werbungskosten, § 21 EStG). Die Ermittlungsart ändert nur die Begriffe in Auswertung, Dashboard und PDF, nicht die Berechnung.
+
 ---
 
 ## Architektur

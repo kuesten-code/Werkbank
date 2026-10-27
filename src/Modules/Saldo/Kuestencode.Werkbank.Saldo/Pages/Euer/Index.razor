@@ -6,12 +6,12 @@
 @inject ISnackbar Snackbar
 @inject NavigationManager NavigationManager
 
-<PageTitle>Saldo - EÜR</PageTitle>
+<PageTitle>Saldo - @(_summary?.Begriffe.Kurz ?? "EÜR")</PageTitle>
 
 <MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4">
 
     <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-4">
-        <MudText Typo="Typo.h4">Einnahmen-Überschuss-Rechnung</MudText>
+        <MudText Typo="Typo.h4">@(_summary?.Begriffe.Titel ?? "Einnahmen-Überschuss-Rechnung")</MudText>
         @if (_summary != null && !_loading)
         {
             <MudButton Variant="Variant.Outlined" Color="Color.Primary"
@@ -58,7 +58,7 @@
             <MudItem xs="12" md="4">
                 <MudPaper Class="pa-4" Elevation="2"
                           Style="border-left: 4px solid #2E7D32;">
-                    <MudText Typo="Typo.caption" Color="Color.Secondary">Betriebseinnahmen (Netto)</MudText>
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">@_summary.Begriffe.Einnahmen (Netto)</MudText>
                     <MudText Typo="Typo.h5" Color="Color.Success" Class="mt-1">
                         @_summary.EinnahmenNetto.ToString("N2", _culture) €
                     </MudText>
@@ -71,7 +71,7 @@
             <MudItem xs="12" md="4">
                 <MudPaper Class="pa-4" Elevation="2"
                           Style="border-left: 4px solid #C62828;">
-                    <MudText Typo="Typo.caption" Color="Color.Secondary">Betriebsausgaben (Netto)</MudText>
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">@_summary.Begriffe.Ausgaben (Netto)</MudText>
                     <MudText Typo="Typo.h5" Color="Color.Error" Class="mt-1">
                         @_summary.AusgabenNetto.ToString("N2", _culture) €
                     </MudText>
@@ -85,7 +85,7 @@
                 <MudPaper Class="pa-4" Elevation="2"
                           Style="@GetUeberschussBorderStyle(_summary.Ueberschuss)">
                     <MudText Typo="Typo.caption" Color="Color.Secondary">
-                        @(_summary.Ueberschuss >= 0 ? "Gewinn (Überschuss)" : "Verlust")
+                        @_summary.Begriffe.Ergebnis(_summary.Ueberschuss)
                     </MudText>
                     <MudText Typo="Typo.h5" Class="mt-1"
                              Style="@GetUeberschussColorStyle(_summary.Ueberschuss)">
@@ -341,7 +341,7 @@
             var fileName = await PdfReportService.GetEuerReportFileNameAsync(von, bis);
             var base64 = Convert.ToBase64String(pdfBytes);
             await JS.InvokeVoidAsync("downloadFileFromBase64", fileName, "application/pdf", base64);
-            Snackbar.Add("EÜR-PDF wurde heruntergeladen.", Severity.Success);
+            Snackbar.Add($"{_summary?.Begriffe.Kurz}-PDF wurde heruntergeladen.", Severity.Success);
         }
         catch (Exception ex)
         {

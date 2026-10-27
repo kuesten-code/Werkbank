@@ -237,6 +237,7 @@ services:
       - ServiceUrls__Self=http://saldo:8086
       - ServiceUrls__Faktura=http://faktura:8081
       - ServiceUrls__Recepta=http://recepta:8085
+      - ServiceUrls__Locatio=http://locatio:8087
       - APPLY_MIGRATIONS=true
     volumes:
       - ./data/keys:/app/data/keys

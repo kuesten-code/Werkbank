@@ -12,17 +12,20 @@ namespace Kuestencode.Werkbank.Saldo.Services;
 public class EinnahmenService : IEinnahmenService
 {
     private readonly IFakturaApiClient _fakturaClient;
+    private readonly ILocatioDataService _locatio;
     private readonly IKontoRepository _kontoRepo;
     private readonly ISaldoSettingsRepository _settingsRepo;
     private readonly ILogger<EinnahmenService> _logger;
 
     public EinnahmenService(
         IFakturaApiClient fakturaClient,
+        ILocatioDataService locatio,
         IKontoRepository kontoRepo,
         ISaldoSettingsRepository settingsRepo,
         ILogger<EinnahmenService> logger)
     {
         _fakturaClient = fakturaClient;
+        _locatio = locatio;
         _kontoRepo = kontoRepo;
         _settingsRepo = settingsRepo;
         _logger = logger;
@@ -55,10 +58,7 @@ public class EinnahmenService : IEinnahmenService
 
                 foreach (var item in payment.Items)
                 {
-                    var konto = konten.FirstOrDefault(k =>
-                        k.KontoTyp == KontoTyp.Einnahme &&
-                        k.UstSatz.HasValue &&
-                        k.UstSatz.Value == item.VatRate);
+                    var konto = StandardKonten.Erloeskonto(konten, item.VatRate);
 
                     buchungen.Add(new BuchungDto
                     {
@@ -79,6 +79,9 @@ public class EinnahmenService : IEinnahmenService
                 }
             }
         }
+
+        var locatio = await _locatio.GetBuchungenAsync(von, bis);
+        buchungen.AddRange(locatio.Where(b => b.IstEinnahme).Select(b => StandardKonten.AusLocatio(b, konten, kontenrahmen)));
 
         return buchungen.OrderBy(b => b.ZahlungsDatum).ToList();
     }

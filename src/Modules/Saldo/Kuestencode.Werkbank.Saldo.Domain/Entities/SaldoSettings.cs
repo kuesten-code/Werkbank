@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using Kuestencode.Werkbank.Saldo.Domain.Enums;
 
 namespace Kuestencode.Werkbank.Saldo.Domain.Entities;
 
@@ -33,6 +34,8 @@ public class SaldoSettings
     /// Erster Monat des Wirtschaftsjahres (1–12, default 1 = Januar).
     /// </summary>
     public int WirtschaftsjahrBeginn { get; set; } = 1;
+
+    public Ermittlungsart Ermittlungsart { get; set; } = Ermittlungsart.Euer;
 
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }

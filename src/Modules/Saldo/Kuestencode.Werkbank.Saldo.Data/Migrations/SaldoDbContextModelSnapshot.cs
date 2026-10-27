@@ -246,6 +246,13 @@ namespace Kuestencode.Werkbank.Saldo.Data.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasDefaultValueSql("CURRENT_TIMESTAMP");
 
+                    b.Property<string>("Ermittlungsart")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasDefaultValue("Euer");
+
                     b.Property<string>("Kontenrahmen")
                         .IsRequired()
                         .HasMaxLength(10)
