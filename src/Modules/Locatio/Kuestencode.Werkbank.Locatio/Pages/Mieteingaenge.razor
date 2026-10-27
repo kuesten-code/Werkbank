@@ -1,0 +1,87 @@
+@page "/mieteingaenge"
+@inherits LocatioKomponente
+@inject IMieteingangService MieteingangService
+@inject IGebaeudeService GebaeudeService
+
+<PageTitle>Locatio – Mieteingänge</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4">
+    <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-4" Wrap="Wrap.Wrap">
+        <MudText Typo="Typo.h4">Mieteingänge</MudText>
+        <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
+            <MudSelect T="int" Value="_jahr" ValueChanged="JahrGeaendertAsync" Label="Jahr" Dense="true" Variant="Variant.Outlined" Style="width:120px">
+                @foreach (var jahr in Enumerable.Range(DateTime.Today.Year - 5, 6).Reverse())
+                {
+                    <MudSelectItem T="int" Value="jahr">@jahr</MudSelectItem>
+                }
+            </MudSelect>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" OnClick="() => ErfassenAsync(null)">Mieteingang erfassen</MudButton>
+        </MudStack>
+    </MudStack>
+
+    <MudPaper Class="pa-4 mb-4" Elevation="1">
+        <MudText Typo="Typo.subtitle2">Monatsmieten erfassen</MudText>
+        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-2">
+            Legt für alle vermieteten eigenen Einheiten die vereinbarte Miete an. Bereits erfasste Monate werden übersprungen; Abweichungen bitte einzeln korrigieren.
+        </MudText>
+        <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap">
+            <DatumFeld Label="Für Monat" @bind-Value="_monat" Required="true" />
+            <DatumFeld Label="Zahlungsdatum" @bind-Value="_zahlungsdatum" Required="true" />
+            <MudButton Variant="Variant.Outlined" Color="Color.Primary" OnClick="MonatErfassenAsync" Disabled="@(_monat == null || _zahlungsdatum == null)">Erfassen</MudButton>
+        </MudStack>
+    </MudPaper>
+
+    <MudPaper Class="pa-2" Elevation="1">
+        <MieteingangTabelle Eingaenge="_eingaenge" Bearbeiten="ErfassenAsync" Loeschen="LoeschenAsync" />
+    </MudPaper>
+</MudContainer>
+
+@code {
+    private List<Mieteingang> _eingaenge = new();
+    private int _jahr = DateTime.Today.Year;
+    private DateOnly? _monat = new DateOnly(DateTime.Today.Year, DateTime.Today.Month, 1);
+    private DateOnly? _zahlungsdatum = DateOnly.FromDateTime(DateTime.Today);
+
+    protected override Task OnInitializedAsync() => LadeAsync();
+
+    private async Task LadeAsync() => _eingaenge = await MieteingangService.GetAsync(_jahr);
+
+    private async Task JahrGeaendertAsync(int jahr)
+    {
+        _jahr = jahr;
+        await LadeAsync();
+    }
+
+    private async Task MonatErfassenAsync()
+    {
+        var anzahl = 0;
+        if (await VersucheAsync(async () => anzahl = await MieteingangService.ErfasseMonatAsync(_monat!.Value, _zahlungsdatum!.Value)))
+            Snackbar.Add($"{anzahl} Mieteingang/-eingänge erfasst.", anzahl > 0 ? Severity.Success : Severity.Info);
+        await LadeAsync();
+    }
+
+    private async Task ErfassenAsync(Mieteingang? eingang)
+    {
+        var einheiten = (await GebaeudeService.GetAllAsync())
+            .SelectMany(g => g.Einheiten.Select(e => { e.Gebaeude = g; return e; }))
+            .Where(e => e.IstEigentum || e.Id == eingang?.MieteinheitId)
+            .ToList();
+
+        var ergebnis = await ZeigeDialogAsync<MieteingangDialog, Mieteingang>("Mieteingang", new()
+        {
+            { x => x.Eingang, eingang ?? new Mieteingang() },
+            { x => x.Einheiten, einheiten }
+        });
+        if (ergebnis != null)
+            await VersucheAsync(() => MieteingangService.SaveAsync(ergebnis), "Mieteingang gespeichert.");
+        await LadeAsync();
+    }
+
+    private async Task LoeschenAsync(Mieteingang eingang)
+    {
+        if (!await BestaetigeAsync($"Mieteingang vom {Datum(eingang.Zahlungsdatum)} löschen?"))
+            return;
+        await VersucheAsync(() => MieteingangService.DeleteAsync(eingang.Id), "Mieteingang gelöscht.");
+        await LadeAsync();
+    }
+}

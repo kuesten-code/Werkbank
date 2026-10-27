@@ -1,0 +1,96 @@
+<MudDialog>
+    <DialogContent>
+        <MudStack Spacing="2">
+            <MudGrid Spacing="2">
+                <MudItem xs="12" sm="6">
+                    <MudSelect T="Guid?" Value="Posten.GebaeudeId" ValueChanged="GebaeudeGeaendert" Label="Gebäude" Variant="Variant.Outlined">
+                        @foreach (var g in Gebaeude)
+                        {
+                            <MudSelectItem T="Guid?" Value="g.Id">@g.Name</MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudSelect T="Guid?" @bind-Value="Posten.MieteinheitId" Label="Einheit (optional)" Variant="Variant.Outlined" Clearable="true"
+                               HelperText="Leer = Kosten des ganzen Gebäudes">
+                        @foreach (var e in EigeneEinheiten)
+                        {
+                            <MudSelectItem T="Guid?" Value="e.Id">@e.Bezeichnung</MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudSelect T="Guid" @bind-Value="Posten.KategorieId" Label="Kategorie" Variant="Variant.Outlined" Required="true">
+                        @foreach (var k in Kategorien)
+                        {
+                            <MudSelectItem T="Guid" Value="k.Id">@k.Name</MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <DatumFeld Label="Zahlungsdatum" @bind-Value="_zahlungsdatum" Required="true" HelperText="Abflussprinzip: maßgeblich für Saldo" />
+                </MudItem>
+                <MudItem xs="12">
+                    <MudTextField @bind-Value="Posten.Beschreibung" Label="Beschreibung" Variant="Variant.Outlined" Required="true" />
+                </MudItem>
+                <MudItem xs="12" sm="4">
+                    <MudNumericField T="decimal" @bind-Value="Posten.Betrag" Label="Getragener Betrag (€)" Variant="Variant.Outlined"
+                                     HelperText="Nur dieser Betrag geht an Saldo" />
+                </MudItem>
+                <MudItem xs="12" sm="4">
+                    <MudNumericField T="decimal?" @bind-Value="Posten.Gesamtbetrag" Label="Gesamtbetrag (€, optional)" Variant="Variant.Outlined"
+                                     HelperText="Nur zur Dokumentation" />
+                </MudItem>
+                <MudItem xs="12" sm="4">
+                    <MudTextField @bind-Value="Posten.Verteilschluessel" Label="Verteilschlüssel (optional)" Variant="Variant.Outlined"
+                                  HelperText="Freitext, keine automatische Aufteilung" />
+                </MudItem>
+            </MudGrid>
+            @if (TypVon(Posten.KategorieId) == KategorieTyp.Tilgung)
+            {
+                <MudAlert Severity="Severity.Info" Dense="true">Tilgung ist nicht abziehbar und wird nicht an Saldo übergeben.</MudAlert>
+            }
+            <MudTextField @bind-Value="Posten.Notiz" Label="Notiz" Variant="Variant.Outlined" Lines="2" />
+            <MudStack Row="true" AlignItems="AlignItems.Center">
+                <DateiAuswahl Label="@(Posten.BelegId.HasValue ? "Beleg ersetzen" : "Beleg hochladen")" @bind-Value="_beleg" />
+            </MudStack>
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="() => Dialog.Cancel()">Abbrechen</MudButton>
+        <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="Speichern"
+                   Disabled="@(_zahlungsdatum == null || Posten.KategorieId == Guid.Empty)">Speichern</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] public IMudDialogInstance Dialog { get; set; } = default!;
+    [Parameter] public Kostenposten Posten { get; set; } = new();
+    [Parameter] public List<Gebaeude> Gebaeude { get; set; } = new();
+    [Parameter] public List<Kostenkategorie> Kategorien { get; set; } = new();
+
+    private DateOnly? _zahlungsdatum;
+    private DateiUpload? _beleg;
+
+    private IEnumerable<Mieteinheit> EigeneEinheiten =>
+        Gebaeude.FirstOrDefault(g => g.Id == Posten.GebaeudeId)?.Einheiten.Where(e => e.Status != EinheitStatus.Fremdeigentum) ?? [];
+
+    protected override void OnInitialized()
+    {
+        _zahlungsdatum = Posten.Id == Guid.Empty ? DateOnly.FromDateTime(DateTime.Today) : Posten.Zahlungsdatum;
+    }
+
+    private void GebaeudeGeaendert(Guid? gebaeudeId)
+    {
+        Posten.GebaeudeId = gebaeudeId;
+        Posten.MieteinheitId = null;
+    }
+
+    private KategorieTyp? TypVon(Guid id) => Kategorien.FirstOrDefault(k => k.Id == id)?.Typ;
+
+    private void Speichern()
+    {
+        Posten.Zahlungsdatum = _zahlungsdatum!.Value;
+        Dialog.Close(DialogResult.Ok(new ErfassungMitDatei<Kostenposten>(Posten, _beleg)));
+    }
+}

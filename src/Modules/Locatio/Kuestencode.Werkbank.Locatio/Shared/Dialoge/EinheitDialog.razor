@@ -1,0 +1,88 @@
+<MudDialog>
+    <DialogContent>
+        <MudStack Spacing="2">
+            <MudGrid Spacing="2">
+                <MudItem xs="12" sm="6">
+                    <MudTextField @bind-Value="Einheit.Bezeichnung" Label="Bezeichnung" Variant="Variant.Outlined" Required="true" />
+                </MudItem>
+                <MudItem xs="12" sm="3">
+                    <MudSelect T="EinheitArt" @bind-Value="Einheit.Art" Label="Art" Variant="Variant.Outlined">
+                        <MudSelectItem T="EinheitArt" Value="EinheitArt.Wohnung">Wohnung</MudSelectItem>
+                        <MudSelectItem T="EinheitArt" Value="EinheitArt.Gewerbe">Gewerbe</MudSelectItem>
+                    </MudSelect>
+                </MudItem>
+                <MudItem xs="12" sm="3">
+                    <MudSelect T="EinheitStatus" @bind-Value="Einheit.Status" Label="Status" Variant="Variant.Outlined"
+                               Disabled="@(Einheit.Status == EinheitStatus.Veraeussert)">
+                        @foreach (var status in Enum.GetValues<EinheitStatus>().Where(s => s != EinheitStatus.Veraeussert || Einheit.Status == s))
+                        {
+                            <MudSelectItem T="EinheitStatus" Value="status">@status.Anzeigename()</MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudItem>
+            </MudGrid>
+
+            @if (Einheit.Status == EinheitStatus.Fremdeigentum)
+            {
+                <MudAlert Severity="Severity.Info" Dense="true">
+                    Fremdeigentum ist eine reine Markierung: keine Miete, keine Kosten, keine AfA.
+                </MudAlert>
+            }
+            else
+            {
+                <MudGrid Spacing="2">
+                    <MudItem xs="12" sm="6">
+                        <MudNumericField T="decimal" @bind-Value="Einheit.Kaltmiete" Variant="Variant.Outlined" Min="0"
+                                         Label="@(Einheit.IstUstPflichtig ? "Kaltmiete netto (€/Monat)" : "Bruttokaltmiete (€/Monat)")" />
+                    </MudItem>
+                    <MudItem xs="12" sm="6">
+                        <MudNumericField T="decimal" @bind-Value="Einheit.NebenkostenVorauszahlung" Label="NK-Vorauszahlung (€/Monat)" Variant="Variant.Outlined" Min="0" />
+                    </MudItem>
+                    @if (Einheit.Art == EinheitArt.Gewerbe)
+                    {
+                        <MudItem xs="12" sm="4">
+                            <MudSwitch T="bool" @bind-Value="Einheit.UstOption" Color="Color.Primary" Label="Umsatzsteuer-Option" />
+                        </MudItem>
+                        <MudItem xs="12" sm="4">
+                            <MudNumericField T="decimal" @bind-Value="Einheit.UstSatz" Label="Steuersatz (%)" Variant="Variant.Outlined"
+                                             Min="0" Max="100" Disabled="@(!Einheit.UstOption)" />
+                        </MudItem>
+                        <MudItem xs="12" sm="4">
+                            <MudText Typo="Typo.body2" Class="mt-4">
+                                Netto @Einheit.MonatsmieteNetto.ToString("C") · Brutto @Einheit.MonatsmieteBrutto.ToString("C")
+                            </MudText>
+                        </MudItem>
+                    }
+                    <MudItem xs="12" sm="6">
+                        <MudTextField @bind-Value="Einheit.Mieter" Label="Mieter" Variant="Variant.Outlined" />
+                    </MudItem>
+                    <MudItem xs="12" sm="6">
+                        <MudTextField @bind-Value="Einheit.Miteigentumsanteil" Label="Miteigentumsanteil" Variant="Variant.Outlined"
+                                      HelperText="z. B. 125/1000, sobald die Teilungserklärung vorliegt" />
+                    </MudItem>
+                    <MudItem xs="12" sm="6">
+                        <DatumFeld Label="Vertragsbeginn" @bind-Value="Einheit.VertragsBeginn" />
+                    </MudItem>
+                    <MudItem xs="12" sm="6">
+                        <DatumFeld Label="Vertragsende" @bind-Value="Einheit.VertragsEnde" />
+                    </MudItem>
+                    <MudItem xs="12" sm="6">
+                        <MudNumericField T="decimal" @bind-Value="Einheit.AfaSatz" Label="AfA-Satz (% p. a.)" Variant="Variant.Outlined" Min="0" Max="100"
+                                         HelperText="Linear, meist 2 % (ab 2023 errichtet: 3 %)" />
+                    </MudItem>
+                </MudGrid>
+                <AnschaffungFelder Objekt="Einheit" />
+            }
+            <MudTextField @bind-Value="Einheit.Notizen" Label="Notizen" Variant="Variant.Outlined" Lines="2" />
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="() => Dialog.Cancel()">Abbrechen</MudButton>
+        <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="() => Dialog.Close(DialogResult.Ok(Einheit))">Speichern</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] public IMudDialogInstance Dialog { get; set; } = default!;
+    [Parameter] public Mieteinheit Einheit { get; set; } = new();
+}

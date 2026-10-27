@@ -1,0 +1,54 @@
+<MudTable T="Kostenposten" Items="Kosten" Dense="true" Hover="true" Elevation="0">
+    <HeaderContent>
+        <MudTh>Zahlungsdatum</MudTh>
+        <MudTh>Beschreibung</MudTh>
+        <MudTh>Kategorie</MudTh>
+        <MudTh>Zuordnung</MudTh>
+        <MudTh Style="text-align:right">Getragen</MudTh>
+        <MudTh Style="text-align:right">Gesamt</MudTh>
+        <MudTh></MudTh>
+    </HeaderContent>
+    <RowTemplate>
+        <MudTd>@context.Zahlungsdatum.ToString("dd.MM.yyyy")</MudTd>
+        <MudTd>
+            @context.Beschreibung
+            @if (!string.IsNullOrWhiteSpace(context.Verteilschluessel))
+            {
+                <MudText Typo="Typo.caption" Color="Color.Secondary">Schlüssel: @context.Verteilschluessel</MudText>
+            }
+        </MudTd>
+        <MudTd>
+            @context.Kategorie?.Name
+            @if (context.Kategorie?.Typ == KategorieTyp.Tilgung)
+            {
+                <MudText Typo="Typo.caption" Color="Color.Secondary">nicht an Saldo</MudText>
+            }
+        </MudTd>
+        <MudTd>@(context.Mieteinheit?.Bezeichnung ?? context.Gebaeude?.Name)</MudTd>
+        <MudTd Style="text-align:right">@context.Betrag.ToString("C")</MudTd>
+        <MudTd Style="text-align:right">@context.Gesamtbetrag?.ToString("C")</MudTd>
+        <MudTd Style="text-align:right; white-space:nowrap">
+            @if (context.BelegId.HasValue)
+            {
+                <MudIconButton Icon="@Icons.Material.Filled.Receipt" Size="Size.Small"
+                               Href="@($"api/locatio/dokumente/{context.BelegId}")" Target="_blank" />
+            }
+            <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small" OnClick="() => Bearbeiten.InvokeAsync(context)" />
+            <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error" OnClick="() => Loeschen.InvokeAsync(context)" />
+        </MudTd>
+    </RowTemplate>
+    <NoRecordsContent>
+        <MudText Color="Color.Secondary">Keine Kosten im gewählten Jahr.</MudText>
+    </NoRecordsContent>
+    <FooterContent>
+        <MudTd colspan="4"><strong>Summe getragener Anteil (ohne Tilgung)</strong></MudTd>
+        <MudTd Style="text-align:right"><strong>@Kosten.Where(k => k.Kategorie?.Typ != KategorieTyp.Tilgung).Sum(k => k.Betrag).ToString("C")</strong></MudTd>
+        <MudTd colspan="2"></MudTd>
+    </FooterContent>
+</MudTable>
+
+@code {
+    [Parameter] public List<Kostenposten> Kosten { get; set; } = new();
+    [Parameter] public EventCallback<Kostenposten> Bearbeiten { get; set; }
+    [Parameter] public EventCallback<Kostenposten> Loeschen { get; set; }
+}

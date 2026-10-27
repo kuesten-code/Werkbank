@@ -1,0 +1,71 @@
+@page "/kategorien"
+@inherits LocatioKomponente
+@inject IKategorieService KategorieService
+
+<PageTitle>Locatio – Kategorien</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Medium" Class="mt-4">
+    <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-2">
+        <MudText Typo="Typo.h4">Kategorien</MudText>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" OnClick="() => BearbeitenAsync(null)">Kategorie anlegen</MudButton>
+    </MudStack>
+    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">
+        Das Konto bestimmt, wohin Saldo die Buchungen dieser Kategorie bucht. Die Startwerte sind SKR03-Vorschläge – bitte mit dem Steuerberater abstimmen.
+    </MudText>
+
+    <MudPaper Elevation="1">
+        <MudTable T="Kostenkategorie" Items="_kategorien" Dense="true" Hover="true" Elevation="0">
+            <HeaderContent>
+                <MudTh>Name</MudTh>
+                <MudTh>Typ</MudTh>
+                <MudTh>Konto</MudTh>
+                <MudTh></MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd>
+                    @context.Name
+                    @if (context.IstSystem)
+                    {
+                        <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined">System</MudChip>
+                    }
+                </MudTd>
+                <MudTd>@context.Typ.Anzeigename()</MudTd>
+                <MudTd>@(context.Typ == KategorieTyp.Tilgung ? "nicht an Saldo" : context.KontoNummer ?? "Standard")</MudTd>
+                <MudTd Style="text-align:right; white-space:nowrap">
+                    <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small" OnClick="() => BearbeitenAsync(context)" />
+                    @if (!context.IstSystem)
+                    {
+                        <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error" OnClick="() => LoeschenAsync(context)" />
+                    }
+                </MudTd>
+            </RowTemplate>
+        </MudTable>
+    </MudPaper>
+</MudContainer>
+
+@code {
+    private List<Kostenkategorie> _kategorien = new();
+
+    protected override Task OnInitializedAsync() => LadeAsync();
+
+    private async Task LadeAsync() => _kategorien = await KategorieService.GetAllAsync();
+
+    private async Task BearbeitenAsync(Kostenkategorie? kategorie)
+    {
+        var ergebnis = await ZeigeDialogAsync<KategorieDialog, Kostenkategorie>("Kategorie", new()
+        {
+            { x => x.Kategorie, kategorie ?? new Kostenkategorie { Typ = KategorieTyp.Werbungskosten, Sortierung = 100 } }
+        });
+        if (ergebnis != null)
+            await VersucheAsync(() => KategorieService.SaveAsync(ergebnis), "Kategorie gespeichert.");
+        await LadeAsync();
+    }
+
+    private async Task LoeschenAsync(Kostenkategorie kategorie)
+    {
+        if (!await BestaetigeAsync($"Kategorie \"{kategorie.Name}\" löschen?"))
+            return;
+        await VersucheAsync(() => KategorieService.DeleteAsync(kategorie.Id), "Kategorie gelöscht.");
+        await LadeAsync();
+    }
+}

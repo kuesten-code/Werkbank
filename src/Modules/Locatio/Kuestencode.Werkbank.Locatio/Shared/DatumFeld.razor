@@ -1,0 +1,15 @@
+@* MudDatePicker arbeitet mit DateTime?, das Datenmodell mit DateOnly. *@
+<MudDatePicker Label="@Label" Date="@Value?.ToDateTime(TimeOnly.MinValue)" DateChanged="OnChanged"
+               DateFormat="dd.MM.yyyy" Editable="true" Clearable="@(!Required)" Required="@Required"
+               Variant="Variant.Outlined" HelperText="@HelperText" />
+
+@code {
+    [Parameter] public string Label { get; set; } = string.Empty;
+    [Parameter] public DateOnly? Value { get; set; }
+    [Parameter] public EventCallback<DateOnly?> ValueChanged { get; set; }
+    [Parameter] public bool Required { get; set; }
+    [Parameter] public string? HelperText { get; set; }
+
+    private Task OnChanged(DateTime? datum) =>
+        ValueChanged.InvokeAsync(datum.HasValue ? DateOnly.FromDateTime(datum.Value) : null);
+}

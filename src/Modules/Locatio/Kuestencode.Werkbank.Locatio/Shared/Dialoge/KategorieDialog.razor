@@ -1,0 +1,25 @@
+<MudDialog>
+    <DialogContent>
+        <MudStack Spacing="2">
+            <MudTextField @bind-Value="Kategorie.Name" Label="Name" Variant="Variant.Outlined" Required="true" />
+            <MudSelect T="KategorieTyp" @bind-Value="Kategorie.Typ" Label="Typ" Variant="Variant.Outlined" Disabled="@Kategorie.IstSystem">
+                @foreach (var typ in Kategorie.IstSystem ? new[] { Kategorie.Typ } : KategorieTypExtensions.Ausgabetypen)
+                {
+                    <MudSelectItem T="KategorieTyp" Value="typ">@typ.Anzeigename()</MudSelectItem>
+                }
+            </MudSelect>
+            <MudTextField @bind-Value="Kategorie.KontoNummer" Label="Konto in Saldo" Variant="Variant.Outlined"
+                          HelperText="Leer = Standardkonto von Saldo" Disabled="@(Kategorie.Typ == KategorieTyp.Tilgung)" />
+            <MudNumericField T="int" @bind-Value="Kategorie.Sortierung" Label="Sortierung" Variant="Variant.Outlined" />
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="() => Dialog.Cancel()">Abbrechen</MudButton>
+        <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="() => Dialog.Close(DialogResult.Ok(Kategorie))">Speichern</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] public IMudDialogInstance Dialog { get; set; } = default!;
+    [Parameter] public Kostenkategorie Kategorie { get; set; } = new();
+}

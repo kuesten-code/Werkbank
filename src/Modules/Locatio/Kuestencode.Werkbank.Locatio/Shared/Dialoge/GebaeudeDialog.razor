@@ -1,0 +1,31 @@
+<MudDialog>
+    <DialogContent>
+        <MudStack Spacing="2">
+            <MudTextField @bind-Value="Gebaeude.Name" Label="Name" Variant="Variant.Outlined" Required="true" />
+            <MudGrid Spacing="2">
+                <MudItem xs="12">
+                    <MudTextField @bind-Value="Gebaeude.Strasse" Label="Straße" Variant="Variant.Outlined" />
+                </MudItem>
+                <MudItem xs="4">
+                    <MudTextField @bind-Value="Gebaeude.Plz" Label="PLZ" Variant="Variant.Outlined" />
+                </MudItem>
+                <MudItem xs="8">
+                    <MudTextField @bind-Value="Gebaeude.Ort" Label="Ort" Variant="Variant.Outlined" />
+                </MudItem>
+            </MudGrid>
+            <MudTextField @bind-Value="Gebaeude.AbrechnerUrl" Label="Link zum Nebenkostenabrechner" Variant="Variant.Outlined"
+                          HelperText="z. B. Kundenportal von Kalo" />
+            <AnschaffungFelder Objekt="Gebaeude" />
+            <MudTextField @bind-Value="Gebaeude.Notizen" Label="Notizen" Variant="Variant.Outlined" Lines="3" />
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="() => Dialog.Cancel()">Abbrechen</MudButton>
+        <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="() => Dialog.Close(DialogResult.Ok(Gebaeude))">Speichern</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] public IMudDialogInstance Dialog { get; set; } = default!;
+    [Parameter] public Gebaeude Gebaeude { get; set; } = new();
+}

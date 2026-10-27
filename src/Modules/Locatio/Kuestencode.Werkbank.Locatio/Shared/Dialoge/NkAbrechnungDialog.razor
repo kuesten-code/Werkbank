@@ -1,0 +1,48 @@
+<MudDialog>
+    <DialogContent>
+        <MudStack Spacing="2">
+            <MudText Typo="Typo.body2">
+                Ablage der Abrechnung des externen Abrechners. Das Ergebnis geht als Einnahme (Nachzahlung) bzw. Ausgabe (Erstattung) an Saldo.
+            </MudText>
+            <MudGrid Spacing="2">
+                <MudItem xs="12" sm="4">
+                    <MudNumericField T="int" @bind-Value="Abrechnung.Jahr" Label="Abrechnungsjahr" Variant="Variant.Outlined" Min="2000" Max="2100" />
+                </MudItem>
+                <MudItem xs="12" sm="4">
+                    <MudNumericField T="decimal" @bind-Value="Abrechnung.Ergebnis" Label="Ergebnis (€)" Variant="Variant.Outlined"
+                                     HelperText="+ Nachzahlung Mieter, − Erstattung" />
+                </MudItem>
+                <MudItem xs="12" sm="4">
+                    <DatumFeld Label="Zahlungsdatum" @bind-Value="_zahlungsdatum" Required="true" />
+                </MudItem>
+            </MudGrid>
+            <MudTextField @bind-Value="Abrechnung.Notiz" Label="Notiz" Variant="Variant.Outlined" />
+            <MudStack Row="true">
+                <DateiAuswahl Label="@(Abrechnung.DokumentId.HasValue ? "PDF ersetzen" : "PDF hochladen")" @bind-Value="_pdf" />
+            </MudStack>
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="() => Dialog.Cancel()">Abbrechen</MudButton>
+        <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="Speichern" Disabled="@(_zahlungsdatum == null)">Speichern</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] public IMudDialogInstance Dialog { get; set; } = default!;
+    [Parameter] public Nebenkostenabrechnung Abrechnung { get; set; } = new();
+
+    private DateOnly? _zahlungsdatum;
+    private DateiUpload? _pdf;
+
+    protected override void OnInitialized()
+    {
+        _zahlungsdatum = Abrechnung.Id == Guid.Empty ? DateOnly.FromDateTime(DateTime.Today) : Abrechnung.Zahlungsdatum;
+    }
+
+    private void Speichern()
+    {
+        Abrechnung.Zahlungsdatum = _zahlungsdatum!.Value;
+        Dialog.Close(DialogResult.Ok(new ErfassungMitDatei<Nebenkostenabrechnung>(Abrechnung, _pdf)));
+    }
+}

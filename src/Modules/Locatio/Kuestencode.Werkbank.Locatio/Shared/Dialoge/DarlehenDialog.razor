@@ -1,0 +1,26 @@
+<MudDialog>
+    <DialogContent>
+        <MudStack Spacing="2">
+            <MudTextField @bind-Value="Darlehen.Bezeichnung" Label="Bezeichnung" Variant="Variant.Outlined" Required="true" />
+            <MudTextField @bind-Value="Darlehen.Kreditgeber" Label="Kreditgeber" Variant="Variant.Outlined" />
+            <MudSelect T="Guid" @bind-Value="Darlehen.GebaeudeId" Label="Gebäude" Variant="Variant.Outlined" Required="true">
+                @foreach (var g in Gebaeude)
+                {
+                    <MudSelectItem T="Guid" Value="g.Id">@g.Name</MudSelectItem>
+                }
+            </MudSelect>
+            <MudTextField @bind-Value="Darlehen.Notiz" Label="Notiz" Variant="Variant.Outlined" Lines="2" />
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="() => Dialog.Cancel()">Abbrechen</MudButton>
+        <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="() => Dialog.Close(DialogResult.Ok(Darlehen))"
+                   Disabled="@(Darlehen.GebaeudeId == Guid.Empty)">Speichern</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] public IMudDialogInstance Dialog { get; set; } = default!;
+    [Parameter] public Darlehen Darlehen { get; set; } = new();
+    [Parameter] public List<Gebaeude> Gebaeude { get; set; } = new();
+}

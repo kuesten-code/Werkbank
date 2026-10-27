@@ -1,0 +1,323 @@
+@page "/einheiten/{Id:guid}"
+@inherits LocatioKomponente
+@inject IEinheitService EinheitService
+@inject IMieteingangService MieteingangService
+@inject INebenkostenabrechnungService NkService
+@inject IKostenService KostenService
+@inject IKategorieService KategorieService
+@inject IGebaeudeService GebaeudeService
+@inject IAfaService AfaService
+@inject IVeraeusserungService VeraeusserungService
+
+<PageTitle>Locatio – @_einheit?.Bezeichnung</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4">
+    @if (_einheit == null)
+    {
+        <MudProgressCircular Indeterminate="true" Color="Color.Primary" />
+    }
+    else
+    {
+        <MudBreadcrumbs Items="@(new List<BreadcrumbItem>
+        {
+            new("Übersicht", href: "./"),
+            new(_einheit.Gebaeude!.Name, href: $"gebaeude/{_einheit.GebaeudeId}"),
+            new(_einheit.Bezeichnung, href: null, disabled: true)
+        })" />
+
+        <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-4" Wrap="Wrap.Wrap">
+            <MudStack Row="true" AlignItems="AlignItems.Center">
+                <MudText Typo="Typo.h4">@_einheit.Bezeichnung</MudText>
+                <MudChip T="string" Color="@GebaeudeDetail.StatusFarbe(_einheit.Status)">@_einheit.Status.Anzeigename()</MudChip>
+                <MudChip T="string" Variant="Variant.Outlined">@_einheit.Art</MudChip>
+            </MudStack>
+            <MudStack Row="true" Spacing="2">
+                <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Edit" OnClick="BearbeitenAsync">Bearbeiten</MudButton>
+                @if (_einheit.Status == EinheitStatus.Veraeussert)
+                {
+                    <MudButton Variant="Variant.Outlined" Color="Color.Secondary" StartIcon="@Icons.Material.Filled.Calculate"
+                               Href="@($"veraeusserungsgewinn/einheit/{Id}")">Veräußerungsgewinn</MudButton>
+                }
+                else if (_einheit.IstEigentum)
+                {
+                    <MudButton Variant="Variant.Outlined" Color="Color.Error" StartIcon="@Icons.Material.Filled.Sell" OnClick="VeraeussernAsync">Einheit veräußern</MudButton>
+                }
+            </MudStack>
+        </MudStack>
+
+        @if (_einheit.GesperrtAb is { } gesperrt)
+        {
+            <MudAlert Severity="Severity.Info" Class="mb-3">Veräußert zum @Datum(gesperrt) – Buchungen ab diesem Datum sind gesperrt.</MudAlert>
+        }
+
+        <MudGrid Class="mb-2">
+            <MudItem xs="12" md="8">
+                <MudPaper Class="pa-4" Elevation="1">
+                    <MudSimpleTable Dense="true" Elevation="0">
+                        <tbody>
+                            @if (_einheit.Status == EinheitStatus.Fremdeigentum)
+                            {
+                                <tr><td colspan="2">Fremdeigentum – gehört anderen Eigentümern. Keine Einnahmen, Kosten oder AfA.</td></tr>
+                            }
+                            else
+                            {
+                                <tr><td>Mieter</td><td>@(_einheit.Mieter ?? "–")</td></tr>
+                                <tr><td>Vertrag</td><td>@Datum(_einheit.VertragsBeginn) bis @Datum(_einheit.VertragsEnde)</td></tr>
+                                <tr><td>@(_einheit.IstUstPflichtig ? "Kaltmiete netto" : "Bruttokaltmiete")</td><td>@Euro(_einheit.Kaltmiete)</td></tr>
+                                <tr><td>NK-Vorauszahlung</td><td>@Euro(_einheit.NebenkostenVorauszahlung)</td></tr>
+                                @if (_einheit.Art == EinheitArt.Gewerbe)
+                                {
+                                    <tr><td>Umsatzsteuer-Option</td><td>@(_einheit.UstOption ? $"ja, {_einheit.UstSatz:0.##} %" : "nein")</td></tr>
+                                    <tr><td>Monatsmiete netto / brutto</td><td>@Euro(_einheit.MonatsmieteNetto) / @Euro(_einheit.MonatsmieteBrutto)</td></tr>
+                                }
+                                <tr><td>Miteigentumsanteil</td><td>@(_einheit.Miteigentumsanteil ?? "noch offen")</td></tr>
+                                <tr><td>Anschaffung</td><td>@Datum(_einheit.AnschaffungsDatum) · @Euro(_einheit.AnschaffungskostenGesamt) gesamt</td></tr>
+                                <tr><td>AfA</td><td>@_einheit.AfaSatz.ToString("0.##") % p. a. auf @Euro(_einheit.AfaBasis)</td></tr>
+                                @if (_einheit.VerkaufsDatum.HasValue)
+                                {
+                                    <tr><td>Veräußerung</td><td>@Datum(_einheit.VerkaufsDatum) · Preis @Euro(_einheit.Veraeusserungspreis ?? 0) · Kosten @Euro(_einheit.Veraeusserungskosten ?? 0)</td></tr>
+                                }
+                            }
+                            @if (!string.IsNullOrWhiteSpace(_einheit.Notizen))
+                            {
+                                <tr><td>Notizen</td><td style="white-space:pre-line">@_einheit.Notizen</td></tr>
+                            }
+                        </tbody>
+                    </MudSimpleTable>
+                </MudPaper>
+            </MudItem>
+            <MudItem xs="12" md="4">
+                <MudPaper Class="pa-4" Elevation="1">
+                    <MudText Typo="Typo.subtitle2" Class="mb-2">Grundriss</MudText>
+                    @if (_einheit.GrundrissId.HasValue)
+                    {
+                        <MudButton Variant="Variant.Text" StartIcon="@Icons.Material.Filled.Map" Href="@($"api/locatio/dokumente/{_einheit.GrundrissId}")" Target="_blank">
+                            Grundriss öffnen
+                        </MudButton>
+                    }
+                    else
+                    {
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">Kein Grundriss hinterlegt.</MudText>
+                    }
+                    <DateiAuswahl Label="@(_einheit.GrundrissId.HasValue ? "Grundriss ersetzen" : "Grundriss hochladen")" ValueChanged="GrundrissHochladenAsync" />
+                </MudPaper>
+            </MudItem>
+        </MudGrid>
+
+        @if (_einheit.Status != EinheitStatus.Fremdeigentum)
+        {
+            <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
+                <MudSelect T="int" Value="_jahr" ValueChanged="JahrGeaendertAsync" Label="Jahr" Dense="true" Variant="Variant.Outlined" Style="max-width:140px">
+                    @foreach (var jahr in Enumerable.Range(DateTime.Today.Year - 5, 6).Reverse())
+                    {
+                        <MudSelectItem T="int" Value="jahr">@jahr</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudStack>
+
+            <MudTabs Elevation="1" Rounded="true" PanelClass="pa-4">
+                <MudTabPanel Text="Mieteingänge">
+                    <MudStack Row="true" Justify="Justify.FlexEnd" Class="mb-2">
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" OnClick="() => MieteingangAsync(null)">Mieteingang erfassen</MudButton>
+                    </MudStack>
+                    <MieteingangTabelle Eingaenge="_mieteingaenge" Bearbeiten="MieteingangAsync" Loeschen="MieteingangLoeschenAsync" />
+                </MudTabPanel>
+
+                <MudTabPanel Text="NK-Abrechnungen">
+                    <MudStack Row="true" Justify="Justify.FlexEnd" Class="mb-2">
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" OnClick="() => NkAbrechnungAsync(null)">Abrechnung ablegen</MudButton>
+                    </MudStack>
+                    <MudTable T="Nebenkostenabrechnung" Items="_abrechnungen" Dense="true" Elevation="0">
+                        <HeaderContent>
+                            <MudTh>Jahr</MudTh>
+                            <MudTh>Ergebnis</MudTh>
+                            <MudTh>Zahlungsdatum</MudTh>
+                            <MudTh>Notiz</MudTh>
+                            <MudTh></MudTh>
+                        </HeaderContent>
+                        <RowTemplate>
+                            <MudTd>@context.Jahr</MudTd>
+                            <MudTd>@Euro(Math.Abs(context.Ergebnis)) @(context.Ergebnis >= 0 ? "Nachzahlung" : "Erstattung")</MudTd>
+                            <MudTd>@Datum(context.Zahlungsdatum)</MudTd>
+                            <MudTd>@context.Notiz</MudTd>
+                            <MudTd Style="text-align:right; white-space:nowrap">
+                                @if (context.DokumentId.HasValue)
+                                {
+                                    <MudIconButton Icon="@Icons.Material.Filled.PictureAsPdf" Size="Size.Small" Href="@($"api/locatio/dokumente/{context.DokumentId}")" Target="_blank" />
+                                }
+                                <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small" OnClick="() => NkAbrechnungAsync(context)" />
+                                <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error" OnClick="() => NkLoeschenAsync(context)" />
+                            </MudTd>
+                        </RowTemplate>
+                        <NoRecordsContent><MudText Color="Color.Secondary">Keine Abrechnungen abgelegt.</MudText></NoRecordsContent>
+                    </MudTable>
+                </MudTabPanel>
+
+                <MudTabPanel Text="Kosten">
+                    <MudStack Row="true" Justify="Justify.FlexEnd" Class="mb-2">
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" OnClick="() => KostenAsync(null)">Kosten erfassen</MudButton>
+                    </MudStack>
+                    <KostenTabelle Kosten="_kosten" Bearbeiten="KostenAsync" Loeschen="KostenLoeschenAsync" />
+                </MudTabPanel>
+
+                <MudTabPanel Text="AfA">
+                    @if (_afa == null)
+                    {
+                        <MudText Color="Color.Secondary">Für @_jahr ist keine AfA anzusetzen (Anschaffungsdaten fehlen oder kein Eigentum im Jahr).</MudText>
+                    }
+                    else
+                    {
+                        <MudText>
+                            @_afa.AfaSatz.ToString("0.##") % von @Euro(_afa.AfaBasis) für @_afa.Monate Monate = <strong>@Euro(_afa.Betrag)</strong>
+                            (bisher angesetzt: @Euro(_afa.BereitsAngesetzt))
+                        </MudText>
+                        @if (_afa.BereitsGebucht)
+                        {
+                            <MudAlert Severity="Severity.Success" Dense="true" Class="mt-2">AfA @_jahr ist gebucht.</MudAlert>
+                        }
+                        else
+                        {
+                            <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-2" OnClick="AfaBuchenAsync">AfA @_jahr buchen (@Datum(_afa.Buchungsdatum))</MudButton>
+                        }
+                    }
+                </MudTabPanel>
+            </MudTabs>
+        }
+    }
+</MudContainer>
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+
+    private Mieteinheit? _einheit;
+    private List<Mieteingang> _mieteingaenge = new();
+    private List<Nebenkostenabrechnung> _abrechnungen = new();
+    private List<Kostenposten> _kosten = new();
+    private AfaVorschlagDto? _afa;
+    private int _jahr = DateTime.Today.Year;
+
+    protected override Task OnParametersSetAsync() => LadeAsync();
+
+    private async Task LadeAsync()
+    {
+        _einheit = await EinheitService.GetAsync(Id);
+        if (_einheit == null)
+            return;
+
+        _abrechnungen = await NkService.GetByEinheitAsync(Id);
+        await LadeJahrAsync();
+    }
+
+    private async Task LadeJahrAsync()
+    {
+        _mieteingaenge = await MieteingangService.GetAsync(_jahr, Id);
+        _kosten = (await KostenService.GetAsync(_jahr, _einheit!.GebaeudeId)).Where(k => k.MieteinheitId == Id).ToList();
+        _afa = (await AfaService.GetVorschlaegeAsync(_jahr)).FirstOrDefault(v => v.MieteinheitId == Id);
+    }
+
+    private async Task JahrGeaendertAsync(int jahr)
+    {
+        _jahr = jahr;
+        await LadeJahrAsync();
+    }
+
+    private async Task BearbeitenAsync()
+    {
+        var einheit = await ZeigeDialogAsync<EinheitDialog, Mieteinheit>("Einheit bearbeiten", new() { { x => x.Einheit, _einheit! } });
+        if (einheit != null)
+            await VersucheAsync(() => EinheitService.SaveAsync(einheit), "Einheit gespeichert.");
+        await LadeAsync();
+    }
+
+    private async Task GrundrissHochladenAsync(DateiUpload? datei)
+    {
+        if (datei != null && await VersucheAsync(() => EinheitService.SetGrundrissAsync(Id, datei), "Grundriss gespeichert."))
+            await LadeAsync();
+    }
+
+    private async Task MieteingangAsync(Mieteingang? eingang)
+    {
+        var ergebnis = await ZeigeDialogAsync<MieteingangDialog, Mieteingang>("Mieteingang", new()
+        {
+            { x => x.Eingang, eingang ?? new Mieteingang { MieteinheitId = Id, Kaltmiete = _einheit!.Kaltmiete, Nebenkosten = _einheit.NebenkostenVorauszahlung } },
+            { x => x.Einheiten, new List<Mieteinheit> { _einheit! } }
+        });
+        if (ergebnis != null)
+            await VersucheAsync(() => MieteingangService.SaveAsync(ergebnis), "Mieteingang gespeichert.");
+        await LadeJahrAsync();
+    }
+
+    private async Task MieteingangLoeschenAsync(Mieteingang eingang)
+    {
+        if (!await BestaetigeAsync($"Mieteingang vom {Datum(eingang.Zahlungsdatum)} löschen?"))
+            return;
+        await VersucheAsync(() => MieteingangService.DeleteAsync(eingang.Id), "Mieteingang gelöscht.");
+        await LadeJahrAsync();
+    }
+
+    private async Task NkAbrechnungAsync(Nebenkostenabrechnung? abrechnung)
+    {
+        var erfassung = await ZeigeDialogAsync<NkAbrechnungDialog, ErfassungMitDatei<Nebenkostenabrechnung>>("Nebenkostenabrechnung", new()
+        {
+            { x => x.Abrechnung, abrechnung ?? new Nebenkostenabrechnung { MieteinheitId = Id, Jahr = DateTime.Today.Year - 1 } }
+        });
+        if (erfassung != null)
+            await VersucheAsync(() => NkService.SaveAsync(erfassung.Eintrag, erfassung.Datei), "Abrechnung gespeichert.");
+        _abrechnungen = await NkService.GetByEinheitAsync(Id);
+    }
+
+    private async Task NkLoeschenAsync(Nebenkostenabrechnung abrechnung)
+    {
+        if (!await BestaetigeAsync($"Abrechnung {abrechnung.Jahr} löschen?"))
+            return;
+        await VersucheAsync(() => NkService.DeleteAsync(abrechnung.Id), "Abrechnung gelöscht.");
+        _abrechnungen = await NkService.GetByEinheitAsync(Id);
+    }
+
+    private async Task KostenAsync(Kostenposten? posten)
+    {
+        var gebaeude = await GebaeudeService.GetAsync(_einheit!.GebaeudeId);
+        var erfassung = await ZeigeDialogAsync<KostenDialog, ErfassungMitDatei<Kostenposten>>("Kosten", new()
+        {
+            { x => x.Posten, posten ?? new Kostenposten { GebaeudeId = _einheit.GebaeudeId, MieteinheitId = Id } },
+            { x => x.Gebaeude, new List<Gebaeude> { gebaeude! } },
+            { x => x.Kategorien, await KategorieService.GetAusgabekategorienAsync() }
+        });
+        if (erfassung != null)
+            await VersucheAsync(() => KostenService.SaveAsync(erfassung.Eintrag, erfassung.Datei), "Kosten gespeichert.");
+        await LadeJahrAsync();
+    }
+
+    private async Task KostenLoeschenAsync(Kostenposten posten)
+    {
+        if (!await BestaetigeAsync($"Kostenposten \"{posten.Beschreibung}\" löschen?"))
+            return;
+        await VersucheAsync(() => KostenService.DeleteAsync(posten.Id), "Kostenposten gelöscht.");
+        await LadeJahrAsync();
+    }
+
+    private async Task AfaBuchenAsync()
+    {
+        await VersucheAsync(() => AfaService.BucheAsync(Id, _jahr), $"AfA {_jahr} gebucht.");
+        await LadeJahrAsync();
+    }
+
+    private async Task VeraeussernAsync()
+    {
+        var daten = await ZeigeDialogAsync<VeraeusserungDialog, VeraeusserungDaten>("Einheit veräußern", new()
+        {
+            { x => x.Hinweis, $"{_einheit!.Bezeichnung} wird auf \"veräußert\" gesetzt und bleibt archiviert erhalten." },
+            { x => x.Pruefe, datum => VeraeusserungService.PruefeEinheitAsync(Id, datum) }
+        });
+        if (daten == null)
+            return;
+
+        List<string> warnungen = new();
+        if (await VersucheAsync(async () => warnungen = await VeraeusserungService.VeraeussereEinheitAsync(Id, daten), "Einheit veräußert."))
+        {
+            foreach (var warnung in warnungen)
+                Snackbar.Add(warnung, Severity.Warning);
+        }
+        await LadeAsync();
+    }
+}

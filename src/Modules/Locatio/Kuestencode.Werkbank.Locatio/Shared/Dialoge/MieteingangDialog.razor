@@ -1,0 +1,74 @@
+<MudDialog>
+    <DialogContent>
+        <MudStack Spacing="2">
+            <MudSelect T="Guid" Value="Eingang.MieteinheitId" ValueChanged="EinheitGeaendert" Label="Einheit" Variant="Variant.Outlined"
+                       Disabled="@(Eingang.Id != Guid.Empty)">
+                @foreach (var e in Einheiten)
+                {
+                    <MudSelectItem T="Guid" Value="e.Id">@e.Gebaeude?.Name – @e.Bezeichnung</MudSelectItem>
+                }
+            </MudSelect>
+            <MudGrid Spacing="2">
+                <MudItem xs="12" sm="6">
+                    <DatumFeld Label="Zahlungsdatum" @bind-Value="_zahlungsdatum" Required="true" HelperText="Zuflussprinzip: maßgeblich für Saldo" />
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <DatumFeld Label="Für Monat" @bind-Value="_monat" Required="true" />
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudNumericField T="decimal" @bind-Value="Eingang.Kaltmiete" Label="Kaltmiete (€)" Variant="Variant.Outlined" Min="0" />
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudNumericField T="decimal" @bind-Value="Eingang.Nebenkosten" Label="NK-Vorauszahlung (€)" Variant="Variant.Outlined" Min="0" />
+                </MudItem>
+            </MudGrid>
+            @if (UstSatz > 0)
+            {
+                <MudAlert Severity="Severity.Info" Dense="true">
+                    Gewerbe mit USt-Option: Beträge netto, zzgl. @UstSatz.ToString("0.##") % USt (wird separat an Saldo übergeben).
+                </MudAlert>
+            }
+            <MudTextField @bind-Value="Eingang.Notiz" Label="Notiz" Variant="Variant.Outlined" />
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="() => Dialog.Cancel()">Abbrechen</MudButton>
+        <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="Speichern"
+                   Disabled="@(_zahlungsdatum == null || _monat == null || Eingang.MieteinheitId == Guid.Empty)">Speichern</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] public IMudDialogInstance Dialog { get; set; } = default!;
+    [Parameter] public Mieteingang Eingang { get; set; } = new();
+    [Parameter] public List<Mieteinheit> Einheiten { get; set; } = new();
+
+    private DateOnly? _zahlungsdatum;
+    private DateOnly? _monat;
+
+    private decimal UstSatz => Eingang.Id == Guid.Empty
+        ? Einheiten.FirstOrDefault(e => e.Id == Eingang.MieteinheitId)?.WirksamerUstSatz ?? 0
+        : Eingang.UstSatz;
+
+    protected override void OnInitialized()
+    {
+        var heute = DateOnly.FromDateTime(DateTime.Today);
+        _zahlungsdatum = Eingang.Id == Guid.Empty ? heute : Eingang.Zahlungsdatum;
+        _monat = Eingang.Id == Guid.Empty ? new DateOnly(heute.Year, heute.Month, 1) : Eingang.Monat;
+    }
+
+    private void EinheitGeaendert(Guid einheitId)
+    {
+        Eingang.MieteinheitId = einheitId;
+        var einheit = Einheiten.First(e => e.Id == einheitId);
+        Eingang.Kaltmiete = einheit.Kaltmiete;
+        Eingang.Nebenkosten = einheit.NebenkostenVorauszahlung;
+    }
+
+    private void Speichern()
+    {
+        Eingang.Zahlungsdatum = _zahlungsdatum!.Value;
+        Eingang.Monat = _monat!.Value;
+        Dialog.Close(DialogResult.Ok(Eingang));
+    }
+}

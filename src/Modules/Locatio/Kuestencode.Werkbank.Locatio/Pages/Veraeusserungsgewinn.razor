@@ -1,0 +1,60 @@
+@page "/veraeusserungsgewinn/{Art}/{Id:guid}"
+@inherits LocatioKomponente
+@inject IVeraeusserungsgewinnService GewinnService
+
+<PageTitle>Locatio – Veräußerungsgewinn</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Medium" Class="mt-4">
+    <MudText Typo="Typo.h4" Class="mb-2">Veräußerungsgewinn (Überschlag)</MudText>
+
+    <MudAlert Severity="Severity.Warning" Class="mb-4">@VeraeusserungsgewinnExport.Hinweis Es erfolgt keine Buchung in Saldo.</MudAlert>
+
+    @if (_gewinn == null)
+    {
+        <MudText Color="Color.Secondary">Objekt nicht gefunden.</MudText>
+    }
+    else
+    {
+        @if (_gewinn.UnterZehnJahren)
+        {
+            <MudAlert Severity="Severity.Error" Class="mb-4">
+                Haltedauer unter 10 Jahren: Der Verkauf kann ein steuerpflichtiges privates Veräußerungsgeschäft (§ 23 EStG) sein.
+            </MudAlert>
+        }
+
+        <MudPaper Class="pa-4" Elevation="1">
+            <MudSimpleTable Dense="true" Elevation="0">
+                <tbody>
+                    @foreach (var (bezeichnung, wert) in VeraeusserungsgewinnExport.Zeilen(_gewinn))
+                    {
+                        <tr>
+                            <td>@bezeichnung</td>
+                            <td style="text-align:right">@wert</td>
+                        </tr>
+                    }
+                </tbody>
+            </MudSimpleTable>
+        </MudPaper>
+
+        <MudStack Row="true" Spacing="2" Class="mt-4">
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.PictureAsPdf"
+                       OnClick="@(() => Herunterladen($"api/locatio/veraeusserungsgewinn/{Art}/{Id}.pdf"))">PDF für Steuerberater</MudButton>
+            <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.TableChart"
+                       OnClick="@(() => Herunterladen($"api/locatio/veraeusserungsgewinn/{Art}/{Id}.csv"))">CSV</MudButton>
+        </MudStack>
+    }
+</MudContainer>
+
+@code {
+    [Parameter] public string Art { get; set; } = string.Empty;
+    [Parameter] public Guid Id { get; set; }
+
+    private VeraeusserungsgewinnDto? _gewinn;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _gewinn = Art == "gebaeude"
+            ? await GewinnService.FuerGebaeudeAsync(Id)
+            : await GewinnService.FuerEinheitAsync(Id);
+    }
+}

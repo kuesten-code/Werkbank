@@ -1,0 +1,68 @@
+@* Zweistufig: erst prüfen und Warnungen zeigen, dann bestätigen – nichts wird still überschrieben. *@
+<MudDialog>
+    <DialogContent>
+        <MudStack Spacing="3">
+            <MudText>@Hinweis</MudText>
+            <DatumFeld Label="Verkaufsdatum" Value="_datum" ValueChanged="DatumGeaendert" Required="true"
+                       HelperText="Ab diesem Tag sind keine Einnahmen, Kosten oder AfA mehr möglich." />
+            <MudNumericField T="decimal?" @bind-Value="_preis" Label="Veräußerungspreis (€)" Variant="Variant.Outlined" Min="0" />
+            <MudNumericField T="decimal?" @bind-Value="_kosten" Label="Veräußerungskosten (€)" Variant="Variant.Outlined" Min="0"
+                             HelperText="Notar, Makler usw." />
+
+            @if (_warnungen != null)
+            {
+                @if (_warnungen.Count == 0)
+                {
+                    <MudAlert Severity="Severity.Info" Dense="true">Keine Auswirkungen auf laufende Mietverhältnisse oder Buchungen.</MudAlert>
+                }
+                @foreach (var warnung in _warnungen)
+                {
+                    <MudAlert Severity="Severity.Warning" Dense="true">@warnung</MudAlert>
+                }
+            }
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="() => Dialog.Cancel()">Abbrechen</MudButton>
+        @if (_warnungen == null)
+        {
+            <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="PruefeAsync" Disabled="@(_datum == null)">Prüfen</MudButton>
+        }
+        else
+        {
+            <MudButton Color="Color.Error" Variant="Variant.Filled" OnClick="Bestaetigen">Veräußerung bestätigen</MudButton>
+        }
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] public IMudDialogInstance Dialog { get; set; } = default!;
+    [Parameter] public string Hinweis { get; set; } = string.Empty;
+    [Parameter, EditorRequired] public Func<DateOnly, Task<List<string>>> Pruefe { get; set; } = default!;
+
+    private DateOnly? _datum = DateOnly.FromDateTime(DateTime.Today);
+    private decimal? _preis;
+    private decimal? _kosten;
+    private List<string>? _warnungen;
+
+    private void DatumGeaendert(DateOnly? datum)
+    {
+        _datum = datum;
+        _warnungen = null;
+    }
+
+    private async Task PruefeAsync()
+    {
+        try
+        {
+            _warnungen = await Pruefe(_datum!.Value);
+        }
+        catch (InvalidOperationException ex)
+        {
+            _warnungen = [ex.Message];
+        }
+    }
+
+    private void Bestaetigen() =>
+        Dialog.Close(DialogResult.Ok(new VeraeusserungDaten(_datum!.Value, _preis, _kosten)));
+}
