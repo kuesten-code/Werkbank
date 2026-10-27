@@ -48,9 +48,7 @@ public class EinnahmenService : IEinnahmenService
             for (var n = 0; n < invoicePayments.Count; n++)
             {
                 var payment = invoicePayments[n];
-                var ratio = payment.InvoiceTotalGross > 0
-                    ? payment.PaymentAmount / payment.InvoiceTotalGross
-                    : 1m;
+                var ratio = ZahlungsAnteil(payment);
                 var quelleId = isPartial
                     ? $"{payment.InvoiceNumber}/{n + 1}"
                     : payment.InvoiceNumber;
@@ -90,8 +88,7 @@ public class EinnahmenService : IEinnahmenService
         var payments = await LoadZahlungenAsync(von, bis);
         return payments.Sum(p =>
         {
-            var ratio = p.InvoiceTotalGross > 0 ? p.PaymentAmount / p.InvoiceTotalGross : 1m;
-            return p.Items.Sum(i => i.TotalNet) * ratio;
+            return p.Items.Sum(i => i.TotalNet) * ZahlungsAnteil(p);
         });
     }
 
@@ -101,12 +98,16 @@ public class EinnahmenService : IEinnahmenService
         return payments
             .SelectMany(p =>
             {
-                var ratio = p.InvoiceTotalGross > 0 ? p.PaymentAmount / p.InvoiceTotalGross : 1m;
+                var ratio = ZahlungsAnteil(p);
                 return p.Items.Select(i => (Key: $"{i.VatRate}%", Net: i.TotalNet * ratio));
             })
             .GroupBy(x => x.Key)
             .ToDictionary(g => g.Key, g => g.Sum(x => x.Net));
     }
+
+    // Skontozahlungen und Teilzahlungen mindern Netto und USt anteilig (§17 UStG); Gutschriften haben negatives Brutto
+    private static decimal ZahlungsAnteil(Kuestencode.Shared.Contracts.Faktura.InvoiceEuerPaymentDto payment) =>
+        payment.InvoiceTotalGross != 0 ? payment.PaymentAmount / payment.InvoiceTotalGross : 1m;
 
     private async Task<List<Kuestencode.Shared.Contracts.Faktura.InvoiceEuerPaymentDto>> LoadZahlungenAsync(DateOnly von, DateOnly bis)
     {

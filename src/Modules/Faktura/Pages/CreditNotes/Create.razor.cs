@@ -140,6 +140,8 @@ public partial class Create
 
     private void OnRelatedInvoiceChanged()
     {
+        _invoice.AdoptGrantedSkonto(_relatedInvoice);
+
         if (_relatedInvoice == null)
         {
             return;

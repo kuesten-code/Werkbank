@@ -61,6 +61,12 @@ public class PdfPaymentInfoBuilder
 
         var textStyle = paymentColumn.Item().Text(noticeText).FontSize(10);
         if (bold) textStyle.Bold();
+
+        if (SkontoTerms.Describe(invoice) is { } skontoTerms)
+        {
+            var skontoStyle = paymentColumn.Item().PaddingTop(4).Text(skontoTerms).FontSize(10);
+            if (bold) skontoStyle.Bold();
+        }
     }
 
     private void RenderBankDetails(ColumnDescriptor paymentColumn, Invoice invoice, Company company)

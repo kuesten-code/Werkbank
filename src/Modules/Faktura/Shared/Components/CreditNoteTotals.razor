@@ -27,10 +27,20 @@
         <MudText>Abschläge:</MudText>
         <MudText Color="Color.Error">-@Format(CreditNote.TotalDownPayments)</MudText>
     </MudStack>
+}
+@if (CreditNote.GrantedSkonto != 0)
+{
+    <MudStack Row="true" Justify="Justify.SpaceBetween">
+        <MudText>Bereits gewährtes Skonto:</MudText>
+        <MudText Color="Color.Error">-@Format(CreditNote.GrantedSkonto)</MudText>
+    </MudStack>
+}
+@if (CreditNote.TotalDownPayments != 0 || CreditNote.GrantedSkonto != 0)
+{
     <MudDivider DividerType="DividerType.FullWidth" Style="border-width: 2px;" />
     <MudStack Row="true" Justify="Justify.SpaceBetween">
         <MudText Typo="Typo.h6">Zu erstatten:</MudText>
-        <MudText Typo="Typo.h6">@Format(CreditNote.AmountDue)</MudText>
+        <MudText Typo="Typo.h6">@Format(CreditNote.DocumentAmount)</MudText>
     </MudStack>
 }
 

@@ -317,6 +317,55 @@ public class XRechnungXmlTests
         with.Descendants(Ram + "SpecifiedTradePaymentTerms").Single().Value.Should().Be("20260414");
     }
 
+    private static string? PaymentTermsDescription(XDocument doc) =>
+        doc.Descendants(Ram + "SpecifiedTradePaymentTerms").SingleOrDefault()?.Element(Ram + "Description")?.Value;
+
+    [Fact]
+    public async Task Skonto_Prozent_AlsXRechnungSkontoZeileVorFaelligkeit()
+    {
+        var invoice = MakeInvoice(new InvoiceItem { Description = "Leistung", Quantity = 1, UnitPrice = 1000m, VatRate = 19 });
+        invoice.DueDate = new DateTime(2026, 4, 14, 0, 0, 0, DateTimeKind.Utc);
+        invoice.SkontoType = DiscountType.Percentage;
+        invoice.SkontoValue = 2m;
+        invoice.SkontoDays = 10;
+
+        var doc = await GenerateAsync(invoice);
+
+        var terms = doc.Descendants(Ram + "SpecifiedTradePaymentTerms").Single();
+        terms.Elements().Select(e => e.Name.LocalName).Should().Equal("Description", "DueDateDateTime");
+        PaymentTermsDescription(doc).Should().Be("#SKONTO#TAGE=10#PROZENT=2.00#BASISBETRAG=1190.00#\n");
+    }
+
+    [Fact]
+    public async Task Skonto_AbsolutMitAbschlag_ProzentAufZahlbetragOhneFaelligkeit()
+    {
+        var invoice = MakeInvoice(new InvoiceItem { Description = "Leistung", Quantity = 1, UnitPrice = 1000m, VatRate = 19 });
+        invoice.DownPayments.Add(new DownPayment { Description = "AR-1", Amount = 595m });
+        invoice.SkontoType = DiscountType.Absolute;
+        invoice.SkontoValue = 11.90m;
+        invoice.SkontoDays = 7;
+
+        var doc = await GenerateAsync(invoice);
+
+        PaymentTermsDescription(doc).Should().Be("#SKONTO#TAGE=7#PROZENT=2.00#BASISBETRAG=595.00#\n");
+        doc.Descendants(Ram + "DueDateDateTime").Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task GutschriftMitGewaehrtemSkonto_HinweisTextUndZahlbetragUnveraendert()
+    {
+        var invoice = MakeInvoice(new InvoiceItem { Description = "Leistung", Quantity = 1, UnitPrice = -1000m, VatRate = 19 });
+        invoice.Type = InvoiceType.CreditNote;
+        invoice.SkontoType = DiscountType.Percentage;
+        invoice.SkontoValue = 2m;
+        invoice.SkontoApplied = true;
+
+        var doc = await GenerateAsync(invoice);
+
+        PaymentTermsDescription(doc).Should().Be("Abzüglich bereits gewährtem Skonto von 23.80 EUR, zu erstatten: 1166.20 EUR\n");
+        Summation(doc).Element(Ram + "DuePayableAmount")!.Value.Should().Be("1190.00");
+    }
+
     // ─── Fehlerfälle ──────────────────────────────────────────────────────────
 
     [Fact]

@@ -25,6 +25,7 @@ public class FakturaDbContext : DbContext
             nameof(Invoice.Status), nameof(Invoice.InvoiceDate), nameof(Invoice.DueDate),
             nameof(Invoice.RevisedDueDate), nameof(Invoice.Notes), nameof(Invoice.CustomerId), nameof(Invoice.DiscountType),
             nameof(Invoice.DiscountValue), nameof(Invoice.IsReverseCharge),
+            nameof(Invoice.SkontoType), nameof(Invoice.SkontoValue), nameof(Invoice.SkontoDays), nameof(Invoice.SkontoApplied),
             nameof(Invoice.CancelledAt), nameof(Invoice.CancellationReason)
         }),
         // Zahlungen werden nie geändert, nur angelegt/gelöscht — DetailedAddDelete sorgt dafür,
@@ -77,6 +78,7 @@ public class FakturaDbContext : DbContext
             entity.Property(e => e.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
             entity.Property(e => e.UpdatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
             entity.Property(e => e.DiscountValue).HasPrecision(18, 2);
+            entity.Property(e => e.SkontoValue).HasPrecision(18, 6);
 
             // CustomerId bleibt als FK, aber ohne Navigation Property zum Host-Schema
             entity.Property(e => e.CustomerId).IsRequired();

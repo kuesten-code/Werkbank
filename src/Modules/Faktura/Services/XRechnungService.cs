@@ -363,6 +363,30 @@ public class XRechnungService : IXRechnungService
 
     private static decimal RoundAmount(decimal amount) => Math.Round(amount, 2, MidpointRounding.AwayFromZero);
 
+    // BT-20: Skonto nach XRechnung-Konvention (#SKONTO#...#, Zeile endet mit LF). Absolutes Skonto lässt sich dort nur
+    // als Prozentsatz ausdrücken. Bei Gutschriften ist Skonto bereits gewährt und mindert die Erstattung, darf aber
+    // nach BR-CO-16 nicht in DuePayableAmount eingehen — daher nur als Hinweistext.
+    private static string? BuildPaymentTermsDescription(Invoice invoice, CultureInfo culture)
+    {
+        if (invoice.Type == InvoiceType.CreditNote)
+        {
+            return invoice.GrantedSkonto == 0
+                ? null
+                : $"Abzüglich bereits gewährtem Skonto von {Math.Abs(invoice.GrantedSkonto).ToString("F2", culture)} EUR, " +
+                  $"zu erstatten: {Math.Abs(invoice.DocumentAmount).ToString("F2", culture)} EUR\n";
+        }
+
+        if (invoice.SkontoAmount == 0 || !invoice.SkontoDays.HasValue)
+            return null;
+
+        var percent = invoice.SkontoType == DiscountType.Percentage
+            ? invoice.SkontoValue!.Value
+            : invoice.SkontoAmount / invoice.AmountDue * 100;
+
+        return $"#SKONTO#TAGE={invoice.SkontoDays.Value}#PROZENT={RoundAmount(percent).ToString("F2", culture)}" +
+               $"#BASISBETRAG={RoundAmount(invoice.AmountDue).ToString("F2", culture)}#\n";
+    }
+
     private XElement BuildSellerTradeParty(Company company)
     {
         var hasVatId = !string.IsNullOrWhiteSpace(company.VatId);
@@ -564,14 +588,18 @@ public class XRechnungService : IXRechnungService
                     )
                 )));
 
-        elements.Add(invoice.DueDate.HasValue
+        var paymentTermsDescription = BuildPaymentTermsDescription(invoice, culture);
+        elements.Add(invoice.DueDate.HasValue || paymentTermsDescription != null
             ? new XElement(Ram + "SpecifiedTradePaymentTerms",
-                new XElement(Ram + "DueDateDateTime",
-                    new XElement(Udt + "DateTimeString",
-                        new XAttribute("format", "102"),
-                        invoice.DueDate.Value.ToString("yyyyMMdd")
-                    )
-                )
+                paymentTermsDescription != null ? new XElement(Ram + "Description", paymentTermsDescription) : null,
+                invoice.DueDate.HasValue
+                    ? new XElement(Ram + "DueDateDateTime",
+                        new XElement(Udt + "DateTimeString",
+                            new XAttribute("format", "102"),
+                            invoice.DueDate.Value.ToString("yyyyMMdd")
+                        )
+                      )
+                    : null
               )
             : null);
 

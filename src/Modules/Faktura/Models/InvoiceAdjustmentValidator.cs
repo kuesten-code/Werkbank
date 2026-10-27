@@ -1,12 +1,13 @@
 namespace Kuestencode.Faktura.Models;
 
 /// <summary>
-/// Prüft Rabatt und Abschläge eines Belegs. Vergleicht Beträge ohne Vorzeichen, damit dieselben Regeln
+/// Prüft Rabatt, Abschläge und Skonto eines Belegs. Vergleicht Beträge ohne Vorzeichen, damit dieselben Regeln
 /// für Rechnungen und Gutschriften gelten.
 /// </summary>
 public static class InvoiceAdjustmentValidator
 {
-    public static string? Validate(Invoice invoice) => ValidateDiscount(invoice) ?? ValidateDownPayments(invoice);
+    public static string? Validate(Invoice invoice) =>
+        ValidateDiscount(invoice) ?? ValidateDownPayments(invoice) ?? ValidateSkonto(invoice);
 
     private static string? ValidateDiscount(Invoice invoice)
     {
@@ -35,6 +36,27 @@ public static class InvoiceAdjustmentValidator
 
         if (Math.Abs(invoice.TotalDownPayments) > Math.Abs(invoice.TotalGross))
             return "Abschläge dürfen die Bruttosumme nicht übersteigen.";
+
+        return null;
+    }
+
+    // Gutschriften übernehmen das bereits gewährte Skonto ohne Frist, siehe Invoice.AdoptGrantedSkonto
+    private static string? ValidateSkonto(Invoice invoice)
+    {
+        if (invoice.SkontoType == DiscountType.None)
+            return null;
+
+        if (!invoice.SkontoValue.HasValue || invoice.SkontoValue.Value <= 0)
+            return "Skonto muss größer als 0 sein.";
+
+        if (invoice.SkontoType == DiscountType.Percentage && invoice.SkontoValue.Value >= 100)
+            return "Prozentuales Skonto muss unter 100% liegen.";
+
+        if (invoice.SkontoType == DiscountType.Absolute && invoice.SkontoValue.Value >= Math.Abs(invoice.AmountDue))
+            return "Skonto muss kleiner als der Zahlbetrag sein.";
+
+        if (invoice.Type == InvoiceType.Invoice && (!invoice.SkontoDays.HasValue || invoice.SkontoDays.Value <= 0))
+            return "Skontofrist muss mindestens einen Tag betragen.";
 
         return null;
     }

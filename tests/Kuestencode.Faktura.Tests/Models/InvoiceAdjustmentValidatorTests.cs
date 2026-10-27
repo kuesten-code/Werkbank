@@ -110,4 +110,63 @@ public class InvoiceAdjustmentValidatorTests
 
         InvoiceAdjustmentValidator.Validate(invoice).Should().BeNull();
     }
+
+    // ─── Skonto ───────────────────────────────────────────────────────────────
+
+    private static Invoice MakeInvoiceWithSkonto(DiscountType type, decimal? value, int? days, InvoiceType invoiceType = InvoiceType.Invoice)
+    {
+        var invoice = MakeInvoice(invoiceType);
+        invoice.SkontoType = type;
+        invoice.SkontoValue = value;
+        invoice.SkontoDays = days;
+        return invoice;
+    }
+
+    [Theory]
+    [InlineData(DiscountType.Percentage, 2, 10)]
+    [InlineData(DiscountType.Absolute, 1189.99, 1)]
+    public void Skonto_GueltigeWerte_Gueltig(DiscountType type, double value, int days)
+    {
+        InvoiceAdjustmentValidator.Validate(MakeInvoiceWithSkonto(type, (decimal)value, days)).Should().BeNull();
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData(0)]
+    [InlineData(-1)]
+    public void Skonto_OhnePositivenWert_Ungueltig(int? value)
+    {
+        InvoiceAdjustmentValidator.Validate(MakeInvoiceWithSkonto(DiscountType.Percentage, value, 10))
+            .Should().Be("Skonto muss größer als 0 sein.");
+    }
+
+    [Fact]
+    public void Skonto_Prozent100_Ungueltig()
+    {
+        InvoiceAdjustmentValidator.Validate(MakeInvoiceWithSkonto(DiscountType.Percentage, 100m, 10))
+            .Should().Be("Prozentuales Skonto muss unter 100% liegen.");
+    }
+
+    [Fact]
+    public void Skonto_AbsolutAbZahlbetrag_Ungueltig()
+    {
+        InvoiceAdjustmentValidator.Validate(MakeInvoiceWithSkonto(DiscountType.Absolute, 1190m, 10))
+            .Should().Be("Skonto muss kleiner als der Zahlbetrag sein.");
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData(0)]
+    public void Skonto_RechnungOhneFrist_Ungueltig(int? days)
+    {
+        InvoiceAdjustmentValidator.Validate(MakeInvoiceWithSkonto(DiscountType.Percentage, 2m, days))
+            .Should().Be("Skontofrist muss mindestens einen Tag betragen.");
+    }
+
+    [Fact]
+    public void Skonto_GutschriftOhneFrist_Gueltig()
+    {
+        InvoiceAdjustmentValidator.Validate(MakeInvoiceWithSkonto(DiscountType.Percentage, 2m, null, InvoiceType.CreditNote))
+            .Should().BeNull();
+    }
 }

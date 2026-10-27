@@ -234,6 +234,8 @@
                                DefaultVatRate="DefaultVatRate"
                                OnChanged="RecalculateTotals" />
 
+            <SkontoEditor Invoice="_invoice" InvoiceDate="_invoiceDate" OnChanged="RecalculateTotals" />
+
             <!-- Anhänge (optional) -->
             <MudText Typo="Typo.h6" Class="mt-6 mb-2">Anhänge (optional)</MudText>
             @if (_attachTimesheet)

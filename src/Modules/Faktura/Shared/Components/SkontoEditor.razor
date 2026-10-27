@@ -1,0 +1,92 @@
+@* Skonto-Angebot einer Rechnung. Gutschriften übernehmen gewährtes Skonto automatisch, siehe Invoice.AdoptGrantedSkonto *@
+
+<MudText Typo="Typo.h6" Class="mt-6 mb-2">Skonto (optional)</MudText>
+@if (Invoice.SkontoType != DiscountType.None)
+{
+    <MudSimpleTable Dense="true" Hover="true" Bordered="true">
+        <thead>
+            <tr>
+                <th>Typ</th>
+                <th style="width: 200px; text-align: right">Wert</th>
+                <th style="width: 160px; text-align: right">Frist (Tage)</th>
+                <th style="width: 60px"></th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>
+                    <MudSelect @bind-Value="Invoice.SkontoType" T="DiscountType" Margin="Margin.Dense"
+                               Variant="Variant.Outlined" @bind-Value:after="NotifyChanged">
+                        <MudSelectItem Value="@DiscountType.Percentage">Prozentual (%)</MudSelectItem>
+                        <MudSelectItem Value="@DiscountType.Absolute">Absolut (€)</MudSelectItem>
+                    </MudSelect>
+                </td>
+                <td style="text-align: right">
+                    <MudNumericField @bind-Value="Invoice.SkontoValue"
+                                     Margin="Margin.Dense"
+                                     Variant="Variant.Outlined"
+                                     Min="0.01m"
+                                     Step="1m"
+                                     Format="@(Invoice.SkontoType == DiscountType.Percentage ? "N2" : "C2")"
+                                     HideSpinButtons="true"
+                                     Culture="@Culture"
+                                     OnBlur="NotifyChanged" />
+                </td>
+                <td style="text-align: right">
+                    <MudNumericField @bind-Value="Invoice.SkontoDays"
+                                     Margin="Margin.Dense"
+                                     Variant="Variant.Outlined"
+                                     Min="1"
+                                     HideSpinButtons="true"
+                                     OnBlur="NotifyChanged" />
+                </td>
+                <td>
+                    <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small"
+                                   Color="Color.Error" OnClick="RemoveSkonto" />
+                </td>
+            </tr>
+        </tbody>
+    </MudSimpleTable>
+    @if (Invoice.SkontoAmount != 0 && InvoiceDate.HasValue && Invoice.SkontoDays > 0)
+    {
+        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mt-2">
+            Skontofrist bis @InvoiceDate.Value.AddDays(Invoice.SkontoDays.Value).ToString("dd.MM.yyyy") ·
+            Skonto @Invoice.SkontoAmount.ToString("C2", Culture) ·
+            Zahlbetrag mit Skonto @Invoice.AmountDueWithSkonto.ToString("C2", Culture)
+        </MudText>
+    }
+}
+else
+{
+    <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small"
+               StartIcon="@Icons.Material.Filled.Add" OnClick="AddSkonto" Class="mt-2"
+               Style="width: 230px">
+        Skonto hinzufügen
+    </MudButton>
+}
+
+@code {
+    private static readonly System.Globalization.CultureInfo Culture = new("de-DE");
+
+    [Parameter, EditorRequired] public Invoice Invoice { get; set; } = null!;
+    [Parameter] public DateTime? InvoiceDate { get; set; }
+    [Parameter] public EventCallback OnChanged { get; set; }
+
+    private Task AddSkonto()
+    {
+        Invoice.SkontoType = DiscountType.Percentage;
+        Invoice.SkontoValue = 2;
+        Invoice.SkontoDays = 10;
+        return NotifyChanged();
+    }
+
+    private Task RemoveSkonto()
+    {
+        Invoice.SkontoType = DiscountType.None;
+        Invoice.SkontoValue = null;
+        Invoice.SkontoDays = null;
+        return NotifyChanged();
+    }
+
+    private Task NotifyChanged() => OnChanged.InvokeAsync();
+}

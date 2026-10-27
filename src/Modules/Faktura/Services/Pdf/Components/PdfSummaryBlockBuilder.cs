@@ -26,7 +26,7 @@ public class PdfSummaryBlockBuilder
             RenderDiscount(sumColumn, invoice);
             RenderVat(sumColumn, invoice, company);
             RenderGrossTotal(sumColumn, invoice, "#1A1A1A");
-            RenderDownPayments(sumColumn, invoice);
+            RenderAmountDue(sumColumn, invoice);
         });
     }
 
@@ -41,7 +41,7 @@ public class PdfSummaryBlockBuilder
             RenderDiscount(sumColumn, invoice);
             RenderVat(sumColumn, invoice, company);
             RenderGrossTotal(sumColumn, invoice, "#1A1A1A");
-            RenderDownPayments(sumColumn, invoice);
+            RenderAmountDue(sumColumn, invoice);
         });
     }
 
@@ -56,7 +56,7 @@ public class PdfSummaryBlockBuilder
             RenderDiscount(sumColumn, invoice, "#FFFFFF");
             RenderVat(sumColumn, invoice, company, "#FFFFFF");
             RenderGrossTotal(sumColumn, invoice, "#FFFFFF");
-            RenderDownPayments(sumColumn, invoice, "#FFFFFF");
+            RenderAmountDue(sumColumn, invoice, "#FFFFFF");
         });
     }
 
@@ -168,23 +168,35 @@ public class PdfSummaryBlockBuilder
         });
     }
 
-    private void RenderDownPayments(ColumnDescriptor sumColumn, Invoice invoice, string? textColor = null)
+    // Aufschlüsselung je Abschlag siehe Abschlagsrechnungstabelle/Zahlungsübersicht (PdfDownPaymentDetailBuilder).
+    // Skonto erscheint hier nur bei Gutschriften — bei Rechnungen ist es ein Angebot im Zahlungshinweis.
+    private void RenderAmountDue(ColumnDescriptor sumColumn, Invoice invoice, string? textColor = null)
     {
-        if (invoice.TotalDownPayments != 0)
+        var deductsSkonto = invoice.DocumentAmount != invoice.AmountDue;
+        if (invoice.TotalDownPayments == 0 && !deductsSkonto)
+            return;
+
+        if (deductsSkonto)
         {
-            // Aufschlüsselung je Abschlag siehe Abschlagsrechnungstabelle/Zahlungsübersicht (PdfDownPaymentDetailBuilder)
-            var borderColor = textColor == "#FFFFFF" ? "#FFFFFF" : DividerColor;
-            sumColumn.Item().PaddingTop(8).BorderTop(2).BorderColor(borderColor).PaddingTop(5);
-
-            sumColumn.Item().Row(row =>
+            sumColumn.Item().PaddingTop(8).Row(row =>
             {
-                var label = invoice.Type == InvoiceType.CreditNote ? "Zu erstatten:" : "Zu zahlen:";
-                var labelStyle = row.RelativeItem().Text(label).FontSize(textColor == "#FFFFFF" ? 13 : 12).Bold();
-                if (textColor != null) labelStyle.FontColor(textColor);
-
-                var amountStyle = row.ConstantItem(100).AlignRight().Text(DisplayAmount(invoice, invoice.AmountDue).ToString("C2", _germanCulture)).FontSize(textColor == "#FFFFFF" ? 13 : 12).Bold();
-                if (textColor != null) amountStyle.FontColor(textColor);
+                var labelText = row.RelativeItem().Text("Bereits gewährtes Skonto:").FontSize(10).FontColor(textColor ?? TextSecondaryColor);
+                var amountText = row.ConstantItem(100).AlignRight().Text($"-{DisplayAmount(invoice, invoice.GrantedSkonto).ToString("C2", _germanCulture)}").FontSize(10);
+                if (textColor != null) amountText.FontColor(textColor);
             });
         }
+
+        var borderColor = textColor == "#FFFFFF" ? "#FFFFFF" : DividerColor;
+        sumColumn.Item().PaddingTop(8).BorderTop(2).BorderColor(borderColor).PaddingTop(5);
+
+        sumColumn.Item().Row(row =>
+        {
+            var label = invoice.Type == InvoiceType.CreditNote ? "Zu erstatten:" : "Zu zahlen:";
+            var labelStyle = row.RelativeItem().Text(label).FontSize(textColor == "#FFFFFF" ? 13 : 12).Bold();
+            if (textColor != null) labelStyle.FontColor(textColor);
+
+            var amountStyle = row.ConstantItem(100).AlignRight().Text(DisplayAmount(invoice, invoice.DocumentAmount).ToString("C2", _germanCulture)).FontSize(textColor == "#FFFFFF" ? 13 : 12).Bold();
+            if (textColor != null) amountStyle.FontColor(textColor);
+        });
     }
 }

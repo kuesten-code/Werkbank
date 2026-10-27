@@ -69,6 +69,17 @@ public class Invoice
     public DiscountType DiscountType { get; set; } = DiscountType.None;
     public decimal? DiscountValue { get; set; }
 
+    // Skonto ist ein Zahlungsangebot und ändert den Belegbetrag nicht; Prozent beziehen sich auf den Zahlbetrag
+    public DiscountType SkontoType { get; set; } = DiscountType.None;
+    public decimal? SkontoValue { get; set; }
+    public int? SkontoDays { get; set; }
+
+    /// <summary>
+    /// Rechnung: Kunde hat skontiert gezahlt. Gutschrift: Skonto der Bezugsrechnung wird anteilig nicht erstattet,
+    /// siehe <see cref="AdoptGrantedSkonto"/>.
+    /// </summary>
+    public bool SkontoApplied { get; set; }
+
     // Tax Mode
     public bool IsReverseCharge { get; set; } = false;
 
@@ -138,17 +149,10 @@ public class Invoice
     public decimal TotalNetAfterDiscount => TotalNet - DiscountAmount;
 
     [NotMapped]
-    public decimal TotalVat
-    {
-        get
-        {
-            if (TotalNet == 0) return 0;
+    public decimal DiscountRatio => TotalNet == 0 ? 0 : TotalNetAfterDiscount / TotalNet;
 
-            // Calculate VAT proportionally after discount
-            var discountRatio = TotalNetAfterDiscount / TotalNet;
-            return Items.Sum(i => i.TotalVat) * discountRatio;
-        }
-    }
+    [NotMapped]
+    public decimal TotalVat => Items.Sum(i => i.TotalVat) * DiscountRatio;
 
     [NotMapped]
     public decimal TotalGross => TotalNetAfterDiscount + TotalVat;
@@ -161,7 +165,7 @@ public class Invoice
     {
         get
         {
-            var discountRatio = TotalNet == 0 ? 0 : TotalNetAfterDiscount / TotalNet;
+            var discountRatio = DiscountRatio;
             return Items
                 .Where(i => !i.IsHeader)
                 .GroupBy(i => i.VatRate)
@@ -182,15 +186,67 @@ public class Invoice
     public decimal AmountDue => TotalGross - TotalDownPayments;
 
     [NotMapped]
+    public DateTime? SkontoDeadline => SkontoDays.HasValue ? InvoiceDate.Date.AddDays(SkontoDays.Value) : null;
+
+    // Abschläge wurden bereits über die Abschlagsrechnungen bezahlt und dort ggf. skontiert
+    [NotMapped]
+    public decimal SkontoAmount
+    {
+        get
+        {
+            if (SkontoType == DiscountType.None || !SkontoValue.HasValue)
+                return 0;
+
+            if (SkontoType == DiscountType.Percentage)
+                return Math.Round(AmountDue * SkontoValue.Value / 100, 2);
+
+            return DocumentSign * SkontoValue.Value;
+        }
+    }
+
+    [NotMapped]
+    public decimal AmountDueWithSkonto => AmountDue - SkontoAmount;
+
+    [NotMapped]
+    public decimal GrantedSkonto => SkontoApplied ? SkontoAmount : 0;
+
+    [NotMapped]
+    public decimal SettlementAmount => AmountDue - GrantedSkonto;
+
+    // Rechnungen weisen Skonto nur als Angebot aus (GoBD: Beleg bleibt nach der Zahlung unverändert),
+    // Gutschriften ziehen das bereits gewährte Skonto der Bezugsrechnung direkt ab
+    [NotMapped]
+    public decimal DocumentAmount => Type == InvoiceType.CreditNote ? SettlementAmount : AmountDue;
+
+    [NotMapped]
     public decimal TotalPaid => Payments?.Sum(p => p.Amount) ?? 0;
 
     // Abschläge wurden bereits über die Abschlagsrechnungen bezahlt — offen ist nur der Rest von "Zu zahlen"
     [NotMapped]
-    public decimal RemainingAmount => AmountDue - TotalPaid;
+    public decimal RemainingAmount => SettlementAmount - TotalPaid;
 
     // Wie in Saldo (§11 EStG): Zahlungen sind brutto, der Netto-Anteil wird im Verhältnis zum Rechnungsbrutto umgelegt
     [NotMapped]
     public decimal TotalPaidNet => TotalGross == 0 ? 0 : TotalNetAfterDiscount * TotalPaid / TotalGross;
+
+    // Der Kunde hat nur den skontierten Betrag gezahlt. Als Prozentsatz übernommen, damit Teilgutschriften anteilig
+    // gemindert werden; sechs Nachkommastellen halten den Rundungsfehler bei absolutem Skonto unter einem Cent
+    public void AdoptGrantedSkonto(Invoice? relatedInvoice)
+    {
+        SkontoDays = null;
+
+        if (relatedInvoice == null || relatedInvoice.GrantedSkonto == 0 || relatedInvoice.AmountDue == 0)
+        {
+            SkontoType = DiscountType.None;
+            SkontoValue = null;
+            SkontoApplied = false;
+            return;
+        }
+
+        SkontoType = DiscountType.Percentage;
+        SkontoValue = Math.Round(relatedInvoice.GrantedSkonto / relatedInvoice.AmountDue * 100, 6);
+        SkontoApplied = true;
+    }
 }
 
 public record VatGroup(decimal Rate, decimal LineNet, decimal NetAfterDiscount, decimal Vat);

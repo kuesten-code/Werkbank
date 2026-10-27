@@ -13,7 +13,7 @@ public class HtmlEmailTemplateRenderer : IEmailTemplateRenderer
     public string RenderContentHtml(Invoice invoice, Company company)
     {
         var culture = new CultureInfo("de-DE");
-        var paymentAmount = invoice.AmountDue;
+        var paymentAmount = invoice.DocumentAmount;
         var formattedTotal = paymentAmount.ToString("C", culture);
         var formattedDate = invoice.InvoiceDate.ToString("dd.MM.yyyy", culture);
         var formattedDueDate = invoice.DueDate?.ToString("dd.MM.yyyy", culture) ?? "Sofort fällig";
@@ -26,6 +26,7 @@ public class HtmlEmailTemplateRenderer : IEmailTemplateRenderer
                 <tr><td><strong>Rechnungsnummer:</strong></td><td>{invoice.InvoiceNumber}</td></tr>
                 <tr><td><strong>Rechnungsdatum:</strong></td><td>{formattedDate}</td></tr>
                 <tr><td><strong>Fällig am:</strong></td><td>{formattedDueDate}</td></tr>
+                {(SkontoTerms.Describe(invoice) is { } skontoTerms ? $"""<tr><td><strong>Skonto:</strong></td><td>{skontoTerms}</td></tr>""" : "")}
             </table>
             <table style="width:100%; border-collapse:collapse; background-color:white; border:1px solid #ddd; padding:15px; margin:15px 0;">
                 <tr><td colspan="2"><strong>Bankverbindung</strong></td></tr>
@@ -42,7 +43,7 @@ public class HtmlEmailTemplateRenderer : IEmailTemplateRenderer
     public string RenderContentText(Invoice invoice, Company company)
     {
         var culture = new CultureInfo("de-DE");
-        var paymentAmount = invoice.AmountDue;
+        var paymentAmount = invoice.DocumentAmount;
         var formattedTotal = paymentAmount.ToString("C", culture);
         var formattedDate = invoice.InvoiceDate.ToString("dd.MM.yyyy", culture);
         var formattedDueDate = invoice.DueDate?.ToString("dd.MM.yyyy", culture) ?? "Sofort fällig";
@@ -55,7 +56,7 @@ public class HtmlEmailTemplateRenderer : IEmailTemplateRenderer
             Rechnungsbetrag: {formattedTotal}
             {(invoice.DiscountAmount != 0 ? $"  (inkl. Rabatt: {(invoice.DiscountType == DiscountType.Percentage ? $"{invoice.DiscountValue}%" : Math.Abs(invoice.DiscountAmount).ToString("C", culture))})\n" : "")}Rechnungsnummer: {invoice.InvoiceNumber}
             Rechnungsdatum:  {formattedDate}
-            Fällig am:       {formattedDueDate}
+            Fällig am:       {formattedDueDate}{(SkontoTerms.Describe(invoice) is { } skontoTerms ? $"\nSkonto:          {skontoTerms}" : "")}
 
             BANKVERBINDUNG:
             ---------------

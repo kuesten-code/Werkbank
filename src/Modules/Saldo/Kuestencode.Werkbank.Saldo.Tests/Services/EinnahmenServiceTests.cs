@@ -300,4 +300,51 @@ public class EinnahmenServiceTests
         result.Should().ContainKey("19%").WhoseValue.Should().Be(1500m);
         result.Should().ContainKey("7%").WhoseValue.Should().Be(200m);
     }
+
+    // ─── Skonto ───────────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task GetEinnahmen_Skontozahlung_MindertNettoUndUstAnteilig()
+    {
+        SetupKontenrahmen();
+        _kontoRepo.Setup(r => r.GetByKontenrahmenAsync("SKR03")).ReturnsAsync(new List<Konto>());
+        var payment = CreatePayment(1, 1, "RE-001", "Kunde A", new DateTime(2026, 1, 1), new DateOnly(2026, 1, 8), 1000m, 19m, 190m);
+        payment.PaymentAmount = 1166.20m;
+        _fakturaClient.Setup(c => c.GetEuerPaymentsAsync(Von, Bis)).ReturnsAsync(new List<InvoiceEuerPaymentDto> { payment });
+
+        var result = await CreateService().GetEinnahmenAsync(Von, Bis);
+
+        result.Should().ContainSingle();
+        result[0].Netto.Should().Be(980m);
+        result[0].Ust.Should().Be(186.20m);
+        result[0].Brutto.Should().Be(1166.20m);
+    }
+
+    [Fact]
+    public async Task GetEinnahmen_GutschriftMitSkontoMinderung_BuchtNurErstattetenAnteil()
+    {
+        SetupKontenrahmen();
+        _kontoRepo.Setup(r => r.GetByKontenrahmenAsync("SKR03")).ReturnsAsync(new List<Konto>());
+        var refund = CreatePayment(1, 2, "GS-001", "Kunde A", new DateTime(2026, 2, 1), new DateOnly(2026, 2, 5), -1000m, 19m, -190m);
+        refund.InvoiceType = "CreditNote";
+        refund.PaymentAmount = -1166.20m;
+        _fakturaClient.Setup(c => c.GetEuerPaymentsAsync(Von, Bis)).ReturnsAsync(new List<InvoiceEuerPaymentDto> { refund });
+
+        var result = await CreateService().GetEinnahmenAsync(Von, Bis);
+
+        result[0].Netto.Should().Be(-980m);
+        result[0].Ust.Should().Be(-186.20m);
+    }
+
+    [Fact]
+    public async Task GetSumme_GutschriftTeilerstattung_AnteiligStattVoll()
+    {
+        var refund = CreatePayment(1, 2, "GS-001", null, new DateTime(2026, 2, 1), new DateOnly(2026, 2, 5), -1000m, 19m, -190m);
+        refund.PaymentAmount = -595m;
+        _fakturaClient.Setup(c => c.GetEuerPaymentsAsync(Von, Bis)).ReturnsAsync(new List<InvoiceEuerPaymentDto> { refund });
+
+        var result = await CreateService().GetSummeAsync(Von, Bis);
+
+        result.Should().Be(-500m);
+    }
 }

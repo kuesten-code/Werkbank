@@ -11,6 +11,7 @@ public interface IInvoicePaymentService
     Task ZahlungErfassenAsync(int invoiceId, decimal betrag, DateTime datum, string? notiz);
     Task ZahlungLoeschenAsync(int zahlungId);
     Task ZahlungszielSetzenAsync(int invoiceId, DateTime zahlungsziel);
+    Task SkontoGewaehrenAsync(int invoiceId);
     Task<IEnumerable<InvoicePayment>> GetByPaymentDateRangeAsync(DateTime von, DateTime bis);
 }
 
@@ -55,6 +56,26 @@ public class InvoicePaymentService : IInvoicePaymentService
 
         var invoiceId = payment.InvoiceId;
         await _paymentRepository.DeleteAsync(payment);
+
+        // Skonto gehört zur Schlusszahlung — fällt sie weg, muss beim erneuten Erfassen neu entschieden werden.
+        // Gutschriften behalten das von der Bezugsrechnung übernommene Skonto.
+        var invoice = await _context.Invoices.FindAsync(invoiceId);
+        if (invoice is { Type: InvoiceType.Invoice, SkontoApplied: true })
+        {
+            invoice.SkontoApplied = false;
+            await _context.SaveChangesAsync();
+        }
+
+        await RecalculateStatusAsync(invoiceId);
+    }
+
+    public async Task SkontoGewaehrenAsync(int invoiceId)
+    {
+        var invoice = await _context.Invoices.FindAsync(invoiceId)
+            ?? throw new InvalidOperationException($"Rechnung {invoiceId} nicht gefunden.");
+
+        invoice.SkontoApplied = true;
+        await _context.SaveChangesAsync();
         await RecalculateStatusAsync(invoiceId);
     }
 
@@ -87,7 +108,7 @@ public class InvoicePaymentService : IInvoicePaymentService
         if (invoice == null) return;
         if (invoice.Status is InvoiceStatus.Draft or InvoiceStatus.Cancelled) return;
 
-        var newStatus = InvoiceStatusCalculator.Calculate(invoice.AmountDue, totalPaid, invoice.EffectiveDueDate);
+        var newStatus = InvoiceStatusCalculator.Calculate(invoice.SettlementAmount, totalPaid, invoice.EffectiveDueDate);
         invoice.Status = newStatus;
 
         if (newStatus == InvoiceStatus.Paid)

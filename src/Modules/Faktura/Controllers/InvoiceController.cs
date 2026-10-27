@@ -169,6 +169,9 @@ public class InvoiceController : ControllerBase
                 Notes = request.Notes,
                 DiscountType = Enum.Parse<DiscountType>(request.DiscountType),
                 DiscountValue = request.DiscountValue,
+                SkontoType = Enum.Parse<DiscountType>(request.SkontoType),
+                SkontoValue = request.SkontoValue,
+                SkontoDays = request.SkontoDays,
                 Type = Enum.Parse<InvoiceType>(request.Type),
                 RelatedInvoiceId = request.RelatedInvoiceId,
                 Status = InvoiceStatus.Draft,
@@ -211,6 +214,9 @@ public class InvoiceController : ControllerBase
             invoice.Notes = request.Notes;
             invoice.DiscountType = Enum.Parse<DiscountType>(request.DiscountType);
             invoice.DiscountValue = request.DiscountValue;
+            invoice.SkontoType = Enum.Parse<DiscountType>(request.SkontoType);
+            invoice.SkontoValue = request.SkontoValue;
+            invoice.SkontoDays = request.SkontoDays;
 
             // Update items
             invoice.Items.Clear();
@@ -418,9 +424,9 @@ public class InvoiceController : ControllerBase
                     Quantity = item.Quantity,
                     UnitPrice = item.UnitPrice,
                     VatRate = item.VatRate,
-                    TotalNet = item.TotalNet,
-                    TotalVat = item.TotalVat,
-                    TotalGross = item.TotalGross
+                    TotalNet = item.TotalNet * p.Invoice.DiscountRatio,
+                    TotalVat = item.TotalVat * p.Invoice.DiscountRatio,
+                    TotalGross = item.TotalGross * p.Invoice.DiscountRatio
                 }).ToList()
             }).ToList();
 
@@ -521,6 +527,12 @@ public class InvoiceController : ControllerBase
             PrintCount = invoice.PrintCount,
             DiscountType = invoice.DiscountType.ToString(),
             DiscountValue = invoice.DiscountValue,
+            SkontoType = invoice.SkontoType.ToString(),
+            SkontoValue = invoice.SkontoValue,
+            SkontoDays = invoice.SkontoDays,
+            SkontoDeadline = invoice.SkontoDeadline,
+            SkontoAmount = invoice.SkontoAmount,
+            SkontoApplied = invoice.SkontoApplied,
             TotalNet = invoice.TotalNet,
             DiscountAmount = invoice.DiscountAmount,
             TotalNetAfterDiscount = invoice.TotalNetAfterDiscount,

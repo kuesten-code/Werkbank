@@ -231,4 +231,82 @@ public class InvoicePaymentServiceTests
 
         (await _context.Invoices.FindAsync(4))!.Status.Should().Be(InvoiceStatus.PartiallyPaid);
     }
+
+    // ─── Skonto ───────────────────────────────────────────────────────────────
+
+    private async Task SeedSkontoInvoiceAsync()
+    {
+        var invoice = await SeedInvoiceAsync(InvoiceStatus.Sent, DateTime.UtcNow.AddDays(14));
+        invoice.SkontoType = DiscountType.Percentage;
+        invoice.SkontoValue = 2m;
+        invoice.SkontoDays = 10;
+        await _context.SaveChangesAsync();
+    }
+
+    [Fact]
+    public async Task SkontoGewaehren_ZahlungUmSkontoGemindert_SetztPaid()
+    {
+        await SeedSkontoInvoiceAsync();
+
+        await _service.SkontoGewaehrenAsync(1);
+        await _service.ZahlungErfassenAsync(1, 116.62m, DateTime.Today, null);
+
+        var invoice = (await _context.Invoices.FindAsync(1))!;
+        invoice.SkontoApplied.Should().BeTrue();
+        invoice.Status.Should().Be(InvoiceStatus.Paid);
+        invoice.PaidDate.Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task ZahlungErfassen_SkontobetragOhneGewaehrung_BleibtTeilbezahlt()
+    {
+        await SeedSkontoInvoiceAsync();
+
+        await _service.ZahlungErfassenAsync(1, 116.62m, DateTime.Today, null);
+
+        (await _context.Invoices.FindAsync(1))!.Status.Should().Be(InvoiceStatus.PartiallyPaid);
+    }
+
+    [Fact]
+    public async Task SkontoGewaehren_UnbekannteRechnung_WirftException()
+    {
+        var act = () => _service.SkontoGewaehrenAsync(999);
+
+        await act.Should().ThrowAsync<InvalidOperationException>();
+    }
+
+    [Fact]
+    public async Task ZahlungLoeschen_SkontoRechnung_NimmtSkontoZurueck()
+    {
+        await SeedSkontoInvoiceAsync();
+        await _service.SkontoGewaehrenAsync(1);
+        await _service.ZahlungErfassenAsync(1, 116.62m, DateTime.Today, null);
+        var payment = (await _service.GetZahlungenAsync(1)).Single();
+
+        await _service.ZahlungLoeschenAsync(payment.Id);
+
+        var invoice = (await _context.Invoices.FindAsync(1))!;
+        invoice.SkontoApplied.Should().BeFalse();
+        invoice.Status.Should().Be(InvoiceStatus.Sent);
+    }
+
+    [Fact]
+    public async Task ZahlungLoeschen_GutschriftMitUebernommenemSkonto_BehaeltSkonto()
+    {
+        _context.Invoices.Add(new Invoice
+        {
+            Id = 5, InvoiceNumber = "GS-2026-0002", InvoiceDate = DateTime.UtcNow, CustomerId = 1,
+            Type = InvoiceType.CreditNote, Status = InvoiceStatus.Sent,
+            SkontoType = DiscountType.Percentage, SkontoValue = 2m, SkontoApplied = true,
+            Items = { new InvoiceItem { Quantity = 1, UnitPrice = -100m, VatRate = 19m } }
+        });
+        await _context.SaveChangesAsync();
+        await _service.ZahlungErfassenAsync(5, -116.62m, DateTime.Today, null);
+        (await _context.Invoices.FindAsync(5))!.Status.Should().Be(InvoiceStatus.Paid);
+        var payment = (await _service.GetZahlungenAsync(5)).Single();
+
+        await _service.ZahlungLoeschenAsync(payment.Id);
+
+        (await _context.Invoices.FindAsync(5))!.SkontoApplied.Should().BeTrue();
+    }
 }

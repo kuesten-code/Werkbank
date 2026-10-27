@@ -182,6 +182,46 @@ public class PdfTaxContentTests : IClassFixture<FakturaWebApplicationFactory>
 
     [Theory]
     [MemberData(nameof(Layouts))]
+    public void Skonto_ZeigtAngebotImZahlungshinweisOhneBelegbetragZuMindern(PdfLayout layout)
+    {
+        var invoice = MakeInvoice();
+        invoice.SkontoType = DiscountType.Percentage;
+        invoice.SkontoValue = 2m;
+        invoice.SkontoDays = 10;
+        invoice.SkontoApplied = true;
+
+        var text = Render(invoice, MakeCompany(layout));
+
+        text.Should().Contain("Bei Zahlung bis zum 25.03.2026 gewähren wir 2 % Skonto (4,76 €).");
+        text.Should().Contain("Zahlbetrag dann:");
+        text.Should().Contain("233,24 €");
+        text.Should().Contain("238,00 €");
+        text.Should().NotContain("Zu zahlen:");
+        text.Should().NotContain("Bereits gewährtes Skonto:");
+    }
+
+    [Theory]
+    [MemberData(nameof(Layouts))]
+    public void GutschriftMitGewaehrtemSkonto_ZeigtAbzugUndZuErstatten(PdfLayout layout)
+    {
+        var invoice = MakeInvoice();
+        invoice.Type = InvoiceType.CreditNote;
+        invoice.Items[0].UnitPrice = -100m;
+        invoice.SkontoType = DiscountType.Percentage;
+        invoice.SkontoValue = 2m;
+        invoice.SkontoApplied = true;
+
+        var text = Render(invoice, MakeCompany(layout));
+
+        text.Should().Contain("Bereits gewährtes Skonto:");
+        text.Should().Contain("-4,76 €");
+        text.Should().Contain("Zu erstatten:");
+        text.Should().Contain("233,24 €");
+        text.Should().NotContain("gewähren wir");
+    }
+
+    [Theory]
+    [MemberData(nameof(Layouts))]
     public void GutschriftMitRabattUndAbschlag_ZeigtZuErstattenOhneAbschlag(PdfLayout layout)
     {
         var invoice = MakeInvoice();

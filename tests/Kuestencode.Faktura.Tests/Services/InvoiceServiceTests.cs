@@ -235,6 +235,29 @@ public class InvoiceServiceTests
         result.AmountDue.Should().Be(-source.AmountDue).And.Be(-714m);
     }
 
+    [Theory]
+    [InlineData(true, -1166.20)]
+    [InlineData(false, -1190)]
+    public async Task CreateCreditNote_SkontoRechnung_ErstattetNurGezahltenBetrag(bool skontoApplied, double expectedRefund)
+    {
+        var source = MakeInvoice(1, InvoiceStatus.Paid);
+        source.SkontoType = DiscountType.Percentage;
+        source.SkontoValue = 2m;
+        source.SkontoDays = 10;
+        source.SkontoApplied = skontoApplied;
+        source.Items.Add(MakeItem(1, 1000m));
+        _repo.Setup(r => r.GetByIdAsync(1)).ReturnsAsync(source);
+        _repo.Setup(r => r.GenerateCreditNoteNumberAsync()).ReturnsAsync("GS-2026-0004");
+        _repo.Setup(r => r.InvoiceNumberExistsAsync("GS-2026-0004")).ReturnsAsync(false);
+        _repo.Setup(r => r.AddAsync(It.IsAny<Invoice>())).ReturnsAsync((Invoice i) => i);
+
+        var result = await _service.CreateCreditNoteFromInvoiceAsync(1, DateTime.UtcNow);
+
+        result.SkontoApplied.Should().Be(skontoApplied);
+        result.SkontoDays.Should().BeNull();
+        result.DocumentAmount.Should().Be((decimal)expectedRefund);
+    }
+
     [Fact]
     public async Task CreateCreditNote_ReverseChargeRechnung_UebernimmtReverseCharge()
     {

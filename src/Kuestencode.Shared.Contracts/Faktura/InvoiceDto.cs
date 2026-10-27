@@ -27,6 +27,12 @@ public record InvoiceDto
     public int PrintCount { get; init; }
     public string DiscountType { get; init; } = "None";
     public decimal? DiscountValue { get; init; }
+    public string SkontoType { get; init; } = "None";
+    public decimal? SkontoValue { get; init; }
+    public int? SkontoDays { get; init; }
+    public DateTime? SkontoDeadline { get; init; }
+    public decimal SkontoAmount { get; init; }
+    public bool SkontoApplied { get; init; }
     public bool IsReverseCharge { get; init; }
     public string Type { get; init; } = "Invoice";
     public int? RelatedInvoiceId { get; init; }
@@ -83,6 +89,9 @@ public record CreateInvoiceRequest
     public string? Notes { get; init; }
     public string DiscountType { get; init; } = "None";
     public decimal? DiscountValue { get; init; }
+    public string SkontoType { get; init; } = "None";
+    public decimal? SkontoValue { get; init; }
+    public int? SkontoDays { get; init; }
     public bool IsReverseCharge { get; init; }
     public string Type { get; init; } = "Invoice";
     public int? RelatedInvoiceId { get; init; }
@@ -109,6 +118,9 @@ public record UpdateInvoiceRequest
     public string? Notes { get; init; }
     public string DiscountType { get; init; } = "None";
     public decimal? DiscountValue { get; init; }
+    public string SkontoType { get; init; } = "None";
+    public decimal? SkontoValue { get; init; }
+    public int? SkontoDays { get; init; }
     public bool IsReverseCharge { get; init; }
     public List<CreateInvoiceItemRequest> Items { get; init; } = [];
 }

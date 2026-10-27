@@ -96,6 +96,23 @@ public class InvoiceControllerReportingTests : IClassFixture<FakturaWebApplicati
     }
 
     [Fact]
+    public async Task EuerPayments_RabattIstInPositionenEnthalten_SummeGleichRechnungsbrutto()
+    {
+        var invoice = MakeInvoice("EUER-0002", InvoiceStatus.Paid);
+        invoice.DiscountType = DiscountType.Percentage;
+        invoice.DiscountValue = 10;
+        invoice.Payments.Add(new InvoicePayment { Amount = 1071m, PaymentDate = Utc(2025, 8, 1) });
+        await SeedAsync(invoice);
+
+        var result = await _client.GetFromJsonAsync<List<InvoiceEuerPaymentDto>>(
+            "/api/Invoice/euer-payments?from=2025-08-01&to=2025-08-31");
+
+        var payment = result.Should().ContainSingle().Subject;
+        payment.InvoiceTotalGross.Should().Be(1071m);
+        payment.Items.Should().ContainSingle(i => i.TotalNet == 900m && i.TotalVat == 171m && i.TotalGross == 1071m);
+    }
+
+    [Fact]
     public async Task EuerPayments_KeineZahlungenImZeitraum_LeereListe()
     {
         var result = await _client.GetFromJsonAsync<List<InvoiceEuerPaymentDto>>(

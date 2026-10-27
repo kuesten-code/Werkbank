@@ -92,6 +92,19 @@
                                     <td>@_invoice.RevisedDueDate.Value.ToString("dd.MM.yyyy")</td>
                                 </tr>
                             }
+                            @if (SkontoTerms.Describe(_invoice) is { } skontoTerms)
+                            {
+                                <tr>
+                                    <td><strong>Skonto:</strong></td>
+                                    <td>
+                                        @skontoTerms
+                                        @if (_invoice.SkontoApplied)
+                                        {
+                                            <MudChip T="string" Size="Size.Small" Color="Color.Success" Class="ml-2">gewährt</MudChip>
+                                        }
+                                    </td>
+                                </tr>
+                            }
                             @if (_invoice.PaidDate.HasValue)
                             {
                                 <tr>
@@ -362,6 +375,10 @@
                                 <FooterContent>
                                     <MudTh></MudTh>
                                     <MudTh Style="text-align: right">
+                                        @if (_invoice.GrantedSkonto != 0)
+                                        {
+                                            <MudText Typo="Typo.body2">Skonto gewährt: @_invoice.GrantedSkonto.ToString("C2", _culture)</MudText>
+                                        }
                                         @if (_invoice.RemainingAmount <= 0)
                                         {
                                             <MudText Color="Color.Success"><strong>Vollständig bezahlt</strong></MudText>
@@ -540,6 +557,15 @@
                     <MudNumericField T="decimal" Label="Betrag (€)" @bind-Value="_zahlungBetrag"
                                      Variant="Variant.Outlined" Min="0.01m" Step="0.01m"
                                      Format="F2" Culture="@_culture" />
+                    @if (CanGrantSkonto)
+                    {
+                        <MudCheckBox T="bool" Value="_zahlungMitSkonto" ValueChanged="OnZahlungMitSkontoChanged"
+                                     Label="@SkontoCheckboxLabel" />
+                        @if (_zahlungMitSkonto && _zahlungDatum > _invoice!.SkontoDeadline)
+                        {
+                            <MudAlert Severity="Severity.Warning" Dense="true">Zahlung liegt nach der Skontofrist.</MudAlert>
+                        }
+                    }
                     <MudTextField Label="Notiz (optional)" @bind-Value="_zahlungNotiz"
                                   Variant="Variant.Outlined" MaxLength="500" />
                 </MudStack>

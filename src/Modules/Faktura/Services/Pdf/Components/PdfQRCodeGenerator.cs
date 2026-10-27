@@ -22,7 +22,7 @@ public class PdfQRCodeGenerator
             ? company.AccountHolder
             : company.OwnerFullName;
 
-        var paymentAmount = invoice.AmountDue;
+        var paymentAmount = invoice.DocumentAmount;
         var amount = paymentAmount.ToString("F2", System.Globalization.CultureInfo.InvariantCulture);
         var purpose = $"Rechnung {invoice.InvoiceNumber}";
 

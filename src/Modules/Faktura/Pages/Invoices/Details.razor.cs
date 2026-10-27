@@ -37,6 +37,7 @@ public partial class Details
     private decimal _zahlungBetrag;
     private DateTime? _zahlungDatum = DateTime.Today;
     private string? _zahlungNotiz;
+    private bool _zahlungMitSkonto;
     private bool _zahlungSaving = false;
 
     private bool _zahlungszielModalOpen = false;
@@ -243,13 +244,31 @@ public partial class Details
         };
     }
 
+    private bool CanGrantSkonto => _invoice is { SkontoApplied: false } && _invoice.SkontoAmount != 0;
+
+    private string SkontoCheckboxLabel =>
+        $"Skonto gewähren ({_invoice!.SkontoAmount.ToString("C2", _culture)}, Frist bis {_invoice.SkontoDeadline:dd.MM.yyyy})";
+
     private void OpenZahlungModal()
     {
         if (_invoice == null) return;
-        _zahlungBetrag = _invoice.RemainingAmount > 0 ? _invoice.RemainingAmount : 0;
+        _zahlungMitSkonto = CanGrantSkonto && DateTime.Today <= _invoice.SkontoDeadline;
+        _zahlungBetrag = OffenerZahlbetrag();
         _zahlungDatum = DateTime.Today;
         _zahlungNotiz = null;
         _zahlungModalOpen = true;
+    }
+
+    private decimal OffenerZahlbetrag()
+    {
+        var offen = _invoice!.RemainingAmount - (_zahlungMitSkonto ? _invoice.SkontoAmount : 0);
+        return offen > 0 ? offen : 0;
+    }
+
+    private void OnZahlungMitSkontoChanged(bool mitSkonto)
+    {
+        _zahlungMitSkonto = mitSkonto;
+        _zahlungBetrag = OffenerZahlbetrag();
     }
 
     private void CloseZahlungModal()
@@ -264,6 +283,9 @@ public partial class Details
         _zahlungSaving = true;
         try
         {
+            if (_zahlungMitSkonto)
+                await PaymentService.SkontoGewaehrenAsync(_invoice.Id);
+
             await PaymentService.ZahlungErfassenAsync(
                 _invoice.Id,
                 _zahlungBetrag,

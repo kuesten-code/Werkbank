@@ -225,6 +225,19 @@ namespace Kuestencode.Faktura.Data.Migrations
                     b.Property<DateTime?>("ServicePeriodStart")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<bool>("SkontoApplied")
+                        .HasColumnType("boolean");
+
+                    b.Property<int?>("SkontoDays")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("SkontoType")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal?>("SkontoValue")
+                        .HasPrecision(18, 6)
+                        .HasColumnType("numeric(18,6)");
+
                     b.Property<int>("Status")
                         .HasColumnType("integer");
 

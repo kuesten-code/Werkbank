@@ -70,6 +70,57 @@ public class HtmlEmailTemplateRendererTests
         html.Should().Contain("inkl. Rabatt: 10%");
     }
 
+    private static Invoice MakeSkontoInvoice()
+    {
+        var invoice = MakeInvoice();
+        invoice.SkontoType = DiscountType.Percentage;
+        invoice.SkontoValue = 2;
+        invoice.SkontoDays = 10;
+        return invoice;
+    }
+
+    [Fact]
+    public void RenderContentHtml_MitSkonto_ZeigtSkontoAngebot()
+    {
+        var html = _renderer.RenderContentHtml(MakeSkontoInvoice(), MakeCompany());
+
+        html.Should().Contain("<strong>Skonto:</strong>");
+        html.Should().Contain("Bei Zahlung bis zum 11.03.2026 gewähren wir 2 % Skonto (2,38 €). Zahlbetrag dann: 116,62 €");
+    }
+
+    [Fact]
+    public void RenderContentHtml_OhneSkonto_KeinSkontoHinweis()
+    {
+        _renderer.RenderContentHtml(MakeInvoice(), MakeCompany()).Should().NotContain("Skonto");
+    }
+
+    [Fact]
+    public void RenderContentText_MitSkonto_ZeigtSkontoZeileNachFaelligkeit()
+    {
+        var text = _renderer.RenderContentText(MakeSkontoInvoice(), MakeCompany());
+
+        text.Should().Contain("Fällig am:       Sofort fällig\nSkonto:          Bei Zahlung bis zum 11.03.2026");
+    }
+
+    [Fact]
+    public void RenderContentText_OhneSkonto_KeinSkontoHinweis()
+    {
+        _renderer.RenderContentText(MakeInvoice(), MakeCompany()).Should().NotContain("Skonto");
+    }
+
+    [Fact]
+    public void RenderContentHtml_GutschriftMitGewaehrtemSkonto_ZeigtErstattungsbetrag()
+    {
+        var creditNote = MakeInvoice();
+        creditNote.Type = InvoiceType.CreditNote;
+        creditNote.Items[0].UnitPrice = -100;
+        creditNote.SkontoType = DiscountType.Percentage;
+        creditNote.SkontoValue = 2;
+        creditNote.SkontoApplied = true;
+
+        _renderer.RenderContentHtml(creditNote, MakeCompany()).Should().Contain("-116,62 €");
+    }
+
     [Fact]
     public void RenderContentHtml_MitAnzahlungen_ZeigtOffenenBetragStattGesamtbetrag()
     {

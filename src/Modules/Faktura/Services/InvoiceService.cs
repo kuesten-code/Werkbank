@@ -212,6 +212,7 @@ public class InvoiceService : IInvoiceService
                     SourceInvoiceId = downPayment.SourceInvoiceId
                 }).ToList()
             };
+            creditNote.AdoptGrantedSkonto(sourceInvoice);
 
             return await CreateAsync(creditNote);
         }

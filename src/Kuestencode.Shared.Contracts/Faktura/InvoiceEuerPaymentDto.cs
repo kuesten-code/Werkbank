@@ -3,6 +3,8 @@ namespace Kuestencode.Shared.Contracts.Faktura;
 /// <summary>
 /// Einzelne Zahlung einer Faktura-Rechnung, angereichert mit Rechnungspositionen für die EÜR.
 /// Pro Rechnung kann es mehrere Einträge geben (Teilzahlungen).
+/// Positionsbeträge sind um den Rabatt gemindert und ergeben in Summe <see cref="InvoiceTotalGross"/>; Skonto mindert
+/// nur <see cref="PaymentAmount"/> und wird so anteilig auf Netto und USt verteilt (§17 UStG).
 /// </summary>
 public class InvoiceEuerPaymentDto
 {
