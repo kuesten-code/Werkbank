@@ -46,8 +46,10 @@ public class EuerService : IEuerService
         var einnahmenBuchungen = await _einnahmen.GetEinnahmenAsync(filter.Von, filter.Bis);
         var ausgabenBuchungen = await _ausgaben.GetAusgabenAsync(filter.Von, filter.Bis);
 
-        var einnahmenPositionen = AggregateByKonto(einnahmenBuchungen, konten);
-        var ausgabenPositionen = AggregateByKonto(ausgabenBuchungen, konten);
+        var ermittlungsart = settings?.Ermittlungsart ?? Ermittlungsart.Euer;
+        var begriffe = ErmittlungsBegriffe.Fuer(ermittlungsart);
+        var einnahmenPositionen = AggregateByKonto(einnahmenBuchungen, konten, begriffe);
+        var ausgabenPositionen = AggregateByKonto(ausgabenBuchungen, konten, begriffe);
 
         return new EuerSummaryDto
         {
@@ -61,11 +63,12 @@ public class EuerService : IEuerService
             AusgabenNetto = ausgabenPositionen.Sum(p => p.BetragNetto),
             AusgabenMwst = ausgabenPositionen.Sum(p => p.MwstBetrag),
             AusgabenBrutto = ausgabenPositionen.Sum(p => p.BetragBrutto),
-            IstKleinunternehmer = istKleinunternehmer
+            IstKleinunternehmer = istKleinunternehmer,
+            Ermittlungsart = ermittlungsart
         };
     }
 
-    private static List<EuerPositionDto> AggregateByKonto(List<BuchungDto> buchungen, List<Konto> konten)
+    private static List<EuerPositionDto> AggregateByKonto(List<BuchungDto> buchungen, List<Konto> konten, ErmittlungsBegriffe begriffe)
     {
         return buchungen
             .GroupBy(b => b.KontoNummer)
@@ -76,7 +79,7 @@ public class EuerService : IEuerService
                 {
                     KontoNummer = group.Key,
                     KontoBezeichnung = konto?.KontoBezeichnung ?? group.First().KontoBezeichnung,
-                    Gruppe = GetGruppe(konto, group.First().Typ),
+                    Gruppe = GetGruppe(konto, group.First().Typ, begriffe),
                     BetragNetto = group.Sum(b => b.Netto),
                     MwstBetrag = group.Sum(b => b.Ust),
                     BetragBrutto = group.Sum(b => b.Brutto),
@@ -87,7 +90,7 @@ public class EuerService : IEuerService
             .ToList();
     }
 
-    private static string GetGruppe(Konto? konto, BuchungsTyp typ)
+    private static string GetGruppe(Konto? konto, BuchungsTyp typ, ErmittlungsBegriffe begriffe)
     {
         if (konto == null)
             return typ == BuchungsTyp.Einnahme ? "Erlöse" : "Sonstiges";
@@ -95,7 +98,7 @@ public class EuerService : IEuerService
         return konto.KontoTyp switch
         {
             KontoTyp.Einnahme => "Erlöse",
-            KontoTyp.Ausgabe => "Betriebsausgaben",
+            KontoTyp.Ausgabe => begriffe.Ausgaben,
             KontoTyp.Bank => "Bank",
             _ => "Sonstiges"
         };

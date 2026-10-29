@@ -91,9 +91,12 @@ public partial class Index
         var b = args.Item;
         if (b == null) return;
 
-        var url = b.Quelle == "Faktura"
-            ? $"/faktura/invoices/{b.Id}"
-            : $"/recepta/belege/{b.Id}/details";
+        var url = b.Quelle switch
+        {
+            "Faktura" => $"/faktura/invoices/{b.Id}",
+            "Locatio" => "/locatio",
+            _ => $"/recepta/belege/{b.Id}/details"
+        };
 
         NavigationManager.NavigateTo(url);
     }

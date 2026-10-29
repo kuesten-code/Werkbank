@@ -5,6 +5,7 @@
 @inject IPeriodCloseService PeriodCloseService
 @inject ICurrentUserAccessor CurrentUserAccessor
 @inject ICompanyService CompanyService
+@inject ISaldoSettingsService SettingsService
 @inject IJSRuntime JS
 @inject ISnackbar Snackbar
 @inject NavigationManager NavigationManager
@@ -128,7 +129,7 @@
                     <MudText Typo="Typo.caption" Color="@((_uebersicht?.Saldo ?? 0) >= 0 ? Color.Success : Color.Error)">
                         @if (_uebersicht != null)
                         {
-                            @((_uebersicht.Saldo) >= 0 ? "Gewinn" : "Verlust")
+                            @_begriffe.Ergebnis(_uebersicht.Saldo)
                         }
                     </MudText>
                 </MudStack>
@@ -225,7 +226,7 @@
             <MudButton Variant="Variant.Text" Color="Color.Default"
                        StartIcon="@Icons.Material.Filled.Analytics"
                        OnClick="@(() => NavigationManager.NavigateTo("/saldo/euer"))">
-                EÜR Detail
+                @_begriffe.Kurz Detail
             </MudButton>
 
             @if (!_istKleinunternehmer)
@@ -264,6 +265,7 @@
     private int _anzahlEinnahmen;
     private int _anzahlAusgaben;
     private bool _istKleinunternehmer;
+    private ErmittlungsBegriffe _begriffe = ErmittlungsBegriffe.Fuer(Ermittlungsart.Euer);
 
     private Zeitraum _zeitraum = Zeitraum.Jahr;
     private int _ausgewaehltesJahr = DateTime.Today.Year;
@@ -282,6 +284,8 @@
     protected override async Task OnInitializedAsync()
     {
         try { var company = await CompanyService.GetCompanyAsync(); _istKleinunternehmer = company?.IsKleinunternehmer ?? false; } catch { }
+        var settings = await SettingsService.GetSettingsAsync();
+        _begriffe = ErmittlungsBegriffe.Fuer(settings?.Ermittlungsart ?? Ermittlungsart.Euer);
         ApplyZeitraum();
         await LoadDataAsync();
     }

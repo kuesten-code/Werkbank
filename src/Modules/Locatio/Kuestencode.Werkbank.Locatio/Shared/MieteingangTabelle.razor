@@ -1,0 +1,39 @@
+<MudTable T="Mieteingang" Items="Eingaenge" Dense="true" Hover="true" Elevation="0">
+    <HeaderContent>
+        <MudTh>Zahlungsdatum</MudTh>
+        <MudTh>Monat</MudTh>
+        <MudTh>Einheit</MudTh>
+        <MudTh Style="text-align:right">Netto</MudTh>
+        <MudTh Style="text-align:right">USt</MudTh>
+        <MudTh Style="text-align:right">Brutto</MudTh>
+        <MudTh></MudTh>
+    </HeaderContent>
+    <RowTemplate>
+        <MudTd>@context.Zahlungsdatum.ToString("dd.MM.yyyy")</MudTd>
+        <MudTd>@context.Monat.ToString("MM/yyyy")</MudTd>
+        <MudTd>@context.Mieteinheit?.Gebaeude?.Name – @context.Mieteinheit?.Bezeichnung</MudTd>
+        <MudTd Style="text-align:right">@context.Netto.ToString("C")</MudTd>
+        <MudTd Style="text-align:right">@context.Ust.ToString("C")</MudTd>
+        <MudTd Style="text-align:right">@context.Brutto.ToString("C")</MudTd>
+        <MudTd Style="text-align:right; white-space:nowrap">
+            <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small" OnClick="() => Bearbeiten.InvokeAsync(context)" />
+            <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error" OnClick="() => Loeschen.InvokeAsync(context)" />
+        </MudTd>
+    </RowTemplate>
+    <NoRecordsContent>
+        <MudText Color="Color.Secondary">Keine Mieteingänge im gewählten Jahr.</MudText>
+    </NoRecordsContent>
+    <FooterContent>
+        <MudTd colspan="3"><strong>Summe</strong></MudTd>
+        <MudTd Style="text-align:right"><strong>@Eingaenge.Sum(e => e.Netto).ToString("C")</strong></MudTd>
+        <MudTd Style="text-align:right"><strong>@Eingaenge.Sum(e => e.Ust).ToString("C")</strong></MudTd>
+        <MudTd Style="text-align:right"><strong>@Eingaenge.Sum(e => e.Brutto).ToString("C")</strong></MudTd>
+        <MudTd></MudTd>
+    </FooterContent>
+</MudTable>
+
+@code {
+    [Parameter] public List<Mieteingang> Eingaenge { get; set; } = new();
+    [Parameter] public EventCallback<Mieteingang> Bearbeiten { get; set; }
+    [Parameter] public EventCallback<Mieteingang> Loeschen { get; set; }
+}

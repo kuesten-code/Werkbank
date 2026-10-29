@@ -1,0 +1,40 @@
+# Build Stage — runs natively on the build host and cross-compiles for TARGETARCH, avoiding slow QEMU emulation
+FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:9.0 AS build
+ARG TARGETARCH
+WORKDIR /src
+
+# Copy project files (order matters for effective layer caching)
+COPY ["src/Core/Kuestencode.Core.csproj", "src/Core/"]
+COPY ["src/Shared.UI/Kuestencode.Shared.UI.csproj", "src/Shared.UI/"]
+COPY ["src/Kuestencode.Shared.Contracts/Kuestencode.Shared.Contracts.csproj", "src/Kuestencode.Shared.Contracts/"]
+COPY ["src/Kuestencode.Shared.ApiClients/Kuestencode.Shared.ApiClients.csproj", "src/Kuestencode.Shared.ApiClients/"]
+COPY ["src/Modules/Locatio/Kuestencode.Werkbank.Locatio.Domain/Kuestencode.Werkbank.Locatio.Domain.csproj", "src/Modules/Locatio/Kuestencode.Werkbank.Locatio.Domain/"]
+COPY ["src/Modules/Locatio/Kuestencode.Werkbank.Locatio.Data/Kuestencode.Werkbank.Locatio.Data.csproj", "src/Modules/Locatio/Kuestencode.Werkbank.Locatio.Data/"]
+COPY ["src/Modules/Locatio/Kuestencode.Werkbank.Locatio/Kuestencode.Werkbank.Locatio.csproj", "src/Modules/Locatio/Kuestencode.Werkbank.Locatio/"]
+
+# Restore dependencies
+RUN dotnet restore "src/Modules/Locatio/Kuestencode.Werkbank.Locatio/Kuestencode.Werkbank.Locatio.csproj" -a $TARGETARCH
+
+# Copy everything else
+COPY . .
+
+# Publish
+RUN dotnet publish "src/Modules/Locatio/Kuestencode.Werkbank.Locatio/Kuestencode.Werkbank.Locatio.csproj" -c Release -a $TARGETARCH -o /app/publish /p:UseAppHost=false
+
+# Runtime Stage
+FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS final
+WORKDIR /app
+EXPOSE 8087
+
+# Timezone
+RUN apt-get update && apt-get install -y --no-install-recommends tzdata && rm -rf /var/lib/apt/lists/*
+ENV TZ=Europe/Berlin
+
+# Surface build metadata for observability
+ARG DOCKER_IMAGE_TAG=dev
+ENV DOCKER_IMAGE_TAG=${DOCKER_IMAGE_TAG}
+
+# Copy published output
+COPY --from=build /app/publish .
+
+ENTRYPOINT ["dotnet", "Kuestencode.Werkbank.Locatio.dll"]

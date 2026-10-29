@@ -1,6 +1,8 @@
 using Kuestencode.Core.Interfaces;
 using Kuestencode.Core.Models;
+using Kuestencode.Werkbank.Saldo.Data.Repositories;
 using Kuestencode.Werkbank.Saldo.Domain.Dtos;
+using Kuestencode.Werkbank.Saldo.Domain.Enums;
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
@@ -11,6 +13,7 @@ public class PdfReportService : IPdfReportService
 {
     private readonly IEuerService _euerService;
     private readonly ICompanyService _companyService;
+    private readonly ISaldoSettingsRepository _settingsRepo;
     private readonly ILogger<PdfReportService> _logger;
 
     private const string ColorFallbackPrimary = "#1a365d";
@@ -24,10 +27,12 @@ public class PdfReportService : IPdfReportService
     public PdfReportService(
         IEuerService euerService,
         ICompanyService companyService,
+        ISaldoSettingsRepository settingsRepo,
         ILogger<PdfReportService> logger)
     {
         _euerService    = euerService;
         _companyService = companyService;
+        _settingsRepo   = settingsRepo;
         _logger         = logger;
 
         QuestPDF.Settings.License = LicenseType.Community;
@@ -36,6 +41,7 @@ public class PdfReportService : IPdfReportService
     public async Task<byte[]> GenerateEuerReportAsync(DateOnly von, DateOnly bis)
     {
         var summary = await _euerService.GetEuerSummaryAsync(new EuerFilterDto { Von = von, Bis = bis });
+        var begriffe = summary.Begriffe;
 
         Company? company = null;
         try { company = await _companyService.GetCompanyAsync(); } catch { }
@@ -82,7 +88,7 @@ public class PdfReportService : IPdfReportService
                     // Weißer Bereich mit Titel
                     col.Item().PaddingHorizontal(40).PaddingTop(60).Column(body =>
                     {
-                        body.Item().Text("Einnahmen-Überschuss-Rechnung")
+                        body.Item().Text(begriffe.Titel)
                             .FontSize(28).Bold().FontColor(primaryColor);
                         body.Item().PaddingTop(8)
                             .Text($"Geschäftsjahr {von.Year}{(von.Year != bis.Year ? "–" + bis.Year : "")}")
@@ -120,7 +126,7 @@ public class PdfReportService : IPdfReportService
                     // Footer Deckblatt – kein Werkbank-Branding
                     col.Item().Extend().AlignBottom()
                         .PaddingHorizontal(40).PaddingBottom(20)
-                        .Text("Einnahmen-Überschuss-Rechnung – vertraulich")
+                        .Text($"{begriffe.Titel} – vertraulich")
                         .FontSize(8).FontColor(ColorTextMuted).Italic();
                 });
             });
@@ -129,21 +135,21 @@ public class PdfReportService : IPdfReportService
             container.Page(page =>
             {
                 ConfigurePage(page);
-                page.Header().Element(c => PageHeader(c, "Zusammenfassung", zeitraum, logoBytes, firmaName, primaryColor, primaryMuted));
-                page.Footer().Element(PageFooter);
+                page.Header().Element(c => PageHeader(c, begriffe.Kurz, "Zusammenfassung", zeitraum, logoBytes, firmaName, primaryColor, primaryMuted));
+                page.Footer().Element(c => PageFooter(c, begriffe.Titel));
 
                 page.Content().PaddingHorizontal(40).PaddingTop(20).Column(col =>
                 {
                     // Drei Kacheln
                     col.Item().Row(row =>
                     {
-                        SummaryTile(row.RelativeItem(), "Betriebseinnahmen (Netto)", summary.EinnahmenNetto, ColorGreen, primaryLight);
+                        SummaryTile(row.RelativeItem(), $"{begriffe.Einnahmen} (Netto)", summary.EinnahmenNetto, ColorGreen, primaryLight);
                         row.ConstantItem(10);
-                        SummaryTile(row.RelativeItem(), "Betriebsausgaben (Netto)", summary.AusgabenNetto, ColorRed, primaryLight);
+                        SummaryTile(row.RelativeItem(), $"{begriffe.Ausgaben} (Netto)", summary.AusgabenNetto, ColorRed, primaryLight);
                         row.ConstantItem(10);
                         var gewinn = summary.Ueberschuss;
                         SummaryTile(row.RelativeItem(),
-                            gewinn >= 0 ? "Gewinn (Überschuss)" : "Verlust",
+                            begriffe.Ergebnis(gewinn),
                             gewinn, gewinn >= 0 ? ColorGreen : ColorRed, primaryLight);
                     });
 
@@ -197,14 +203,14 @@ public class PdfReportService : IPdfReportService
                             TableHeaderCell(h.Cell(), "Brutto", primaryColor, true);
                         });
 
-                        SummaryTableRow(table, "Betriebseinnahmen",
+                        SummaryTableRow(table, begriffe.Einnahmen,
                             summary.EinnahmenNetto, summary.EinnahmenMwst, summary.EinnahmenBrutto,
                             ColorGreen, false, primaryColor);
-                        SummaryTableRow(table, "Betriebsausgaben",
+                        SummaryTableRow(table, begriffe.Ausgaben,
                             summary.AusgabenNetto, summary.AusgabenMwst, summary.AusgabenBrutto,
                             ColorRed, false, primaryColor);
                         SummaryTableRow(table,
-                            summary.Ueberschuss >= 0 ? "Überschuss (Gewinn)" : "Fehlbetrag (Verlust)",
+                            begriffe.Ergebnis(summary.Ueberschuss),
                             summary.Ueberschuss, 0, 0,
                             summary.Ueberschuss >= 0 ? ColorGreen : ColorRed, true, primaryColor);
                     });
@@ -217,8 +223,8 @@ public class PdfReportService : IPdfReportService
                 container.Page(page =>
                 {
                     ConfigurePage(page);
-                    page.Header().Element(c => PageHeader(c, "Betriebseinnahmen", zeitraum, logoBytes, firmaName, primaryColor, primaryMuted));
-                    page.Footer().Element(PageFooter);
+                    page.Header().Element(c => PageHeader(c, begriffe.Kurz, begriffe.Einnahmen, zeitraum, logoBytes, firmaName, primaryColor, primaryMuted));
+                    page.Footer().Element(c => PageFooter(c, begriffe.Titel));
 
                     page.Content().PaddingHorizontal(40).PaddingTop(20).Column(col =>
                     {
@@ -236,8 +242,8 @@ public class PdfReportService : IPdfReportService
                 container.Page(page =>
                 {
                     ConfigurePage(page);
-                    page.Header().Element(c => PageHeader(c, "Betriebsausgaben", zeitraum, logoBytes, firmaName, primaryColor, primaryMuted));
-                    page.Footer().Element(PageFooter);
+                    page.Header().Element(c => PageHeader(c, begriffe.Kurz, begriffe.Ausgaben, zeitraum, logoBytes, firmaName, primaryColor, primaryMuted));
+                    page.Footer().Element(c => PageFooter(c, begriffe.Titel));
 
                     page.Content().PaddingHorizontal(40).PaddingTop(20).Column(col =>
                     {
@@ -261,7 +267,9 @@ public class PdfReportService : IPdfReportService
 
         var safeCompanyName = SanitizeFileName(company?.DisplayName ?? "");
         var suffix = string.IsNullOrEmpty(safeCompanyName) ? "" : "_" + safeCompanyName;
-        return $"EÜR_{von.Year}{suffix}.pdf";
+        var settings = await _settingsRepo.GetAsync();
+        var kurz = ErmittlungsBegriffe.Fuer(settings?.Ermittlungsart ?? Ermittlungsart.Euer).Kurz.Replace("+", "u");
+        return $"{kurz}_{von.Year}{suffix}.pdf";
     }
 
     private static string SanitizeFileName(string name)
@@ -285,7 +293,7 @@ public class PdfReportService : IPdfReportService
         page.DefaultTextStyle(x => x.FontFamily("Arial").FontSize(10).FontColor(ColorText));
     }
 
-    private static void PageHeader(IContainer container, string section, string zeitraum,
+    private static void PageHeader(IContainer container, string kurz, string section, string zeitraum,
         byte[]? logoBytes, string firmaName, string primaryColor, string primaryMuted)
     {
         container.Background(primaryColor).PaddingHorizontal(40).PaddingVertical(12).Row(row =>
@@ -299,10 +307,10 @@ public class PdfReportService : IPdfReportService
 
             row.RelativeItem();
 
-            // Rechts: EÜR + Abschnitt
+            // Rechts: Ermittlungsart + Abschnitt
             row.ConstantItem(180).AlignRight().AlignMiddle().Column(c =>
             {
-                c.Item().AlignRight().Text($"EÜR – {section}")
+                c.Item().AlignRight().Text($"{kurz} – {section}")
                     .FontSize(11).Bold().FontColor(Colors.White);
                 c.Item().AlignRight().Text(zeitraum)
                     .FontSize(8).FontColor(primaryMuted);
@@ -310,12 +318,12 @@ public class PdfReportService : IPdfReportService
         });
     }
 
-    private static void PageFooter(IContainer container)
+    private static void PageFooter(IContainer container, string titel)
     {
         container.PaddingHorizontal(40).Row(row =>
         {
             row.RelativeItem()
-                .Text("Einnahmen-Überschuss-Rechnung – vertraulich")
+                .Text($"{titel} – vertraulich")
                 .FontSize(8).FontColor(ColorTextMuted).Italic();
             row.ConstantItem(80).AlignRight().Text(x =>
             {

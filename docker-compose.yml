@@ -38,6 +38,7 @@ services:
       - ServiceUrls__Acta=http://acta:8084
       - ServiceUrls__Recepta=http://recepta:8085
       - ServiceUrls__Saldo=http://saldo:8086
+      - ServiceUrls__Locatio=http://locatio:8087
       - APPLY_MIGRATIONS=true
       - Backup__SourcePath=/app/backup-source
       - DockerControl__ContainerNamePattern=kuestencode_{0}_dev
@@ -76,8 +77,8 @@ services:
       - '-loglevel=debug'
       - '-listenip=0.0.0.0'
       - '-allowfrom=host'
-      - '-allowGET=(/v1[.][0-9]{2})?/containers/kuestencode_(postgres|faktura|rapport|offerte|acta|recepta|saldo)_dev/json'
-      - '-allowPOST=(/v1[.][0-9]{2})?/containers/kuestencode_(postgres|faktura|rapport|offerte|acta|recepta|saldo)_dev/(stop|start|restart)'
+      - '-allowGET=(/v1[.][0-9]{2})?/containers/kuestencode_(postgres|faktura|rapport|offerte|acta|recepta|saldo|locatio)_dev/json'
+      - '-allowPOST=(/v1[.][0-9]{2})?/containers/kuestencode_(postgres|faktura|rapport|offerte|acta|recepta|saldo|locatio)_dev/(stop|start|restart)'
       - '-allowhealthcheck'
     healthcheck:
       test: ["CMD", "./healthcheck"]
@@ -236,8 +237,35 @@ services:
       - ServiceUrls__Self=http://saldo:8086
       - ServiceUrls__Faktura=http://faktura:8081
       - ServiceUrls__Recepta=http://recepta:8085
+      - ServiceUrls__Locatio=http://locatio:8087
       - APPLY_MIGRATIONS=true
     volumes:
+      - ./data/keys:/app/data/keys
+    depends_on:
+      postgres:
+        condition: service_healthy
+      host:
+        condition: service_started
+    restart: unless-stopped
+    networks:
+      - kuestencode_network_dev
+
+  locatio:
+    build:
+      context: .
+      dockerfile: src/Modules/Locatio/Kuestencode.Werkbank.Locatio/Dockerfile
+    container_name: kuestencode_locatio_dev
+    ports:
+      - "8087:8087"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:8087
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=kuestencode_dev;Username=postgres;Password=dev_password
+      - ServiceUrls__Host=http://host:8080
+      - ServiceUrls__Self=http://locatio:8087
+      - APPLY_MIGRATIONS=true
+    volumes:
+      - ./data/locatio:/app/data
       - ./data/keys:/app/data/keys
     depends_on:
       postgres:

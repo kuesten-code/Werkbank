@@ -1,4 +1,5 @@
 using FluentAssertions;
+using Kuestencode.Shared.Contracts.Locatio;
 using Kuestencode.Shared.Contracts.Recepta;
 using Kuestencode.Werkbank.Saldo.Data.Repositories;
 using Kuestencode.Werkbank.Saldo.Domain.Dtos;
@@ -29,9 +30,15 @@ public class AusgabenServiceTests
             .ReturnsAsync((KontoMappingOverride?)null);
     }
 
-    private AusgabenService CreateService() =>
-        new(_receptaData.Object, _mappingRepo.Object, _overrideRepo.Object, _kontoRepo.Object,
+    private readonly List<LocatioBuchungDto> _locatioBuchungen = new();
+
+    private AusgabenService CreateService()
+    {
+        var locatio = new Mock<ILocatioDataService>();
+        locatio.Setup(l => l.GetBuchungenAsync(It.IsAny<DateOnly>(), It.IsAny<DateOnly>())).ReturnsAsync(_locatioBuchungen);
+        return new(_receptaData.Object, locatio.Object, _mappingRepo.Object, _overrideRepo.Object, _kontoRepo.Object,
             _settingsRepo.Object, NullLogger<AusgabenService>.Instance);
+    }
 
     private void SetupKontenrahmen(string kontenrahmen = "SKR03")
     {

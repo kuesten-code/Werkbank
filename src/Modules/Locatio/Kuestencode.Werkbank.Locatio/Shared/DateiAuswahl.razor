@@ -1,0 +1,34 @@
+@inject ISnackbar Snackbar
+
+<MudFileUpload T="IBrowserFile" Accept=".pdf,.jpg,.jpeg,.png" FilesChanged="OnDateiAsync" MaximumFileCount="1">
+    <ActivatorContent>
+        <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.AttachFile">
+            @(Value?.Dateiname ?? Label)
+        </MudButton>
+    </ActivatorContent>
+</MudFileUpload>
+
+@code {
+    [Parameter] public string Label { get; set; } = "Datei wählen";
+    [Parameter] public DateiUpload? Value { get; set; }
+    [Parameter] public EventCallback<DateiUpload?> ValueChanged { get; set; }
+
+    private async Task OnDateiAsync(IBrowserFile datei)
+    {
+        if (datei.Size > DateiUpload.MaxGroesse)
+        {
+            Snackbar.Add("Die Datei darf maximal 20 MB groß sein.", Severity.Warning);
+            return;
+        }
+
+        // Browser melden PDFs teils ohne Content-Type.
+        var contentType = string.IsNullOrEmpty(datei.ContentType) && datei.Name.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase)
+            ? "application/pdf"
+            : datei.ContentType;
+
+        await using var stream = datei.OpenReadStream(DateiUpload.MaxGroesse);
+        using var puffer = new MemoryStream();
+        await stream.CopyToAsync(puffer);
+        await ValueChanged.InvokeAsync(new DateiUpload(datei.Name, contentType, puffer.ToArray()));
+    }
+}

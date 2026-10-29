@@ -103,6 +103,7 @@ jobs:
           DOCKERFILES[acta]="src/Modules/Acta/Kuestencode.Werkbank.Acta/Dockerfile"
           DOCKERFILES[recepta]="src/Modules/Recepta/Kuestencode.Werkbank.Recepta/Dockerfile"
           DOCKERFILES[saldo]="src/Modules/Saldo/Kuestencode.Werkbank.Saldo/Dockerfile"
+          DOCKERFILES[locatio]="src/Modules/Locatio/Kuestencode.Werkbank.Locatio/Dockerfile"
 
           BUILD_MATRIX='{"include":['
           MERGE_MATRIX='{"include":['

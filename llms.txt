@@ -19,3 +19,4 @@ Every module runs as an isolated micro-container via Docker. If a user does not 
 - Acta: Project & Task management (Omitable)
 - Recepta: Incoming invoice OCR & automated mapping
 - Saldo: Accounting, EÜR, and DATEV export
+- Locatio: Rental property management (Vermietung und Verpachtung)

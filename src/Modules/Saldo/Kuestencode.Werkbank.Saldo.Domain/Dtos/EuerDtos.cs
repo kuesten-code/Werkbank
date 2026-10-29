@@ -1,3 +1,5 @@
+using Kuestencode.Werkbank.Saldo.Domain.Enums;
+
 namespace Kuestencode.Werkbank.Saldo.Domain.Dtos;
 
 /// <summary>
@@ -27,6 +29,9 @@ public class EuerSummaryDto
     public List<EuerPositionDto> Ausgaben { get; set; } = new();
 
     public bool IstKleinunternehmer { get; set; }
+
+    public Ermittlungsart Ermittlungsart { get; set; }
+    public ErmittlungsBegriffe Begriffe => ErmittlungsBegriffe.Fuer(Ermittlungsart);
 }
 
 
@@ -122,6 +127,7 @@ public class SaldoSettingsDto
     public string? BeraterNummer { get; set; }
     public string? MandantenNummer { get; set; }
     public int WirtschaftsjahrBeginn { get; set; } = 1;
+    public Ermittlungsart Ermittlungsart { get; set; }
 }
 
 /// <summary>
@@ -133,6 +139,7 @@ public class UpdateSaldoSettingsDto
     public string? BeraterNummer { get; set; }
     public string? MandantenNummer { get; set; }
     public int WirtschaftsjahrBeginn { get; set; } = 1;
+    public Ermittlungsart Ermittlungsart { get; set; }
 }
 
 /// <summary>

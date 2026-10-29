@@ -1,0 +1,114 @@
+@page "/darlehen"
+@inherits LocatioKomponente
+@inject IDarlehenService DarlehenService
+@inject IGebaeudeService GebaeudeService
+
+<PageTitle>Locatio – Darlehen</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="mt-4">
+    <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-2">
+        <MudText Typo="Typo.h4">Darlehen</MudText>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" OnClick="() => DarlehenAsync(null)">Darlehen anlegen</MudButton>
+    </MudStack>
+    <MudAlert Severity="Severity.Info" Dense="true" Class="mb-4">
+        Nur der Zinsanteil ist Werbungskosten und geht an Saldo. Die Tilgung wird dokumentiert, aber nie übergeben.
+    </MudAlert>
+
+    @if (_darlehen.Count == 0)
+    {
+        <MudText Color="Color.Secondary">Noch keine Darlehen erfasst.</MudText>
+    }
+
+    <MudExpansionPanels MultiExpansion="true">
+        @foreach (var darlehen in _darlehen)
+        {
+            <MudExpansionPanel>
+                <TitleContent>
+                    <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Style="width:100%">
+                        <MudText><strong>@darlehen.Bezeichnung</strong> · @darlehen.Kreditgeber · @darlehen.Gebaeude?.Name</MudText>
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">
+                            Zinsen gesamt @Euro(darlehen.Zahlungen.Sum(z => z.Zinsanteil)) · Tilgung gesamt @Euro(darlehen.Zahlungen.Sum(z => z.Tilgungsanteil))
+                        </MudText>
+                    </MudStack>
+                </TitleContent>
+                <ChildContent>
+                    <MudStack Row="true" Spacing="2" Class="mb-2">
+                        <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
+                                   OnClick="() => ZahlungAsync(darlehen, null)">Rate erfassen</MudButton>
+                        <MudButton Size="Size.Small" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Edit" OnClick="() => DarlehenAsync(darlehen)">Bearbeiten</MudButton>
+                        <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Error" StartIcon="@Icons.Material.Filled.Delete"
+                                   OnClick="() => DarlehenLoeschenAsync(darlehen)" Disabled="@darlehen.Zahlungen.Any()">Löschen</MudButton>
+                    </MudStack>
+                    <MudTable T="Darlehenszahlung" Items="darlehen.Zahlungen" Dense="true" Elevation="0">
+                        <HeaderContent>
+                            <MudTh>Zahlungsdatum</MudTh>
+                            <MudTh Style="text-align:right">Zins (an Saldo)</MudTh>
+                            <MudTh Style="text-align:right">Tilgung (nicht an Saldo)</MudTh>
+                            <MudTh>Notiz</MudTh>
+                            <MudTh></MudTh>
+                        </HeaderContent>
+                        <RowTemplate>
+                            <MudTd>@Datum(context.Zahlungsdatum)</MudTd>
+                            <MudTd Style="text-align:right">@Euro(context.Zinsanteil)</MudTd>
+                            <MudTd Style="text-align:right">@Euro(context.Tilgungsanteil)</MudTd>
+                            <MudTd>@context.Notiz</MudTd>
+                            <MudTd Style="text-align:right; white-space:nowrap">
+                                <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small" OnClick="() => ZahlungAsync(darlehen, context)" />
+                                <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error" OnClick="() => ZahlungLoeschenAsync(context)" />
+                            </MudTd>
+                        </RowTemplate>
+                        <NoRecordsContent><MudText Color="Color.Secondary">Noch keine Raten erfasst.</MudText></NoRecordsContent>
+                    </MudTable>
+                </ChildContent>
+            </MudExpansionPanel>
+        }
+    </MudExpansionPanels>
+</MudContainer>
+
+@code {
+    private List<Darlehen> _darlehen = new();
+
+    protected override Task OnInitializedAsync() => LadeAsync();
+
+    private async Task LadeAsync() => _darlehen = await DarlehenService.GetAllAsync();
+
+    private async Task DarlehenAsync(Darlehen? darlehen)
+    {
+        var gebaeude = await GebaeudeService.GetAllAsync();
+        var ergebnis = await ZeigeDialogAsync<DarlehenDialog, Darlehen>("Darlehen", new()
+        {
+            { x => x.Darlehen, darlehen ?? new Darlehen { GebaeudeId = gebaeude.FirstOrDefault()?.Id ?? Guid.Empty } },
+            { x => x.Gebaeude, gebaeude }
+        });
+        if (ergebnis != null)
+            await VersucheAsync(() => DarlehenService.SaveAsync(ergebnis), "Darlehen gespeichert.");
+        await LadeAsync();
+    }
+
+    private async Task DarlehenLoeschenAsync(Darlehen darlehen)
+    {
+        if (!await BestaetigeAsync($"Darlehen \"{darlehen.Bezeichnung}\" löschen?"))
+            return;
+        await VersucheAsync(() => DarlehenService.DeleteAsync(darlehen.Id), "Darlehen gelöscht.");
+        await LadeAsync();
+    }
+
+    private async Task ZahlungAsync(Darlehen darlehen, Darlehenszahlung? zahlung)
+    {
+        var ergebnis = await ZeigeDialogAsync<DarlehenszahlungDialog, Darlehenszahlung>($"Rate – {darlehen.Bezeichnung}", new()
+        {
+            { x => x.Zahlung, zahlung ?? new Darlehenszahlung { DarlehenId = darlehen.Id } }
+        });
+        if (ergebnis != null)
+            await VersucheAsync(() => DarlehenService.SaveZahlungAsync(ergebnis), "Rate gespeichert.");
+        await LadeAsync();
+    }
+
+    private async Task ZahlungLoeschenAsync(Darlehenszahlung zahlung)
+    {
+        if (!await BestaetigeAsync($"Rate vom {Datum(zahlung.Zahlungsdatum)} löschen?"))
+            return;
+        await VersucheAsync(() => DarlehenService.DeleteZahlungAsync(zahlung.Id), "Rate gelöscht.");
+        await LadeAsync();
+    }
+}

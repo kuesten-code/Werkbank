@@ -1,0 +1,40 @@
+<MudDialog>
+    <DialogContent>
+        <MudStack Spacing="2">
+            <DatumFeld Label="Zahlungsdatum" @bind-Value="_zahlungsdatum" Required="true" />
+            <MudGrid Spacing="2">
+                <MudItem xs="12" sm="6">
+                    <MudNumericField T="decimal" @bind-Value="Zahlung.Zinsanteil" Label="Zinsanteil (€)" Variant="Variant.Outlined" Min="0"
+                                     HelperText="Werbungskosten, geht an Saldo" />
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudNumericField T="decimal" @bind-Value="Zahlung.Tilgungsanteil" Label="Tilgungsanteil (€)" Variant="Variant.Outlined" Min="0"
+                                     HelperText="Nicht abziehbar, geht nicht an Saldo" />
+                </MudItem>
+            </MudGrid>
+            <MudTextField @bind-Value="Zahlung.Notiz" Label="Notiz" Variant="Variant.Outlined" />
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="() => Dialog.Cancel()">Abbrechen</MudButton>
+        <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="Speichern" Disabled="@(_zahlungsdatum == null)">Speichern</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] public IMudDialogInstance Dialog { get; set; } = default!;
+    [Parameter] public Darlehenszahlung Zahlung { get; set; } = new();
+
+    private DateOnly? _zahlungsdatum;
+
+    protected override void OnInitialized()
+    {
+        _zahlungsdatum = Zahlung.Id == Guid.Empty ? DateOnly.FromDateTime(DateTime.Today) : Zahlung.Zahlungsdatum;
+    }
+
+    private void Speichern()
+    {
+        Zahlung.Zahlungsdatum = _zahlungsdatum!.Value;
+        Dialog.Close(DialogResult.Ok(Zahlung));
+    }
+}

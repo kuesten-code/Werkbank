@@ -1,5 +1,6 @@
 using FluentAssertions;
 using Kuestencode.Shared.ApiClients;
+using Kuestencode.Shared.Contracts.Locatio;
 using Kuestencode.Shared.Contracts.Faktura;
 using Kuestencode.Werkbank.Saldo.Data.Repositories;
 using Kuestencode.Werkbank.Saldo.Domain.Dtos;
@@ -21,9 +22,15 @@ public class EinnahmenServiceTests
     private static readonly DateOnly Von = new(2026, 1, 1);
     private static readonly DateOnly Bis = new(2026, 12, 31);
 
-    private EinnahmenService CreateService() =>
-        new(_fakturaClient.Object, _kontoRepo.Object, _settingsRepo.Object,
+    private readonly List<LocatioBuchungDto> _locatioBuchungen = new();
+
+    private EinnahmenService CreateService()
+    {
+        var locatio = new Mock<ILocatioDataService>();
+        locatio.Setup(l => l.GetBuchungenAsync(It.IsAny<DateOnly>(), It.IsAny<DateOnly>())).ReturnsAsync(_locatioBuchungen);
+        return new(_fakturaClient.Object, locatio.Object, _kontoRepo.Object, _settingsRepo.Object,
             NullLogger<EinnahmenService>.Instance);
+    }
 
     private void SetupKontenrahmen(string kontenrahmen = "SKR03")
     {

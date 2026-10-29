@@ -101,6 +101,7 @@ var offerteServiceUrl = builder.Configuration.GetValue<string>("ServiceUrls:Offe
 var actaServiceUrl    = builder.Configuration.GetValue<string>("ServiceUrls:Acta")    ?? "http://localhost:8084";
 var receptaServiceUrl = builder.Configuration.GetValue<string>("ServiceUrls:Recepta") ?? "http://localhost:8085";
 var saldoServiceUrl   = builder.Configuration.GetValue<string>("ServiceUrls:Saldo")   ?? "http://localhost:8086";
+var locatioServiceUrl = builder.Configuration.GetValue<string>("ServiceUrls:Locatio") ?? "http://localhost:8087";
 builder.Services.AddReverseProxy()
     .LoadFromMemory(
         routes: new[]
@@ -221,6 +222,24 @@ builder.Services.AddReverseProxy()
                 {
                     Path = "/_saldo/{**catch-all}"
                 }
+            },
+            new Yarp.ReverseProxy.Configuration.RouteConfig
+            {
+                RouteId = "locatio-route",
+                ClusterId = "locatio-cluster",
+                Match = new Yarp.ReverseProxy.Configuration.RouteMatch
+                {
+                    Path = "/locatio/{**catch-all}"
+                }
+            },
+            new Yarp.ReverseProxy.Configuration.RouteConfig
+            {
+                RouteId = "locatio-blazor-route",
+                ClusterId = "locatio-cluster",
+                Match = new Yarp.ReverseProxy.Configuration.RouteMatch
+                {
+                    Path = "/_locatio/{**catch-all}"
+                }
             }
         },
         clusters: new[]
@@ -271,6 +290,14 @@ builder.Services.AddReverseProxy()
                 Destinations = new Dictionary<string, Yarp.ReverseProxy.Configuration.DestinationConfig>
                 {
                     { "saldo", new Yarp.ReverseProxy.Configuration.DestinationConfig { Address = saldoServiceUrl } }
+                }
+            },
+            new Yarp.ReverseProxy.Configuration.ClusterConfig
+            {
+                ClusterId = "locatio-cluster",
+                Destinations = new Dictionary<string, Yarp.ReverseProxy.Configuration.DestinationConfig>
+                {
+                    { "locatio", new Yarp.ReverseProxy.Configuration.DestinationConfig { Address = locatioServiceUrl } }
                 }
             }
         });

@@ -1,0 +1,101 @@
+@page "/"
+@inherits LocatioKomponente
+@inject IGebaeudeService GebaeudeService
+
+<PageTitle>Locatio</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4">
+    <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-4" Wrap="Wrap.Wrap">
+        <MudText Typo="Typo.h4">Vermietung</MudText>
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+            <MudSelect T="int" Value="_jahr" ValueChanged="JahrGeaendertAsync" Label="Kennzahlen für" Dense="true" Variant="Variant.Outlined" Style="width:140px">
+                @foreach (var jahr in Enumerable.Range(DateTime.Today.Year - 5, 6).Reverse())
+                {
+                    <MudSelectItem T="int" Value="jahr">@jahr</MudSelectItem>
+                }
+            </MudSelect>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" OnClick="NeuesGebaeudeAsync">
+                Gebäude anlegen
+            </MudButton>
+        </MudStack>
+    </MudStack>
+
+    @if (_kacheln == null)
+    {
+        <MudProgressCircular Indeterminate="true" Color="Color.Primary" />
+    }
+    else if (_kacheln.Count == 0)
+    {
+        <MudAlert Severity="Severity.Info">Noch keine Gebäude erfasst.</MudAlert>
+    }
+    else
+    {
+        <MudGrid>
+            @foreach (var kachel in _kacheln)
+            {
+                <MudItem xs="12" md="6" lg="4">
+                    <MudCard Elevation="2" Style="@(kachel.IstVeraeussert ? "opacity:0.7" : "")">
+                        <MudCardHeader>
+                            <CardHeaderContent>
+                                <MudText Typo="Typo.h6">@kachel.Name</MudText>
+                                <MudText Typo="Typo.body2" Color="Color.Secondary">@kachel.Adresse</MudText>
+                            </CardHeaderContent>
+                            <CardHeaderActions>
+                                @if (kachel.IstVeraeussert)
+                                {
+                                    <MudChip T="string" Color="Color.Default" Size="Size.Small">veräußert @Datum(kachel.VerkaufsDatum)</MudChip>
+                                }
+                            </CardHeaderActions>
+                        </MudCardHeader>
+                        <MudCardContent>
+                            <MudText Typo="Typo.subtitle1">
+                                @kachel.EinheitenEigentum von @kachel.EinheitenGesamt Einheiten in Eigentum, @kachel.EinheitenVermietet vermietet
+                            </MudText>
+                            @if (!kachel.IstVeraeussert)
+                            {
+                                <MudSimpleTable Dense="true" Elevation="0" Class="mt-2">
+                                    <tbody>
+                                        <tr><td>Leerstand</td><td class="text-right">@kachel.EinheitenLeer</td></tr>
+                                        <tr><td>Sollmiete / Monat</td><td class="text-right">@Euro(kachel.SollmieteMonat)</td></tr>
+                                        <tr><td>Einnahmen @_jahr</td><td class="text-right">@Euro(kachel.EinnahmenJahr)</td></tr>
+                                        <tr><td>Werbungskosten @_jahr</td><td class="text-right">@Euro(kachel.WerbungskostenJahr)</td></tr>
+                                        <tr><td><strong>Überschuss @_jahr</strong></td><td class="text-right"><strong>@Euro(kachel.UeberschussJahr)</strong></td></tr>
+                                    </tbody>
+                                </MudSimpleTable>
+                            }
+                        </MudCardContent>
+                        <MudCardActions>
+                            <MudButton Variant="Variant.Text" Color="Color.Primary" Href="@($"gebaeude/{kachel.Id}")">Öffnen</MudButton>
+                            @if (!string.IsNullOrWhiteSpace(kachel.AbrechnerUrl))
+                            {
+                                <MudButton Variant="Variant.Text" Href="@kachel.AbrechnerUrl" Target="_blank" EndIcon="@Icons.Material.Filled.OpenInNew">Abrechner</MudButton>
+                            }
+                        </MudCardActions>
+                    </MudCard>
+                </MudItem>
+            }
+        </MudGrid>
+    }
+</MudContainer>
+
+@code {
+    private List<GebaeudeKachelDto>? _kacheln;
+    private int _jahr = DateTime.Today.Year;
+
+    protected override Task OnInitializedAsync() => LadeAsync();
+
+    private async Task LadeAsync() => _kacheln = await GebaeudeService.GetKachelnAsync(_jahr);
+
+    private async Task JahrGeaendertAsync(int jahr)
+    {
+        _jahr = jahr;
+        await LadeAsync();
+    }
+
+    private async Task NeuesGebaeudeAsync()
+    {
+        var gebaeude = await ZeigeDialogAsync<GebaeudeDialog, Gebaeude>("Gebäude anlegen", new());
+        if (gebaeude != null && await VersucheAsync(() => GebaeudeService.SaveAsync(gebaeude), "Gebäude angelegt."))
+            Navigation.NavigateTo($"gebaeude/{gebaeude.Id}");
+    }
+}

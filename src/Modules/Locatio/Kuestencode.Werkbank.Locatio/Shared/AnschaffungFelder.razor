@@ -1,0 +1,22 @@
+@* Anschaffungsdaten für Gebäude und Einheit; zugleich AfA-Basis. Der Verkauf wird nur über "Veräußern" erfasst. *@
+<MudText Typo="Typo.subtitle2" Class="mt-2">Anschaffung (optional, AfA-Basis)</MudText>
+<MudGrid Spacing="2">
+    <MudItem xs="12" sm="6">
+        <DatumFeld Label="Anschaffungsdatum" @bind-Value="Objekt.AnschaffungsDatum" />
+    </MudItem>
+    <MudItem xs="12" sm="6">
+        <MudNumericField T="decimal?" @bind-Value="Objekt.AnschaffungskostenGebaeude" Label="Anschaffungskosten Gebäude (€)" Variant="Variant.Outlined" Min="0" />
+    </MudItem>
+    <MudItem xs="12" sm="6">
+        <MudNumericField T="decimal?" @bind-Value="Objekt.AnschaffungskostenGrundUndBoden" Label="Grund und Boden (€)" Variant="Variant.Outlined" Min="0"
+                         HelperText="Wird nicht abgeschrieben" />
+    </MudItem>
+    <MudItem xs="12" sm="6">
+        <MudNumericField T="decimal?" @bind-Value="Objekt.Anschaffungsnebenkosten" Label="Anschaffungsnebenkosten (€)" Variant="Variant.Outlined" Min="0"
+                         HelperText="Notar, Grunderwerbsteuer, Makler" />
+    </MudItem>
+</MudGrid>
+
+@code {
+    [Parameter, EditorRequired] public Eigentumsobjekt Objekt { get; set; } = default!;
+}

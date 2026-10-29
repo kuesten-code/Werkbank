@@ -333,6 +333,7 @@ public class HostNavigationService : IHostNavigationService
             "Acta"    => 4,
             "Recepta" => 5,
             "Saldo"   => 6,
+            "Locatio" => 7,
             _ => null
         };
     }
