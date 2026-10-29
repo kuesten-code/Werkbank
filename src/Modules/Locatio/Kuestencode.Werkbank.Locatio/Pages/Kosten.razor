@@ -39,7 +39,7 @@
             </HeaderContent>
             <RowTemplate>
                 <MudTd>@context.Gebaeude</MudTd>
-                <MudTd>@context.Einheit</MudTd>
+                <MudTd>@context.Einheit@(context.AusGebaeude ? " (anteilig)" : "")</MudTd>
                 <MudTd Style="text-align:right">@Euro(context.AfaBasis)</MudTd>
                 <MudTd Style="text-align:right">@context.AfaSatz.ToString("0.##") %</MudTd>
                 <MudTd Style="text-align:right">@context.Monate</MudTd>
@@ -56,7 +56,7 @@
                 </MudTd>
             </RowTemplate>
             <NoRecordsContent>
-                <MudText Color="Color.Secondary">Keine Einheit mit Anschaffungsdaten für @_jahr.</MudText>
+                <MudText Color="Color.Secondary">Keine Einheit mit AfA-Grundlage für @_jahr (Anschaffungsdaten an Einheit oder Gebäude, bei Gebäuden mit Fläche je Einheit).</MudText>
             </NoRecordsContent>
         </MudTable>
     </MudPaper>

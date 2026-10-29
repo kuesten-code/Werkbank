@@ -8,6 +8,7 @@
 @inject IGebaeudeService GebaeudeService
 @inject IAfaService AfaService
 @inject IVeraeusserungService VeraeusserungService
+@inject IUebergabeprotokollService ProtokollService
 
 <PageTitle>Locatio – @_einheit?.Bezeichnung</PageTitle>
 
@@ -55,6 +56,7 @@
                 <MudPaper Class="pa-4" Elevation="1">
                     <MudSimpleTable Dense="true" Elevation="0">
                         <tbody>
+                            <tr><td>Fläche</td><td>@Flaeche(_einheit.Flaeche)</td></tr>
                             @if (_einheit.Status == EinheitStatus.Fremdeigentum)
                             {
                                 <tr><td colspan="2">Fremdeigentum – gehört anderen Eigentümern. Keine Einnahmen, Kosten oder AfA.</td></tr>
@@ -71,8 +73,15 @@
                                     <tr><td>Monatsmiete netto / brutto</td><td>@Euro(_einheit.MonatsmieteNetto) / @Euro(_einheit.MonatsmieteBrutto)</td></tr>
                                 }
                                 <tr><td>Miteigentumsanteil</td><td>@(_einheit.Miteigentumsanteil ?? "noch offen")</td></tr>
-                                <tr><td>Anschaffung</td><td>@Datum(_einheit.AnschaffungsDatum) · @Euro(_einheit.AnschaffungskostenGesamt) gesamt</td></tr>
-                                <tr><td>AfA</td><td>@_einheit.AfaSatz.ToString("0.##") % p. a. auf @Euro(_einheit.AfaBasis)</td></tr>
+                                @if (_grundlage == null)
+                                {
+                                    <tr><td>Anschaffung / AfA</td><td>@KeineGrundlageText</td></tr>
+                                }
+                                else
+                                {
+                                    <tr><td>Anschaffung</td><td>@Datum(_grundlage.AnschaffungsDatum) · @Euro(_grundlage.Anschaffungskosten) gesamt@(AnteilText)</td></tr>
+                                    <tr><td>AfA</td><td>@_grundlage.AfaSatz.ToString("0.##") % p. a. auf @Euro(_grundlage.AfaBasis)</td></tr>
+                                }
                                 @if (_einheit.VerkaufsDatum.HasValue)
                                 {
                                     <tr><td>Veräußerung</td><td>@Datum(_einheit.VerkaufsDatum) · Preis @Euro(_einheit.Veraeusserungspreis ?? 0) · Kosten @Euro(_einheit.Veraeusserungskosten ?? 0)</td></tr>
@@ -153,6 +162,33 @@
                     </MudTable>
                 </MudTabPanel>
 
+                <MudTabPanel Text="Übergabeprotokolle">
+                    <MudStack Row="true" Justify="Justify.FlexEnd" Class="mb-2">
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" OnClick="() => ProtokollAsync(null)">Protokoll ablegen</MudButton>
+                    </MudStack>
+                    <MudTable T="Uebergabeprotokoll" Items="_protokolle" Dense="true" Elevation="0">
+                        <HeaderContent>
+                            <MudTh>Datum</MudTh>
+                            <MudTh>Art</MudTh>
+                            <MudTh>Mieter</MudTh>
+                            <MudTh>Notiz</MudTh>
+                            <MudTh></MudTh>
+                        </HeaderContent>
+                        <RowTemplate>
+                            <MudTd>@Datum(context.Datum)</MudTd>
+                            <MudTd>@context.Art</MudTd>
+                            <MudTd>@context.Mieter</MudTd>
+                            <MudTd Style="white-space:pre-line">@context.Notiz</MudTd>
+                            <MudTd Style="text-align:right; white-space:nowrap">
+                                <MudIconButton Icon="@Icons.Material.Filled.Description" Size="Size.Small" Href="@($"api/locatio/dokumente/{context.DokumentId}")" Target="_blank" />
+                                <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small" OnClick="() => ProtokollAsync(context)" />
+                                <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error" OnClick="() => ProtokollLoeschenAsync(context)" />
+                            </MudTd>
+                        </RowTemplate>
+                        <NoRecordsContent><MudText Color="Color.Secondary">Keine Übergabeprotokolle abgelegt.</MudText></NoRecordsContent>
+                    </MudTable>
+                </MudTabPanel>
+
                 <MudTabPanel Text="Kosten">
                     <MudStack Row="true" Justify="Justify.FlexEnd" Class="mb-2">
                         <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" OnClick="() => KostenAsync(null)">Kosten erfassen</MudButton>
@@ -163,12 +199,14 @@
                 <MudTabPanel Text="AfA">
                     @if (_afa == null)
                     {
-                        <MudText Color="Color.Secondary">Für @_jahr ist keine AfA anzusetzen (Anschaffungsdaten fehlen oder kein Eigentum im Jahr).</MudText>
+                        <MudText Color="Color.Secondary">
+                            Für @_jahr ist keine AfA anzusetzen. @(_grundlage == null ? KeineGrundlageText : "Die Einheit war in diesem Jahr nicht in unserem Eigentum.")
+                        </MudText>
                     }
                     else
                     {
                         <MudText>
-                            @_afa.AfaSatz.ToString("0.##") % von @Euro(_afa.AfaBasis) für @_afa.Monate Monate = <strong>@Euro(_afa.Betrag)</strong>
+                            @_afa.AfaSatz.ToString("0.##") % von @Euro(_afa.AfaBasis)@(AnteilText) für @_afa.Monate Monate = <strong>@Euro(_afa.Betrag)</strong>
                             (bisher angesetzt: @Euro(_afa.BereitsAngesetzt))
                         </MudText>
                         @if (_afa.BereitsGebucht)
@@ -194,6 +232,8 @@
     private List<Nebenkostenabrechnung> _abrechnungen = new();
     private List<Kostenposten> _kosten = new();
     private AfaVorschlagDto? _afa;
+    private AfaGrundlage? _grundlage;
+    private List<Uebergabeprotokoll> _protokolle = new();
     private int _jahr = DateTime.Today.Year;
 
     protected override Task OnParametersSetAsync() => LadeAsync();
@@ -204,7 +244,9 @@
         if (_einheit == null)
             return;
 
+        _grundlage = AfaRechner.Grundlage(_einheit);
         _abrechnungen = await NkService.GetByEinheitAsync(Id);
+        _protokolle = await ProtokollService.GetByEinheitAsync(Id);
         await LadeJahrAsync();
     }
 
@@ -273,6 +315,32 @@
         await VersucheAsync(() => NkService.DeleteAsync(abrechnung.Id), "Abrechnung gelöscht.");
         _abrechnungen = await NkService.GetByEinheitAsync(Id);
     }
+
+    private async Task ProtokollAsync(Uebergabeprotokoll? protokoll)
+    {
+        var erfassung = await ZeigeDialogAsync<UebergabeprotokollDialog, ErfassungMitDatei<Uebergabeprotokoll>>("Übergabeprotokoll", new()
+        {
+            { x => x.Protokoll, protokoll ?? new Uebergabeprotokoll { MieteinheitId = Id, Mieter = _einheit!.Mieter } }
+        });
+        if (erfassung != null)
+            await VersucheAsync(() => ProtokollService.SaveAsync(erfassung.Eintrag, erfassung.Datei), "Übergabeprotokoll gespeichert.");
+        _protokolle = await ProtokollService.GetByEinheitAsync(Id);
+    }
+
+    private async Task ProtokollLoeschenAsync(Uebergabeprotokoll protokoll)
+    {
+        if (!await BestaetigeAsync($"Übergabeprotokoll ({protokoll.Art}) vom {Datum(protokoll.Datum)} löschen?"))
+            return;
+        await VersucheAsync(() => ProtokollService.DeleteAsync(protokoll.Id), "Übergabeprotokoll gelöscht.");
+        _protokolle = await ProtokollService.GetByEinheitAsync(Id);
+    }
+
+    private string AnteilText => _grundlage is { AusGebaeude: true }
+        ? $" (anteilig {_grundlage.Anteil:P1} vom Gebäude nach Fläche)"
+        : string.Empty;
+
+    private const string KeineGrundlageText =
+        "Keine Anschaffungsdaten an der Einheit oder am Gebäude – oder nicht alle eigenen Einheiten haben eine Fläche.";
 
     private async Task KostenAsync(Kostenposten? posten)
     {

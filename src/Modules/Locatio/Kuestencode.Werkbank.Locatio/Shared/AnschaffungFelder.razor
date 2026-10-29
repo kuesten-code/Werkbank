@@ -1,5 +1,11 @@
 @* Anschaffungsdaten für Gebäude und Einheit; zugleich AfA-Basis. Der Verkauf wird nur über "Veräußern" erfasst. *@
 <MudText Typo="Typo.subtitle2" Class="mt-2">Anschaffung (optional, AfA-Basis)</MudText>
+@if (Objekt is Mieteinheit)
+{
+    <MudText Typo="Typo.caption" Color="Color.Secondary">
+        Nur bei Einzelerwerb der Einheit ausfüllen. Leer = anteilig nach Fläche aus den Anschaffungsdaten des Gebäudes.
+    </MudText>
+}
 <MudGrid Spacing="2">
     <MudItem xs="12" sm="6">
         <DatumFeld Label="Anschaffungsdatum" @bind-Value="Objekt.AnschaffungsDatum" />
@@ -14,6 +20,10 @@
     <MudItem xs="12" sm="6">
         <MudNumericField T="decimal?" @bind-Value="Objekt.Anschaffungsnebenkosten" Label="Anschaffungsnebenkosten (€)" Variant="Variant.Outlined" Min="0"
                          HelperText="Notar, Grunderwerbsteuer, Makler" />
+    </MudItem>
+    <MudItem xs="12" sm="6">
+        <MudNumericField T="decimal" @bind-Value="Objekt.AfaSatz" Label="AfA-Satz (% p. a.)" Variant="Variant.Outlined" Min="0" Max="100"
+                         HelperText="Linear, meist 2 % (ab 2023 fertiggestellt: 3 %)" />
     </MudItem>
 </MudGrid>
 

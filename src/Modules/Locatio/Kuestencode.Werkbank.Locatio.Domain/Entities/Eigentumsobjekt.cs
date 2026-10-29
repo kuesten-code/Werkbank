@@ -15,6 +15,9 @@ public abstract class Eigentumsobjekt
     public decimal? Veraeusserungspreis { get; set; }
     public decimal? Veraeusserungskosten { get; set; }
 
+    /// <summary>Linearer AfA-Satz in Prozent pro Jahr.</summary>
+    public decimal AfaSatz { get; set; } = 2m;
+
     public decimal AnschaffungskostenGesamt =>
         (AnschaffungskostenGebaeude ?? 0) + (AnschaffungskostenGrundUndBoden ?? 0) + (Anschaffungsnebenkosten ?? 0);
 

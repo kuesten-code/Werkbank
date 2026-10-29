@@ -141,6 +141,10 @@ namespace Kuestencode.Werkbank.Locatio.Data.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)");
 
+                    b.Property<decimal>("AfaSatz")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("numeric(5,2)");
+
                     b.Property<DateOnly?>("AnschaffungsDatum")
                         .HasColumnType("date");
 
@@ -389,6 +393,10 @@ namespace Kuestencode.Werkbank.Locatio.Data.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasDefaultValueSql("CURRENT_TIMESTAMP");
 
+                    b.Property<decimal?>("Flaeche")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("numeric(10,2)");
+
                     b.Property<Guid>("GebaeudeId")
                         .HasColumnType("uuid");
 
@@ -502,6 +510,52 @@ namespace Kuestencode.Werkbank.Locatio.Data.Migrations
                     b.ToTable("Nebenkostenabrechnungen", "locatio");
                 });
 
+            modelBuilder.Entity("Kuestencode.Werkbank.Locatio.Domain.Entities.Uebergabeprotokoll", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Art")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.Property<DateOnly>("Datum")
+                        .HasColumnType("date");
+
+                    b.Property<Guid>("DokumentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("MieteinheitId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Mieter")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("Notiz")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DokumentId");
+
+                    b.HasIndex("MieteinheitId");
+
+                    b.ToTable("Uebergabeprotokolle", "locatio");
+                });
+
             modelBuilder.Entity("Kuestencode.Werkbank.Locatio.Domain.Entities.Darlehen", b =>
                 {
                     b.HasOne("Kuestencode.Werkbank.Locatio.Domain.Entities.Gebaeude", "Gebaeude")
@@ -591,6 +645,25 @@ namespace Kuestencode.Werkbank.Locatio.Data.Migrations
                         .WithMany()
                         .HasForeignKey("DokumentId")
                         .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("Kuestencode.Werkbank.Locatio.Domain.Entities.Mieteinheit", "Mieteinheit")
+                        .WithMany()
+                        .HasForeignKey("MieteinheitId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Dokument");
+
+                    b.Navigation("Mieteinheit");
+                });
+
+            modelBuilder.Entity("Kuestencode.Werkbank.Locatio.Domain.Entities.Uebergabeprotokoll", b =>
+                {
+                    b.HasOne("Kuestencode.Werkbank.Locatio.Domain.Entities.Dokument", "Dokument")
+                        .WithMany()
+                        .HasForeignKey("DokumentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
 
                     b.HasOne("Kuestencode.Werkbank.Locatio.Domain.Entities.Mieteinheit", "Mieteinheit")
                         .WithMany()

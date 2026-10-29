@@ -52,4 +52,6 @@ public abstract class LocatioKomponente : ComponentBase
     protected static string Euro(decimal betrag) => betrag.ToString("C");
 
     protected static string Datum(DateOnly? datum) => datum?.ToString("dd.MM.yyyy") ?? "–";
+
+    protected static string Flaeche(decimal? flaeche) => flaeche is { } m2 ? $"{m2:0.##} m²" : "–";
 }

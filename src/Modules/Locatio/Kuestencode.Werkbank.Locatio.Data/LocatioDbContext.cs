@@ -29,6 +29,7 @@ public class LocatioDbContext : DbContext
     public DbSet<Mieteingang> Mieteingaenge { get; set; } = null!;
     public DbSet<Nebenkostenabrechnung> Nebenkostenabrechnungen { get; set; } = null!;
     public DbSet<Dokument> Dokumente { get; set; } = null!;
+    public DbSet<Uebergabeprotokoll> Uebergabeprotokolle { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -62,12 +63,12 @@ public class LocatioDbContext : DbContext
             entity.Property(e => e.Bezeichnung).HasMaxLength(100).IsRequired();
             entity.Property(e => e.Art).HasConversion<string>().HasMaxLength(20);
             entity.Property(e => e.Status).HasConversion<string>().HasMaxLength(20);
+            entity.Property(e => e.Flaeche).HasPrecision(10, 2);
             entity.Property(e => e.Kaltmiete).HasPrecision(18, 2);
             entity.Property(e => e.NebenkostenVorauszahlung).HasPrecision(18, 2);
             entity.Property(e => e.Miteigentumsanteil).HasMaxLength(50);
             entity.Property(e => e.Mieter).HasMaxLength(200);
             entity.Property(e => e.UstSatz).HasPrecision(5, 2);
-            entity.Property(e => e.AfaSatz).HasPrecision(5, 2);
             ConfigureEigentumsobjekt(entity);
             entity.Property(e => e.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
             entity.Property(e => e.UpdatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
@@ -159,6 +160,20 @@ public class LocatioDbContext : DbContext
             entity.HasOne(e => e.Dokument).WithMany().HasForeignKey(e => e.DokumentId).OnDelete(DeleteBehavior.SetNull);
         });
 
+        modelBuilder.Entity<Uebergabeprotokoll>(entity =>
+        {
+            entity.ToTable("Uebergabeprotokolle");
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.MieteinheitId);
+            entity.Property(e => e.Art).HasConversion<string>().HasMaxLength(20);
+            entity.Property(e => e.Mieter).HasMaxLength(200);
+            entity.Property(e => e.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
+            entity.Property(e => e.UpdatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+            entity.HasOne(e => e.Mieteinheit).WithMany().HasForeignKey(e => e.MieteinheitId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.Dokument).WithMany().HasForeignKey(e => e.DokumentId).OnDelete(DeleteBehavior.Restrict);
+        });
+
         modelBuilder.Entity<Dokument>(entity =>
         {
             entity.ToTable("Dokumente");
@@ -177,6 +192,7 @@ public class LocatioDbContext : DbContext
         entity.Property(e => e.Anschaffungsnebenkosten).HasPrecision(18, 2);
         entity.Property(e => e.Veraeusserungspreis).HasPrecision(18, 2);
         entity.Property(e => e.Veraeusserungskosten).HasPrecision(18, 2);
+        entity.Property(e => e.AfaSatz).HasPrecision(5, 2);
     }
 
     public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)

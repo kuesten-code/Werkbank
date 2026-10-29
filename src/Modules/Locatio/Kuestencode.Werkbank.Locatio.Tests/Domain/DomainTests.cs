@@ -101,6 +101,75 @@ public class DomainTests
         AfaRechner.Berechne(AfaEinheit(new DateOnly(2020, 1, 1), new DateOnly(2026, 1, 1)), 2026, 0m).Monate.Should().Be(0);
     }
 
+    private static Gebaeude GebaeudeMitAnschaffung(params Mieteinheit[] einheiten)
+    {
+        var gebaeude = new Gebaeude
+        {
+            AnschaffungsDatum = new DateOnly(2020, 1, 1),
+            AnschaffungskostenGebaeude = 300_000m,
+            AnschaffungskostenGrundUndBoden = 100_000m,
+            AfaSatz = 2m,
+            Einheiten = einheiten.ToList()
+        };
+        foreach (var einheit in einheiten)
+            einheit.Gebaeude = gebaeude;
+        return gebaeude;
+    }
+
+    private static Mieteinheit Einheit(decimal? flaeche, EinheitStatus status = EinheitStatus.Vermietet) =>
+        new() { Bezeichnung = "Whg", Status = status, Flaeche = flaeche };
+
+    [Fact]
+    public void Grundlage_VerteiltGebaeudeNachFlaeche_OhneFremdeigentumUndEinzelerwerb()
+    {
+        var gross = Einheit(75m);
+        var klein = Einheit(25m, EinheitStatus.Veraeussert);
+        var fremd = Einheit(null, EinheitStatus.Fremdeigentum);
+        var einzeln = Einheit(null);
+        einzeln.AnschaffungsDatum = new DateOnly(2022, 1, 1);
+        einzeln.AnschaffungskostenGebaeude = 90_000m;
+        einzeln.AfaSatz = 3m;
+        GebaeudeMitAnschaffung(gross, klein, fremd, einzeln);
+
+        var grundlage = AfaRechner.Grundlage(gross)!;
+        grundlage.AusGebaeude.Should().BeTrue();
+        grundlage.Anteil.Should().Be(0.75m);
+        grundlage.AfaBasis.Should().Be(225_000m);
+        grundlage.Anschaffungskosten.Should().Be(300_000m);
+        grundlage.AnschaffungsDatum.Should().Be(new DateOnly(2020, 1, 1));
+        grundlage.AfaSatz.Should().Be(2m);
+
+        var eigene = AfaRechner.Grundlage(einzeln)!;
+        eigene.AusGebaeude.Should().BeFalse();
+        eigene.AfaBasis.Should().Be(90_000m);
+        eigene.AfaSatz.Should().Be(3m);
+
+        AfaRechner.Grundlage(fremd).Should().BeNull();
+        AfaRechner.Berechne(gross, 2026, 0m).Betrag.Should().Be(4_500m);
+    }
+
+    [Fact]
+    public void Grundlage_FehlendeFlaeche_KeineVerteilung()
+    {
+        var mitFlaeche = Einheit(60m);
+        var ohneFlaeche = Einheit(null);
+        var gebaeude = GebaeudeMitAnschaffung(mitFlaeche, ohneFlaeche);
+
+        AfaRechner.Grundlage(mitFlaeche).Should().BeNull();
+        AfaRechner.AnGebaeudeBeteiligt(gebaeude).Should().HaveCount(2);
+        AfaRechner.Berechne(mitFlaeche, 2026, 0m).Monate.Should().Be(0);
+    }
+
+    [Fact]
+    public void Grundlage_GebaeudeOhneAnschaffung_Keine()
+    {
+        var einheit = Einheit(60m);
+        einheit.Gebaeude = new Gebaeude { Einheiten = [einheit] };
+
+        AfaRechner.Grundlage(einheit).Should().BeNull();
+        AfaRechner.Grundlage(Einheit(60m)).Should().BeNull();
+    }
+
     [Fact]
     public void Mieteinheit_UstNurBeiGewerbeMitOption()
     {

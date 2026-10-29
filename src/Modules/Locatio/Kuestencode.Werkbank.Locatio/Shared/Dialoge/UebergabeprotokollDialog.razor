@@ -1,0 +1,51 @@
+<MudDialog>
+    <DialogContent>
+        <MudStack Spacing="2">
+            <MudGrid Spacing="2">
+                <MudItem xs="12" sm="4">
+                    <MudSelect T="UebergabeArt" @bind-Value="Protokoll.Art" Label="Art" Variant="Variant.Outlined">
+                        <MudSelectItem T="UebergabeArt" Value="UebergabeArt.Einzug">Einzug</MudSelectItem>
+                        <MudSelectItem T="UebergabeArt" Value="UebergabeArt.Auszug">Auszug</MudSelectItem>
+                    </MudSelect>
+                </MudItem>
+                <MudItem xs="12" sm="4">
+                    <DatumFeld Label="Übergabedatum" @bind-Value="_datum" Required="true" />
+                </MudItem>
+                <MudItem xs="12" sm="4">
+                    <MudTextField @bind-Value="Protokoll.Mieter" Label="Mieter" Variant="Variant.Outlined" />
+                </MudItem>
+            </MudGrid>
+            <MudTextField @bind-Value="Protokoll.Notiz" Label="Notiz" Variant="Variant.Outlined" Lines="2"
+                          HelperText="z. B. Zählerstände, übergebene Schlüssel, Mängel" />
+            <MudStack Row="true">
+                <DateiAuswahl Label="@(IstNeu ? "Protokoll hochladen" : "Protokoll ersetzen")" @bind-Value="_datei" />
+            </MudStack>
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="() => Dialog.Cancel()">Abbrechen</MudButton>
+        <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="Speichern"
+                   Disabled="@(_datum == null || (IstNeu && _datei == null))">Speichern</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] public IMudDialogInstance Dialog { get; set; } = default!;
+    [Parameter] public Uebergabeprotokoll Protokoll { get; set; } = new();
+
+    private DateOnly? _datum;
+    private DateiUpload? _datei;
+
+    private bool IstNeu => Protokoll.Id == Guid.Empty;
+
+    protected override void OnInitialized()
+    {
+        _datum = IstNeu ? DateOnly.FromDateTime(DateTime.Today) : Protokoll.Datum;
+    }
+
+    private void Speichern()
+    {
+        Protokoll.Datum = _datum!.Value;
+        Dialog.Close(DialogResult.Ok(new ErfassungMitDatei<Uebergabeprotokoll>(Protokoll, _datei)));
+    }
+}

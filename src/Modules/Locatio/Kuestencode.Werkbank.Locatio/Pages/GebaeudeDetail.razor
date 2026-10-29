@@ -6,6 +6,7 @@
 @inject IKategorieService KategorieService
 @inject IDarlehenService DarlehenService
 @inject IVeraeusserungService VeraeusserungService
+@inject IAfaService AfaService
 
 <PageTitle>Locatio – @_gebaeude?.Name</PageTitle>
 
@@ -56,6 +57,19 @@
                         · Grund und Boden @Euro(_gebaeude.AnschaffungskostenGrundUndBoden ?? 0)
                         · Nebenkosten @Euro(_gebaeude.Anschaffungsnebenkosten ?? 0)
                     </MudText>
+                    @if (_gebaeude.AnschaffungskostenGesamt > 0)
+                    {
+                        <MudText Typo="Typo.body2">
+                            AfA @_gebaeude.AfaSatz.ToString("0.##") % p. a. auf @Euro(_gebaeude.AfaBasis),
+                            verteilt nach Fläche auf @_beteiligte.Count Einheit(en) mit zusammen @Flaeche(_beteiligte.Sum(e => e.Flaeche ?? 0))
+                        </MudText>
+                        @if (_beteiligte.Any(e => e.Flaeche is not > 0))
+                        {
+                            <MudAlert Severity="Severity.Warning" Dense="true" Class="mt-2">
+                                Ohne Fläche ist keine AfA-Verteilung möglich: @string.Join(", ", _beteiligte.Where(e => e.Flaeche is not > 0).Select(e => e.Bezeichnung))
+                            </MudAlert>
+                        }
+                    }
                     @if (_gebaeude.VerkaufsDatum.HasValue)
                     {
                         <MudText Typo="Typo.subtitle2" Class="mt-2">Veräußerung</MudText>
@@ -87,6 +101,7 @@
                         <MudTh>Bezeichnung</MudTh>
                         <MudTh>Art</MudTh>
                         <MudTh>Status</MudTh>
+                        <MudTh Style="text-align:right">Fläche</MudTh>
                         <MudTh>Mieter</MudTh>
                         <MudTh Style="text-align:right">Miete/Monat</MudTh>
                         <MudTh>MEA</MudTh>
@@ -95,10 +110,16 @@
                         <MudTd>@context.Bezeichnung</MudTd>
                         <MudTd>@context.Art</MudTd>
                         <MudTd><MudChip T="string" Size="Size.Small" Color="@StatusFarbe(context.Status)">@context.Status.Anzeigename()</MudChip></MudTd>
+                        <MudTd Style="text-align:right">@Flaeche(context.Flaeche)</MudTd>
                         <MudTd>@context.Mieter</MudTd>
                         <MudTd Style="text-align:right">@(context.IstEigentum ? Euro(context.MonatsmieteBrutto) : "–")</MudTd>
                         <MudTd>@context.Miteigentumsanteil</MudTd>
                     </RowTemplate>
+                    <FooterContent>
+                        <MudTd colspan="3">Gesamt</MudTd>
+                        <MudTd Style="text-align:right">@Flaeche(_gebaeude.Einheiten.Sum(e => e.Flaeche ?? 0))</MudTd>
+                        <MudTd colspan="3"></MudTd>
+                    </FooterContent>
                 </MudTable>
             </MudTabPanel>
 
@@ -110,8 +131,11 @@
                             <MudSelectItem T="int" Value="jahr">@jahr</MudSelectItem>
                         }
                     </MudSelect>
-                    <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" OnClick="() => KostenErfassenAsync(null)"
-                               Disabled="@_gebaeude.VerkaufsDatum.HasValue">Kosten erfassen</MudButton>
+                    <MudStack Row="true" Spacing="2">
+                        <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.TrendingDown" OnClick="AfaBuchenAsync">AfA @_jahr buchen</MudButton>
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" OnClick="() => KostenErfassenAsync(null)"
+                                   Disabled="@_gebaeude.VerkaufsDatum.HasValue">Kosten erfassen</MudButton>
+                    </MudStack>
                 </MudStack>
                 <KostenTabelle Kosten="_kosten" Bearbeiten="KostenErfassenAsync" Loeschen="KostenLoeschenAsync" />
             </MudTabPanel>
@@ -141,6 +165,7 @@
     private Gebaeude? _gebaeude;
     private List<Kostenposten> _kosten = new();
     private List<Darlehen> _darlehen = new();
+    private List<Mieteinheit> _beteiligte = new();
     private int _jahr = DateTime.Today.Year;
 
     protected override Task OnParametersSetAsync() => LadeAsync();
@@ -148,6 +173,7 @@
     private async Task LadeAsync()
     {
         _gebaeude = await GebaeudeService.GetAsync(Id);
+        _beteiligte = _gebaeude == null ? new() : AfaRechner.AnGebaeudeBeteiligt(_gebaeude);
         _kosten = await KostenService.GetAsync(_jahr, Id);
         _darlehen = (await DarlehenService.GetAllAsync()).Where(d => d.GebaeudeId == Id).ToList();
     }
@@ -204,6 +230,14 @@
             await VersucheAsync(() => KostenService.DeleteAsync(posten.Id), "Kostenposten gelöscht.");
             _kosten = await KostenService.GetAsync(_jahr, Id);
         }
+    }
+
+    private async Task AfaBuchenAsync()
+    {
+        var anzahl = 0;
+        if (await VersucheAsync(async () => anzahl = await AfaService.BucheGebaeudeAsync(Id, _jahr)))
+            Snackbar.Add($"AfA {_jahr} für {anzahl} Einheit(en) gebucht.", Severity.Success);
+        _kosten = await KostenService.GetAsync(_jahr, Id);
     }
 
     private async Task VeraeussernAsync()

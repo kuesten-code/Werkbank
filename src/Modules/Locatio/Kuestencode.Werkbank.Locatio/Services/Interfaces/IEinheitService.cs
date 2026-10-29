@@ -5,7 +5,7 @@ namespace Kuestencode.Werkbank.Locatio.Services;
 
 public interface IEinheitService
 {
-    /// <summary>Lädt die Einheit mit Gebäude, ohne Dateiinhalte.</summary>
+    /// <summary>Lädt die Einheit mit Gebäude samt dessen Einheiten (für die AfA-Verteilung), ohne Dateiinhalte.</summary>
     Task<Mieteinheit?> GetAsync(Guid id);
 
     Task<Mieteinheit> SaveAsync(Mieteinheit einheit);

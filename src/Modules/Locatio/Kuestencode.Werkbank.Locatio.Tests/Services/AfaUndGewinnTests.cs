@@ -115,6 +115,63 @@ public class AfaUndGewinnTests
         dto.UnterZehnJahren.Should().BeFalse();
     }
 
+    private Gebaeude GebaeudeMitFlaechen(out Mieteinheit gross, out Mieteinheit klein)
+    {
+        gross = TestDaten.Einheit("Whg 1");
+        gross.Flaeche = 90m;
+        klein = TestDaten.Einheit("Whg 2");
+        klein.Flaeche = 30m;
+        var gebaeude = new Gebaeude
+        {
+            Id = Guid.NewGuid(),
+            Name = "Haus am Deich",
+            AnschaffungsDatum = new DateOnly(2020, 1, 1),
+            AnschaffungskostenGebaeude = 400_000m,
+            AnschaffungskostenGrundUndBoden = 100_000m,
+            Einheiten = [gross, klein]
+        };
+        _daten.Speichere(gebaeude);
+        return gebaeude;
+    }
+
+    [Fact]
+    public async Task BucheGebaeude_BuchtAnteiligeAfaAllerEinheiten_ZweitesMalWirftException()
+    {
+        var gebaeude = GebaeudeMitFlaechen(out var gross, out var klein);
+
+        var anzahl = await _afa.BucheGebaeudeAsync(gebaeude.Id, 2026);
+
+        anzahl.Should().Be(2);
+        await using (var db = _daten.Factory.CreateDbContext())
+        {
+            var posten = await db.Kostenposten.ToListAsync();
+            posten.Single(p => p.MieteinheitId == gross.Id).Betrag.Should().Be(6_000m);
+            posten.Single(p => p.MieteinheitId == klein.Id).Betrag.Should().Be(2_000m);
+            posten.Should().OnlyContain(p => p.GebaeudeId == gebaeude.Id && p.Beschreibung.Contains("anteilig nach Fläche"));
+        }
+
+        var vorschlaege = await _afa.GetVorschlaegeAsync(2026);
+        vorschlaege.Should().OnlyContain(v => v.AusGebaeude && v.BereitsGebucht);
+        var nochmal = () => _afa.BucheGebaeudeAsync(gebaeude.Id, 2026);
+        await nochmal.Should().ThrowAsync<InvalidOperationException>().WithMessage("*keine AfA mehr offen*");
+    }
+
+    [Fact]
+    public async Task Veraeusserungsgewinn_EinheitAusGebaeude_NimmtFlaechenanteil()
+    {
+        GebaeudeMitFlaechen(out var gross, out _);
+        await _afa.BucheAsync(gross.Id, 2025);
+        await new VeraeusserungService(_daten.Factory)
+            .VeraeussereEinheitAsync(gross.Id, new VeraeusserungDaten(new DateOnly(2026, 7, 1), 450_000m, null));
+
+        var dto = (await _gewinn.FuerEinheitAsync(gross.Id))!;
+
+        dto.Anschaffungskosten.Should().Be(375_000m);
+        dto.AnschaffungsDatum.Should().Be(new DateOnly(2020, 1, 1));
+        dto.KumulierteAfa.Should().Be(6_000m);
+        dto.HaltedauerMonate.Should().Be(78);
+    }
+
     [Fact]
     public async Task Veraeusserungsgewinn_Unbekannt_Null()
     {

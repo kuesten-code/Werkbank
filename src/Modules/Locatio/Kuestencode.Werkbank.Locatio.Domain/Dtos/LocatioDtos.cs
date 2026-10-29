@@ -51,10 +51,15 @@ public record DateiUpload(string Dateiname, string ContentType, byte[] Inhalt)
 public class AfaVorschlagDto
 {
     public Guid MieteinheitId { get; set; }
+    public Guid GebaeudeId { get; set; }
     public string Gebaeude { get; set; } = string.Empty;
     public string Einheit { get; set; } = string.Empty;
     public decimal AfaBasis { get; set; }
     public decimal AfaSatz { get; set; }
+
+    /// <summary>AfA-Basis ist der Flächenanteil am Gebäude statt eigener Anschaffungsdaten.</summary>
+    public bool AusGebaeude { get; set; }
+
     public int Monate { get; set; }
     public decimal BereitsAngesetzt { get; set; }
     public decimal Betrag { get; set; }

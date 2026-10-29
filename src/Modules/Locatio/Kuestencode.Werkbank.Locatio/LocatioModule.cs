@@ -26,6 +26,7 @@ public static class LocatioModule
         services.AddScoped<INebenkostenabrechnungService, NebenkostenabrechnungService>();
         services.AddScoped<IDarlehenService, DarlehenService>();
         services.AddScoped<IAfaService, AfaService>();
+        services.AddScoped<IUebergabeprotokollService, UebergabeprotokollService>();
         services.AddScoped<ISaldoBuchungService, SaldoBuchungService>();
 
         return services;

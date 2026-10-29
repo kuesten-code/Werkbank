@@ -19,8 +19,8 @@ public class EinheitService : IEinheitService
     {
         await using var db = await _dbFactory.CreateDbContextAsync();
         return await db.Mieteinheiten
-            .AsNoTracking()
-            .Include(e => e.Gebaeude)
+            .AsNoTrackingWithIdentityResolution()
+            .Include(e => e.Gebaeude!.Einheiten)
             .FirstOrDefaultAsync(e => e.Id == id);
     }
 
@@ -100,6 +100,9 @@ public class EinheitService : IEinheitService
             throw new InvalidOperationException(
                 "Die Einheit hat Buchungen und kann nicht gelöscht werden. Verkaufte Einheiten bleiben archiviert.");
 
+        var protokolle = await db.Uebergabeprotokolle.Where(p => p.MieteinheitId == id).ToListAsync();
+        db.Uebergabeprotokolle.RemoveRange(protokolle);
+        db.Dokumente.RemoveRange(protokolle.Select(p => new Dokument { Id = p.DokumentId }));
         db.Mieteinheiten.Remove(einheit);
         await db.SaveChangesAsync();
     }

@@ -19,26 +19,29 @@ public class AfaService : IAfaService
     public async Task<List<AfaVorschlagDto>> GetVorschlaegeAsync(int jahr)
     {
         await using var db = await _dbFactory.CreateDbContextAsync();
-        var einheiten = await db.Mieteinheiten.AsNoTracking()
-            .Include(e => e.Gebaeude)
-            .Where(e => e.Status != EinheitStatus.Fremdeigentum && e.AnschaffungsDatum != null)
+        var einheiten = await db.Mieteinheiten.AsNoTrackingWithIdentityResolution()
+            .Include(e => e.Gebaeude!.Einheiten)
+            .Where(e => e.Status != EinheitStatus.Fremdeigentum)
             .ToListAsync();
         var afaPosten = await LadeAfaPostenAsync(db, einheiten.Select(e => e.Id).ToList());
 
         return einheiten
-            .Where(e => e.AfaBasis > 0)
-            .Select(e =>
+            .Select(e => (Einheit: e, Grundlage: AfaRechner.Grundlage(e)))
+            .Where(x => x.Grundlage is { AfaBasis: > 0 })
+            .Select(x =>
             {
-                var posten = afaPosten.Where(p => p.MieteinheitId == e.Id).ToList();
+                var posten = afaPosten.Where(p => p.MieteinheitId == x.Einheit.Id).ToList();
                 var angesetztVorJahr = posten.Where(p => p.Zahlungsdatum.Year < jahr).Sum(p => p.Betrag);
-                var (monate, betrag, datum) = AfaRechner.Berechne(e, jahr, angesetztVorJahr);
+                var (monate, betrag, datum) = AfaRechner.Berechne(x.Einheit, jahr, angesetztVorJahr);
                 return new AfaVorschlagDto
                 {
-                    MieteinheitId = e.Id,
-                    Gebaeude = e.Gebaeude?.Name ?? string.Empty,
-                    Einheit = e.Bezeichnung,
-                    AfaBasis = e.AfaBasis,
-                    AfaSatz = e.AfaSatz,
+                    MieteinheitId = x.Einheit.Id,
+                    GebaeudeId = x.Einheit.GebaeudeId,
+                    Gebaeude = x.Einheit.Gebaeude?.Name ?? string.Empty,
+                    Einheit = x.Einheit.Bezeichnung,
+                    AfaBasis = x.Grundlage!.AfaBasis,
+                    AfaSatz = x.Grundlage.AfaSatz,
+                    AusGebaeude = x.Grundlage.AusGebaeude,
                     Monate = monate,
                     BereitsAngesetzt = angesetztVorJahr,
                     Betrag = betrag,
@@ -60,21 +63,37 @@ public class AfaService : IAfaService
         if (vorschlag.Betrag <= 0)
             throw new InvalidOperationException($"Die AfA-Basis von {vorschlag.Einheit} ist bereits vollständig abgeschrieben.");
 
+        await BucheAsync([vorschlag], jahr);
+    }
+
+    public async Task<int> BucheGebaeudeAsync(Guid gebaeudeId, int jahr)
+    {
+        var offen = (await GetVorschlaegeAsync(jahr))
+            .Where(v => v.GebaeudeId == gebaeudeId && !v.BereitsGebucht && v.Betrag > 0)
+            .ToList();
+        if (offen.Count == 0)
+            throw new InvalidOperationException($"Für {jahr} ist in diesem Gebäude keine AfA mehr offen.");
+
+        await BucheAsync(offen, jahr);
+        return offen.Count;
+    }
+
+    private async Task BucheAsync(List<AfaVorschlagDto> vorschlaege, int jahr)
+    {
         await using var db = await _dbFactory.CreateDbContextAsync();
         var kategorie = await db.Kostenkategorien.OrderBy(k => k.Sortierung).FirstOrDefaultAsync(k => k.Typ == KategorieTyp.Afa)
             ?? throw new InvalidOperationException("Es gibt keine Kategorie vom Typ AfA.");
-        var einheit = await db.Mieteinheiten.FirstAsync(e => e.Id == einheitId);
 
-        db.Kostenposten.Add(new Kostenposten
+        db.Kostenposten.AddRange(vorschlaege.Select(v => new Kostenposten
         {
             Id = Guid.NewGuid(),
-            GebaeudeId = einheit.GebaeudeId,
-            MieteinheitId = einheitId,
+            GebaeudeId = v.GebaeudeId,
+            MieteinheitId = v.MieteinheitId,
             KategorieId = kategorie.Id,
-            Betrag = vorschlag.Betrag,
-            Zahlungsdatum = vorschlag.Buchungsdatum,
-            Beschreibung = $"AfA {jahr} {vorschlag.Einheit} ({vorschlag.AfaSatz:0.##} % von {vorschlag.AfaBasis:N2} €, {vorschlag.Monate} Monate)"
-        });
+            Betrag = v.Betrag,
+            Zahlungsdatum = v.Buchungsdatum,
+            Beschreibung = $"AfA {jahr} {v.Einheit} ({v.AfaSatz:0.##} % von {v.AfaBasis:N2} €{(v.AusGebaeude ? " anteilig nach Fläche" : "")}, {v.Monate} Monate)"
+        }));
         await db.SaveChangesAsync();
     }
 

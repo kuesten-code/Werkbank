@@ -12,6 +12,9 @@ public class Mieteinheit : Eigentumsobjekt
     public EinheitArt Art { get; set; }
     public EinheitStatus Status { get; set; } = EinheitStatus.Leer;
 
+    /// <summary>Wohn- bzw. Nutzfläche in m².</summary>
+    public decimal? Flaeche { get; set; }
+
     /// <summary>Monatliche Bruttokaltmiete; bei Gewerbe mit USt-Option der Nettobetrag.</summary>
     public decimal Kaltmiete { get; set; }
 
@@ -28,9 +31,6 @@ public class Mieteinheit : Eigentumsobjekt
     /// <summary>Option zur Umsatzsteuer nach § 9 UStG, nur bei Gewerbe wirksam.</summary>
     public bool UstOption { get; set; }
     public decimal UstSatz { get; set; } = 19m;
-
-    /// <summary>Linearer AfA-Satz in Prozent pro Jahr.</summary>
-    public decimal AfaSatz { get; set; } = 2m;
 
     public Guid? GrundrissId { get; set; }
     public Dokument? Grundriss { get; set; }

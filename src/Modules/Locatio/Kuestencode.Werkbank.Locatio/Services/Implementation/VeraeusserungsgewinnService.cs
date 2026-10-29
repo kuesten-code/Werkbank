@@ -1,4 +1,5 @@
 using Kuestencode.Werkbank.Locatio.Data;
+using Kuestencode.Werkbank.Locatio.Domain;
 using Kuestencode.Werkbank.Locatio.Domain.Dtos;
 using Kuestencode.Werkbank.Locatio.Domain.Entities;
 using Kuestencode.Werkbank.Locatio.Domain.Enums;
@@ -18,12 +19,21 @@ public class VeraeusserungsgewinnService : IVeraeusserungsgewinnService
     public async Task<VeraeusserungsgewinnDto?> FuerEinheitAsync(Guid einheitId)
     {
         await using var db = await _dbFactory.CreateDbContextAsync();
-        var einheit = await db.Mieteinheiten.AsNoTracking().Include(e => e.Gebaeude).FirstOrDefaultAsync(e => e.Id == einheitId);
+        var einheit = await db.Mieteinheiten.AsNoTrackingWithIdentityResolution().Include(e => e.Gebaeude!.Einheiten).FirstOrDefaultAsync(e => e.Id == einheitId);
         if (einheit == null)
             return null;
 
         var afa = await SummeAfaAsync(db, k => k.MieteinheitId == einheitId);
-        return Berechne($"{einheit.Gebaeude?.Name} – {einheit.Bezeichnung}", einheit, einheit.VerkaufsDatum ?? einheit.Gebaeude?.VerkaufsDatum, afa);
+        var dto = Berechne($"{einheit.Gebaeude?.Name} – {einheit.Bezeichnung}", einheit, einheit.GesperrtAb, afa);
+
+        if (AfaRechner.Grundlage(einheit) is { AusGebaeude: true } grundlage)
+        {
+            dto.Anschaffungskosten = grundlage.Anschaffungskosten;
+            dto.AnschaffungsDatum = grundlage.AnschaffungsDatum;
+            dto.HaltedauerMonate = Haltedauer(dto.AnschaffungsDatum, dto.VerkaufsDatum);
+        }
+
+        return dto;
     }
 
     public async Task<VeraeusserungsgewinnDto?> FuerGebaeudeAsync(Guid gebaeudeId)
