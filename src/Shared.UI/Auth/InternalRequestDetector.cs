@@ -1,4 +1,5 @@
 using System.Net;
+using System.Net.Sockets;
 using System.Security.Claims;
 using Kuestencode.Shared.Contracts.Host;
 using Microsoft.AspNetCore.Http;
@@ -21,24 +22,10 @@ namespace Kuestencode.Shared.UI.Auth;
 /// </summary>
 public static class InternalRequestDetector
 {
-    private static readonly Lazy<HashSet<string>> HostContainerIps = new(ResolveHostIps);
+    public static Task<bool> IsInternalAsync(HttpContext context) =>
+        IsInternalAsync(context, ResolveHostContainerAsync);
 
-    private static HashSet<string> ResolveHostIps()
-    {
-        try
-        {
-            // Läuft ausschließlich in ASP.NET-Core-Middleware auf dem Server, nie im Browser/WASM.
-#pragma warning disable CA1416
-            return Dns.GetHostAddresses("host").Select(a => a.ToString()).ToHashSet();
-#pragma warning restore CA1416
-        }
-        catch
-        {
-            return new HashSet<string>();
-        }
-    }
-
-    public static bool IsInternal(HttpContext context)
+    public static async Task<bool> IsInternalAsync(HttpContext context, Func<Task<IPAddress[]>> resolveHostContainer)
     {
         var remoteIp = context.Connection.RemoteIpAddress;
         if (remoteIp == null) return false;
@@ -48,17 +35,38 @@ public static class InternalRequestDetector
             ? remoteIp.MapToIPv4().ToString()
             : remoteIp.ToString();
 
-        if (HostContainerIps.Value.Contains(ip))
-            return false;
+        if (!IsPrivateNetwork(ip)) return false;
 
-        if (ip.StartsWith("172.") || ip.StartsWith("10.") || ip.StartsWith("192.168."))
-            return true;
+        return !await IsHostContainerAsync(ip, resolveHostContainer);
+    }
 
+    private static bool IsPrivateNetwork(string ip) =>
+        ip.StartsWith("172.") || ip.StartsWith("10.") || ip.StartsWith("192.168.")
         // IPv6 link-local (fe80::) und unique-local (fd/fc)
-        if (ip.StartsWith("fe80:") || ip.StartsWith("fd") || ip.StartsWith("fc"))
-            return true;
+        || ip.StartsWith("fe80:") || ip.StartsWith("fd") || ip.StartsWith("fc");
 
-        return false;
+    // Bewusst ohne Cache: Docker vergibt IPs beim Neuerstellen von Containern neu. Eine gemerkte
+    // Host-IP kann danach einem anderen Modul gehoeren, dessen Aufrufe dann als anonym abgelehnt wuerden.
+    private static async Task<bool> IsHostContainerAsync(string ip, Func<Task<IPAddress[]>> resolveHostContainer)
+    {
+        try
+        {
+            var hostAddresses = await resolveHostContainer();
+            return hostAddresses.Any(address => address.ToString() == ip);
+        }
+        catch (SocketException)
+        {
+            // Ohne aufgeloesten Host laesst sich proxied Browser-Traffic nicht ausschliessen
+            return true;
+        }
+    }
+
+    private static Task<IPAddress[]> ResolveHostContainerAsync()
+    {
+        // Läuft ausschließlich in ASP.NET-Core-Middleware auf dem Server, nie im Browser/WASM.
+#pragma warning disable CA1416
+        return Dns.GetHostAddressesAsync("host");
+#pragma warning restore CA1416
     }
 
     public static ClaimsPrincipal CreateInternalServicePrincipal()

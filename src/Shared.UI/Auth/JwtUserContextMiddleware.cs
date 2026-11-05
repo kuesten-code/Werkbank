@@ -32,7 +32,7 @@ public class JwtUserContextMiddleware
                 context.User = principal;
             }
         }
-        else if (InternalRequestDetector.IsInternal(context))
+        else if (await InternalRequestDetector.IsInternalAsync(context))
         {
             context.User = InternalRequestDetector.CreateInternalServicePrincipal();
         }
