@@ -45,6 +45,7 @@ public static class FakturaModule
         services.AddScoped<IInvoicePaymentService, InvoicePaymentService>();
         services.AddScoped<IDashboardService, DashboardService>();
         services.AddScoped<IOpenItemsService, OpenItemsService>();
+        services.AddScoped<ILegacyInvoiceImportService, LegacyInvoiceImportService>();
         services.AddScoped<IXRechnungService, XRechnungService>();
         services.AddScoped<IPreviewService, PreviewService>();
         services.AddScoped<IEmailValidationService, EmailValidationService>();

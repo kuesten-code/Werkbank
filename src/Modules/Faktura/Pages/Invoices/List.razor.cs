@@ -174,7 +174,7 @@ public partial class List : TabbedListPageBase
     {
         try
         {
-            var pdfBytes = await PdfGeneratorService.GenerateInvoicePdfAsync(invoice.Id);
+            var pdfBytes = await PdfGeneratorService.GetDocumentPdfAsync(invoice.Id);
             var fileName = $"{invoice.InvoiceNumber}.pdf";
 
             await JSRuntime.InvokeVoidAsync("downloadFile", fileName, Convert.ToBase64String(pdfBytes));

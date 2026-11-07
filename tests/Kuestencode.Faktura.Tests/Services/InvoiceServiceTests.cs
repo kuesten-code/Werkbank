@@ -359,6 +359,32 @@ public class InvoiceServiceTests
         _repo.Verify(r => r.DeleteAsync(It.IsAny<Invoice>()), Times.Never);
     }
 
+    [Fact]
+    public async Task Delete_AltrechnungOhneZahlungen_LoeschtRechnung()
+    {
+        var inv = MakeInvoice(1, InvoiceStatus.Overdue);
+        inv.IsImported = true;
+        _repo.Setup(r => r.GetByIdAsync(1)).ReturnsAsync(inv);
+
+        await _service.DeleteAsync(1);
+
+        _repo.Verify(r => r.DeleteAsync(inv), Times.Once);
+    }
+
+    [Fact]
+    public async Task Delete_AltrechnungMitZahlung_WirftException()
+    {
+        var inv = MakeInvoice(1, InvoiceStatus.PartiallyPaid);
+        inv.IsImported = true;
+        inv.Payments.Add(new InvoicePayment { Amount = 100m });
+        _repo.Setup(r => r.GetByIdAsync(1)).ReturnsAsync(inv);
+
+        var act = () => _service.DeleteAsync(1);
+
+        await act.Should().ThrowAsync<InvalidOperationException>();
+        _repo.Verify(r => r.DeleteAsync(It.IsAny<Invoice>()), Times.Never);
+    }
+
     // ─── CancelAsync ──────────────────────────────────────────────────────────
 
     [Fact]

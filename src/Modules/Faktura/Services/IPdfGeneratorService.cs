@@ -18,4 +18,9 @@ public interface IPdfGeneratorService
     /// Liefert das eingefrorene PDF zurück, falls eines existiert, sonst null.
     /// </summary>
     Task<byte[]?> TryGetFrozenSnapshotAsync(int invoiceId);
+
+    /// <summary>
+    /// Liefert den maßgeblichen Beleg: das eingefrorene PDF, falls vorhanden, sonst ein frisch gerendertes.
+    /// </summary>
+    Task<byte[]> GetDocumentPdfAsync(int invoiceId);
 }

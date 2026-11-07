@@ -219,6 +219,11 @@ public class PdfGeneratorService : IPdfGeneratorService
         return snapshot;
     }
 
+    public async Task<byte[]> GetDocumentPdfAsync(int invoiceId)
+    {
+        return await TryGetFrozenSnapshotAsync(invoiceId) ?? await GenerateInvoicePdfAsync(invoiceId);
+    }
+
     /// <summary>
     /// Lädt für jeden Abschlag die verknüpfte Abschlagsrechnung inkl. Positionen und Zahlungen nach,
     /// da SourceInvoice als [NotMapped]-Navigation nicht per Include geladen werden kann.

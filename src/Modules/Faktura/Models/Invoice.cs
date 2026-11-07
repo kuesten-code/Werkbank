@@ -83,6 +83,12 @@ public class Invoice
     // Tax Mode
     public bool IsReverseCharge { get; set; } = false;
 
+    /// <summary>
+    /// Offener Posten aus dem Vorsystem: Beleg ist das hochgeladene Original-PDF (eingefrorener Snapshot),
+    /// die einzige Position bildet nur die Summen ab. Faktura erzeugt dafür kein eigenes PDF/XRechnung.
+    /// </summary>
+    public bool IsImported { get; set; }
+
     public InvoiceType Type { get; set; } = InvoiceType.Invoice;
 
     public int? RelatedInvoiceId { get; set; }
@@ -99,6 +105,11 @@ public class Invoice
     /// </summary>
     [NotMapped]
     public bool IsLocked => Status != InvoiceStatus.Draft;
+
+    // Eine Altrechnung ist eine Erfassung, kein von Faktura ausgestellter Beleg — Tippfehler müssen sich durch
+    // Löschen und Neuerfassen korrigieren lassen, da die Rechnungsnummer sonst dauerhaft belegt bliebe
+    [NotMapped]
+    public bool IsDeletable => !IsLocked || (IsImported && Payments.Count == 0);
 
     // Navigation Properties
     // Customer ist in einem anderen Schema (host) - wird separat geladen

@@ -15,7 +15,14 @@
 
 <MudContainer MaxWidth="MaxWidth.Large" Class="mt-4">
     <MudPaper Class="pa-4">
-        <MudText Typo="Typo.h4" GutterBottom="true">Neue Faktura</MudText>
+        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-2">
+            <MudText Typo="Typo.h4">Neue Faktura</MudText>
+            <MudButton Variant="Variant.Text" Color="Color.Primary" Size="Size.Small"
+                       StartIcon="@Icons.Material.Filled.History"
+                       OnClick="@(() => NavigationManager.NavigateTo("/faktura/invoices/import"))">
+                Altrechnung aus Vorsystem übernehmen
+            </MudButton>
+        </MudStack>
 
         @if (!string.IsNullOrEmpty(_errorMessage))
         {

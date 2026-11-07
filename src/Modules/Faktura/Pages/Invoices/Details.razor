@@ -44,6 +44,14 @@
                 </MudStack>
             </MudStack>
 
+            @if (_invoice.IsImported)
+            {
+                <MudAlert Severity="Severity.Info" Class="mb-4">
+                    Altrechnung aus dem Vorsystem. Die Position bildet nur die Summen ab – maßgeblich ist das
+                    Original-PDF, das bei Drucken, Download und E-Mail verwendet wird.
+                </MudAlert>
+            }
+
             <MudGrid>
                 <!-- Kopfdaten -->
                 <MudItem xs="12" md="6">
@@ -525,19 +533,31 @@
                                         <MudText>PDF (Normal)</MudText>
                                     </MudStack>
                                 </MudMenuItem>
-                                <MudMenuItem OnClick="DownloadZugferdPdf">
-                                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-                                        <MudIcon Icon="@Icons.Material.Filled.IntegrationInstructions" Size="Size.Small" />
-                                        <MudText>PDF (ZUGFeRD)</MudText>
-                                    </MudStack>
-                                </MudMenuItem>
-                                <MudMenuItem OnClick="DownloadXRechnung">
-                                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-                                        <MudIcon Icon="@Icons.Material.Filled.Code" Size="Size.Small" />
-                                        <MudText>XRechnung (XML)</MudText>
-                                    </MudStack>
-                                </MudMenuItem>
+                                @if (!_invoice.IsImported)
+                                {
+                                    <MudMenuItem OnClick="DownloadZugferdPdf">
+                                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                                            <MudIcon Icon="@Icons.Material.Filled.IntegrationInstructions" Size="Size.Small" />
+                                            <MudText>PDF (ZUGFeRD)</MudText>
+                                        </MudStack>
+                                    </MudMenuItem>
+                                    <MudMenuItem OnClick="DownloadXRechnung">
+                                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                                            <MudIcon Icon="@Icons.Material.Filled.Code" Size="Size.Small" />
+                                            <MudText>XRechnung (XML)</MudText>
+                                        </MudStack>
+                                    </MudMenuItem>
+                                }
                             </MudMenu>
+
+                            @if (_invoice.IsImported && _invoice.IsDeletable)
+                            {
+                                <MudButton Variant="Variant.Outlined" Color="Color.Error"
+                                          StartIcon="@Icons.Material.Filled.Delete"
+                                          OnClick="DeleteImportedInvoice">
+                                    Löschen
+                                </MudButton>
+                            }
                         </MudStack>
                     </MudStack>
                 </MudItem>

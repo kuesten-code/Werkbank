@@ -264,7 +264,7 @@ public class InvoiceService : IInvoiceService
                 throw new InvalidOperationException($"Rechnung mit ID {id} wurde nicht gefunden.");
             }
 
-            if (invoice.IsLocked)
+            if (!invoice.IsDeletable)
             {
                 throw new InvalidOperationException(
                     $"Rechnung {invoice.InvoiceNumber} kann nicht gelöscht werden (Status: {invoice.Status}). Nummer bleibt aus GoBD-Gründen erhalten — Korrektur über Gutschrift oder Storno.");

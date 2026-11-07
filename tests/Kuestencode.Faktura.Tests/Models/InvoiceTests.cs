@@ -356,4 +356,23 @@ public class InvoiceTests
         invoice.TotalDownPayments.Should().Be(595m);
         invoice.AmountDue.Should().Be(595m);
     }
+
+    // ─── IsDeletable ──────────────────────────────────────────────────────────
+
+    [Theory]
+    [InlineData(InvoiceStatus.Draft, false, 0, true)]
+    [InlineData(InvoiceStatus.Sent, false, 0, false)]
+    [InlineData(InvoiceStatus.Sent, true, 0, true)]
+    [InlineData(InvoiceStatus.Overdue, true, 0, true)]
+    [InlineData(InvoiceStatus.PartiallyPaid, true, 1, false)]
+    public void IsDeletable_NurEntwuerfeUndAltrechnungenOhneZahlungen(InvoiceStatus status, bool isImported, int paymentCount, bool expected)
+    {
+        var invoice = MakeInvoice(MakeItem(1, 100m));
+        invoice.Status = status;
+        invoice.IsImported = isImported;
+        for (var i = 0; i < paymentCount; i++)
+            invoice.Payments.Add(new InvoicePayment { Amount = 10m });
+
+        invoice.IsDeletable.Should().Be(expected);
+    }
 }

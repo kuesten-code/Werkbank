@@ -216,6 +216,34 @@ public partial class Details
         }
     }
 
+    private async Task DeleteImportedInvoice()
+    {
+        if (_invoice == null) return;
+
+        var parameters = new DialogParameters<ConfirmDialog>
+        {
+            { x => x.ContentText, $"Altrechnung {_invoice.InvoiceNumber} wirklich löschen? Sie kann danach mit derselben Nummer neu übernommen werden." },
+            { x => x.ButtonText, "Löschen" },
+            { x => x.Color, Color.Error }
+        };
+
+        var dialog = await DialogService.ShowAsync<ConfirmDialog>("Altrechnung löschen", parameters);
+        var result = await dialog.Result;
+
+        if (result is null || result.Canceled) return;
+
+        try
+        {
+            await InvoiceService.DeleteAsync(_invoice.Id);
+            Snackbar.Add($"Altrechnung {_invoice.InvoiceNumber} wurde gelöscht.", Severity.Success);
+            NavigationManager.NavigateTo("/faktura/invoices");
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Fehler beim Löschen: {ex.Message}", Severity.Error);
+        }
+    }
+
     private Color GetStatusColor(InvoiceStatus status)
     {
         return status switch
@@ -356,7 +384,7 @@ public partial class Details
         _downloading = true;
         try
         {
-            var pdfBytes = await PdfGeneratorService.GenerateInvoicePdfAsync(_invoice.Id);
+            var pdfBytes = await PdfGeneratorService.GetDocumentPdfAsync(_invoice.Id);
             var fileName = $"{_invoice.InvoiceNumber}.pdf";
 
             await JSRuntime.InvokeVoidAsync("downloadFile", fileName, Convert.ToBase64String(pdfBytes));

@@ -1,0 +1,114 @@
+@page "/invoices/import"
+@using Kuestencode.Core.Interfaces
+@inject ILegacyInvoiceImportService ImportService
+@inject ICustomerService CustomerService
+@inject ICompanyService CompanyService
+@inject NavigationManager NavigationManager
+@inject ISnackbar Snackbar
+
+<PageTitle>Altrechnung übernehmen - Küstencode Faktura</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="mt-4">
+    <MudPaper Class="pa-4">
+        <MudText Typo="Typo.h4" GutterBottom="true">Altrechnung übernehmen</MudText>
+
+        <MudAlert Severity="Severity.Info" Class="mb-4">
+            Für offene Rechnungen aus dem bisherigen Programm. Die Rechnung erscheint in der OP-Liste und kann
+            wie gewohnt verbucht werden. Faktura erzeugt dafür keinen neuen Beleg: Drucken, Download und E-Mail
+            verwenden immer das hochgeladene Original-PDF.
+        </MudAlert>
+
+        @if (!string.IsNullOrEmpty(_errorMessage))
+        {
+            <MudAlert Severity="Severity.Error" Class="mb-4">@_errorMessage</MudAlert>
+        }
+
+        <MudGrid>
+            <MudItem xs="12" sm="4">
+                <MudTextField T="string" Label="Rechnungsnummer (wie auf dem Original)" @bind-Value="_invoiceNumber"
+                              MaxLength="@LegacyInvoiceImport.MaxInvoiceNumberLength" Required="true" />
+            </MudItem>
+            <MudItem xs="12" sm="4">
+                <MudDatePicker Label="Rechnungsdatum" @bind-Date="_invoiceDate"
+                               DateFormat="dd.MM.yyyy" Required="true" />
+            </MudItem>
+            <MudItem xs="12" sm="4">
+                <MudDatePicker Label="Fälligkeitsdatum" @bind-Date="_dueDate" DateFormat="dd.MM.yyyy" />
+            </MudItem>
+
+            <MudItem xs="12">
+                <MudAutocomplete T="Customer"
+                                 Label="Kunde"
+                                 @bind-Value="_selectedCustomer"
+                                 SearchFunc="@SearchCustomers"
+                                 ToStringFunc="@(c => c?.Name ?? string.Empty)"
+                                 ResetValueOnEmptyText="true"
+                                 CoerceText="true"
+                                 CoerceValue="false">
+                    <ItemTemplate Context="customer">
+                        <MudText>@customer.Name</MudText>
+                        <MudText Typo="Typo.caption">@customer.CustomerNumber - @customer.City</MudText>
+                    </ItemTemplate>
+                </MudAutocomplete>
+                <InlineCustomerCreate OnCreated="OnCustomerCreated" />
+            </MudItem>
+
+            <MudItem xs="12" sm="4">
+                <MudNumericField T="decimal" Label="Nettobetrag (€)" @bind-Value="_netAmount"
+                                 Min="0m" Step="0.01m" Format="F2" Culture="@_culture" />
+            </MudItem>
+            <MudItem xs="12" sm="4">
+                <MudSelect T="decimal" Label="MwSt-Satz" @bind-Value="_vatRate">
+                    @foreach (var rate in LegacyInvoiceImport.AllowedVatRates)
+                    {
+                        <MudSelectItem T="decimal" Value="@rate">@rate.ToString("0", _culture) %</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="12" sm="4">
+                <MudTextField T="string" Label="Brutto (mit Original vergleichen)" ReadOnly="true"
+                              Value="@GrossAmount.ToString("C2", _culture)" />
+            </MudItem>
+
+            <MudItem xs="12" sm="6">
+                <MudNumericField T="decimal" Label="Bereits gezahlt (€, optional)" @bind-Value="_alreadyPaid"
+                                 Min="0m" Step="0.01m" Format="F2" Culture="@_culture"
+                                 HelperText="Nur bei Teilzahlungen, die im alten Programm schon verbucht sind" />
+            </MudItem>
+            <MudItem xs="12" sm="6">
+                <MudDatePicker Label="Datum der Teilzahlung" @bind-Date="_alreadyPaidDate"
+                               DateFormat="dd.MM.yyyy" MaxDate="DateTime.Today" Disabled="@(_alreadyPaid <= 0)" />
+            </MudItem>
+
+            <MudItem xs="12">
+                <MudTextField T="string" Label="Notiz (optional)" @bind-Value="_notes" Lines="2" MaxLength="2000" />
+            </MudItem>
+
+            <MudItem xs="12">
+                <MudFileUpload T="IBrowserFile" Accept=".pdf" FilesChanged="HandlePdfUpload">
+                    <ActivatorContent>
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                                   StartIcon="@Icons.Material.Filled.PictureAsPdf" Size="Size.Small">
+                            Original-PDF auswählen
+                        </MudButton>
+                    </ActivatorContent>
+                </MudFileUpload>
+                <MudText Typo="Typo.caption" Color="@(_pdfData == null ? Color.Secondary : Color.Success)" Class="mt-1">
+                    @(_pdfData == null ? "Pflichtfeld: PDF der Originalrechnung, max. 10 MB." : $"{_pdfFileName} ausgewählt")
+                </MudText>
+            </MudItem>
+        </MudGrid>
+
+        <MudStack Row="true" Justify="Justify.FlexEnd" Class="mt-6 gap-2">
+            <MudButton Variant="Variant.Filled" Color="Color.Default" OnClick="Cancel">Abbrechen</MudButton>
+            <MudButton Variant="Variant.Outlined" Color="Color.Primary" Disabled="@_saving"
+                       OnClick="@(() => SaveAsync(continueWithNext: true))">
+                Übernehmen &amp; nächste erfassen
+            </MudButton>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@_saving"
+                       OnClick="@(() => SaveAsync(continueWithNext: false))">
+                Übernehmen
+            </MudButton>
+        </MudStack>
+    </MudPaper>
+</MudContainer>

@@ -123,8 +123,7 @@ public class InvoiceController : ControllerBase
             var invoice = await _invoiceService.GetByIdAsync(id);
             if (invoice == null) return NotFound();
 
-            var pdfBytes = await _pdfGeneratorService.TryGetFrozenSnapshotAsync(id)
-                ?? await _pdfGeneratorService.GenerateInvoicePdfAsync(id);
+            var pdfBytes = await _pdfGeneratorService.GetDocumentPdfAsync(id);
             var mergedBytes = _pdfMergeService.MergeForPrint(pdfBytes, invoice.Attachments);
             var base64 = Convert.ToBase64String(mergedBytes);
 
@@ -354,8 +353,7 @@ public class InvoiceController : ControllerBase
         try
         {
             var invoice = await _invoiceService.GetByIdAsync(id);
-            var pdfBytes = await _pdfGeneratorService.TryGetFrozenSnapshotAsync(id)
-                ?? await _pdfGeneratorService.GenerateInvoicePdfAsync(id);
+            var pdfBytes = await _pdfGeneratorService.GetDocumentPdfAsync(id);
             return File(pdfBytes, "application/pdf", $"Invoice-{invoice?.InvoiceNumber ?? id.ToString()}.pdf");
         }
         catch (Exception ex)

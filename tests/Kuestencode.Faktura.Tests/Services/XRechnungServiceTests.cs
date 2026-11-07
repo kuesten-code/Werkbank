@@ -83,6 +83,20 @@ public class XRechnungServiceTests
     }
 
     [Fact]
+    public async Task ValidateForXRechnung_Altrechnung_IstUngueltigOhneFirmendatenZuLaden()
+    {
+        var invoice = MakeValidInvoice();
+        invoice.IsImported = true;
+        SetupInvoice(invoice);
+
+        var (isValid, missingFields) = await _service.ValidateForXRechnungAsync(1);
+
+        isValid.Should().BeFalse();
+        missingFields.Should().ContainSingle().Which.Should().Contain("Original-PDF");
+        _companyService.Verify(c => c.GetCompanyAsync(), Times.Never);
+    }
+
+    [Fact]
     public async Task ValidateForXRechnung_FirmeninhaberFehlt_MeldetPflichtfeld()
     {
         SetupInvoice(MakeValidInvoice());

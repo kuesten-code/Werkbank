@@ -24,7 +24,7 @@ public class FakturaDbContext : DbContext
         {
             nameof(Invoice.Status), nameof(Invoice.InvoiceDate), nameof(Invoice.DueDate),
             nameof(Invoice.RevisedDueDate), nameof(Invoice.Notes), nameof(Invoice.CustomerId), nameof(Invoice.DiscountType),
-            nameof(Invoice.DiscountValue), nameof(Invoice.IsReverseCharge),
+            nameof(Invoice.DiscountValue), nameof(Invoice.IsReverseCharge), nameof(Invoice.IsImported),
             nameof(Invoice.SkontoType), nameof(Invoice.SkontoValue), nameof(Invoice.SkontoDays), nameof(Invoice.SkontoApplied),
             nameof(Invoice.CancelledAt), nameof(Invoice.CancellationReason)
         }),

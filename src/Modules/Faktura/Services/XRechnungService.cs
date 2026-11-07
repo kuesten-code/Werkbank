@@ -128,6 +128,13 @@ public class XRechnungService : IXRechnungService
                 return (false, missingFields);
             }
 
+            // Die Summenposition einer Altrechnung ist kein vollständiger Beleg — ein E-Rechnungs-XML daraus würde vom Original abweichen
+            if (invoice.IsImported)
+            {
+                missingFields.Add("Altrechnung aus dem Vorsystem – nur das Original-PDF ist verfügbar");
+                return (false, missingFields);
+            }
+
             var company = await _companyService.GetCompanyAsync();
 
             // Firmendaten validieren

@@ -119,4 +119,67 @@ public class PdfGeneratorServiceTests : IClassFixture<FakturaWebApplicationFacto
             pdfBytes.Length.Should().BeGreaterThan(0);
         }
     }
+
+    [Fact]
+    public async Task GetDocumentPdfAsync_MitEingefrorenemBeleg_LiefertDasOriginal()
+    {
+        byte[] original = [0x25, 0x50, 0x44, 0x46, 0x2D, 0x31];
+        int invoiceId;
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var context = scope.ServiceProvider.GetRequiredService<FakturaDbContext>();
+            var invoice = new Invoice
+            {
+                InvoiceNumber = "ALT-2025-0815",
+                InvoiceDate = new DateTime(2025, 11, 3),
+                CustomerId = 1,
+                IsImported = true,
+                Items = [new InvoiceItem { Description = "Offener Posten", Quantity = 1, UnitPrice = 100m, VatRate = 19 }],
+                Attachments =
+                [
+                    new InvoiceAttachment { FileName = "original.pdf", ContentType = "application/pdf", Data = original, FileSize = original.Length, IsFrozenSnapshot = true }
+                ]
+            };
+            context.Invoices.Add(invoice);
+            await context.SaveChangesAsync();
+            invoiceId = invoice.Id;
+        }
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var pdfBytes = await scope.ServiceProvider.GetRequiredService<IPdfGeneratorService>().GetDocumentPdfAsync(invoiceId);
+
+            pdfBytes.Should().Equal(original);
+        }
+    }
+
+    [Fact]
+    public async Task GetDocumentPdfAsync_OhneEingefrorenenBeleg_RendertPdf()
+    {
+        int invoiceId;
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var context = scope.ServiceProvider.GetRequiredService<FakturaDbContext>();
+            var invoice = new Invoice
+            {
+                InvoiceNumber = "26-02000-RE",
+                InvoiceDate = new DateTime(2026, 7, 1),
+                CustomerId = 1,
+                Items = [new InvoiceItem { Description = "Beratung", Quantity = 1, UnitPrice = 100m, VatRate = 19 }]
+            };
+            context.Invoices.Add(invoice);
+            await context.SaveChangesAsync();
+            invoiceId = invoice.Id;
+        }
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var pdfBytes = await scope.ServiceProvider.GetRequiredService<IPdfGeneratorService>().GetDocumentPdfAsync(invoiceId);
+
+            pdfBytes.Length.Should().BeGreaterThan(0);
+            pdfBytes.Take(4).Should().Equal(0x25, 0x50, 0x44, 0x46);
+        }
+    }
 }

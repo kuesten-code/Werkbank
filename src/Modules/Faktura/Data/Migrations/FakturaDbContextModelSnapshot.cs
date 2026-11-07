@@ -165,6 +165,9 @@ namespace Kuestencode.Faktura.Data.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("numeric(18,2)");
 
+                    b.Property<bool>("IsImported")
+                        .HasColumnType("boolean");
+
                     b.Property<bool>("IsReverseCharge")
                         .HasColumnType("boolean");
 
