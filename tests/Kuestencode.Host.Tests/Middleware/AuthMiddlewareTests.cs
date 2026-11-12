@@ -280,4 +280,21 @@ public class AuthMiddlewareTests
         nextCalled().Should().BeFalse();
         httpContext.Response.StatusCode.Should().Be(401);
     }
+
+    /// <summary>
+    /// Security-Audit H2: die Registrierung ist kein öffentlicher Pfad mehr.
+    /// </summary>
+    [Theory]
+    [InlineData("/api/modules/register")]
+    [InlineData("/api/modules/unregister/Faktura")]
+    public async Task InvokeAsync_ModulRegistrierungOhneToken_Gibt401(string path)
+    {
+        var httpContext = CreateHttpContext(path, authEnabled: true);
+        var (middleware, nextCalled) = CreateMiddleware();
+
+        await middleware.InvokeAsync(httpContext);
+
+        nextCalled().Should().BeFalse();
+        httpContext.Response.StatusCode.Should().Be(401);
+    }
 }

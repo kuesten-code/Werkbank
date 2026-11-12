@@ -44,8 +44,8 @@ services:
       - Backup__SourcePath=/app/backup-source
       - DockerControl__ContainerNamePattern=kuestencode_{0}_dev
     volumes:
-      # Kompletter eigener Datenordner (Keys, JWT-Secret, ...) - ohne diesen Mount wird bei
-      # jedem Neustart u.a. ein neues JWT-Secret generiert und alle Logins werden ungültig.
+      # Kompletter eigener Datenordner (Data-Protection-Keys, ...) - ohne diesen Mount gehen die Keys
+      # bei jedem Neustart verloren.
       - ./data:/app/data
       # Derselbe Ordner nochmal unter anderem Pfad für die Backup-Funktionalität im Host: der
       # komplette Datenbaum aller Module (Postgres, Uploads, Keys) als Backup-Quelle.
@@ -92,13 +92,14 @@ services:
     networks:
       - kuestencode_docker_control_network_dev
 
+  # Modul-Ports nur auf 127.0.0.1: direkter Zugriff zum Entwickeln, aber nicht aus dem LAN.
   faktura:
     build:
       context: .
       dockerfile: src/Modules/Faktura/Dockerfile
     container_name: kuestencode_faktura_dev
     ports:
-      - "8081:8081"
+      - "127.0.0.1:8081:8081"
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
       - ASPNETCORE_URLS=http://+:8081
@@ -125,7 +126,7 @@ services:
       dockerfile: src/Modules/Rapport/Dockerfile
     container_name: kuestencode_rapport_dev
     ports:
-      - "8082:8082"
+      - "127.0.0.1:8082:8082"
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
       - ASPNETCORE_URLS=http://+:8082
@@ -151,7 +152,7 @@ services:
       dockerfile: src/Modules/Offerte/Kuestencode.Werkbank.Offerte/Dockerfile
     container_name: kuestencode_offerte_dev
     ports:
-      - "8083:8083"
+      - "127.0.0.1:8083:8083"
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
       - ASPNETCORE_URLS=http://+:8083
@@ -177,7 +178,7 @@ services:
       dockerfile: src/Modules/Acta/Kuestencode.Werkbank.Acta/Dockerfile
     container_name: kuestencode_acta_dev
     ports:
-      - "8084:8084"
+      - "127.0.0.1:8084:8084"
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
       - ASPNETCORE_URLS=http://+:8084
@@ -206,7 +207,7 @@ services:
       dockerfile: src/Modules/Recepta/Kuestencode.Werkbank.Recepta/Dockerfile
     container_name: kuestencode_recepta_dev
     ports:
-      - "8085:8085"
+      - "127.0.0.1:8085:8085"
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
       - ASPNETCORE_URLS=http://+:8085
@@ -234,7 +235,7 @@ services:
       dockerfile: src/Modules/Saldo/Kuestencode.Werkbank.Saldo/Dockerfile
     container_name: kuestencode_saldo_dev
     ports:
-      - "8086:8086"
+      - "127.0.0.1:8086:8086"
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
       - ASPNETCORE_URLS=http://+:8086
@@ -263,7 +264,7 @@ services:
       dockerfile: src/Modules/Locatio/Kuestencode.Werkbank.Locatio/Dockerfile
     container_name: kuestencode_locatio_dev
     ports:
-      - "8087:8087"
+      - "127.0.0.1:8087:8087"
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
       - ASPNETCORE_URLS=http://+:8087

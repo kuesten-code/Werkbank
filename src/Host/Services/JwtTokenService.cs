@@ -1,7 +1,5 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
-using System.Security.Cryptography;
-using System.Text;
 using Kuestencode.Shared.UI.Auth;
 using Kuestencode.Werkbank.Host.Models;
 using Microsoft.IdentityModel.Tokens;
@@ -19,7 +17,14 @@ public interface IJwtTokenService
     string GenerateMfaToken(TeamMember member);
 
     /// <summary>
-    /// Validiert Signatur, Ablauf, Issuer und Audience eines Session-JWT.
+    /// Token für den impliziten Admin bei deaktivierter Anmeldung. Der Host-Proxy reicht es an die Module
+    /// weiter, damit diese immer ein geprüftes Token verlangen können. Bewusst kurzlebig, damit es nach
+    /// dem Einschalten der Anmeldung schnell wertlos wird.
+    /// </summary>
+    string GenerateAuthDisabledToken();
+
+    /// <summary>
+    /// Validiert Signatur, Ablauf, Issuer und Audience eines Session- oder Service-JWT.
     /// Einzige Stelle im Host, die das JWT-Secret zur Prüfung heranzieht
     /// (AuthMiddleware, AuthController und WerkbankAuthStateProvider nutzen diese Methode).
     /// </summary>
@@ -31,17 +36,20 @@ public interface IJwtTokenService
 public class JwtTokenService : IJwtTokenService
 {
     private static readonly TimeSpan MfaTokenLifetime = TimeSpan.FromMinutes(5);
+    private static readonly TimeSpan AuthDisabledTokenLifetime = TimeSpan.FromMinutes(15);
 
     private readonly IConfiguration _configuration;
     private readonly ILogger<JwtTokenService> _logger;
+    private readonly string _secret;
+    private readonly string _issuer;
 
     public JwtTokenService(IConfiguration configuration, ILogger<JwtTokenService> logger)
     {
         _configuration = configuration;
         _logger = logger;
+        _secret = WerkbankJwt.RequireSecret(configuration);
+        _issuer = WerkbankJwt.Issuer(configuration);
     }
-
-    private string Issuer => _configuration["Jwt:Issuer"] ?? WerkbankJwt.DefaultIssuer;
 
     public string GenerateToken(TeamMember member)
     {
@@ -55,79 +63,53 @@ public class JwtTokenService : IJwtTokenService
             new Claim(ClaimTypes.Role, member.Role.ToString())
         };
 
-        return WriteToken(claims, Issuer, TimeSpan.FromDays(expiresInDays));
+        return WriteToken(claims, _issuer, TimeSpan.FromDays(expiresInDays));
     }
 
     public string GenerateMfaToken(TeamMember member)
     {
         var claims = new[] { new Claim(ClaimTypes.NameIdentifier, member.Id.ToString()) };
-        return WriteToken(claims, WerkbankJwt.MfaAudience(Issuer), MfaTokenLifetime);
+        return WriteToken(claims, WerkbankJwt.MfaAudience(_issuer), MfaTokenLifetime);
     }
 
-    public ClaimsPrincipal? ValidateToken(string token) => Validate(token, Issuer);
+    public string GenerateAuthDisabledToken()
+    {
+        var claims = new[]
+        {
+            new Claim(ClaimTypes.NameIdentifier, Guid.Empty.ToString()),
+            new Claim(ClaimTypes.Name, "Admin"),
+            new Claim(ClaimTypes.Role, UserRole.Admin.ToString())
+        };
+        return WriteToken(claims, _issuer, AuthDisabledTokenLifetime);
+    }
 
-    public ClaimsPrincipal? ValidateMfaToken(string token) => Validate(token, WerkbankJwt.MfaAudience(Issuer));
+    public ClaimsPrincipal? ValidateToken(string token) => Validate(token, WerkbankJwt.RequestAudiences(_issuer));
+
+    public ClaimsPrincipal? ValidateMfaToken(string token) => Validate(token, WerkbankJwt.MfaAudience(_issuer));
 
     private string WriteToken(IEnumerable<Claim> claims, string audience, TimeSpan lifetime)
     {
-        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(GetOrGenerateJwtSecret()));
-
         var token = new JwtSecurityToken(
-            issuer: Issuer,
+            issuer: _issuer,
             audience: audience,
             claims: claims,
             expires: DateTime.UtcNow.Add(lifetime),
-            signingCredentials: new SigningCredentials(key, SecurityAlgorithms.HmacSha256));
+            signingCredentials: new SigningCredentials(WerkbankJwt.SigningKey(_secret), SecurityAlgorithms.HmacSha256));
 
         return new JwtSecurityTokenHandler().WriteToken(token);
     }
 
-    private ClaimsPrincipal? Validate(string token, string audience)
+    private ClaimsPrincipal? Validate(string token, params string[] audiences)
     {
         try
         {
-            var parameters = WerkbankJwt.CreateValidationParameters(GetOrGenerateJwtSecret(), Issuer, audience);
+            var parameters = WerkbankJwt.CreateValidationParameters(_secret, _issuer, audiences);
             return new JwtSecurityTokenHandler().ValidateToken(token, parameters, out _);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is SecurityTokenException or ArgumentException)
         {
             _logger.LogDebug(ex, "JWT-Validierung fehlgeschlagen");
             return null;
         }
-    }
-
-    private string GetOrGenerateJwtSecret()
-    {
-        var secret = _configuration["Jwt:Secret"];
-
-        if (!string.IsNullOrWhiteSpace(secret) && secret.Length >= WerkbankJwt.MinSecretLength)
-            return secret;
-
-        var filePath = Path.Combine(AppContext.BaseDirectory, "data", "jwt-secret.txt");
-        var dir = Path.GetDirectoryName(filePath)!;
-        Directory.CreateDirectory(dir);
-
-        if (File.Exists(filePath))
-        {
-            var stored = File.ReadAllText(filePath).Trim();
-            if (stored.Length >= WerkbankJwt.MinSecretLength)
-                return stored;
-        }
-
-        secret = GenerateRandomSecret();
-        File.WriteAllText(filePath, secret);
-        _logger.LogInformation("JWT-Secret automatisch generiert und gespeichert (JwtTokenService).");
-
-        return secret;
-    }
-
-    private string GenerateRandomSecret()
-    {
-        var bytes = new byte[32];
-        using (var rng = RandomNumberGenerator.Create())
-        {
-            rng.GetBytes(bytes);
-        }
-        return Convert.ToBase64String(bytes);
     }
 }

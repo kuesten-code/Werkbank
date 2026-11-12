@@ -50,12 +50,8 @@ builder.Services.AddHostedService<ModuleHealthCheckService>();
 // Add Host services (Company, Customer, Email, PDF engines)
 builder.Services.AddHostServices(builder.Configuration);
 
-// AuthTokenDelegatingHandler forwards the already-validated Authorization header of the
-// incoming request (e.g. to a Proxy-Controller) onward to the target module. Without this,
-// these Host-initiated calls carry no token and no IP-based trust either (Host's own
-// container IP is deliberately excluded from InternalRequestDetector's trusted set, since
-// Host also forwards anonymous browser traffic) — the module then correctly rejects them
-// as unauthenticated, and the calling ApiClient silently swallows that into an empty result.
+// Host-initiierte Modulaufrufe tragen das Nutzer-Token des Requests, ohne Nutzerkontext ein Service-Token.
+builder.Services.AddSingleton<Kuestencode.Shared.UI.Auth.ServiceTokenProvider>();
 builder.Services.AddTransient<Kuestencode.Shared.UI.Handlers.AuthTokenDelegatingHandler>();
 
 // Add HttpClient für Faktura-API
@@ -351,22 +347,7 @@ app.UseSetupRedirect();
 // Auth Middleware
 app.UseMiddleware<Kuestencode.Werkbank.Host.Middleware.AuthMiddleware>();
 
-// Map Reverse Proxy for Faktura module (before other routes)
-// Add transform to forward werkbank_auth_cookie as Authorization header to modules
-app.MapReverseProxy(proxyPipeline =>
-{
-    proxyPipeline.Use((context, next) =>
-    {
-        // If no Authorization header exists but the auth cookie does, add it as Bearer token
-        if (!context.Request.Headers.ContainsKey("Authorization")
-            && context.Request.Cookies.TryGetValue("werkbank_auth_cookie", out var token)
-            && !string.IsNullOrEmpty(token))
-        {
-            context.Request.Headers["Authorization"] = $"Bearer {token}";
-        }
-        return next();
-    });
-});
+app.MapReverseProxy(proxyPipeline => proxyPipeline.UseModuleProxyAuth());
 
 app.MapControllers();
 app.MapBlazorHub();

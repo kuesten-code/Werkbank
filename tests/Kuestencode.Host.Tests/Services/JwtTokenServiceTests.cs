@@ -117,4 +117,44 @@ public class JwtTokenServiceTests
 
         service.ValidateMfaToken(sessionToken).Should().BeNull();
     }
+
+    [Fact]
+    public void ValidateToken_ServiceToken_WirdAkzeptiert()
+    {
+        var service = CreateService(secret: new string('a', 32));
+        var serviceToken = new Kuestencode.Shared.UI.Auth.ServiceTokenProvider(new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?> { ["Jwt:Issuer"] = "TestIssuer", ["Jwt:Secret"] = new string('a', 32) })
+            .Build()).GetToken();
+
+        service.ValidateToken(serviceToken).Should().NotBeNull();
+        service.ValidateMfaToken(serviceToken).Should().BeNull();
+    }
+
+    [Fact]
+    public void GenerateAuthDisabledToken_IstKurzlebigesAdminToken()
+    {
+        var service = CreateService(secret: new string('a', 32));
+
+        var token = service.GenerateAuthDisabledToken();
+        var principal = service.ValidateToken(token);
+
+        principal!.FindFirstValue(ClaimTypes.Role).Should().Be("Admin");
+        principal!.FindFirstValue(ClaimTypes.NameIdentifier).Should().Be(Guid.Empty.ToString());
+        new System.IdentityModel.Tokens.Jwt.JwtSecurityTokenHandler().ReadJwtToken(token).ValidTo
+            .Should().BeBefore(DateTime.UtcNow.AddMinutes(16));
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("zu-kurz")]
+    public void Konstruktor_OhneAusreichendesSecret_Wirft(string? secret)
+    {
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?> { ["Jwt:Secret"] = secret })
+            .Build();
+
+        var act = () => new JwtTokenService(configuration, NullLogger<JwtTokenService>.Instance);
+
+        act.Should().Throw<InvalidOperationException>();
+    }
 }

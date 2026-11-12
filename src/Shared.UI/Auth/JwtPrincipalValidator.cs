@@ -6,7 +6,7 @@ using Microsoft.IdentityModel.Tokens;
 namespace Kuestencode.Shared.UI.Auth;
 
 /// <summary>
-/// Prüft Werkbank-Session-Tokens in den Modulen mit demselben Secret wie der Host.
+/// Prüft Werkbank-Tokens (Nutzer-Session oder Service) in den Modulen mit demselben Secret wie der Host.
 /// Ohne konfiguriertes Secret kann ein Modul keine Signatur prüfen und darf deshalb nicht starten.
 /// </summary>
 public sealed class JwtPrincipalValidator
@@ -16,14 +16,9 @@ public sealed class JwtPrincipalValidator
 
     public JwtPrincipalValidator(IConfiguration configuration)
     {
-        var secret = configuration["Jwt:Secret"];
-        if (string.IsNullOrWhiteSpace(secret) || secret.Length < WerkbankJwt.MinSecretLength)
-            throw new InvalidOperationException(
-                $"Jwt:Secret fehlt oder ist kürzer als {WerkbankJwt.MinSecretLength} Zeichen. " +
-                "Das Modul braucht dasselbe JWT-Secret wie der Host (Umgebungsvariable Jwt__Secret).");
-
-        var issuer = configuration["Jwt:Issuer"] ?? WerkbankJwt.DefaultIssuer;
-        _parameters = WerkbankJwt.CreateValidationParameters(secret, issuer, issuer);
+        var issuer = WerkbankJwt.Issuer(configuration);
+        _parameters = WerkbankJwt.CreateValidationParameters(
+            WerkbankJwt.RequireSecret(configuration), issuer, WerkbankJwt.RequestAudiences(issuer));
     }
 
     public ClaimsPrincipal? Validate(string token)

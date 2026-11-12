@@ -1,126 +1,101 @@
-using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Configuration;
 using System.Net.Http.Json;
 using Kuestencode.Shared.Contracts.Navigation;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 
 namespace Kuestencode.Shared.UI.Services;
 
 /// <summary>
-/// Background service that monitors when the last health check from Host occurred.
-/// If no health check is received within 60 seconds, the module re-registers itself with the Host.
+/// Registriert das Modul beim Start am Host und erneut, sobald der Host 60 Sekunden lang keinen
+/// Health-Check mehr geschickt hat (z. B. nach einem Host-Neustart mit leerer Registry).
 /// </summary>
 public class ModuleHealthMonitor : BackgroundService
 {
+    public const string HostClientName = "werkbank-host-registration";
+
+    private static readonly TimeSpan InitialDelay = TimeSpan.FromSeconds(5);
+    private static readonly TimeSpan HealthCheckTimeout = TimeSpan.FromSeconds(60);
+    private static readonly TimeSpan CheckInterval = TimeSpan.FromSeconds(10);
+
     private readonly ILogger<ModuleHealthMonitor> _logger;
-    private readonly IConfiguration _configuration;
+    private readonly IHttpClientFactory _httpClientFactory;
     private readonly string _moduleName;
     private readonly Func<ModuleInfoDto> _getModuleInfo;
+    private readonly object _lock = new();
     private DateTime _lastHealthCheckTime = DateTime.UtcNow;
-    private readonly TimeSpan _healthCheckTimeout = TimeSpan.FromSeconds(60);
-    private readonly TimeSpan _checkInterval = TimeSpan.FromSeconds(10);
-    private static readonly object _lock = new();
 
     public ModuleHealthMonitor(
         ILogger<ModuleHealthMonitor> logger,
-        IConfiguration configuration,
+        IHttpClientFactory httpClientFactory,
         string moduleName,
         Func<ModuleInfoDto> getModuleInfo)
     {
         _logger = logger;
-        _configuration = configuration;
+        _httpClientFactory = httpClientFactory;
         _moduleName = moduleName;
         _getModuleInfo = getModuleInfo;
     }
 
-    /// <summary>
-    /// Call this method whenever a health check request is received
-    /// </summary>
     public void RecordHealthCheck()
     {
         lock (_lock)
         {
             _lastHealthCheckTime = DateTime.UtcNow;
-            _logger.LogDebug("{ModuleName}: Health check recorded at {Time}", _moduleName, _lastHealthCheckTime);
         }
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        _logger.LogInformation("{ModuleName}: Health monitor started", _moduleName);
-
-        // Initial delay to let the module fully start
-        await Task.Delay(TimeSpan.FromSeconds(10), stoppingToken);
+        await Task.Delay(InitialDelay, stoppingToken);
+        await RegisterWithHostAsync(stoppingToken);
 
         while (!stoppingToken.IsCancellationRequested)
         {
-            try
-            {
-                await CheckAndReregisterIfNeededAsync(stoppingToken);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "{ModuleName}: Error in health monitor", _moduleName);
-            }
-
-            await Task.Delay(_checkInterval, stoppingToken);
+            await Task.Delay(CheckInterval, stoppingToken);
+            await ReregisterIfHealthChecksStoppedAsync(stoppingToken);
         }
     }
 
-    private async Task CheckAndReregisterIfNeededAsync(CancellationToken stoppingToken)
+    private async Task ReregisterIfHealthChecksStoppedAsync(CancellationToken stoppingToken)
     {
-        DateTime lastCheck;
         lock (_lock)
         {
-            lastCheck = _lastHealthCheckTime;
+            if (DateTime.UtcNow - _lastHealthCheckTime <= HealthCheckTimeout)
+                return;
+
+            _lastHealthCheckTime = DateTime.UtcNow;
         }
 
-        var timeSinceLastCheck = DateTime.UtcNow - lastCheck;
-
-        if (timeSinceLastCheck > _healthCheckTimeout)
-        {
-            _logger.LogWarning(
-                "{ModuleName}: No health check received for {Seconds} seconds. Re-registering with Host...",
-                _moduleName,
-                timeSinceLastCheck.TotalSeconds);
-
-            await ReregisterWithHostAsync(stoppingToken);
-
-            // Reset the timer after re-registration attempt
-            lock (_lock)
-            {
-                _lastHealthCheckTime = DateTime.UtcNow;
-            }
-        }
+        _logger.LogWarning("{ModuleName}: Kein Health-Check vom Host seit {Seconds} s, registriere neu",
+            _moduleName, HealthCheckTimeout.TotalSeconds);
+        await RegisterWithHostAsync(stoppingToken);
     }
 
-    private async Task ReregisterWithHostAsync(CancellationToken stoppingToken)
+    public async Task<bool> RegisterWithHostAsync(CancellationToken cancellationToken)
     {
         try
         {
-            var hostUrl = _configuration.GetValue<string>("ServiceUrls:Host") ?? "http://localhost:8080";
-            using var client = new HttpClient { BaseAddress = new Uri(hostUrl) };
-            client.Timeout = TimeSpan.FromSeconds(10);
-
-            var moduleInfo = _getModuleInfo();
-
-            var response = await client.PostAsJsonAsync("/api/modules/register", moduleInfo, stoppingToken);
+            var client = _httpClientFactory.CreateClient(HostClientName);
+            var response = await client.PostAsJsonAsync("/api/modules/register", _getModuleInfo(), cancellationToken);
 
             if (response.IsSuccessStatusCode)
             {
-                _logger.LogInformation("{ModuleName}: Successfully re-registered with Host", _moduleName);
+                _logger.LogInformation("{ModuleName}: beim Host registriert", _moduleName);
+                return true;
             }
-            else
-            {
-                _logger.LogWarning(
-                    "{ModuleName}: Failed to re-register with Host. Status: {StatusCode}",
-                    _moduleName,
-                    response.StatusCode);
-            }
+
+            _logger.LogWarning("{ModuleName}: Registrierung beim Host fehlgeschlagen. Status: {StatusCode}",
+                _moduleName, response.StatusCode);
         }
-        catch (Exception ex)
+        catch (HttpRequestException ex)
         {
-            _logger.LogError(ex, "{ModuleName}: Error re-registering with Host", _moduleName);
+            _logger.LogWarning(ex, "{ModuleName}: Host für Registrierung nicht erreichbar", _moduleName);
         }
+        catch (TaskCanceledException ex) when (!cancellationToken.IsCancellationRequested)
+        {
+            _logger.LogWarning(ex, "{ModuleName}: Zeitüberschreitung bei der Registrierung", _moduleName);
+        }
+
+        return false;
     }
 }

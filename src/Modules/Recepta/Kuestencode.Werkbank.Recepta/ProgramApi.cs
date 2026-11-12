@@ -83,9 +83,6 @@ public class ProgramApi
         // Add Module Registry (stub for API mode - modules are registered via HTTP)
         builder.Services.AddSingleton<IModuleRegistry, ApiModuleRegistry>();
 
-        // Add AuthTokenDelegatingHandler for forwarding Authorization headers
-        builder.Services.AddTransient<Kuestencode.Shared.UI.Handlers.AuthTokenDelegatingHandler>();
-
         // Add Host API Client with AuthTokenDelegatingHandler (must be registered before API-based services)
         builder.Services.AddHttpClient<IHostApiClient, HostApiClient>(client =>
         {
@@ -191,13 +188,6 @@ public class ProgramApi
         app.MapFallbackToPage("/{*path:nonfile}", "/_Host");
         app.MapFallbackToPage("/", "/_Host");
 
-        // Register with Host on startup
-        _ = Task.Run(async () =>
-        {
-            await Task.Delay(5000); // Wait for Host to be ready
-            await RegisterWithHost(app.Configuration, app.Services.GetRequiredService<ILogger<ProgramApi>>());
-        });
-
         app.Run();
     }
 
@@ -244,30 +234,5 @@ public class ProgramApi
                 }
             }
         };
-    }
-
-    private static async Task RegisterWithHost(IConfiguration config, ILogger logger)
-    {
-        try
-        {
-            var hostUrl = config.GetValue<string>("ServiceUrls:Host") ?? "http://localhost:8080";
-            using var client = new HttpClient { BaseAddress = new Uri(hostUrl) };
-
-            var moduleInfo = GetModuleInfo(config);
-
-            var response = await client.PostAsJsonAsync("/api/modules/register", moduleInfo);
-            if (response.IsSuccessStatusCode)
-            {
-                logger.LogInformation("Recepta module registered successfully with Host at {HostUrl}", hostUrl);
-            }
-            else
-            {
-                logger.LogWarning("Failed to register Recepta module with Host. Status: {StatusCode}", response.StatusCode);
-            }
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Error registering Recepta module with Host");
-        }
     }
 }

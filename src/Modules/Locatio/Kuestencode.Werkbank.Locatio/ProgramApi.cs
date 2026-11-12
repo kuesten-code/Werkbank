@@ -61,8 +61,6 @@ public class ProgramApi
             .PersistKeysToFileSystem(new DirectoryInfo(keysDirectory))
             .SetApplicationName("Kuestencode.Werkbank.Locatio");
 
-        builder.Services.AddTransient<Kuestencode.Shared.UI.Handlers.AuthTokenDelegatingHandler>();
-
         builder.Services.AddHttpClient<IHostApiClient, HostApiClient>(client =>
         {
             var hostUrl = builder.Configuration.GetValue<string>("ServiceUrls:Host") ?? "http://localhost:8080";
@@ -120,12 +118,6 @@ public class ProgramApi
         app.MapBlazorHub("/_blazor");
         app.MapFallbackToPage("/{*path:nonfile}", "/_Host");
         app.MapFallbackToPage("/", "/_Host");
-
-        _ = Task.Run(async () =>
-        {
-            await Task.Delay(5000);
-            await RegisterWithHost(app.Configuration, app.Services.GetRequiredService<ILogger<ProgramApi>>());
-        });
 
         app.Run();
     }
@@ -192,24 +184,5 @@ public class ProgramApi
                 }
             }
         };
-    }
-
-    private static async Task RegisterWithHost(IConfiguration config, ILogger logger)
-    {
-        try
-        {
-            var hostUrl = config.GetValue<string>("ServiceUrls:Host") ?? "http://localhost:8080";
-            using var client = new HttpClient { BaseAddress = new Uri(hostUrl) };
-            var moduleInfo = GetModuleInfo(config);
-            var response = await client.PostAsJsonAsync("/api/modules/register", moduleInfo);
-            if (response.IsSuccessStatusCode)
-                logger.LogInformation("Locatio module registered successfully with Host at {HostUrl}", hostUrl);
-            else
-                logger.LogWarning("Failed to register Locatio module with Host. Status: {StatusCode}", response.StatusCode);
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Error registering Locatio module with Host");
-        }
     }
 }

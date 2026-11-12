@@ -68,7 +68,6 @@ public class ProgramApi
             .SetApplicationName("Kuestencode.Werkbank.Saldo");
 
         builder.Services.AddSingleton<IModuleRegistry, ApiModuleRegistry>();
-        builder.Services.AddTransient<Kuestencode.Shared.UI.Handlers.AuthTokenDelegatingHandler>();
 
         // Host API Client
         builder.Services.AddHttpClient<IHostApiClient, HostApiClient>(client =>
@@ -85,7 +84,8 @@ public class ProgramApi
             var fakturaUrl = builder.Configuration.GetValue<string>("ServiceUrls:Faktura") ?? "http://localhost:8081";
             client.BaseAddress = new Uri(fakturaUrl);
             client.Timeout = TimeSpan.FromSeconds(30);
-        });
+        })
+        .AddHttpMessageHandler<Kuestencode.Shared.UI.Handlers.AuthTokenDelegatingHandler>();
 
         // Recepta Data Service (HttpClient für service-to-service, EÜR-Abfragen)
         builder.Services.AddHttpClient<IReceptaDataService, ReceptaDataService>(client =>
@@ -93,7 +93,8 @@ public class ProgramApi
             var receptaUrl = builder.Configuration.GetValue<string>("ServiceUrls:Recepta") ?? "http://localhost:8085";
             client.BaseAddress = new Uri(receptaUrl);
             client.Timeout = TimeSpan.FromSeconds(30);
-        });
+        })
+        .AddHttpMessageHandler<Kuestencode.Shared.UI.Handlers.AuthTokenDelegatingHandler>();
 
         // Recepta API Client (für Datei-Downloads im Belege-Export)
         builder.Services.AddHttpClient<IReceptaApiClient, ReceptaApiClient>(client =>
@@ -101,7 +102,8 @@ public class ProgramApi
             var receptaUrl = builder.Configuration.GetValue<string>("ServiceUrls:Recepta") ?? "http://localhost:8085";
             client.BaseAddress = new Uri(receptaUrl);
             client.Timeout = TimeSpan.FromSeconds(60);
-        });
+        })
+        .AddHttpMessageHandler<Kuestencode.Shared.UI.Handlers.AuthTokenDelegatingHandler>();
 
         // Locatio ist nur in Vermietungs-Instanzen vorhanden; ohne URL liefert der Service keine Buchungen.
         builder.Services.AddHttpClient<ILocatioDataService, LocatioDataService>(client =>
@@ -110,7 +112,8 @@ public class ProgramApi
             if (!string.IsNullOrWhiteSpace(locatioUrl))
                 client.BaseAddress = new Uri(locatioUrl);
             client.Timeout = TimeSpan.FromSeconds(30);
-        });
+        })
+        .AddHttpMessageHandler<Kuestencode.Shared.UI.Handlers.AuthTokenDelegatingHandler>();
 
         builder.Services.AddScoped<ICompanyService, ApiCompanyService>();
         builder.Services.AddScoped<ICustomerService, ApiCustomerService>();
@@ -165,12 +168,6 @@ public class ProgramApi
         app.MapBlazorHub("/_blazor");
         app.MapFallbackToPage("/{*path:nonfile}", "/_Host");
         app.MapFallbackToPage("/", "/_Host");
-
-        _ = Task.Run(async () =>
-        {
-            await Task.Delay(5000);
-            await RegisterWithHost(app.Configuration, app.Services.GetRequiredService<ILogger<ProgramApi>>());
-        });
 
         app.Run();
     }
@@ -261,24 +258,5 @@ public class ProgramApi
                 }
             }
         };
-    }
-
-    private static async Task RegisterWithHost(IConfiguration config, ILogger logger)
-    {
-        try
-        {
-            var hostUrl = config.GetValue<string>("ServiceUrls:Host") ?? "http://localhost:8080";
-            using var client = new HttpClient { BaseAddress = new Uri(hostUrl) };
-            var moduleInfo = GetModuleInfo(config);
-            var response = await client.PostAsJsonAsync("/api/modules/register", moduleInfo);
-            if (response.IsSuccessStatusCode)
-                logger.LogInformation("Saldo module registered successfully with Host at {HostUrl}", hostUrl);
-            else
-                logger.LogWarning("Failed to register Saldo module with Host. Status: {StatusCode}", response.StatusCode);
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Error registering Saldo module with Host");
-        }
     }
 }

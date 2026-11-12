@@ -95,14 +95,46 @@ public class JwtPrincipalValidatorTests
         act.Should().Throw<InvalidOperationException>().WithMessage("*Jwt__Secret*");
     }
 
+    /// <summary>
+    /// Der Host-Proxy setzt den Header auf das geprüfte bzw. bei deaktivierter Anmeldung ausgestellte Token;
+    /// ein veraltetes Cookie darf das nicht überstimmen.
+    /// </summary>
     [Fact]
-    public void ExtractToken_CookieVorAuthorizationHeader()
+    public void ExtractToken_AuthorizationHeaderVorCookie()
     {
         var context = new DefaultHttpContext();
         context.Request.Headers.Append("Cookie", $"{WerkbankJwt.CookieName}=aus-cookie");
         context.Request.Headers.Authorization = "Bearer aus-header";
 
+        WerkbankJwt.ExtractToken(context).Should().Be("aus-header");
+    }
+
+    [Fact]
+    public void ExtractToken_NurCookie_LiefertCookieToken()
+    {
+        var context = new DefaultHttpContext();
+        context.Request.Headers.Append("Cookie", $"{WerkbankJwt.CookieName}=aus-cookie");
+
         WerkbankJwt.ExtractToken(context).Should().Be("aus-cookie");
+    }
+
+    [Fact]
+    public void Validate_ServiceToken_LiefertAdminMitServiceKennzeichen()
+    {
+        var token = new ServiceTokenProvider(Config(Secret)).GetToken();
+
+        var principal = new JwtPrincipalValidator(Config(Secret)).Validate(token);
+
+        principal!.FindFirstValue(ClaimTypes.Role).Should().Be("Admin");
+        principal!.HasClaim(WerkbankJwt.ServiceClaim, "true").Should().BeTrue();
+    }
+
+    [Fact]
+    public void Validate_ServiceTokenMitFremdemSecret_LiefertNull()
+    {
+        var token = new ServiceTokenProvider(Config("attacker-chosen-secret-0123456789abcdef")).GetToken();
+
+        new JwtPrincipalValidator(Config(Secret)).Validate(token).Should().BeNull();
     }
 
     [Fact]

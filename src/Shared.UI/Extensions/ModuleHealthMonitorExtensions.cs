@@ -4,6 +4,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Kuestencode.Shared.Contracts.Navigation;
 using Kuestencode.Shared.UI.Services;
+using Kuestencode.Shared.UI.Handlers;
 using Kuestencode.Shared.UI.Middleware;
 
 namespace Kuestencode.Shared.UI.Extensions;
@@ -11,9 +12,7 @@ namespace Kuestencode.Shared.UI.Extensions;
 public static class ModuleHealthMonitorExtensions
 {
     /// <summary>
-    /// Adds Module Health Monitor to the service collection.
-    /// The monitor tracks health check requests and re-registers with the Host if no health check
-    /// is received within 60 seconds.
+    /// Registriert das Modul beim Host (mit Service-Token) und überwacht die Health-Checks des Hosts.
     /// </summary>
     public static IServiceCollection AddModuleHealthMonitor(
         this IServiceCollection services,
@@ -21,12 +20,17 @@ public static class ModuleHealthMonitorExtensions
         Func<IConfiguration, ModuleInfoDto> getModuleInfo,
         IConfiguration configuration)
     {
+        services.AddHttpClient(ModuleHealthMonitor.HostClientName, client =>
+        {
+            client.BaseAddress = new Uri(configuration.GetValue<string>("ServiceUrls:Host") ?? "http://localhost:8080");
+            client.Timeout = TimeSpan.FromSeconds(10);
+        }).AddHttpMessageHandler<AuthTokenDelegatingHandler>();
+
         services.AddSingleton(sp => new ModuleHealthMonitor(
             sp.GetRequiredService<ILogger<ModuleHealthMonitor>>(),
-            configuration,
+            sp.GetRequiredService<IHttpClientFactory>(),
             moduleName,
-            () => getModuleInfo(configuration)
-        ));
+            () => getModuleInfo(configuration)));
 
         services.AddHostedService(sp => sp.GetRequiredService<ModuleHealthMonitor>());
 

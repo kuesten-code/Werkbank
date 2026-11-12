@@ -33,7 +33,7 @@
     </div>
 
     <script>
-        window.__werkbank_jwt = '@(HttpContext.Request.Cookies["werkbank_auth_cookie"] ?? (HttpContext.Request.Headers["Authorization"].FirstOrDefault() ?? "").Replace("Bearer ", ""))';
+        window.__werkbank_jwt = '@(Kuestencode.Shared.UI.Auth.WerkbankJwt.ExtractToken(HttpContext))';
     </script>
     <script src="_framework/blazor.server.js"></script>
     <script src="_content/Kuestencode.Shared.UI/js/shared.js?v=@Kuestencode.Shared.UI.AppVersion.Token"></script>

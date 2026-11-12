@@ -59,6 +59,7 @@ appsettings.Staging.json
 
 # Data folders in source (keys, postgres backups, but not source code)
 **/Data/keys/
+**/data/keys/
 **/Data/postgres/
 
 # Allow Data folders with source code

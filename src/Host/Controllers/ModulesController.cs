@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Kuestencode.Shared.Contracts.Navigation;
+using Kuestencode.Werkbank.Host.Auth;
 using Kuestencode.Werkbank.Host.Services;
 
 namespace Kuestencode.Werkbank.Host.Controllers;
@@ -9,11 +10,13 @@ namespace Kuestencode.Werkbank.Host.Controllers;
 public class ModulesController : ControllerBase
 {
     private readonly IModuleRegistry _moduleRegistry;
+    private readonly IConfiguration _configuration;
     private readonly ILogger<ModulesController> _logger;
 
-    public ModulesController(IModuleRegistry moduleRegistry, ILogger<ModulesController> logger)
+    public ModulesController(IModuleRegistry moduleRegistry, IConfiguration configuration, ILogger<ModulesController> logger)
     {
         _moduleRegistry = moduleRegistry;
+        _configuration = configuration;
         _logger = logger;
     }
 
@@ -33,8 +36,16 @@ public class ModulesController : ControllerBase
     }
 
     [HttpPost("register")]
+    [ServiceTokenRequired]
     public IActionResult RegisterModule([FromBody] ModuleInfoDto moduleInfo)
     {
+        var error = ModuleRegistrationValidator.Validate(moduleInfo, _configuration);
+        if (error != null)
+        {
+            _logger.LogWarning("Registrierung von {ModuleName} abgelehnt: {Error}", moduleInfo.ModuleName, error);
+            return BadRequest(new { error });
+        }
+
         _logger.LogInformation("Registering module: {ModuleName} v{Version}",
             moduleInfo.ModuleName, moduleInfo.Version);
 
@@ -44,6 +55,7 @@ public class ModulesController : ControllerBase
     }
 
     [HttpPost("unregister/{moduleName}")]
+    [ServiceTokenRequired]
     public IActionResult UnregisterModule(string moduleName)
     {
         _logger.LogInformation("Unregistering module: {ModuleName}", moduleName);

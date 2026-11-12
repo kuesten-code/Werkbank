@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using Kuestencode.Shared.UI.Auth;
 using Kuestencode.Werkbank.Host.Data;
 using Kuestencode.Werkbank.Host.Models;
 using Kuestencode.Werkbank.Host.Services;
@@ -9,6 +10,8 @@ namespace Kuestencode.Werkbank.Host.Middleware;
 
 public class AuthMiddleware
 {
+    public const string AuthDisabledType = "NoAuth";
+
     private readonly RequestDelegate _next;
     private readonly IJwtTokenService _jwtTokenService;
     private readonly ILogger<AuthMiddleware> _logger;
@@ -18,8 +21,6 @@ public class AuthMiddleware
         "/api/auth/login",
         "/api/auth/forgot-password",
         "/api/auth/reset-password",
-        "/api/modules/register",
-        "/api/modules/health",
         "/api/setup/required",
         "/api/setup/complete",
         "/api/feedback/status"
@@ -68,13 +69,13 @@ public class AuthMiddleware
                 new Claim(ClaimTypes.Role, UserRole.Admin.ToString())
             };
             context.User = new ClaimsPrincipal(
-                new ClaimsIdentity(adminClaims, "NoAuth"));
+                new ClaimsIdentity(adminClaims, AuthDisabledType));
 
             await _next(context);
             return;
         }
 
-        var token = ExtractToken(context);
+        var token = WerkbankJwt.ExtractToken(context);
 
         // WICHTIG: Host ist die einzige nach außen (und im LAN) erreichbare Komponente —
         // anders als bei den Modulen (JwtUserContextMiddleware) darf hier NICHT anhand der
@@ -82,7 +83,7 @@ public class AuthMiddleware
         // von externen/LAN-Clients über den veröffentlichten Port so weiter, dass er wie ein
         // Docker-internes Netz aussieht (private IP-Bereiche). Ein solcher IP-Check hätte
         // externen Zugriff ohne Login erlaubt. Echte interne Technik-Aufrufe (Registrierung,
-        // Healthcheck) sind stattdessen explizit in PublicPaths/PublicPathPrefixes gelistet.
+        // Healthcheck-Registrierung) weisen sich stattdessen mit einem Service-Token aus.
 
         // Auth aktiviert: JWT prüfen
         if (string.IsNullOrEmpty(token))
@@ -190,23 +191,5 @@ public class AuthMiddleware
         }
 
         return false;
-    }
-
-    private static string? ExtractToken(HttpContext context)
-    {
-        // First try Authorization header
-        var authHeader = context.Request.Headers.Authorization.FirstOrDefault();
-        if (!string.IsNullOrEmpty(authHeader) && authHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
-        {
-            return authHeader["Bearer ".Length..].Trim();
-        }
-
-        // Fallback to cookie
-        if (context.Request.Cookies.TryGetValue("werkbank_auth_cookie", out var cookieToken))
-        {
-            return cookieToken;
-        }
-
-        return null;
     }
 }

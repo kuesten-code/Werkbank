@@ -9,7 +9,7 @@ namespace Kuestencode.Shared.UI.Auth;
 /// <summary>
 /// Schränkt Zugriff auf API-Endpunkte auf bestimmte Rollen ein.
 /// Kann auf Controller-Klassen und einzelne Actions angewendet werden.
-/// Bei deaktivierter Auth (Identity.AuthenticationType == "NoAuth") wird der Zugriff immer gewährt.
+/// Bei deaktivierter Anmeldung stellt der Host-Proxy ein Admin-Token aus, daher gibt es hier keinen Sonderfall.
 /// </summary>
 [AttributeUsage(AttributeTargets.Class | AttributeTargets.Method)]
 public class RequireRoleAttribute : Attribute, IAuthorizationFilter
@@ -24,10 +24,6 @@ public class RequireRoleAttribute : Attribute, IAuthorizationFilter
     public void OnAuthorization(AuthorizationFilterContext context)
     {
         var user = context.HttpContext.User;
-
-        // Auth deaktiviert → alles erlaubt
-        if (user.Identity?.AuthenticationType == "NoAuth")
-            return;
 
         if (user.Identity?.IsAuthenticated != true)
         {
