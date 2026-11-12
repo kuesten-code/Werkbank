@@ -81,4 +81,40 @@ public class JwtTokenServiceTests
 
         principal.Should().BeNull();
     }
+
+    /// <summary>
+    /// Regressionstest Security-Audit H1: der MFA-Zwischen-Token darf nicht als Session gelten.
+    /// </summary>
+    [Fact]
+    public void ValidateToken_MfaZwischenToken_LiefertNull()
+    {
+        var service = CreateService(secret: new string('a', 32));
+
+        var mfaToken = service.GenerateMfaToken(CreateMember());
+
+        service.ValidateToken(mfaToken).Should().BeNull();
+    }
+
+    [Fact]
+    public void ValidateMfaToken_MfaZwischenToken_LiefertPrincipalMitMemberIdOhneRolle()
+    {
+        var service = CreateService(secret: new string('a', 32));
+        var member = CreateMember();
+
+        var principal = service.ValidateMfaToken(service.GenerateMfaToken(member));
+
+        principal.Should().NotBeNull();
+        principal!.FindFirstValue(ClaimTypes.NameIdentifier).Should().Be(member.Id.ToString());
+        principal!.FindFirstValue(ClaimTypes.Role).Should().BeNull();
+    }
+
+    [Fact]
+    public void ValidateMfaToken_SessionToken_LiefertNull()
+    {
+        var service = CreateService(secret: new string('a', 32));
+
+        var sessionToken = service.GenerateToken(CreateMember());
+
+        service.ValidateMfaToken(sessionToken).Should().BeNull();
+    }
 }

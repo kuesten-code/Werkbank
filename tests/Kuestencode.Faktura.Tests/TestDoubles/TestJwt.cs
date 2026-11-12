@@ -1,25 +1,36 @@
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
 using System.Text;
+using Kuestencode.Shared.UI.Auth;
+using Microsoft.IdentityModel.Tokens;
 
 namespace Kuestencode.Faktura.Tests.TestDoubles;
 
 /// <summary>
-/// Erzeugt ein unsigniertes, aber syntaktisch gültiges JWT. JwtPrincipalParser (Kuestencode.Shared.UI)
-/// validiert nur Struktur/Ablaufzeit, keine Signatur — analog dazu, wie JwtUserContextMiddleware einem
-/// bereits vom Host geprüften Token vertraut. Reicht für [RequireRole] in Controller-Tests.
+/// Erzeugt ein JWT wie der Host es ausstellt. Die Module prüfen die Signatur, daher muss
+/// <see cref="Secret"/> mit dem in <see cref="FakturaWebApplicationFactory"/> konfigurierten übereinstimmen.
 /// </summary>
 public static class TestJwt
 {
-    public static string Create(string role)
+    public const string Secret = "faktura-tests-jwt-secret-0123456789abcdef";
+
+    public static string Create(string role, string secret = Secret)
     {
-        static string Base64Url(string json) => Convert.ToBase64String(Encoding.UTF8.GetBytes(json))
-            .TrimEnd('=').Replace('+', '-').Replace('/', '_');
+        var claims = new[]
+        {
+            new Claim(ClaimTypes.NameIdentifier, Guid.NewGuid().ToString()),
+            new Claim(ClaimTypes.Name, $"Test {role}"),
+            new Claim(ClaimTypes.Role, role)
+        };
 
-        var header = Base64Url("""{"alg":"none","typ":"JWT"}""");
-        var exp = DateTimeOffset.UtcNow.AddHours(1).ToUnixTimeSeconds();
-        var payload = Base64Url($$"""
-            {"http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier":"{{Guid.NewGuid()}}","http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name":"Test {{role}}","http://schemas.microsoft.com/ws/2008/06/identity/claims/role":"{{role}}","exp":{{exp}}}
-            """);
+        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secret));
+        var token = new JwtSecurityToken(
+            issuer: WerkbankJwt.DefaultIssuer,
+            audience: WerkbankJwt.DefaultIssuer,
+            claims: claims,
+            expires: DateTime.UtcNow.AddHours(1),
+            signingCredentials: new SigningCredentials(key, SecurityAlgorithms.HmacSha256));
 
-        return $"{header}.{payload}.unsigned";
+        return new JwtSecurityTokenHandler().WriteToken(token);
     }
 }

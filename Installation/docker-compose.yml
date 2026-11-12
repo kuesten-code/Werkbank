@@ -34,7 +34,7 @@
       - ServiceUrls__Acta=http://acta:8084
       - ServiceUrls__Recepta=http://recepta:8085
       - ServiceUrls__Saldo=http://saldo:8086
-      - Jwt__Secret=${JWT_SECRET}
+      - Jwt__Secret=${JWT_SECRET:?JWT_SECRET in .env setzen (openssl rand -base64 32)}
       - APPLY_MIGRATIONS=true
       - Backup__SourcePath=/app/backup-source
       - DockerControl__ContainerNamePattern=kuestencode_werkbank_{0}
@@ -96,6 +96,7 @@
       - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=kuestencode_werkbank;Username=postgres;Password=${POSTGRES_PASSWORD}
       - ServiceUrls__Host=http://host:8080
       - ServiceUrls__Self=http://faktura:8081
+      - Jwt__Secret=${JWT_SECRET:?JWT_SECRET in .env setzen (openssl rand -base64 32)}
       - APPLY_MIGRATIONS=true
     volumes:
       - ./data/faktura:/app/wwwroot/invoices
@@ -117,6 +118,7 @@
       - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=kuestencode_werkbank;Username=postgres;Password=${POSTGRES_PASSWORD}
       - ServiceUrls__Host=http://host:8080
       - ServiceUrls__Self=http://rapport:8082
+      - Jwt__Secret=${JWT_SECRET:?JWT_SECRET in .env setzen (openssl rand -base64 32)}
       - APPLY_MIGRATIONS=true
     restart: unless-stopped
     depends_on:
@@ -138,6 +140,7 @@
       - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=kuestencode_werkbank;Username=postgres;Password=${POSTGRES_PASSWORD}
       - ServiceUrls__Host=http://host:8080
       - ServiceUrls__Self=http://offerte:8083
+      - Jwt__Secret=${JWT_SECRET:?JWT_SECRET in .env setzen (openssl rand -base64 32)}
       - APPLY_MIGRATIONS=true
     restart: unless-stopped
     depends_on:
@@ -159,6 +162,7 @@
       - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=kuestencode_werkbank;Username=postgres;Password=${POSTGRES_PASSWORD}
       - ServiceUrls__Host=http://host:8080
       - ServiceUrls__Self=http://acta:8084
+      - Jwt__Secret=${JWT_SECRET:?JWT_SECRET in .env setzen (openssl rand -base64 32)}
       - ServiceUrls__Rapport=http://rapport:8082
       - APPLY_MIGRATIONS=true
     restart: unless-stopped
@@ -181,6 +185,7 @@
       - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=kuestencode_werkbank;Username=postgres;Password=${POSTGRES_PASSWORD}
       - ServiceUrls__Host=http://host:8080
       - ServiceUrls__Self=http://recepta:8085
+      - Jwt__Secret=${JWT_SECRET:?JWT_SECRET in .env setzen (openssl rand -base64 32)}
       - APPLY_MIGRATIONS=true
     volumes:
       - ./data/recepta:/app/data
@@ -204,6 +209,7 @@
       - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=kuestencode_werkbank;Username=postgres;Password=${POSTGRES_PASSWORD}
       - ServiceUrls__Host=http://host:8080
       - ServiceUrls__Self=http://saldo:8086
+      - Jwt__Secret=${JWT_SECRET:?JWT_SECRET in .env setzen (openssl rand -base64 32)}
       - ServiceUrls__Faktura=http://faktura:8081
       - ServiceUrls__Recepta=http://recepta:8085
       - APPLY_MIGRATIONS=true

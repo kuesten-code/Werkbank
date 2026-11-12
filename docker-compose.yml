@@ -39,6 +39,7 @@ services:
       - ServiceUrls__Recepta=http://recepta:8085
       - ServiceUrls__Saldo=http://saldo:8086
       - ServiceUrls__Locatio=http://locatio:8087
+      - Jwt__Secret=${JWT_SECRET:-dev-only-werkbank-jwt-secret-not-for-production}
       - APPLY_MIGRATIONS=true
       - Backup__SourcePath=/app/backup-source
       - DockerControl__ContainerNamePattern=kuestencode_{0}_dev
@@ -104,6 +105,7 @@ services:
       - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=kuestencode_dev;Username=postgres;Password=dev_password
       - ServiceUrls__Host=http://host:8080
       - ServiceUrls__Self=http://faktura:8081
+      - Jwt__Secret=${JWT_SECRET:-dev-only-werkbank-jwt-secret-not-for-production}
       - APPLY_MIGRATIONS=true
       - DEMO_SEED=true
     volumes:
@@ -130,6 +132,7 @@ services:
       - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=kuestencode_dev;Username=postgres;Password=dev_password
       - ServiceUrls__Host=http://host:8080
       - ServiceUrls__Self=http://rapport:8082
+      - Jwt__Secret=${JWT_SECRET:-dev-only-werkbank-jwt-secret-not-for-production}
       - APPLY_MIGRATIONS=true
     volumes:
       - ./data/keys:/app/data/keys
@@ -155,6 +158,7 @@ services:
       - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=kuestencode_dev;Username=postgres;Password=dev_password
       - ServiceUrls__Host=http://host:8080
       - ServiceUrls__Self=http://offerte:8083
+      - Jwt__Secret=${JWT_SECRET:-dev-only-werkbank-jwt-secret-not-for-production}
       - APPLY_MIGRATIONS=true
     volumes:
       - ./data/keys:/app/data/keys
@@ -180,6 +184,7 @@ services:
       - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=kuestencode_dev;Username=postgres;Password=dev_password
       - ServiceUrls__Host=http://host:8080
       - ServiceUrls__Self=http://acta:8084
+      - Jwt__Secret=${JWT_SECRET:-dev-only-werkbank-jwt-secret-not-for-production}
       - ServiceUrls__Rapport=http://rapport:8082
       - ServiceUrls__Recepta=http://recepta:8085
       - ServiceUrls__Faktura=http://faktura:8081
@@ -208,6 +213,7 @@ services:
       - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=kuestencode_dev;Username=postgres;Password=dev_password
       - ServiceUrls__Host=http://host:8080
       - ServiceUrls__Self=http://recepta:8085
+      - Jwt__Secret=${JWT_SECRET:-dev-only-werkbank-jwt-secret-not-for-production}
       - APPLY_MIGRATIONS=true
       - DEMO_SEED=true
     volumes:
@@ -235,6 +241,7 @@ services:
       - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=kuestencode_dev;Username=postgres;Password=dev_password
       - ServiceUrls__Host=http://host:8080
       - ServiceUrls__Self=http://saldo:8086
+      - Jwt__Secret=${JWT_SECRET:-dev-only-werkbank-jwt-secret-not-for-production}
       - ServiceUrls__Faktura=http://faktura:8081
       - ServiceUrls__Recepta=http://recepta:8085
       - ServiceUrls__Locatio=http://locatio:8087
@@ -263,6 +270,7 @@ services:
       - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=kuestencode_dev;Username=postgres;Password=dev_password
       - ServiceUrls__Host=http://host:8080
       - ServiceUrls__Self=http://locatio:8087
+      - Jwt__Secret=${JWT_SECRET:-dev-only-werkbank-jwt-secret-not-for-production}
       - APPLY_MIGRATIONS=true
     volumes:
       - ./data/locatio:/app/data

@@ -32,8 +32,7 @@ public class ProgramApi
         builder.Services.AddRazorPages();
         builder.Services.AddServerSideBlazor();
 
-        builder.Services.AddScoped<Microsoft.AspNetCore.Components.Authorization.AuthenticationStateProvider,
-            Kuestencode.Shared.UI.Auth.PassThroughAuthStateProvider>();
+        builder.Services.AddWerkbankModuleAuth();
 
         builder.Services.AddMudServices();
         builder.Services.AddSingleton<MudBlazor.MudLocalizer, Kuestencode.Shared.UI.GermanMudLocalizer>();

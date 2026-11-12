@@ -20,7 +20,8 @@ public sealed class SaldoWebApplicationFactory : WebApplicationFactory<ProgramAp
         {
             config.AddInMemoryCollection(new Dictionary<string, string?>
             {
-                ["APPLY_MIGRATIONS"] = "false"
+                ["APPLY_MIGRATIONS"] = "false",
+                ["Jwt:Secret"] = "module-tests-jwt-secret-0123456789abcdef"
             });
         });
     }

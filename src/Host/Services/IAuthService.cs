@@ -6,6 +6,4 @@ public interface IAuthService
 {
     Task<AuthResult> LoginAsync(string email, string password);
     Task<TeamMember?> GetCurrentUserAsync(string? userId);
-    string GenerateToken(TeamMember member);
-    string GenerateMfaToken(TeamMember member);
 }

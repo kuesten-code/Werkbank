@@ -16,6 +16,7 @@ public class PassThroughAuthStateProvider : AuthenticationStateProvider
     private readonly IHttpContextAccessor _httpContextAccessor;
     private readonly IJSRuntime _jsRuntime;
     private readonly ILogger<PassThroughAuthStateProvider> _logger;
+    private readonly JwtPrincipalValidator _validator;
 
     private static readonly ClaimsPrincipal Anonymous = new(new ClaimsIdentity());
 
@@ -25,11 +26,13 @@ public class PassThroughAuthStateProvider : AuthenticationStateProvider
     public PassThroughAuthStateProvider(
         IHttpContextAccessor httpContextAccessor,
         IJSRuntime jsRuntime,
-        ILogger<PassThroughAuthStateProvider> logger)
+        ILogger<PassThroughAuthStateProvider> logger,
+        JwtPrincipalValidator validator)
     {
         _httpContextAccessor = httpContextAccessor;
         _jsRuntime = jsRuntime;
         _logger = logger;
+        _validator = validator;
     }
 
     public override async Task<AuthenticationState> GetAuthenticationStateAsync()
@@ -42,10 +45,10 @@ public class PassThroughAuthStateProvider : AuthenticationStateProvider
         var httpContext = _httpContextAccessor.HttpContext;
         if (httpContext != null)
         {
-            var token = JwtPrincipalParser.ExtractToken(httpContext);
+            var token = WerkbankJwt.ExtractToken(httpContext);
             if (!string.IsNullOrEmpty(token))
             {
-                var principal = JwtPrincipalParser.Parse(token);
+                var principal = _validator.Validate(token);
                 if (principal != null)
                 {
                     _logger.LogInformation("PassThrough: JWT from HttpContext. Role={Role}",
@@ -68,7 +71,7 @@ public class PassThroughAuthStateProvider : AuthenticationStateProvider
             var jwt = await _jsRuntime.InvokeAsync<string?>("getWerkbankJwt");
             if (!string.IsNullOrEmpty(jwt))
             {
-                var principal = JwtPrincipalParser.Parse(jwt);
+                var principal = _validator.Validate(jwt);
                 if (principal != null)
                 {
                     _logger.LogInformation("PassThrough: JWT from JS window.__werkbank_jwt. Role={Role}",

@@ -3,6 +3,7 @@ using Kuestencode.Werkbank.Host.Data;
 using Kuestencode.Werkbank.Host.Models;
 using Kuestencode.Werkbank.Host.Services;
 using Microsoft.EntityFrameworkCore;
+using Yarp.ReverseProxy.Model;
 
 namespace Kuestencode.Werkbank.Host.Middleware;
 
@@ -42,8 +43,11 @@ public class AuthMiddleware
     {
         var path = context.Request.Path.Value ?? "";
 
-        // Statische Dateien, Blazor-Hub und öffentliche API-Pfade durchlassen
-        if (IsPublicPath(path))
+        var isModuleRoute = IsModuleRoute(context);
+
+        // Statische Dateien, Blazor-Hub und öffentliche API-Pfade des Hosts durchlassen.
+        // Modul-Routen nie: die Module verlassen sich darauf, dass der Host ohne Login nichts durchreicht.
+        if (!isModuleRoute && IsPublicPath(path))
         {
             await _next(context);
             return;
@@ -94,8 +98,7 @@ public class AuthMiddleware
                 return;
             }
 
-            // Blazor/Page-Requests durchlassen (AuthStateProvider handled redirect)
-            await _next(context);
+            await RejectPageOrContinue(context, path, isModuleRoute);
             return;
         }
 
@@ -113,7 +116,7 @@ public class AuthMiddleware
                 return;
             }
 
-            await _next(context);
+            await RejectPageOrContinue(context, path, isModuleRoute);
             return;
         }
 
@@ -121,6 +124,23 @@ public class AuthMiddleware
         context.User = principal;
         await _next(context);
     }
+
+    /// <summary>
+    /// Host-Seiten leiten über ihren AuthStateProvider selbst zum Login um. Modul-Seiten werden per
+    /// YARP durchgereicht und haben diese Prüfung nicht, daher leitet hier schon der Host um.
+    /// </summary>
+    private Task RejectPageOrContinue(HttpContext context, string path, bool isModuleRoute)
+    {
+        if (!isModuleRoute)
+            return _next(context);
+
+        var returnUrl = Uri.EscapeDataString(path + context.Request.QueryString);
+        context.Response.Redirect($"/login?returnUrl={returnUrl}");
+        return Task.CompletedTask;
+    }
+
+    private static bool IsModuleRoute(HttpContext context) =>
+        context.GetEndpoint()?.Metadata.GetMetadata<RouteModel>() != null;
 
     /// <summary>
     /// Erkennt API-Aufrufe sowohl am Host selbst ("/api/...") als auch an über YARP
@@ -141,7 +161,7 @@ public class AuthMiddleware
             path.StartsWith("/_blazor", StringComparison.OrdinalIgnoreCase) ||
             path.StartsWith("/css", StringComparison.OrdinalIgnoreCase) ||
             path.StartsWith("/company/logos", StringComparison.OrdinalIgnoreCase) ||
-            path.Contains('.'))
+            (Path.HasExtension(path) && !IsApiPath(path)))
         {
             return true;
         }

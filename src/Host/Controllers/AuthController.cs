@@ -73,7 +73,7 @@ public class AuthController : ControllerBase
     [HttpPost("login/mfa")]
     public async Task<IActionResult> LoginMfa([FromBody] MfaLoginRequest request)
     {
-        var principal = ValidateMfaToken(request.MfaToken);
+        var principal = _jwtTokenService.ValidateMfaToken(request.MfaToken);
         if (principal == null)
             return Unauthorized(new { error = "Ungültiger oder abgelaufener MFA-Token." });
 
@@ -104,7 +104,7 @@ public class AuthController : ControllerBase
         if (!valid)
             return Unauthorized(new { error = "Ungültiger Code." });
 
-        var token = _authService.GenerateToken(member);
+        var token = _jwtTokenService.GenerateToken(member);
         SetAuthCookie(token, false);
 
         return Ok(new
@@ -261,15 +261,6 @@ public class AuthController : ControllerBase
                 ? DateTimeOffset.UtcNow.AddDays(30)
                 : DateTimeOffset.UtcNow.AddDays(7)
         });
-    }
-
-    private ClaimsPrincipal? ValidateMfaToken(string token)
-    {
-        var principal = _jwtTokenService.ValidateToken(token);
-        if (principal == null || principal.FindFirstValue("mfa_pending") != "true")
-            return null;
-
-        return principal;
     }
 }
 

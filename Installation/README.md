@@ -59,6 +59,15 @@ Optionen:
 - `-c` / `--check` – Nur prüfen und Images laden, Container nicht neu starten
 - `-h` / `--help`  – Hilfe anzeigen
 
+### Umstellung ab host 2.18.0: JWT-Secret für alle Module
+
+Die Module prüfen Anmelde-Tokens jetzt selbst und brauchen dafür dasselbe `JWT_SECRET` wie der Host.
+`update-werkbank.sh` tauscht nur die Images, nicht die `docker-compose.yml`. Vor dem Update deshalb einmalig:
+
+1. Die aktuelle `docker-compose.yml` aus diesem Verzeichnis übernehmen. Sie gibt `Jwt__Secret` an jedes Modul weiter.
+2. Prüfen, dass `JWT_SECRET` in der `.env` gesetzt ist (`openssl rand -base64 32`). Fehlt es, startet der Stack nicht.
+   War es bisher leer, hat der Host ein eigenes Secret erzeugt; nach der Umstellung müssen sich alle Nutzer einmal neu anmelden.
+
 ## Modulsteuerung
 
 Unter *Einstellungen → Modulsteuerung* lassen sich einzelne Module stoppen und wieder starten, z. B. um

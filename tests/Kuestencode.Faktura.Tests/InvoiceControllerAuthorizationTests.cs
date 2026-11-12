@@ -43,7 +43,7 @@ public class InvoiceControllerAuthorizationTests : IClassFixture<FakturaWebAppli
     }
 
     /// <summary>
-    /// Die andere Hälfte von [RequireRole]: ein strukturell gültiges Token mit einer Rolle,
+    /// Die andere Hälfte von [RequireRole]: ein gültig signiertes Token mit einer Rolle,
     /// die für den InvoiceController nicht zugelassen ist (Admin/Buero, nicht Mitarbeiter),
     /// muss mit 403 abgelehnt werden statt mit 401 (kein Token) oder 200 (durchgewunken).
     /// </summary>
@@ -56,5 +56,34 @@ public class InvoiceControllerAuthorizationTests : IClassFixture<FakturaWebAppli
         var response = await client.GetAsync("/api/Invoice");
 
         response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    /// <summary>
+    /// Regressionstest Security-Audit K2: ein selbst gebautes Admin-Token, das nicht mit dem
+    /// Werkbank-Secret signiert ist, darf im Modul nicht als Admin durchgehen.
+    /// </summary>
+    [Fact]
+    public async Task GetAll_AdminTokenMitFremdemSchluessel_GibtUnauthorizedZurueck()
+    {
+        using var client = _factory.CreateClient();
+        var forged = TestJwt.Create("Admin", secret: "attacker-chosen-secret-0123456789abcdef");
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", forged);
+
+        var response = await client.GetAsync("/api/Invoice");
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task GetAll_UnsigniertesAdminToken_GibtUnauthorizedZurueck()
+    {
+        using var client = _factory.CreateClient();
+        var signed = TestJwt.Create("Admin");
+        var unsigned = "eyJhbGciOiJub25lIiwidHlwIjoiSldUIn0." + signed.Split('.')[1] + ".";
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", unsigned);
+
+        var response = await client.GetAsync("/api/Invoice");
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
 }

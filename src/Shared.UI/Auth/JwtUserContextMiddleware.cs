@@ -15,18 +15,20 @@ namespace Kuestencode.Shared.UI.Auth;
 public class JwtUserContextMiddleware
 {
     private readonly RequestDelegate _next;
+    private readonly JwtPrincipalValidator _validator;
 
-    public JwtUserContextMiddleware(RequestDelegate next)
+    public JwtUserContextMiddleware(RequestDelegate next, JwtPrincipalValidator validator)
     {
         _next = next;
+        _validator = validator;
     }
 
     public async Task InvokeAsync(HttpContext context)
     {
-        var token = JwtPrincipalParser.ExtractToken(context);
+        var token = WerkbankJwt.ExtractToken(context);
         if (!string.IsNullOrEmpty(token))
         {
-            var principal = JwtPrincipalParser.Parse(token);
+            var principal = _validator.Validate(token);
             if (principal != null)
             {
                 context.User = principal;

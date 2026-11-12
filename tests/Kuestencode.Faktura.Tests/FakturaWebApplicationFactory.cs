@@ -25,7 +25,8 @@ public sealed class FakturaWebApplicationFactory : WebApplicationFactory<Program
         {
             config.AddInMemoryCollection(new Dictionary<string, string?>
             {
-                ["APPLY_MIGRATIONS"] = "false"
+                ["APPLY_MIGRATIONS"] = "false",
+                ["Jwt:Secret"] = TestJwt.Secret
             });
         });
 

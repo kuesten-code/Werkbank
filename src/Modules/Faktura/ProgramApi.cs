@@ -44,9 +44,7 @@ public class ProgramApi
         builder.Services.AddRazorPages();
         builder.Services.AddServerSideBlazor();
 
-        // Add PassThrough AuthenticationStateProvider for modules
-        builder.Services.AddScoped<Microsoft.AspNetCore.Components.Authorization.AuthenticationStateProvider,
-            Kuestencode.Shared.UI.Auth.PassThroughAuthStateProvider>();
+        builder.Services.AddWerkbankModuleAuth();
 
         // Add MudBlazor
         builder.Services.AddMudServices();

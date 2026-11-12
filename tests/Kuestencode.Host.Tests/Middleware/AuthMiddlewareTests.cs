@@ -8,6 +8,9 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
+using Yarp.ReverseProxy.Configuration;
+using Yarp.ReverseProxy.Forwarder;
+using Yarp.ReverseProxy.Model;
 using Xunit;
 using UserRole = Kuestencode.Shared.Contracts.Host.UserRole;
 
@@ -48,6 +51,23 @@ public class AuthMiddlewareTests
             httpContext.Request.Headers.Append("Cookie", $"werkbank_auth_cookie={cookieToken}");
 
         return httpContext;
+    }
+
+    /// <summary>
+    /// Simuliert, dass das Routing den Request einer YARP-Modulroute zugeordnet hat.
+    /// </summary>
+    private static void MarkAsModuleRoute(HttpContext httpContext)
+    {
+        var route = new RouteModel(new RouteConfig { RouteId = "faktura-route" }, cluster: null, HttpTransformer.Empty);
+        httpContext.SetEndpoint(new Endpoint(null, new EndpointMetadataCollection(route), "faktura-route"));
+    }
+
+    private static (AuthMiddleware Middleware, Func<bool> NextCalled) CreateMiddleware(JwtTokenService? jwtService = null)
+    {
+        var nextCalled = false;
+        var middleware = new AuthMiddleware(_ => { nextCalled = true; return Task.CompletedTask; },
+            jwtService ?? CreateJwtService(new string('a', 32)), NullLogger<AuthMiddleware>.Instance);
+        return (middleware, () => nextCalled);
     }
 
     private static TeamMember CreateMember() => new()
@@ -133,6 +153,131 @@ public class AuthMiddlewareTests
         await middleware.InvokeAsync(httpContext);
 
         nextCalled.Should().BeFalse();
+        httpContext.Response.StatusCode.Should().Be(401);
+    }
+
+    [Fact]
+    public async Task InvokeAsync_ModulSeiteOhneToken_LeitetZumLoginMitReturnUrlUm()
+    {
+        var httpContext = CreateHttpContext("/faktura/invoices", authEnabled: true);
+        httpContext.Request.QueryString = new QueryString("?status=open");
+        MarkAsModuleRoute(httpContext);
+        var (middleware, nextCalled) = CreateMiddleware();
+
+        await middleware.InvokeAsync(httpContext);
+
+        nextCalled().Should().BeFalse();
+        httpContext.Response.StatusCode.Should().Be(302);
+        httpContext.Response.Headers.Location.ToString()
+            .Should().Be("/login?returnUrl=%2Ffaktura%2Finvoices%3Fstatus%3Dopen");
+    }
+
+    [Fact]
+    public async Task InvokeAsync_ModulSeiteMitUngueltigemToken_LeitetZumLoginUm()
+    {
+        var httpContext = CreateHttpContext("/faktura/invoices", authEnabled: true, cookieToken: "kaputt");
+        MarkAsModuleRoute(httpContext);
+        var (middleware, nextCalled) = CreateMiddleware();
+
+        await middleware.InvokeAsync(httpContext);
+
+        nextCalled().Should().BeFalse();
+        httpContext.Response.StatusCode.Should().Be(302);
+    }
+
+    [Theory]
+    [InlineData("/faktura/_blazor")]
+    [InlineData("/_faktura/_framework/blazor.server.js")]
+    [InlineData("/faktura/css/app.css")]
+    public async Task InvokeAsync_ModulPfadDerFuerDenHostOeffentlichWaere_WirdOhneTokenNichtDurchgereicht(string path)
+    {
+        var httpContext = CreateHttpContext(path, authEnabled: true);
+        MarkAsModuleRoute(httpContext);
+        var (middleware, nextCalled) = CreateMiddleware();
+
+        await middleware.InvokeAsync(httpContext);
+
+        nextCalled().Should().BeFalse();
+        httpContext.Response.StatusCode.Should().Be(302);
+    }
+
+    [Fact]
+    public async Task InvokeAsync_ModulApiMitPunktImPfadOhneToken_Gibt401()
+    {
+        var httpContext = CreateHttpContext("/recepta/api/recepta/files/beleg.pdf", authEnabled: true);
+        MarkAsModuleRoute(httpContext);
+        var (middleware, nextCalled) = CreateMiddleware();
+
+        await middleware.InvokeAsync(httpContext);
+
+        nextCalled().Should().BeFalse();
+        httpContext.Response.StatusCode.Should().Be(401);
+    }
+
+    [Fact]
+    public async Task InvokeAsync_ModulSeiteMitGueltigemToken_ReichtDurch()
+    {
+        var jwtService = CreateJwtService(new string('a', 32));
+        var token = jwtService.GenerateToken(CreateMember());
+        var httpContext = CreateHttpContext("/faktura/invoices", authEnabled: true, cookieToken: token);
+        MarkAsModuleRoute(httpContext);
+        var (middleware, nextCalled) = CreateMiddleware(jwtService);
+
+        await middleware.InvokeAsync(httpContext);
+
+        nextCalled().Should().BeTrue();
+        httpContext.User.Identity!.IsAuthenticated.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task InvokeAsync_ModulSeiteBeiDeaktivierterAuth_ReichtDurch()
+    {
+        var httpContext = CreateHttpContext("/faktura/invoices", authEnabled: false);
+        MarkAsModuleRoute(httpContext);
+        var (middleware, nextCalled) = CreateMiddleware();
+
+        await middleware.InvokeAsync(httpContext);
+
+        nextCalled().Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task InvokeAsync_HostApiMitPunktImPfadOhneToken_Gibt401()
+    {
+        var httpContext = CreateHttpContext("/api/company/logo.png", authEnabled: true);
+        var (middleware, nextCalled) = CreateMiddleware();
+
+        await middleware.InvokeAsync(httpContext);
+
+        nextCalled().Should().BeFalse();
+        httpContext.Response.StatusCode.Should().Be(401);
+    }
+
+    [Fact]
+    public async Task InvokeAsync_StatischeHostDateiOhneToken_ReichtDurch()
+    {
+        var httpContext = CreateHttpContext("/favicon.png", authEnabled: true);
+        var (middleware, nextCalled) = CreateMiddleware();
+
+        await middleware.InvokeAsync(httpContext);
+
+        nextCalled().Should().BeTrue();
+    }
+
+    /// <summary>
+    /// Regressionstest Security-Audit H1: der MFA-Zwischen-Token ersetzt keine Session.
+    /// </summary>
+    [Fact]
+    public async Task InvokeAsync_MfaZwischenTokenAlsCookie_Gibt401()
+    {
+        var jwtService = CreateJwtService(new string('a', 32));
+        var mfaToken = jwtService.GenerateMfaToken(CreateMember());
+        var httpContext = CreateHttpContext("/api/auth/me", authEnabled: true, cookieToken: mfaToken);
+        var (middleware, nextCalled) = CreateMiddleware(jwtService);
+
+        await middleware.InvokeAsync(httpContext);
+
+        nextCalled().Should().BeFalse();
         httpContext.Response.StatusCode.Should().Be(401);
     }
 }

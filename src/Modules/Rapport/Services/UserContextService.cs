@@ -1,6 +1,6 @@
-using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using Kuestencode.Shared.ApiClients;
+using Kuestencode.Shared.UI.Auth;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Http;
 
@@ -11,6 +11,7 @@ public class UserContextService : IUserContextService
     private readonly AuthenticationStateProvider _authStateProvider;
     private readonly IHttpContextAccessor _httpContextAccessor;
     private readonly IHostApiClient _hostApiClient;
+    private readonly JwtPrincipalValidator _validator;
 
     private ClaimsPrincipal? _cachedPrincipal;
     private (int? RolleId, string? RolleName)? _cachedRolle;
@@ -18,11 +19,13 @@ public class UserContextService : IUserContextService
     public UserContextService(
         AuthenticationStateProvider authStateProvider,
         IHttpContextAccessor httpContextAccessor,
-        IHostApiClient hostApiClient)
+        IHostApiClient hostApiClient,
+        JwtPrincipalValidator validator)
     {
         _authStateProvider = authStateProvider;
         _httpContextAccessor = httpContextAccessor;
         _hostApiClient = hostApiClient;
+        _validator = validator;
     }
 
     private async Task<ClaimsPrincipal> GetPrincipalAsync()
@@ -33,19 +36,9 @@ public class UserContextService : IUserContextService
         var httpContext = _httpContextAccessor.HttpContext;
         if (httpContext != null)
         {
-            if (httpContext.Request.Cookies.TryGetValue("werkbank_auth_cookie", out var cookieToken)
-                && !string.IsNullOrEmpty(cookieToken))
-            {
-                var p = ParseJwt(cookieToken);
-                if (p != null) { _cachedPrincipal = p; return p; }
-            }
-
-            var authHeader = httpContext.Request.Headers.Authorization.FirstOrDefault();
-            if (!string.IsNullOrEmpty(authHeader) && authHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
-            {
-                var p = ParseJwt(authHeader["Bearer ".Length..].Trim());
-                if (p != null) { _cachedPrincipal = p; return p; }
-            }
+            var token = WerkbankJwt.ExtractToken(httpContext);
+            var p = token != null ? _validator.Validate(token) : null;
+            if (p != null) { _cachedPrincipal = p; return p; }
 
             if (httpContext.User?.Identity?.IsAuthenticated == true)
             {
@@ -115,28 +108,5 @@ public class UserContextService : IUserContextService
         }
 
         return (null, null);
-    }
-
-    private static ClaimsPrincipal? ParseJwt(string token)
-    {
-        try
-        {
-            var handler = new JwtSecurityTokenHandler();
-            var jwt = handler.ReadJwtToken(token);
-            if (jwt.ValidTo < DateTime.UtcNow) return null;
-
-            var mappedClaims = jwt.Claims.Select(c => new Claim(
-                c.Type switch
-                {
-                    "role"   => ClaimTypes.Role,
-                    "name"   => ClaimTypes.Name,
-                    "nameid" => ClaimTypes.NameIdentifier,
-                    "email"  => ClaimTypes.Email,
-                    _        => c.Type
-                }, c.Value));
-
-            return new ClaimsPrincipal(new ClaimsIdentity(mappedClaims, "jwt"));
-        }
-        catch { return null; }
     }
 }
