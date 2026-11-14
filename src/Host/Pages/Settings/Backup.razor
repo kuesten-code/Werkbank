@@ -99,6 +99,13 @@
                         <MudIconButton Icon="@Icons.Material.Filled.Wifi" Size="Size.Small"
                                        OnClick="@(() => TestConnectionAsync(context))" />
                     </MudTooltip>
+                    @if (context.Type == BackupTargetType.Sftp && context.SftpHostKeyFingerprint != null)
+                    {
+                        <MudTooltip Text="@($"Gespeicherten Host-Key zurücksetzen ({context.SftpHostKeyFingerprint})")">
+                            <MudIconButton Icon="@Icons.Material.Filled.KeyOff" Size="Size.Small"
+                                           OnClick="@(() => ResetHostKeyAsync(context))" />
+                        </MudTooltip>
+                    }
                     <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small"
                                    OnClick="@(() => EditTargetAsync(context))" />
                     <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small"

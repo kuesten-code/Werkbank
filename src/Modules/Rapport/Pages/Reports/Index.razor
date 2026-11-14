@@ -1,4 +1,5 @@
 ﻿@page "/reports"
+@attribute [Authorize(Roles = "Admin,Buero")]
 @using System.Text
 @using Kuestencode.Rapport.Models.Reports
 @using Kuestencode.Rapport.Models.Timesheets

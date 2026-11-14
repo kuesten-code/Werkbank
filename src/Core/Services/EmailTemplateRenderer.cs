@@ -13,11 +13,11 @@ public static class EmailTemplateRenderer
 {
     public static string WrapHtml(Company company, string contentHtml, string? greeting, bool includeClosing)
     {
-        var greetingText = ReplaceFirmenname(greeting ?? company.EmailGreeting ?? "Sehr geehrte Damen und Herren,", company).Replace("\n", "<br>");
+        var greetingText = Html(ReplaceFirmenname(greeting ?? company.EmailGreeting ?? "Sehr geehrte Damen und Herren,", company));
         var closingText = includeClosing
-            ? ReplaceFirmenname(company.EmailClosing ?? "Mit freundlichen Grüßen", company).Replace("\n", "<br>")
+            ? Html(ReplaceFirmenname(company.EmailClosing ?? "Mit freundlichen Grüßen", company))
             : string.Empty;
-        var signatureText = ReplaceFirmenname(company.EmailSignature ?? company.DisplayName, company).Replace("\n", "<br>");
+        var signatureText = Html(ReplaceFirmenname(company.EmailSignature ?? company.DisplayName, company));
 
         var template = company.EmailLayout switch
         {
@@ -27,17 +27,30 @@ public static class EmailTemplateRenderer
         };
 
         return template
-            .Replace("{{PRIMARY_COLOR}}", company.EmailPrimaryColor)
-            .Replace("{{ACCENT_COLOR}}", company.EmailAccentColor)
-            .Replace("{{COMPANY_NAME}}", company.DisplayName)
+            .Replace("{{PRIMARY_COLOR}}", Html(company.EmailPrimaryColor))
+            .Replace("{{ACCENT_COLOR}}", Html(company.EmailAccentColor))
+            .Replace("{{COMPANY_NAME}}", Html(company.DisplayName))
             .Replace("{{GREETING}}", greetingText)
             .Replace("{{CONTENT}}", contentHtml)
             .Replace("{{CLOSING}}", closingText)
             .Replace("{{SIGNATURE}}", signatureText)
-            .Replace("{{COMPANY_ADDRESS}}", company.GetFormattedAddress().Replace("\n", "<br>"))
-            .Replace("{{COMPANY_CONTACT}}", BuildContactLine(company))
-            .Replace("{{COMPANY_TAX_INFO}}", BuildTaxInfoLine(company));
+            .Replace("{{COMPANY_ADDRESS}}", Html(company.GetFormattedAddress()))
+            .Replace("{{COMPANY_CONTACT}}", Html(BuildContactLine(company)))
+            .Replace("{{COMPANY_TAX_INFO}}", Html(BuildTaxInfoLine(company)));
     }
+
+    /// <summary>
+    /// Firmen- und Anrede-Texte sind Nutzereingaben: erst kodieren, dann Zeilenumbrüche in &lt;br&gt; wandeln,
+    /// damit eingetipptes Markup im Mailclient des Empfängers nicht als HTML ausgeführt wird.
+    /// Nur die für HTML relevanten Zeichen werden ersetzt; Umlaute bleiben lesbar statt als &amp;#228; im Mailquelltext.
+    /// </summary>
+    public static string Html(string? text) => (text ?? string.Empty)
+        .Replace("&", "&amp;")
+        .Replace("<", "&lt;")
+        .Replace(">", "&gt;")
+        .Replace("\"", "&quot;")
+        .Replace("'", "&#39;")
+        .Replace("\n", "<br>");
 
     public static string WrapText(Company company, string contentText, string? greeting, bool includeClosing)
     {

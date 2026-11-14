@@ -1,0 +1,30 @@
+@using System.Security.Claims
+
+@if (User.Identity?.IsAuthenticated != true)
+{
+    <RedirectToLogin />
+}
+else
+{
+    <MudContainer MaxWidth="MaxWidth.Medium" Class="mt-8">
+        <MudPaper Class="pa-8" Elevation="3">
+            <MudText Typo="Typo.h4" Align="Align.Center" GutterBottom="true">
+                Zugriff verweigert
+            </MudText>
+            <MudText Align="Align.Center" Class="mt-4">
+                Du hast nicht die erforderlichen Berechtigungen für diese Seite.
+            </MudText>
+            <MudButton Href="/" Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" Class="mt-6">
+                Zurück zur Startseite
+            </MudButton>
+        </MudPaper>
+    </MudContainer>
+}
+
+@code {
+    /// <summary>
+    /// Nicht angemeldet: zum Host-Login. Angemeldet, aber falsche Rolle: Hinweis statt Login-Schleife.
+    /// </summary>
+    [Parameter, EditorRequired]
+    public ClaimsPrincipal User { get; set; } = default!;
+}

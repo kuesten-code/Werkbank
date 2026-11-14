@@ -1,3 +1,4 @@
+using Kuestencode.Core.Services;
 using Kuestencode.Core.Interfaces;
 using Kuestencode.Werkbank.Host.Data;
 using Kuestencode.Werkbank.Host.Models;
@@ -95,7 +96,7 @@ public class InviteService : IInviteService
         var htmlBody = $"""
             <p>du wurdest zur Küstencode Werkbank eingeladen.</p>
             <p>Klicke auf den folgenden Link, um dein Passwort zu setzen:<br>
-            <a href="{link}">{link}</a></p>
+            <a href="{EmailTemplateRenderer.Html(link)}">{EmailTemplateRenderer.Html(link)}</a></p>
             <p>Der Link ist 48 Stunden gültig.</p>
             <p>Bei Fragen wende dich an deinen Administrator.</p>
             """;

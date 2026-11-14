@@ -545,6 +545,98 @@ public class BackupServiceTests : IDisposable
         received!.Password.Should().Be("geheim");
     }
 
+    // ─── SFTP-Host-Key (Trust on first use) ──────────────────────────────────
+
+    private void ProviderLearnsHostKey(string fingerprint) =>
+        _provider.Setup(p => p.TestConnectionAsync(It.IsAny<BackupTarget>(), It.IsAny<CancellationToken>()))
+            .Returns<BackupTarget, CancellationToken>((connection, _) =>
+            {
+                connection.SftpHostKeyFingerprint ??= fingerprint;
+                return Task.FromResult<(bool, string?)>((true, null));
+            });
+
+    private string? StoredFingerprint(int targetId)
+    {
+        _context.ChangeTracker.Clear();
+        return _context.BackupTargets.Single(t => t.Id == targetId).SftpHostKeyFingerprint;
+    }
+
+    [Fact]
+    public async Task ErsteVerbindung_SpeichertGelerntenHostKey()
+    {
+        var target = await SeedTargetAsync();
+        ProviderLearnsHostKey("SHA256-erster");
+
+        await _service.TestTargetConnectionAsync(target.Id);
+
+        StoredFingerprint(target.Id).Should().Be("SHA256-erster");
+    }
+
+    [Fact]
+    public async Task GespeicherterHostKey_WirdAnProviderUebergebenUndNichtUeberschrieben()
+    {
+        var target = await SeedTargetAsync();
+        ProviderLearnsHostKey("SHA256-erster");
+        await _service.TestTargetConnectionAsync(target.Id);
+        BackupTarget? seenByProvider = null;
+        _provider.Setup(p => p.TestConnectionAsync(It.IsAny<BackupTarget>(), It.IsAny<CancellationToken>()))
+            .Callback<BackupTarget, CancellationToken>((connection, _) => seenByProvider = connection)
+            .ReturnsAsync((true, (string?)null));
+
+        await _service.TestTargetConnectionAsync(target.Id);
+
+        seenByProvider!.SftpHostKeyFingerprint.Should().Be("SHA256-erster");
+        StoredFingerprint(target.Id).Should().Be("SHA256-erster");
+    }
+
+    [Fact]
+    public async Task HostOderPortGeaendert_SetztHostKeyZurueck()
+    {
+        var target = await SeedTargetAsync();
+        ProviderLearnsHostKey("SHA256-alt");
+        await _service.TestTargetConnectionAsync(target.Id);
+
+        target.Host = "neuer-server.example.com";
+        await _service.UpdateTargetAsync(target);
+
+        StoredFingerprint(target.Id).Should().BeNull();
+    }
+
+    [Fact]
+    public async Task NurNameGeaendert_BehaeltHostKey()
+    {
+        var target = await SeedTargetAsync();
+        ProviderLearnsHostKey("SHA256-alt");
+        await _service.TestTargetConnectionAsync(target.Id);
+
+        target.Name = "Umbenannt";
+        await _service.UpdateTargetAsync(target);
+
+        StoredFingerprint(target.Id).Should().Be("SHA256-alt");
+    }
+
+    [Fact]
+    public async Task ResetSftpHostKeyAsync_LoeschtGespeichertenHostKey()
+    {
+        var target = await SeedTargetAsync();
+        ProviderLearnsHostKey("SHA256-alt");
+        await _service.TestTargetConnectionAsync(target.Id);
+
+        await _service.ResetSftpHostKeyAsync(target.Id);
+
+        StoredFingerprint(target.Id).Should().BeNull();
+    }
+
+    [Theory]
+    [InlineData(null, "abc", true)]
+    [InlineData("abc", "abc", true)]
+    [InlineData("abc", "xyz", false)]
+    public void IsTrustedHostKey_VertrautNurUnbekanntemOderGleichemSchluessel(string? known, string presented, bool trusted)
+    {
+        Kuestencode.Werkbank.Host.Services.Backup.Providers.SftpBackupProvider.IsTrustedHostKey(known, presented)
+            .Should().Be(trusted);
+    }
+
     // ─── RestoreAsync ─────────────────────────────────────────────────────────
 
     [Fact]
@@ -602,6 +694,51 @@ public class BackupServiceTests : IDisposable
         {
             if (File.Exists(testArchivePath)) File.Delete(testArchivePath);
         }
+    }
+
+    /// <summary>
+    /// Härtung aus dem Security-Audit: ein präpariertes Archiv darf beim Entpacken (als root) nicht aus dem
+    /// Datenordner ausbrechen. GNU tar entfernt ".." beim Packen selbst, daher wird das Archiv hier direkt geschrieben.
+    /// </summary>
+    [Theory]
+    [InlineData("data/../ausbruch.txt")]
+    [InlineData("/etc/ausbruch.txt")]
+    public async Task RestoreAsync_ArchivMitAusbruchspfad_WirdVorDemEntpackenAbgelehnt(string maliciousEntry)
+    {
+        var target = await SeedTargetAsync();
+        var archivePath = Path.Combine(_contentRoot, "evil-" + Guid.NewGuid() + ".tar.gz");
+        await using (var file = File.Create(archivePath))
+        await using (var gzip = new System.IO.Compression.GZipStream(file, System.IO.Compression.CompressionLevel.Fastest))
+        await using (var tar = new System.Formats.Tar.TarWriter(gzip, System.Formats.Tar.TarEntryFormat.Pax))
+        {
+            foreach (var name in new[] { "data/ok.txt", maliciousEntry })
+            {
+                var entry = new System.Formats.Tar.PaxTarEntry(System.Formats.Tar.TarEntryType.RegularFile, name)
+                {
+                    DataStream = new MemoryStream("x"u8.ToArray())
+                };
+                await tar.WriteEntryAsync(entry);
+            }
+        }
+        ServeArchive(archivePath);
+
+        var result = await _service.RestoreAsync(target.Id, "backup-2026-09-14-030000.tar.gz");
+
+        result.Success.Should().BeFalse();
+        File.Exists(Path.Combine(_contentRoot, "ausbruch.txt")).Should().BeFalse();
+        File.ReadAllText(Path.Combine(_contentRoot, "data", "dummy.txt")).Should().Be("content");
+    }
+
+    [Theory]
+    [InlineData("data/postgres/PG_VERSION", false)]
+    [InlineData("./data/keys/key.xml", false)]
+    [InlineData("data/..hidden", false)]
+    [InlineData("data/../escape", true)]
+    [InlineData("data\\..\\escape", true)]
+    [InlineData("/etc/passwd", true)]
+    public void IsUnsafeArchivePath_ErkenntAusbruchspfade(string entry, bool unsafePath)
+    {
+        BackupService.IsUnsafeArchivePath(entry).Should().Be(unsafePath);
     }
 
     [Fact]

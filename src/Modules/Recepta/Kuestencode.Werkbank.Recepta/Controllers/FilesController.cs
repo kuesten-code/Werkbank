@@ -34,6 +34,7 @@ public class FilesController : ControllerBase
     /// Lädt einen Dateianhang hoch und führt optional OCR aus.
     /// </summary>
     [HttpPost("documents/{documentId:guid}/files")]
+    [RequestSizeLimit(UploadPolicy.MaxFileSize + 1024 * 1024)]
     public async Task<ActionResult<DocumentFileDto>> Upload(Guid documentId, IFormFile file, [FromQuery] bool ocr = true)
     {
         try
@@ -48,7 +49,7 @@ public class FilesController : ControllerBase
                     var (downloadStream, _, _) = await _fileService.DownloadAsync(documentFile.Id);
                     await using (downloadStream)
                     {
-                        var ocrText = await _ocrService.ExtractTextAsync(downloadStream, file.FileName);
+                        var ocrText = await _ocrService.ExtractTextAsync(downloadStream, documentFile.FileName);
 
                         if (!string.IsNullOrWhiteSpace(ocrText))
                         {
@@ -58,7 +59,7 @@ public class FilesController : ControllerBase
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogWarning(ex, "OCR für Datei '{FileName}' fehlgeschlagen – Upload war dennoch erfolgreich", file.FileName);
+                    _logger.LogWarning(ex, "OCR für Datei '{FileName}' fehlgeschlagen – Upload war dennoch erfolgreich", documentFile.FileName);
                 }
             }
 
@@ -96,15 +97,18 @@ public class FilesController : ControllerBase
         {
             var (stream, fileName, contentType) = await _fileService.DownloadAsync(fileId);
 
-            if (inline)
+            // Gespeicherte Typen stammen teils noch aus der Zeit ohne Positivliste: unbekannte nie als solche ausliefern.
+            var safeContentType = UploadPolicy.NormalizeContentType(contentType) ?? "application/octet-stream";
+
+            if (inline && UploadPolicy.MayDisplayInline(safeContentType))
             {
                 var contentDisposition = new ContentDispositionHeaderValue("inline");
                 contentDisposition.SetHttpFileName(fileName);
                 Response.Headers.ContentDisposition = contentDisposition.ToString();
-                return File(stream, contentType);
+                return File(stream, safeContentType);
             }
 
-            return File(stream, contentType, fileName);
+            return File(stream, safeContentType, fileName);
         }
         catch (InvalidOperationException ex)
         {

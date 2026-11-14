@@ -49,12 +49,6 @@ public class ProgramApi
             });
         });
 
-        builder.Services.AddCors(options =>
-        {
-            options.AddDefaultPolicy(policy =>
-                policy.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader());
-        });
-
         var keysDirectory = Path.Combine(builder.Environment.ContentRootPath, "data", "keys");
         Directory.CreateDirectory(keysDirectory);
         builder.Services.AddDataProtection()
@@ -106,7 +100,7 @@ public class ProgramApi
         }
 
         app.UsePathBase("/locatio");
-        app.UseCors();
+        app.UseWerkbankSecurityHeaders();
         app.UseStaticFiles();
         app.UseModuleHealthMonitor();
         app.UseRouting();

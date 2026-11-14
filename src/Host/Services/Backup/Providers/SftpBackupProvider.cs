@@ -8,8 +8,7 @@ public class SftpBackupProvider : IBackupTargetProvider
 {
     public Task UploadAsync(BackupTarget target, string localPath, string remoteName, CancellationToken ct)
     {
-        using var client = CreateClient(target);
-        client.Connect();
+        using var client = Connect(target);
 
         var remotePath = CombinePath(target.Path, remoteName);
         using var fileStream = File.OpenRead(localPath);
@@ -20,8 +19,7 @@ public class SftpBackupProvider : IBackupTargetProvider
 
     public Task DownloadAsync(BackupTarget target, string remoteName, string localPath, CancellationToken ct = default)
     {
-        using var client = CreateClient(target);
-        client.Connect();
+        using var client = Connect(target);
 
         var remotePath = CombinePath(target.Path, remoteName);
         using var fileStream = File.Create(localPath);
@@ -32,8 +30,7 @@ public class SftpBackupProvider : IBackupTargetProvider
 
     public Task<List<BackupFileInfo>> ListFilesAsync(BackupTarget target, CancellationToken ct)
     {
-        using var client = CreateClient(target);
-        client.Connect();
+        using var client = Connect(target);
 
         var files = client.ListDirectory(target.Path ?? "/")
             .Where(f => BackupFileNaming.IsBackupFile(f.Name))
@@ -49,8 +46,7 @@ public class SftpBackupProvider : IBackupTargetProvider
 
     public Task DeleteAsync(BackupTarget target, string remoteName, CancellationToken ct)
     {
-        using var client = CreateClient(target);
-        client.Connect();
+        using var client = Connect(target);
         client.DeleteFile(CombinePath(target.Path, remoteName));
         return Task.CompletedTask;
     }
@@ -59,8 +55,7 @@ public class SftpBackupProvider : IBackupTargetProvider
     {
         try
         {
-            using var client = CreateClient(target);
-            client.Connect();
+            using var client = Connect(target);
             client.ListDirectory(target.Path ?? "/");
             return Task.FromResult<(bool, string?)>((true, null));
         }
@@ -69,6 +64,41 @@ public class SftpBackupProvider : IBackupTargetProvider
             return Task.FromResult<(bool, string?)>((false, ExceptionHelper.Describe(ex)));
         }
     }
+
+    /// <summary>
+    /// Trust on first use: ohne gespeicherten Fingerprint wird der Host-Key akzeptiert und auf
+    /// <paramref name="target"/> vermerkt (der Aufrufer speichert ihn), danach muss er übereinstimmen.
+    /// </summary>
+    private static SftpClient Connect(BackupTarget target)
+    {
+        var client = CreateClient(target);
+        string? presented = null;
+        client.HostKeyReceived += (_, e) =>
+        {
+            presented = e.FingerPrintSHA256;
+            e.CanTrust = IsTrustedHostKey(target.SftpHostKeyFingerprint, presented);
+        };
+
+        try
+        {
+            client.Connect();
+        }
+        catch (Exception)
+        {
+            client.Dispose();
+            if (presented != null && !IsTrustedHostKey(target.SftpHostKeyFingerprint, presented))
+                throw new InvalidOperationException(
+                    $"Der Host-Key des SFTP-Servers '{target.Host}' hat sich geändert (gespeichert: {target.SftpHostKeyFingerprint}, " +
+                    $"erhalten: {presented}). Das kann ein Angriff sein. Wurde der Server bewusst neu aufgesetzt, " +
+                    "im Backup-Ziel den gespeicherten Host-Key zurücksetzen.");
+            throw;
+        }
+
+        target.SftpHostKeyFingerprint ??= presented;
+        return client;
+    }
+
+    public static bool IsTrustedHostKey(string? known, string presented) => known == null || known == presented;
 
     private static SftpClient CreateClient(BackupTarget target)
     {

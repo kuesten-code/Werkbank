@@ -54,12 +54,6 @@ public class ProgramApi
             });
         });
 
-        builder.Services.AddCors(options =>
-        {
-            options.AddDefaultPolicy(policy =>
-                policy.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader());
-        });
-
         // Add Data Protection for password encryption
         var keysDirectory = Path.Combine(builder.Environment.ContentRootPath, "data", "keys");
         Directory.CreateDirectory(keysDirectory);
@@ -156,7 +150,7 @@ public class ProgramApi
         }
 
         app.UsePathBase("/saldo");
-        app.UseCors();
+        app.UseWerkbankSecurityHeaders();
         app.UseStaticFiles();
         app.UseModuleHealthMonitor();
         app.UseRouting();

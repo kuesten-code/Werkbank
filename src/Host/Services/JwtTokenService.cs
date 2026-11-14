@@ -60,7 +60,8 @@ public class JwtTokenService : IJwtTokenService
             new Claim(ClaimTypes.NameIdentifier, member.Id.ToString()),
             new Claim(ClaimTypes.Name, member.DisplayName),
             new Claim(ClaimTypes.Email, member.Email ?? ""),
-            new Claim(ClaimTypes.Role, member.Role.ToString())
+            new Claim(ClaimTypes.Role, member.Role.ToString()),
+            new Claim(SessionValidator.SessionVersionClaim, member.SessionVersion.ToString())
         };
 
         return WriteToken(claims, _issuer, TimeSpan.FromDays(expiresInDays));

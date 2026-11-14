@@ -55,6 +55,11 @@ public class TeamMember
     public DateTime? LockoutUntil { get; set; }
     public bool IsLockedByAdmin { get; set; } = false;
 
+    /// <summary>
+    /// Steht als Claim in jedem ausgestellten Token. Erhöhen macht alle bestehenden Sessions des Nutzers ungültig.
+    /// </summary>
+    public int SessionVersion { get; set; }
+
     // TOTP MFA
     public string? TotpSecret { get; set; }
     public bool MfaEnabled { get; set; } = false;
@@ -70,5 +75,9 @@ public class TeamMember
 
     // Computed
     public bool HasCompletedSetup => InviteAcceptedAt.HasValue;
+
+    public bool CanSignIn => IsActive && !IsOffline && !IsLockedByAdmin;
+
+    public void RevokeSessions() => SessionVersion++;
 }
 

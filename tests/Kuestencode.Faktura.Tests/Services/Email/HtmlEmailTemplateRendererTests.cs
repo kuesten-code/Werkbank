@@ -37,6 +37,23 @@ public class HtmlEmailTemplateRendererTests
 
     // ─── RenderContentHtml ────────────────────────────────────────────────────
 
+    /// <summary>
+    /// Security-Audit N2: Rechnungsnummer und Bankdaten sind Nutzereingaben und werden kodiert.
+    /// </summary>
+    [Fact]
+    public void RenderContentHtml_MarkupInRechnungsnummerUndBankdaten_WirdKodiert()
+    {
+        var invoice = MakeInvoice();
+        invoice.InvoiceNumber = "<script>x</script>";
+        var company = MakeCompany(bic: "<b>BIC</b>");
+        company.BankName = "Bank \"><img src=x>";
+
+        var html = _renderer.RenderContentHtml(invoice, company);
+
+        html.Should().NotContain("<script>").And.NotContain("<img").And.NotContain("<b>BIC");
+        html.Should().Contain("&lt;script&gt;x&lt;/script&gt;");
+    }
+
     [Fact]
     public void RenderContentHtml_OhneFaelligkeitsdatum_ZeigtSofortFaellig()
     {

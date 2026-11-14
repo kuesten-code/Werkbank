@@ -1,3 +1,4 @@
+using Kuestencode.Core.Services;
 using Kuestencode.Core.Models;
 using Kuestencode.Faktura.Models;
 using System.Globalization;
@@ -12,6 +13,8 @@ public class HtmlEmailTemplateRenderer : IEmailTemplateRenderer
 {
     public string RenderContentHtml(Invoice invoice, Company company)
     {
+        static string E(string? value) => EmailTemplateRenderer.Html(value);
+        var number = E(invoice.InvoiceNumber);
         var culture = new CultureInfo("de-DE");
         var paymentAmount = invoice.DocumentAmount;
         var formattedTotal = paymentAmount.ToString("C", culture);
@@ -19,22 +22,22 @@ public class HtmlEmailTemplateRenderer : IEmailTemplateRenderer
         var formattedDueDate = invoice.DueDate?.ToString("dd.MM.yyyy", culture) ?? "Sofort fällig";
 
         return $"""
-            <p>anbei erhalten Sie die Rechnung <strong>{invoice.InvoiceNumber}</strong>.</p>
+            <p>anbei erhalten Sie die Rechnung <strong>{number}</strong>.</p>
             <table style="width:100%; border-collapse:collapse; background-color:white; padding:15px; margin:15px 0;">
                 <tr><td><strong>Rechnungsbetrag:</strong></td><td><strong>{formattedTotal}</strong></td></tr>
                 {(invoice.DiscountAmount != 0 ? $"""<tr><td colspan="2" style="font-size:12px; color:#666;"><em>inkl. Rabatt: {(invoice.DiscountType == DiscountType.Percentage ? $"{invoice.DiscountValue}%" : Math.Abs(invoice.DiscountAmount).ToString("C", culture))}</em></td></tr>""" : "")}
-                <tr><td><strong>Rechnungsnummer:</strong></td><td>{invoice.InvoiceNumber}</td></tr>
+                <tr><td><strong>Rechnungsnummer:</strong></td><td>{number}</td></tr>
                 <tr><td><strong>Rechnungsdatum:</strong></td><td>{formattedDate}</td></tr>
                 <tr><td><strong>Fällig am:</strong></td><td>{formattedDueDate}</td></tr>
-                {(SkontoTerms.Describe(invoice) is { } skontoTerms ? $"""<tr><td><strong>Skonto:</strong></td><td>{skontoTerms}</td></tr>""" : "")}
+                {(SkontoTerms.Describe(invoice) is { } skontoTerms ? $"""<tr><td><strong>Skonto:</strong></td><td>{E(skontoTerms)}</td></tr>""" : "")}
             </table>
             <table style="width:100%; border-collapse:collapse; background-color:white; border:1px solid #ddd; padding:15px; margin:15px 0;">
                 <tr><td colspan="2"><strong>Bankverbindung</strong></td></tr>
-                <tr><td><strong>Kontoinhaber:</strong></td><td>{company.AccountHolder ?? company.OwnerFullName}</td></tr>
-                <tr><td><strong>Bank:</strong></td><td>{company.BankName}</td></tr>
-                <tr><td><strong>IBAN:</strong></td><td>{company.BankAccount}</td></tr>
-                {(!string.IsNullOrWhiteSpace(company.Bic) ? $"""<tr><td><strong>BIC:</strong></td><td>{company.Bic}</td></tr>""" : "")}
-                <tr><td><strong>Verwendungszweck:</strong></td><td>{invoice.InvoiceNumber}</td></tr>
+                <tr><td><strong>Kontoinhaber:</strong></td><td>{E(company.AccountHolder ?? company.OwnerFullName)}</td></tr>
+                <tr><td><strong>Bank:</strong></td><td>{E(company.BankName)}</td></tr>
+                <tr><td><strong>IBAN:</strong></td><td>{E(company.BankAccount)}</td></tr>
+                {(!string.IsNullOrWhiteSpace(company.Bic) ? $"""<tr><td><strong>BIC:</strong></td><td>{E(company.Bic)}</td></tr>""" : "")}
+                <tr><td><strong>Verwendungszweck:</strong></td><td>{number}</td></tr>
             </table>
             <p>Die Rechnung finden Sie im Anhang dieser E-Mail als PDF-Datei.</p>
             """;

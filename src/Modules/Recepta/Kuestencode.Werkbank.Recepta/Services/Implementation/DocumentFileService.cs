@@ -41,44 +41,39 @@ public class DocumentFileService : IDocumentFileService
                 $"Dateianhänge können nur bei Belegen im Status 'Draft' geändert werden. Status: {document.Status}");
         }
 
-        // Jahr-basierte Verzeichnisstruktur: /app/data/{year}/{documentId}/
-        var year = DateTime.UtcNow.Year.ToString();
-        var directory = Path.Combine(_storagePath, year, documentId.ToString());
+        var normalizedContentType = UploadPolicy.NormalizeContentType(contentType)
+            ?? throw new InvalidOperationException("Nur PDF, JPEG, PNG, TIFF und XML sind erlaubt.");
+        var safeName = UploadPolicy.SanitizeFileName(fileName);
+
+        var directory = Path.GetFullPath(Path.Combine(_storagePath, DateTime.UtcNow.Year.ToString(), documentId.ToString()));
         Directory.CreateDirectory(directory);
+        var storagePath = UniquePathIn(directory, safeName);
 
-        // Datei mit Original-Dateinamen speichern
-        var storagePath = Path.Combine(directory, fileName);
-
-        // Bei Namenskollision: Suffix anhängen
-        if (File.Exists(storagePath))
+        long fileSize;
+        try
         {
-            var nameWithoutExt = Path.GetFileNameWithoutExtension(fileName);
-            var extension = Path.GetExtension(fileName);
-            var counter = 1;
-            do
-            {
-                storagePath = Path.Combine(directory, $"{nameWithoutExt}_{counter}{extension}");
-                counter++;
-            } while (File.Exists(storagePath));
+            await using var fileStream = File.Create(storagePath);
+            fileSize = await CopyWithLimitAsync(file, fileStream);
         }
-
-        await using var fileStream = File.Create(storagePath);
-        await file.CopyToAsync(fileStream);
-        var fileSize = fileStream.Length;
+        catch (InvalidOperationException)
+        {
+            File.Delete(storagePath);
+            throw;
+        }
 
         var documentFile = new DocumentFile
         {
             Id = Guid.NewGuid(),
             DocumentId = documentId,
-            FileName = fileName,
-            ContentType = contentType,
+            FileName = safeName,
+            ContentType = normalizedContentType,
             FileSize = fileSize,
             StoragePath = storagePath
         };
 
         await _fileRepository.AddAsync(documentFile);
         _logger.LogInformation("Datei '{FileName}' für Beleg {DocumentId} gespeichert unter {Path}",
-            fileName, documentId, storagePath);
+            safeName, documentId, storagePath);
 
         return MapToDto(documentFile);
     }
@@ -128,6 +123,35 @@ public class DocumentFileService : IDocumentFileService
 
         await _fileRepository.DeleteAsync(fileId);
         _logger.LogInformation("Datei '{FileName}' gelöscht", file.FileName);
+    }
+
+    private static string UniquePathIn(string directory, string fileName)
+    {
+        var candidate = Path.GetFullPath(Path.Combine(directory, fileName));
+        if (!candidate.StartsWith(directory + Path.DirectorySeparatorChar, StringComparison.Ordinal))
+            throw new InvalidOperationException("Ungültiger Dateiname.");
+
+        var nameWithoutExt = Path.GetFileNameWithoutExtension(fileName);
+        var extension = Path.GetExtension(fileName);
+        for (var counter = 1; File.Exists(candidate); counter++)
+            candidate = Path.Combine(directory, $"{nameWithoutExt}_{counter}{extension}");
+
+        return candidate;
+    }
+
+    private static async Task<long> CopyWithLimitAsync(Stream source, Stream target)
+    {
+        var buffer = new byte[81920];
+        long total = 0;
+        int read;
+        while ((read = await source.ReadAsync(buffer)) > 0)
+        {
+            total += read;
+            if (total > UploadPolicy.MaxFileSize)
+                throw new InvalidOperationException($"Datei darf maximal {UploadPolicy.MaxFileSize / 1024 / 1024} MB groß sein.");
+            await target.WriteAsync(buffer.AsMemory(0, read));
+        }
+        return total;
     }
 
     private static DocumentFileDto MapToDto(DocumentFile file)

@@ -73,8 +73,7 @@ public class MobileTokenService : IMobileTokenService
 
         await _db.SaveChangesAsync();
 
-        _logger.LogInformation("Mobile access created for team member {MemberId} with token {Token}",
-            teamMemberId, token);
+        _logger.LogInformation("Mobile access created for team member {MemberId}", teamMemberId);
 
         return token;
     }
@@ -105,6 +104,10 @@ public class MobileTokenService : IMobileTokenService
         if (member == null)
             throw new InvalidOperationException("Ungültiger Token");
 
+        // Wer nur den Link kennt, darf keine bestehende PIN überschreiben. Neue PIN nur nach Zurücksetzen durch einen Admin.
+        if (member.MobilePinSet)
+            throw new InvalidOperationException("PIN ist bereits gesetzt. Zum Ändern bitte an einen Admin wenden.");
+
         member.PinHash = _passwordService.HashPassword(pin);
         member.MobilePinSet = true;
         member.MobilePinFailedAttempts = 0;
@@ -113,7 +116,7 @@ public class MobileTokenService : IMobileTokenService
 
         await _db.SaveChangesAsync();
 
-        _logger.LogInformation("PIN set for mobile token {Token}", token);
+        _logger.LogInformation("PIN set for team member {MemberId}", member.Id);
     }
 
     public async Task<MobilePinResult> VerifyPinAsync(string token, string pin)
@@ -126,19 +129,19 @@ public class MobileTokenService : IMobileTokenService
 
         if (member == null)
         {
-            _logger.LogWarning("Mobile token verification failed: token not found {Token}", token);
+            _logger.LogWarning("Mobile token verification failed: token not found");
             return new MobilePinResult { Success = false };
         }
 
         if (member.MobileTokenLocked)
         {
-            _logger.LogWarning("Mobile token verification failed: token locked {Token}", token);
+            _logger.LogWarning("Mobile token verification failed: token locked for team member {MemberId}", member.Id);
             return new MobilePinResult { Success = false, Locked = true };
         }
 
         if (string.IsNullOrEmpty(member.PinHash))
         {
-            _logger.LogWarning("Mobile token verification failed: no PIN set {Token}", token);
+            _logger.LogWarning("Mobile token verification failed: no PIN set for team member {MemberId}", member.Id);
             return new MobilePinResult { Success = false };
         }
 
@@ -153,7 +156,7 @@ public class MobileTokenService : IMobileTokenService
                 member.MobileTokenLocked = true;
                 await _db.SaveChangesAsync();
 
-                _logger.LogWarning("Mobile token locked after 3 failed attempts {Token}", token);
+                _logger.LogWarning("Mobile token locked after 3 failed attempts for team member {MemberId}", member.Id);
 
                 return new MobilePinResult
                 {
@@ -165,8 +168,8 @@ public class MobileTokenService : IMobileTokenService
 
             await _db.SaveChangesAsync();
 
-            _logger.LogInformation("Mobile PIN verification failed for {Token}, {Attempts} attempts",
-                token, member.MobilePinFailedAttempts);
+            _logger.LogInformation("Mobile PIN verification failed for team member {MemberId}, {Attempts} attempts",
+                member.Id, member.MobilePinFailedAttempts);
 
             return new MobilePinResult
             {
@@ -182,7 +185,7 @@ public class MobileTokenService : IMobileTokenService
         // JWT Token generieren
         var jwtToken = _jwtTokenService.GenerateToken(member);
 
-        _logger.LogInformation("Mobile PIN verified successfully for {Token}", token);
+        _logger.LogInformation("Mobile PIN verified successfully for team member {MemberId}", member.Id);
 
         return new MobilePinResult
         {
@@ -214,8 +217,7 @@ public class MobileTokenService : IMobileTokenService
 
         await _db.SaveChangesAsync();
 
-        _logger.LogInformation("Mobile access reset for team member {MemberId} with new token {Token}",
-            teamMemberId, token);
+        _logger.LogInformation("Mobile access reset for team member {MemberId}", teamMemberId);
     }
 
     public async Task UnlockMobileAccessAsync(Guid teamMemberId)

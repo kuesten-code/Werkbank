@@ -13,6 +13,7 @@ public interface IBackupService
     Task<BackupTarget> AddTargetAsync(BackupTarget target);
     Task UpdateTargetAsync(BackupTarget target);
     Task DeleteTargetAsync(int targetId);
+    Task ResetSftpHostKeyAsync(int targetId);
     Task<(bool Success, string? Error)> TestTargetConnectionAsync(int targetId);
 
     Task<List<BackupHistory>> GetHistoryAsync(int? targetId = null, int limit = 50);

@@ -1,4 +1,5 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿using Kuestencode.Core.Services;
+using System.ComponentModel.DataAnnotations;
 using System.Text;
 using Kuestencode.Core.Interfaces;
 using Kuestencode.Rapport.Models.Timesheets;
@@ -99,11 +100,11 @@ public class TimesheetEmailService
     private static string BuildHtmlContent(TimesheetDto timesheet, string? customMessage)
     {
         var sb = new StringBuilder();
-        sb.Append($"<p>anbei erhalten Sie den {timesheet.Title} für <strong>{timesheet.Customer.Name}</strong> im Zeitraum <strong>{timesheet.From:dd.MM.yyyy} - {timesheet.To:dd.MM.yyyy}</strong>.</p>");
+        sb.Append($"<p>anbei erhalten Sie den {EmailTemplateRenderer.Html(timesheet.Title)} für <strong>{EmailTemplateRenderer.Html(timesheet.Customer.Name)}</strong> im Zeitraum <strong>{timesheet.From:dd.MM.yyyy} - {timesheet.To:dd.MM.yyyy}</strong>.</p>");
 
         if (!string.IsNullOrWhiteSpace(customMessage))
         {
-            sb.Append($"<p>{customMessage}</p>");
+            sb.Append($"<p>{EmailTemplateRenderer.Html(customMessage)}</p>");
         }
 
         return sb.ToString();

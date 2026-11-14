@@ -1,3 +1,4 @@
+using Kuestencode.Core.Services;
 using Kuestencode.Core.Interfaces;
 using Kuestencode.Werkbank.Host.Data;
 using Kuestencode.Werkbank.Host.Models;
@@ -87,6 +88,7 @@ public class PasswordResetService : IPasswordResetService
         member.PasswordHash = _passwordService.HashPassword(newPassword);
         member.ResetToken = null;
         member.ResetTokenExpires = null;
+        member.RevokeSessions();
 
         await _context.SaveChangesAsync();
 
@@ -100,7 +102,7 @@ public class PasswordResetService : IPasswordResetService
         var htmlBody = $"""
             <p>du hast angefordert, dein Passwort zurückzusetzen.</p>
             <p>Klicke auf den folgenden Link:<br>
-            <a href="{link}">{link}</a></p>
+            <a href="{EmailTemplateRenderer.Html(link)}">{EmailTemplateRenderer.Html(link)}</a></p>
             <p>Der Link ist 1 Stunde gültig.</p>
             <p>Falls du das nicht angefordert hast, ignoriere diese E-Mail.</p>
             """;

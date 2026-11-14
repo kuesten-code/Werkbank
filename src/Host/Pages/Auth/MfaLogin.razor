@@ -140,7 +140,7 @@
     protected override void OnInitialized()
     {
         _mfaToken = Token;
-        _returnUrl = ReturnUrl ?? "/";
+        _returnUrl = LocalReturnUrl.Sanitize(ReturnUrl);
     }
 
     private async Task HandleVerify()

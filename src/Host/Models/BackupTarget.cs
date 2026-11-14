@@ -38,6 +38,12 @@ public class BackupTarget : BaseEntity
 
     public string? Region { get; set; }
 
+    /// <summary>
+    /// Nur SFTP: SHA-256-Fingerprint des Server-Host-Keys, beim ersten erfolgreichen Verbinden gemerkt
+    /// (Trust on first use). Weicht er später ab, wird die Verbindung abgelehnt (Schutz vor Man-in-the-Middle).
+    /// </summary>
+    public string? SftpHostKeyFingerprint { get; set; }
+
     public DateTime? LastBackupAt { get; set; }
     public bool? LastBackupSuccess { get; set; }
     public string? LastBackupError { get; set; }

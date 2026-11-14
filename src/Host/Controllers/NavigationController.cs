@@ -21,10 +21,7 @@ public class NavigationController : ControllerBase
     public ActionResult<List<NavItemDto>> GetNavigationItems()
     {
         if (User.Identity?.IsAuthenticated != true)
-        {
-            // Anonymous fallback: do not leak full navigation.
-            return Ok(_navigationService.GetVisibleNavigationItems(UserRole.Mitarbeiter, authEnabled: true));
-        }
+            return Unauthorized();
 
         var authEnabled = !string.Equals(User.Identity?.AuthenticationType, "NoAuth", StringComparison.Ordinal);
         var currentRole = UserRoleResolver.ResolveRole(User, UserRole.Mitarbeiter);

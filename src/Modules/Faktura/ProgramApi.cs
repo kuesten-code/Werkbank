@@ -63,17 +63,6 @@ public class ProgramApi
             });
         });
 
-        // Add CORS for cross-origin requests from Host
-        builder.Services.AddCors(options =>
-        {
-            options.AddDefaultPolicy(policy =>
-            {
-                policy.AllowAnyOrigin()
-                      .AllowAnyMethod()
-                      .AllowAnyHeader();
-            });
-        });
-
         // Add Data Protection for password encryption
         var keysDirectory = Path.Combine(builder.Environment.ContentRootPath, "data", "keys");
         Directory.CreateDirectory(keysDirectory);
@@ -188,7 +177,7 @@ public class ProgramApi
         // This ensures static files and routes work correctly when accessed via /faktura prefix
         app.UsePathBase("/faktura");
 
-        app.UseCors();
+        app.UseWerkbankSecurityHeaders();
         app.UseStaticFiles();
 
         // Add Health Check Tracker Middleware

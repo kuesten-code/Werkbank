@@ -19,10 +19,11 @@
 
     <!-- Email -->
     <PackageReference Include="MailKit" Version="4.17.0" />
+    <!-- MimeKit zieht transitiv Pkcs 8.0.1 (CVE-2026-84008); erste gefixte 9.x ist 9.0.21. -->
+    <PackageReference Include="System.Security.Cryptography.Pkcs" Version="9.0.22" />
     <PackageReference Include="MimeKit" Version="4.17.0" />
 
     <!-- Data Protection -->
-    <PackageReference Include="Microsoft.AspNetCore.DataProtection" Version="9.0.0" />
 
     <!-- Database -->
     <PackageReference Include="Microsoft.EntityFrameworkCore" Version="9.0.0" />

@@ -18,12 +18,16 @@
     <!-- Dependency Injection -->
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="9.0.0" />
 
-    <!-- HttpContext access for ICurrentUserAccessor -->
-    <PackageReference Include="Microsoft.AspNetCore.Http.Abstractions" Version="2.2.0" />
 
     <!-- DatabaseFacade access for NumberSequenceService (raw ADO.NET, no provider-specific dependency) -->
     <PackageReference Include="Microsoft.EntityFrameworkCore" Version="9.0.0" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="9.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- HttpContext access for ICurrentUserAccessor. Shared Framework statt des veralteten Pakets
+         Microsoft.AspNetCore.Http.Abstractions 2.2.0 (zog System.Text.Encodings.Web 4.5.0 mit kritischer Lücke). -->
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
   </ItemGroup>
 
 </Project>

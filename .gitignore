@@ -64,7 +64,7 @@ appsettings.Staging.json
 
 # Allow Data folders with source code
 !**/src/**/Data/
-Kuestencode_Werkbank.zip
+K*stencode_Werkbank.zip
 nul
 
 # Environment secrets

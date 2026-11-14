@@ -129,11 +129,19 @@ public class TeamMemberService : ITeamMemberService
                     throw new InvalidOperationException("Es muss mindestens ein aktiver Admin-Account verbleiben.");
             }
 
+            var newRole = member.IsOffline ? UserRole.Mitarbeiter : member.Role;
+            var accessChanged = (existing.IsActive && !member.IsActive)
+                             || (!existing.IsOffline && member.IsOffline)
+                             || (!existing.IsLockedByAdmin && member.IsLockedByAdmin)
+                             || existing.Role != newRole;
+            if (accessChanged)
+                existing.RevokeSessions();
+
             existing.DisplayName = member.DisplayName;
             existing.IsOffline = member.IsOffline;
             existing.Email = member.IsOffline ? null : (string.IsNullOrWhiteSpace(member.Email) ? null : member.Email);
             existing.IsActive = member.IsActive;
-            existing.Role = member.IsOffline ? UserRole.Mitarbeiter : member.Role;
+            existing.Role = newRole;
             existing.Kostensatz = member.Kostensatz;
             existing.IsLockedByAdmin = member.IsLockedByAdmin;
             existing.FailedLoginAttempts = member.FailedLoginAttempts;

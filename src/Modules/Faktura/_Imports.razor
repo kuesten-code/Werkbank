@@ -18,4 +18,4 @@
 @using Kuestencode.Faktura.Shared
 @using Kuestencode.Faktura.Shared.Components
 @using Kuestencode.Shared.UI.Auth
-@attribute [Authorize]
+@attribute [Authorize(Roles = "Admin,Buero")]

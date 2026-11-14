@@ -45,6 +45,7 @@ public static class HostModule
         services.AddScoped<INumberFormatSettingsService, NumberFormatSettingsService>();
         services.AddScoped<ISetupService, SetupService>();
         services.AddSingleton<IJwtTokenService, JwtTokenService>();
+        services.AddSingleton<ISessionValidator, SessionValidator>();
         services.AddScoped<IMobileTokenService, MobileTokenService>();
         services.AddScoped<IMobileRapportService, MobileRapportService>();
         services.AddScoped<ITotpService, TotpService>();

@@ -1,4 +1,5 @@
 @page "/konten"
+@attribute [Authorize(Roles = "Admin")]
 @using Kuestencode.Shared.UI.Pages
 @inject IKontoService KontoService
 @inject ISnackbar Snackbar

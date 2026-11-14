@@ -36,6 +36,16 @@ public static class WerkbankJwt
 
     public static string Issuer(IConfiguration configuration) => configuration["Jwt:Issuer"] ?? DefaultIssuer;
 
+    /// <summary>
+    /// Beispielwerte aus Anleitung und .env-Vorlage: wer sie übernimmt, signiert mit einem öffentlich bekannten
+    /// Schlüssel, und jeder könnte sich Admin-Tokens ausstellen.
+    /// </summary>
+    private static readonly HashSet<string> KnownPlaceholders = new(StringComparer.Ordinal)
+    {
+        "abcdefghijklmnopqrstuvwxyz123456",
+        "change_me_use_a_long_random_string_here"
+    };
+
     public static string RequireSecret(IConfiguration configuration)
     {
         var secret = configuration["Jwt:Secret"];
@@ -43,6 +53,9 @@ public static class WerkbankJwt
             throw new InvalidOperationException(
                 $"Jwt:Secret fehlt oder ist kürzer als {MinSecretLength} Zeichen. " +
                 "Host und Module brauchen dasselbe JWT-Secret (Umgebungsvariable Jwt__Secret).");
+        if (KnownPlaceholders.Contains(secret))
+            throw new InvalidOperationException(
+                "Jwt:Secret ist ein bekannter Beispielwert. Bitte ein eigenes Secret erzeugen: openssl rand -base64 32");
         return secret;
     }
 

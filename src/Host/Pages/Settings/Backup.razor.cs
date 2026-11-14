@@ -141,6 +141,27 @@ public partial class Backup
         }
     }
 
+    private async Task ResetHostKeyAsync(BackupTarget target)
+    {
+        var parameters = new DialogParameters<ConfirmDialog>
+        {
+            { x => x.ContentText, $"Gespeicherten Host-Key von '{target.Name}' zurücksetzen? Nur sinnvoll, wenn der SFTP-Server bewusst " +
+                                  "neu aufgesetzt wurde. Beim nächsten Verbinden wird der dann vorgezeigte Schlüssel ungeprüft übernommen." },
+            { x => x.ConfirmButtonText, "Zurücksetzen" },
+            { x => x.ConfirmButtonColor, Color.Warning }
+        };
+
+        var dialog = await DialogService.ShowAsync<ConfirmDialog>("Host-Key zurücksetzen", parameters);
+        var result = await dialog.Result;
+
+        if (result != null && !result.Canceled)
+        {
+            await BackupService.ResetSftpHostKeyAsync(target.Id);
+            Snackbar.Add("Host-Key zurückgesetzt.", Severity.Success);
+            _targets = await BackupService.GetTargetsAsync();
+        }
+    }
+
     private async Task DeleteTargetAsync(BackupTarget target)
     {
         var parameters = new DialogParameters<ConfirmDialog>

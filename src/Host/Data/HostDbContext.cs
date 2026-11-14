@@ -116,7 +116,11 @@ public class HostDbContext : DbContext
             entity.Property(e => e.IsLockedByAdmin)
                 .HasDefaultValue(false);
 
+            entity.Property(e => e.SessionVersion)
+                .HasDefaultValue(0);
+
             entity.Ignore(e => e.HasCompletedSetup);
+            entity.Ignore(e => e.CanSignIn);
 
             entity.Property(e => e.CreatedAt)
                 .HasDefaultValueSql("CURRENT_TIMESTAMP");

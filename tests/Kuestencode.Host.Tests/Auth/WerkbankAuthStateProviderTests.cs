@@ -50,7 +50,7 @@ public class WerkbankAuthStateProviderTests : IDisposable
         return new JwtTokenService(configuration, NullLogger<JwtTokenService>.Instance);
     }
 
-    private WerkbankAuthStateProvider CreateProvider(IJwtTokenService jwtTokenService, string? cookieToken)
+    private WerkbankAuthStateProvider CreateProvider(JwtTokenService jwtTokenService, string? cookieToken)
     {
         var httpContext = new DefaultHttpContext();
         if (cookieToken != null)
@@ -65,16 +65,19 @@ public class WerkbankAuthStateProviderTests : IDisposable
             localStorage,
             httpContextAccessor.Object,
             _rootProvider,
-            jwtTokenService,
+            new SessionValidator(jwtTokenService, _rootProvider.GetRequiredService<IServiceScopeFactory>()),
             NullLogger<WerkbankAuthStateProvider>.Instance);
     }
 
-    private static TeamMember CreateMember() => new()
+    private TeamMember CreateMember()
     {
-        Id = Guid.NewGuid(),
-        DisplayName = "Max Mustermann",
-        Role = UserRole.Admin
-    };
+        var member = new TeamMember { Id = Guid.NewGuid(), DisplayName = "Max Mustermann", Role = UserRole.Admin };
+        using var scope = _rootProvider.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<HostDbContext>();
+        db.TeamMembers.Add(member);
+        db.SaveChanges();
+        return member;
+    }
 
     [Fact]
     public async Task GetAuthenticationStateAsync_GueltigesCookieToken_IstAuthentifiziert()

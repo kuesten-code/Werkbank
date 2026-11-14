@@ -1,4 +1,5 @@
 @page "/einstellungen"
+@attribute [Authorize(Roles = "Admin")]
 @inject ISaldoSettingsService SettingsService
 @inject ISnackbar Snackbar
 @inject NavigationManager NavigationManager

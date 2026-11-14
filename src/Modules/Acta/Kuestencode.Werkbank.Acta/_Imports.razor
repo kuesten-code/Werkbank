@@ -24,4 +24,4 @@
 @using Kuestencode.Werkbank.Acta.Domain.Dtos
 @using Kuestencode.Werkbank.Acta.Models
 @using Kuestencode.Shared.UI.Auth
-@attribute [Authorize]
+@attribute [Authorize(Roles = "Admin,Buero")]

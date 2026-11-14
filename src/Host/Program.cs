@@ -7,6 +7,7 @@ using Kuestencode.Werkbank.Host.Services;
 using Kuestencode.Werkbank.Host.Middleware;
 using Kuestencode.Shared.ApiClients;
 using Kuestencode.Shared.Contracts.Navigation;
+using Kuestencode.Shared.UI.Extensions;
 using QuestPDF.Infrastructure;
 
 // QuestPDF Lizenz konfigurieren
@@ -24,6 +25,7 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddRazorPages();
 builder.Services.AddServerSideBlazor();
 builder.Services.AddControllers();
+builder.Services.AddRateLimiter(Kuestencode.Werkbank.Host.Auth.AuthRateLimit.Configure);
 
 // Add MudBlazor services
 builder.Services.AddMudServices();
@@ -330,16 +332,11 @@ if (!app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
-app.Use(async (context, next) =>
-{
-    context.Response.Headers["X-Content-Type-Options"] = "nosniff";
-    context.Response.Headers["X-Frame-Options"] = "SAMEORIGIN";
-    context.Response.Headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
-    await next();
-});
+app.UseWerkbankSecurityHeaders();
 app.UseStaticFiles();
 
 app.UseRouting();
+app.UseRateLimiter();
 
 // Setup Redirect Middleware (must come before Auth)
 app.UseSetupRedirect();

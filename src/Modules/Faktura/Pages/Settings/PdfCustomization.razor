@@ -1,5 +1,6 @@
 @using Kuestencode.Core.Interfaces
 @page "/settings/pdf-anpassung"
+@attribute [Authorize(Roles = "Admin")]
 @using Kuestencode.Faktura.Models
 @using Kuestencode.Faktura.Services
 @using Kuestencode.Shared.UI.Components

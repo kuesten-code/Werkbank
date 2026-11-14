@@ -2,6 +2,8 @@ using Kuestencode.Shared.Contracts.Host;
 using Kuestencode.Werkbank.Host.Auth;
 using Kuestencode.Werkbank.Host.Models;
 using Kuestencode.Werkbank.Host.Services;
+using System.Security.Claims;
+using Kuestencode.Shared.UI.Services;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Kuestencode.Werkbank.Host.Controllers;
@@ -28,11 +30,21 @@ public class TeamMembersController : ControllerBase
         return Ok(members.Select(Map).ToList());
     }
 
+    /// <summary>
+    /// Admin und Büro sehen alle Stammdaten (inkl. Kostensatz), Mitarbeiter nur den eigenen Datensatz,
+    /// den z. B. Rapport für die Mitarbeiter-Rolle des angemeldeten Nutzers braucht.
+    /// </summary>
     [HttpGet("{id:guid}")]
     [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [RequireRole(UserRole.Admin, UserRole.Buero, UserRole.Mitarbeiter)]
     public async Task<ActionResult<TeamMemberDto>> GetTeamMemberAsync(Guid id)
     {
+        var isOwnRecord = User.FindFirstValue(ClaimTypes.NameIdentifier) == id.ToString();
+        if (!isOwnRecord && UserRoleResolver.ResolveRole(User, UserRole.Mitarbeiter) == UserRole.Mitarbeiter)
+            return StatusCode(StatusCodes.Status403Forbidden);
+
         var member = await _teamMemberService.GetByIdAsync(id);
         if (member == null) return NotFound();
         return Ok(Map(member));

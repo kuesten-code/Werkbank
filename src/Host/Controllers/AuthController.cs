@@ -3,7 +3,9 @@ using System.Text.Json;
 using Kuestencode.Werkbank.Host.Data;
 using Kuestencode.Werkbank.Host.Models;
 using Kuestencode.Werkbank.Host.Services;
+using Kuestencode.Werkbank.Host.Auth;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 
 namespace Kuestencode.Werkbank.Host.Controllers;
@@ -39,6 +41,7 @@ public class AuthController : ControllerBase
     }
 
     [HttpPost("login")]
+    [EnableRateLimiting(AuthRateLimit.PolicyName)]
     public async Task<IActionResult> Login([FromBody] LoginRequest request)
     {
         var result = await _authService.LoginAsync(request.Email, request.Password);
@@ -71,6 +74,7 @@ public class AuthController : ControllerBase
     }
 
     [HttpPost("login/mfa")]
+    [EnableRateLimiting(AuthRateLimit.PolicyName)]
     public async Task<IActionResult> LoginMfa([FromBody] MfaLoginRequest request)
     {
         var principal = _jwtTokenService.ValidateMfaToken(request.MfaToken);
@@ -82,8 +86,11 @@ public class AuthController : ControllerBase
             return Unauthorized(new { error = "Ungültiger Token." });
 
         var member = await _context.TeamMembers.FirstOrDefaultAsync(m => m.Id == id && m.IsActive);
-        if (member == null || !member.MfaEnabled)
+        if (member == null || !member.MfaEnabled || member.IsLockedByAdmin)
             return Unauthorized(new { error = "Ungültiger Token." });
+
+        if (member.LockoutUntil > DateTime.UtcNow)
+            return Unauthorized(new { error = "Account vorübergehend gesperrt. Bitte warten." });
 
         var code = request.Code.Trim();
         bool valid;
@@ -102,7 +109,13 @@ public class AuthController : ControllerBase
         }
 
         if (!valid)
-            return Unauthorized(new { error = "Ungültiger Code." });
+        {
+            var failure = await _authService.RecordFailedSecondFactorAsync(member);
+            return Unauthorized(new { error = failure.LockedForMinutes.HasValue ? failure.Error : "Ungültiger Code." });
+        }
+
+        member.FailedLoginAttempts = 0;
+        await _context.SaveChangesAsync();
 
         var token = _jwtTokenService.GenerateToken(member);
         SetAuthCookie(token, false);
@@ -122,7 +135,7 @@ public class AuthController : ControllerBase
     [HttpPost("logout")]
     public IActionResult Logout()
     {
-        Response.Cookies.Delete("werkbank_auth_cookie", new CookieOptions { Path = "/" });
+        AuthCookie.Delete(Response);
         return Ok(new { message = "Logged out successfully" });
     }
 
@@ -219,6 +232,7 @@ public class AuthController : ControllerBase
     }
 
     [HttpPost("forgot-password")]
+    [EnableRateLimiting(AuthRateLimit.PolicyName)]
     public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordRequest request)
     {
         await _passwordResetService.RequestResetAsync(request.Email);
@@ -226,6 +240,7 @@ public class AuthController : ControllerBase
     }
 
     [HttpPost("reset-password")]
+    [EnableRateLimiting(AuthRateLimit.PolicyName)]
     public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordRequest request)
     {
         try
@@ -249,19 +264,8 @@ public class AuthController : ControllerBase
         return Ok(new { valid = true, displayName = member.DisplayName });
     }
 
-    private void SetAuthCookie(string token, bool rememberMe)
-    {
-        Response.Cookies.Append("werkbank_auth_cookie", token, new CookieOptions
-        {
-            HttpOnly = true,
-            Secure = true,
-            SameSite = SameSiteMode.Lax,
-            Path = "/",
-            Expires = rememberMe
-                ? DateTimeOffset.UtcNow.AddDays(30)
-                : DateTimeOffset.UtcNow.AddDays(7)
-        });
-    }
+    private void SetAuthCookie(string token, bool rememberMe) =>
+        AuthCookie.Append(Response, token, TimeSpan.FromDays(rememberMe ? 30 : 7));
 }
 
 public class LoginRequest

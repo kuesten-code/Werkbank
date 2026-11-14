@@ -122,4 +122,82 @@ public class AuthServiceTests : IDisposable
     {
         (await _service.GetCurrentUserAsync(userId)).Should().BeNull();
     }
+
+    /// <summary>
+    /// Security-Audit M2: Fehlversuche führen nie zu einer dauerhaften Sperre, sondern zu wachsenden Wartezeiten.
+    /// </summary>
+    [Fact]
+    public async Task LoginAsync_SechsFehlversuche_SperrtBefristetStattDauerhaft()
+    {
+        var member = AddMember();
+
+        for (var i = 0; i < 3; i++)
+            await _service.LoginAsync(Email, "falsch");
+        var first = (await _context.TeamMembers.FindAsync(member.Id))!.LockoutUntil;
+
+        member.LockoutUntil = DateTime.UtcNow.AddSeconds(-1);
+        await _context.SaveChangesAsync();
+        AuthResult? sixth = null;
+        for (var i = 0; i < 3; i++)
+            sixth = await _service.LoginAsync(Email, "falsch");
+
+        member.IsLockedByAdmin.Should().BeFalse();
+        first.Should().BeCloseTo(DateTime.UtcNow.AddMinutes(15), TimeSpan.FromSeconds(5));
+        sixth!.LockedForMinutes.Should().Be(30);
+        member.LockoutUntil.Should().BeCloseTo(DateTime.UtcNow.AddMinutes(30), TimeSpan.FromSeconds(5));
+    }
+
+    [Fact]
+    public async Task LoginAsync_NachAblaufDerSperre_RichtigesPasswortFunktioniert()
+    {
+        var member = AddMember();
+        for (var i = 0; i < 6; i++)
+        {
+            member.LockoutUntil = null;
+            await _service.LoginAsync(Email, "falsch");
+        }
+
+        member.LockoutUntil = DateTime.UtcNow.AddSeconds(-1);
+        await _context.SaveChangesAsync();
+
+        (await _service.LoginAsync(Email, Password)).Success.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task LoginAsync_WaehrendDerSperre_WirdAbgelehnt()
+    {
+        var member = AddMember();
+        member.LockoutUntil = DateTime.UtcNow.AddMinutes(10);
+        await _context.SaveChangesAsync();
+
+        var result = await _service.LoginAsync(Email, Password);
+
+        result.Success.Should().BeFalse();
+        result.LockedForMinutes.Should().BeInRange(9, 10);
+    }
+
+    [Theory]
+    [InlineData(1, 15)]
+    [InlineData(2, 30)]
+    [InlineData(3, 60)]
+    [InlineData(7, 960)]
+    [InlineData(8, 1440)]
+    [InlineData(100, 1440)]
+    public void LockoutDuration_VerdoppeltSichBisHoechstens24Stunden(int lockoutNumber, int expectedMinutes)
+    {
+        AuthService.LockoutDuration(lockoutNumber).TotalMinutes.Should().Be(expectedMinutes);
+    }
+
+    [Fact]
+    public async Task RecordFailedSecondFactorAsync_ZaehltWieFalschesPasswort()
+    {
+        var member = AddMember(mfaEnabled: true);
+
+        await _service.RecordFailedSecondFactorAsync(member);
+        await _service.RecordFailedSecondFactorAsync(member);
+        var third = await _service.RecordFailedSecondFactorAsync(member);
+
+        third.LockedForMinutes.Should().Be(15);
+        member.LockoutUntil.Should().NotBeNull();
+    }
 }

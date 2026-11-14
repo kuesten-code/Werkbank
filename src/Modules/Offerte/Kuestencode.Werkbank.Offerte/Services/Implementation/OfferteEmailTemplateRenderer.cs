@@ -1,3 +1,4 @@
+using Kuestencode.Core.Services;
 using Kuestencode.Core.Models;
 using Kuestencode.Werkbank.Offerte.Domain.Entities;
 using System.Globalization;
@@ -18,10 +19,10 @@ public class OfferteEmailTemplateRenderer : IOfferteEmailTemplateRenderer
         var formattedGueltigBis = angebot.GueltigBis.ToString("dd.MM.yyyy", culture);
 
         return $"""
-            <p>anbei erhalten Sie unser Angebot <strong>{angebot.Angebotsnummer}</strong>.</p>
+            <p>anbei erhalten Sie unser Angebot <strong>{EmailTemplateRenderer.Html(angebot.Angebotsnummer)}</strong>.</p>
             <table style="width:100%; border-collapse:collapse; background-color:white; padding:15px; margin:15px 0;">
                 <tr><td><strong>Angebotsbetrag:</strong></td><td><strong>{formattedTotal}</strong></td></tr>
-                <tr><td><strong>Angebotsnummer:</strong></td><td>{angebot.Angebotsnummer}</td></tr>
+                <tr><td><strong>Angebotsnummer:</strong></td><td>{EmailTemplateRenderer.Html(angebot.Angebotsnummer)}</td></tr>
                 <tr><td><strong>Angebotsdatum:</strong></td><td>{formattedDate}</td></tr>
                 <tr><td><strong>Gültig bis:</strong></td><td>{formattedGueltigBis}</td></tr>
             </table>

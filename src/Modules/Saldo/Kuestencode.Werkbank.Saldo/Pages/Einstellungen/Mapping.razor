@@ -1,4 +1,5 @@
 @page "/einstellungen/mapping"
+@attribute [Authorize(Roles = "Admin")]
 @inject IKontoService KontoService
 @inject IKontoMappingService MappingService
 @inject ISaldoSettingsService SettingsService

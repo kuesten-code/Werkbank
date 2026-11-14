@@ -24,7 +24,7 @@
     <PackageReference Include="SkiaSharp.NativeAssets.Linux.NoDependencies" Version="3.116.1" />
 
     <!-- Data Protection -->
-    <PackageReference Include="Microsoft.AspNetCore.DataProtection" Version="9.0.0" />
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
 
     <!-- Logging -->
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="9.0.0" />

@@ -18,6 +18,21 @@ namespace Kuestencode.Host.Tests.Middleware;
 
 public class AuthMiddlewareTests
 {
+    // Gleiche DbContextOptions-Instanz für alle Scopes: AddDbContext(o => UseInMemoryDatabase(name))
+    // würde pro Scope eine neue InMemoryDatabaseRoot erzeugen und die gesetzten Daten verlieren.
+    private readonly DbContextOptions<HostDbContext> _options = new DbContextOptionsBuilder<HostDbContext>()
+        .UseInMemoryDatabase(Guid.NewGuid().ToString())
+        .Options;
+
+    private readonly ServiceProvider _services;
+
+    public AuthMiddlewareTests()
+    {
+        var services = new ServiceCollection();
+        services.AddScoped(_ => new HostDbContext(_options));
+        _services = services.BuildServiceProvider();
+    }
+
     private static JwtTokenService CreateJwtService(string secret)
     {
         var values = new Dictionary<string, string?> { ["Jwt:Issuer"] = "TestIssuer", ["Jwt:Secret"] = secret };
@@ -25,27 +40,18 @@ public class AuthMiddlewareTests
         return new JwtTokenService(configuration, NullLogger<JwtTokenService>.Instance);
     }
 
-    private static DefaultHttpContext CreateHttpContext(string path, bool authEnabled, string? cookieToken = null)
-    {
-        // Gleiche DbContextOptions-Instanz für alle Scopes: AddDbContext(o => UseInMemoryDatabase(name))
-        // würde pro Scope eine neue InMemoryDatabaseRoot erzeugen und die gesetzten Settings verlieren.
-        var options = new DbContextOptionsBuilder<HostDbContext>()
-            .UseInMemoryDatabase(Guid.NewGuid().ToString())
-            .Options;
+    private SessionValidator Validator(JwtTokenService jwtService) =>
+        new(jwtService, _services.GetRequiredService<IServiceScopeFactory>());
 
-        using (var seedContext = new HostDbContext(options))
+    private DefaultHttpContext CreateHttpContext(string path, bool authEnabled, string? cookieToken = null)
+    {
+        using (var seedContext = new HostDbContext(_options))
         {
             seedContext.WerkbankSettings.Add(new WerkbankSettings { Id = Guid.NewGuid(), AuthEnabled = authEnabled });
             seedContext.SaveChanges();
         }
 
-        var services = new ServiceCollection();
-        services.AddScoped(_ => new HostDbContext(options));
-
-        var httpContext = new DefaultHttpContext
-        {
-            RequestServices = services.BuildServiceProvider()
-        };
+        var httpContext = new DefaultHttpContext { RequestServices = _services };
         httpContext.Request.Path = path;
         if (cookieToken != null)
             httpContext.Request.Headers.Append("Cookie", $"werkbank_auth_cookie={cookieToken}");
@@ -62,20 +68,22 @@ public class AuthMiddlewareTests
         httpContext.SetEndpoint(new Endpoint(null, new EndpointMetadataCollection(route), "faktura-route"));
     }
 
-    private static (AuthMiddleware Middleware, Func<bool> NextCalled) CreateMiddleware(JwtTokenService? jwtService = null)
+    private (AuthMiddleware Middleware, Func<bool> NextCalled) CreateMiddleware(JwtTokenService? jwtService = null)
     {
         var nextCalled = false;
         var middleware = new AuthMiddleware(_ => { nextCalled = true; return Task.CompletedTask; },
-            jwtService ?? CreateJwtService(new string('a', 32)), NullLogger<AuthMiddleware>.Instance);
+            Validator(jwtService ?? CreateJwtService(new string('a', 32))), NullLogger<AuthMiddleware>.Instance);
         return (middleware, () => nextCalled);
     }
 
-    private static TeamMember CreateMember() => new()
+    private TeamMember CreateMember()
     {
-        Id = Guid.NewGuid(),
-        DisplayName = "Max Mustermann",
-        Role = UserRole.Mitarbeiter
-    };
+        var member = new TeamMember { Id = Guid.NewGuid(), DisplayName = "Max Mustermann", Role = UserRole.Mitarbeiter };
+        using var db = new HostDbContext(_options);
+        db.TeamMembers.Add(member);
+        db.SaveChanges();
+        return member;
+    }
 
     [Fact]
     public async Task InvokeAsync_AuthDeaktiviert_SetztImplizitenAdminUndRuftNextAuf()
@@ -83,7 +91,7 @@ public class AuthMiddlewareTests
         var httpContext = CreateHttpContext("/api/customers", authEnabled: false);
         var nextCalled = false;
         var middleware = new AuthMiddleware(_ => { nextCalled = true; return Task.CompletedTask; },
-            CreateJwtService(new string('a', 32)), NullLogger<AuthMiddleware>.Instance);
+            Validator(CreateJwtService(new string('a', 32))), NullLogger<AuthMiddleware>.Instance);
 
         await middleware.InvokeAsync(httpContext);
 
@@ -98,7 +106,7 @@ public class AuthMiddlewareTests
         var httpContext = CreateHttpContext("/api/customers", authEnabled: true);
         var nextCalled = false;
         var middleware = new AuthMiddleware(_ => { nextCalled = true; return Task.CompletedTask; },
-            CreateJwtService(new string('a', 32)), NullLogger<AuthMiddleware>.Instance);
+            Validator(CreateJwtService(new string('a', 32))), NullLogger<AuthMiddleware>.Instance);
 
         await middleware.InvokeAsync(httpContext);
 
@@ -112,7 +120,7 @@ public class AuthMiddlewareTests
         var httpContext = CreateHttpContext("/customers", authEnabled: true);
         var nextCalled = false;
         var middleware = new AuthMiddleware(_ => { nextCalled = true; return Task.CompletedTask; },
-            CreateJwtService(new string('a', 32)), NullLogger<AuthMiddleware>.Instance);
+            Validator(CreateJwtService(new string('a', 32))), NullLogger<AuthMiddleware>.Instance);
 
         await middleware.InvokeAsync(httpContext);
 
@@ -129,7 +137,7 @@ public class AuthMiddlewareTests
         var httpContext = CreateHttpContext("/api/customers", authEnabled: true, cookieToken: token);
         var nextCalled = false;
         var middleware = new AuthMiddleware(_ => { nextCalled = true; return Task.CompletedTask; },
-            jwtService, NullLogger<AuthMiddleware>.Instance);
+            Validator(jwtService), NullLogger<AuthMiddleware>.Instance);
 
         await middleware.InvokeAsync(httpContext);
 
@@ -148,7 +156,7 @@ public class AuthMiddlewareTests
         var httpContext = CreateHttpContext("/api/customers", authEnabled: true, cookieToken: token);
         var nextCalled = false;
         var middleware = new AuthMiddleware(_ => { nextCalled = true; return Task.CompletedTask; },
-            validatingService, NullLogger<AuthMiddleware>.Instance);
+            Validator(validatingService), NullLogger<AuthMiddleware>.Instance);
 
         await middleware.InvokeAsync(httpContext);
 

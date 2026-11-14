@@ -19,6 +19,7 @@ public class MitarbeiterRollenController : ControllerBase
     }
 
     [HttpGet]
+    [RequireRole(UserRole.Admin, UserRole.Buero)]
     public async Task<ActionResult<List<MitarbeiterRolleDto>>> GetAll()
     {
         var rollen = await _context.MitarbeiterRollen

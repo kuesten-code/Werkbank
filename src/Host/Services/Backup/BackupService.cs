@@ -1,3 +1,4 @@
+using Kuestencode.Core.Services;
 using System.Diagnostics;
 using System.Net.Http.Json;
 using System.Security.Cryptography;
@@ -185,6 +186,10 @@ public class BackupService : IBackupService
         var existing = await _context.BackupTargets.FindAsync(target.Id)
             ?? throw new InvalidOperationException($"Backup-Ziel {target.Id} nicht gefunden");
 
+        // Anderer Server: der gemerkte Host-Key gehört nicht mehr dazu.
+        if (existing.Host != target.Host || existing.Port != target.Port || existing.Type != target.Type)
+            existing.SftpHostKeyFingerprint = null;
+
         existing.Name = target.Name;
         existing.Type = target.Type;
         existing.Enabled = target.Enabled;
@@ -206,6 +211,16 @@ public class BackupService : IBackupService
         await _context.SaveChangesAsync();
     }
 
+    public async Task ResetSftpHostKeyAsync(int targetId)
+    {
+        var target = await _context.BackupTargets.FindAsync(targetId)
+            ?? throw new InvalidOperationException($"Backup-Ziel {targetId} nicht gefunden");
+
+        target.SftpHostKeyFingerprint = null;
+        await _context.SaveChangesAsync();
+        _logger.LogWarning("SFTP-Host-Key für Backup-Ziel {Target} zurückgesetzt", target.Name);
+    }
+
     public async Task DeleteTargetAsync(int targetId)
     {
         var target = await _context.BackupTargets.FindAsync(targetId);
@@ -221,8 +236,8 @@ public class BackupService : IBackupService
         var target = await _context.BackupTargets.FindAsync(targetId)
             ?? throw new InvalidOperationException($"Backup-Ziel {targetId} nicht gefunden");
 
-        var provider = _providerFactory.GetProvider(target.Type);
-        return await provider.TestConnectionAsync(DecryptForConnection(target), CancellationToken.None);
+        return await UseProviderAsync(target, (provider, connection) =>
+            provider.TestConnectionAsync(connection, CancellationToken.None));
     }
 
     public Task<List<BackupHistory>> GetHistoryAsync(int? targetId = null, int limit = 50)
@@ -240,8 +255,8 @@ public class BackupService : IBackupService
         var target = await _context.BackupTargets.FindAsync(targetId)
             ?? throw new InvalidOperationException($"Backup-Ziel {targetId} nicht gefunden");
 
-        var provider = _providerFactory.GetProvider(target.Type);
-        return await provider.ListFilesAsync(DecryptForConnection(target), CancellationToken.None);
+        return await UseProviderAsync(target, (provider, connection) =>
+            provider.ListFilesAsync(connection, CancellationToken.None));
     }
 
     public async Task<Stream> OpenBackupFileForDownloadAsync(int targetId, string fileName)
@@ -249,9 +264,8 @@ public class BackupService : IBackupService
         var target = await _context.BackupTargets.FindAsync(targetId)
             ?? throw new InvalidOperationException($"Backup-Ziel {targetId} nicht gefunden");
 
-        var provider = _providerFactory.GetProvider(target.Type);
         var tempPath = Path.Combine(Path.GetTempPath(), $"download-{Guid.NewGuid()}-{fileName}");
-        await provider.DownloadAsync(DecryptForConnection(target), fileName, tempPath);
+        await UseProviderAsync(target, (provider, connection) => provider.DownloadAsync(connection, fileName, tempPath));
 
         return new FileStream(tempPath, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, FileOptions.DeleteOnClose);
     }
@@ -261,8 +275,8 @@ public class BackupService : IBackupService
         var target = await _context.BackupTargets.FindAsync(targetId)
             ?? throw new InvalidOperationException($"Backup-Ziel {targetId} nicht gefunden");
 
-        var provider = _providerFactory.GetProvider(target.Type);
-        await provider.DeleteAsync(DecryptForConnection(target), fileName, CancellationToken.None);
+        await UseProviderAsync(target, (provider, connection) =>
+            provider.DeleteAsync(connection, fileName, CancellationToken.None));
 
         var historyEntries = await _context.BackupHistory
             .Where(h => h.BackupTargetId == targetId && h.FileName == fileName)
@@ -320,8 +334,7 @@ public class BackupService : IBackupService
         try
         {
             // --- A) Vorbereiten und prüfen ---
-            var provider = _providerFactory.GetProvider(target.Type);
-            await provider.DownloadAsync(DecryptForConnection(target), fileName, tempPath);
+            await UseProviderAsync(target, (provider, connection) => provider.DownloadAsync(connection, fileName, tempPath));
 
             archivePath = tempPath;
             if (fileName.EndsWith(".enc", StringComparison.OrdinalIgnoreCase))
@@ -439,12 +452,23 @@ public class BackupService : IBackupService
 
     // Prüft das Archiv, BEVOR irgendetwas gestoppt oder verschoben wird. Das Auflisten liest es
     // komplett durch und deckt damit auch beschädigte Downloads (gzip-Prüfsumme) auf.
+    public static bool IsUnsafeArchivePath(string entry)
+    {
+        var normalized = entry.Replace('\\', '/');
+        return normalized.StartsWith('/') || normalized.Split('/').Contains("..");
+    }
+
     private async Task ValidateRestoreArchiveAsync(string archivePath, string dataPath, bool usesPostgres)
     {
         var entries = await ListTarGzAsync(archivePath);
 
         if (entries.Count == 0)
             throw new InvalidOperationException("Das Backup-Archiv ist leer");
+
+        // Das Entpacken läuft als root: ein Eintrag mit absolutem Pfad oder ".." könnte sonst außerhalb des
+        // Datenordners schreiben. Auf --strip-components allein ist dafür kein Verlass.
+        if (entries.Any(IsUnsafeArchivePath))
+            throw new InvalidOperationException("Ungültiges Backup-Archiv: Einträge mit absolutem Pfad oder '..'");
 
         var topLevel = entries.Select(e => e.Split('/')[0]).Where(n => n.Length > 0).Distinct().ToList();
         if (topLevel.Count != 1)
@@ -623,8 +647,8 @@ public class BackupService : IBackupService
 
         try
         {
-            var provider = _providerFactory.GetProvider(target.Type);
-            await provider.UploadAsync(DecryptForConnection(target), archivePath, fileName, ct);
+            await UseProviderAsync(target, (provider, connection) =>
+                provider.UploadAsync(connection, archivePath, fileName, ct), ct);
 
             history.Status = BackupStatus.Success;
             history.CompletedAt = DateTime.UtcNow;
@@ -659,12 +683,11 @@ public class BackupService : IBackupService
 
     private async Task ApplyRotationAsync(BackupTarget target, BackupSettings settings, CancellationToken ct)
     {
-        var provider = _providerFactory.GetProvider(target.Type);
         List<BackupFileInfo> files;
 
         try
         {
-            files = await provider.ListFilesAsync(DecryptForConnection(target), ct);
+            files = await UseProviderAsync(target, (provider, connection) => provider.ListFilesAsync(connection, ct), ct);
         }
         catch (Exception ex)
         {
@@ -681,7 +704,7 @@ public class BackupService : IBackupService
         {
             try
             {
-                await provider.DeleteAsync(DecryptForConnection(target), fileName, ct);
+                await UseProviderAsync(target, (provider, connection) => provider.DeleteAsync(connection, fileName, ct), ct);
                 _logger.LogInformation("Backup {FileName} auf {Target} gelöscht (Rotation)", fileName, target.Name);
             }
             catch (Exception ex)
@@ -706,7 +729,7 @@ public class BackupService : IBackupService
             try
             {
                 var body = "<p>Folgende Backup-Ziele sind fehlgeschlagen:</p><ul>" +
-                    string.Join("", failed.Select(f => $"<li>{f.TargetName}: {f.Error}</li>")) + "</ul>";
+                    string.Join("", failed.Select(f => $"<li>{EmailTemplateRenderer.Html(f.TargetName)}: {EmailTemplateRenderer.Html(f.Error)}</li>")) + "</ul>";
                 await _emailEngine.SendEmailAsync(settings.AlertEmail, "Backup fehlgeschlagen", body);
             }
             catch (Exception ex)
@@ -982,8 +1005,48 @@ public class BackupService : IBackupService
         PrivateKey = DecryptOrEmpty(target.PrivateKey),
         AccessKey = target.AccessKey,
         SecretKey = DecryptOrEmpty(target.SecretKey),
-        Region = target.Region
+        Region = target.Region,
+        SftpHostKeyFingerprint = target.SftpHostKeyFingerprint
     };
+
+    private async Task UseProviderAsync(BackupTarget target, Func<IBackupTargetProvider, BackupTarget, Task> action,
+        CancellationToken ct = default) =>
+        await UseProviderAsync(target, async (provider, connection) =>
+        {
+            await action(provider, connection);
+            return true;
+        }, ct);
+
+    /// <summary>
+    /// Provider bekommen eine entschlüsselte Kopie des Ziels. Hat der SFTP-Provider dabei erstmals einen
+    /// Host-Key gelernt, wird er hier gespeichert (Trust on first use).
+    /// </summary>
+    private async Task<T> UseProviderAsync<T>(BackupTarget target, Func<IBackupTargetProvider, BackupTarget, Task<T>> action,
+        CancellationToken ct = default)
+    {
+        var connection = DecryptForConnection(target);
+        try
+        {
+            return await action(_providerFactory.GetProvider(target.Type), connection);
+        }
+        finally
+        {
+            if (target.SftpHostKeyFingerprint == null && connection.SftpHostKeyFingerprint != null)
+                await RememberHostKeyAsync(target, connection.SftpHostKeyFingerprint, ct);
+        }
+    }
+
+    private async Task RememberHostKeyAsync(BackupTarget target, string fingerprint, CancellationToken ct)
+    {
+        var tracked = await _context.BackupTargets.FindAsync(new object?[] { target.Id }, ct);
+        if (tracked == null)
+            return;
+
+        tracked.SftpHostKeyFingerprint = fingerprint;
+        target.SftpHostKeyFingerprint = fingerprint;
+        await _context.SaveChangesAsync(ct);
+        _logger.LogInformation("SFTP-Host-Key für Backup-Ziel {Target} gespeichert: {Fingerprint}", target.Name, fingerprint);
+    }
 
     private string? DecryptOrEmpty(string? cipherText) =>
         string.IsNullOrEmpty(cipherText) ? cipherText : _passwordEncryption.Decrypt(cipherText);

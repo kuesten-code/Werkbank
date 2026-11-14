@@ -70,4 +70,18 @@ public class ModuleAuthenticationTests : IClassFixture<FakturaWebApplicationFact
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
     }
+
+    [Theory]
+    [InlineData("Mitarbeiter", "/faktura/invoices", true)]
+    [InlineData("Buero", "/faktura/invoices", false)]
+    [InlineData("Buero", "/faktura/settings/pdf-anpassung", true)]
+    [InlineData("Admin", "/faktura/settings/pdf-anpassung", false)]
+    public async Task Seite_RolleOhneBerechtigung_ZeigtZugriffVerweigert(string role, string path, bool denied)
+    {
+        var response = await Client(TestJwt.Create(role)).GetAsync(path);
+        var html = await response.Content.ReadAsStringAsync();
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        html.Contains("Zugriff verweigert").Should().Be(denied);
+    }
 }

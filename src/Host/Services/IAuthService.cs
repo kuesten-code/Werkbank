@@ -6,4 +6,5 @@ public interface IAuthService
 {
     Task<AuthResult> LoginAsync(string email, string password);
     Task<TeamMember?> GetCurrentUserAsync(string? userId);
+    Task<AuthResult> RecordFailedSecondFactorAsync(TeamMember member);
 }

@@ -1,5 +1,7 @@
 using Kuestencode.Werkbank.Host.Services;
+using Kuestencode.Werkbank.Host.Auth;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace Kuestencode.Werkbank.Host.Controllers;
 
@@ -50,6 +52,7 @@ public class MobileController : ControllerBase
     /// Setzt die PIN für einen Mobile-Token
     /// </summary>
     [HttpPost("{token}/pin/set")]
+    [EnableRateLimiting(AuthRateLimit.PolicyName)]
     public async Task<IActionResult> SetPin(string token, [FromBody] SetPinRequest request)
     {
         try
@@ -67,6 +70,7 @@ public class MobileController : ControllerBase
     /// Verifiziert die PIN und gibt einen JWT-Token zurück
     /// </summary>
     [HttpPost("{token}/pin/verify")]
+    [EnableRateLimiting(AuthRateLimit.PolicyName)]
     public async Task<IActionResult> VerifyPin(string token, [FromBody] VerifyPinRequest request)
     {
         var result = await _mobileTokenService.VerifyPinAsync(token, request.Pin);
@@ -75,14 +79,7 @@ public class MobileController : ControllerBase
         {
             if (!string.IsNullOrWhiteSpace(result.JwtToken))
             {
-                Response.Cookies.Append("werkbank_auth_cookie", result.JwtToken, new CookieOptions
-                {
-                    HttpOnly = true,
-                    Secure = false,
-                    SameSite = SameSiteMode.Lax,
-                    Path = "/",
-                    Expires = DateTimeOffset.UtcNow.AddDays(30)
-                });
+                AuthCookie.Append(Response, result.JwtToken, TimeSpan.FromDays(30));
             }
 
             return Ok(new

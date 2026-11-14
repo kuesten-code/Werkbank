@@ -28,14 +28,14 @@ Alle Secrets werden in der `.env` Datei verwaltet. Diese Datei wird nie ins Repo
 | Variable            | Beschreibung |
 |---------------------|--------------|
 | `POSTGRES_PASSWORD` | Datenbankpasswort – beliebig wählen, vor dem ersten Start setzen |
-| `JWT_SECRET`        | Mindestens 32 Zeichen, zufällig generieren: `openssl rand -base64 32` |
+| `JWT_SECRET`        | Mindestens 32 Zeichen, zufällig. Leer lassen, `./setup.sh` erzeugt es. Manuell: `openssl rand -base64 32`. Beispielwerte werden abgelehnt. |
 | `HOST_PORT`         | Externer Port (Standard: 8080) – anpassen wenn der Port bereits belegt ist |
 | `DOCKER_GID`        | Gruppen-ID des Docker-Sockets für die Docker-Steuerung. Leer lassen, `./setup.sh` trägt sie ein. Manuell: `stat -c %g /var/run/docker.sock` (Docker Desktop: `0`) |
 
 Beispiel `.env`:
 ```
 POSTGRES_PASSWORD=sicheres_passwort_hier
-JWT_SECRET=abcdefghijklmnopqrstuvwxyz123456
+JWT_SECRET=
 HOST_PORT=8080
 DOCKER_GID=
 ```
@@ -67,6 +67,15 @@ Die Module prüfen Anmelde-Tokens jetzt selbst und brauchen dafür dasselbe `JWT
 1. Die aktuelle `docker-compose.yml` aus diesem Verzeichnis übernehmen. Sie gibt `Jwt__Secret` an jedes Modul weiter.
 2. Prüfen, dass `JWT_SECRET` in der `.env` gesetzt ist (`openssl rand -base64 32`). Fehlt es, startet der Stack nicht.
    War es bisher leer, hat der Host ein eigenes Secret erzeugt; nach der Umstellung müssen sich alle Nutzer einmal neu anmelden.
+   Die Beispielwerte aus früheren Versionen dieser Anleitung werden abgelehnt.
+
+Außerdem gilt ab dieser Version:
+
+- **Mobile-Zeiterfassung nur über HTTPS.** Das Anmelde-Cookie wird jetzt auch dort nur verschlüsselt übertragen.
+  Über `http://server:8080` im LAN bleibt das Handy nicht angemeldet.
+- **SFTP-Backups merken sich den Server-Schlüssel** beim ersten Verbinden und lehnen später einen anderen ab.
+  Wird der SFTP-Server bewusst neu aufgesetzt: unter *Einstellungen → Backup* beim Ziel „Host-Key zurücksetzen“.
+- **Kontosperre nach Fehlversuchen ist immer befristet** (15 Minuten, danach jeweils doppelt so lang, höchstens 24 Stunden).
 
 ## Modulsteuerung
 

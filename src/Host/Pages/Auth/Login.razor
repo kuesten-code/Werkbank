@@ -111,7 +111,7 @@
 
     protected override void OnInitialized()
     {
-        _returnUrl = ReturnUrl ?? "/";
+        _returnUrl = LocalReturnUrl.Sanitize(ReturnUrl);
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)

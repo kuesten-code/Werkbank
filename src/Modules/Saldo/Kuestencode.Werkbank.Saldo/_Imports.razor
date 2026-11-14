@@ -21,4 +21,4 @@
 @using Kuestencode.Werkbank.Saldo.Domain.Enums
 @using Kuestencode.Werkbank.Saldo.Domain.Dtos
 @using Kuestencode.Shared.UI.Auth
-@attribute [Authorize]
+@attribute [Authorize(Roles = "Admin,Buero")]

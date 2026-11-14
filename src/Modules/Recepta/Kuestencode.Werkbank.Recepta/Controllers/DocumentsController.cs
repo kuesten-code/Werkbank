@@ -44,7 +44,7 @@ public class DocumentsController : ControllerBase
 
     private ActionResult? ValidateUpload(IFormFile file)
     {
-        if (file.Length > 52_428_800)
+        if (file.Length > UploadPolicy.MaxFileSize)
             return BadRequest(new { error = "Datei darf maximal 50 MB groß sein." });
         if (!AllowedMimeTypes.Contains(file.ContentType, StringComparer.OrdinalIgnoreCase))
             return BadRequest(new { error = "Nur PDF, JPEG, PNG und TIFF sind erlaubt." });

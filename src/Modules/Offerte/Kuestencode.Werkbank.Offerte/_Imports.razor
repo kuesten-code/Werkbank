@@ -25,4 +25,4 @@
 @using Kuestencode.Werkbank.Offerte.Services
 @using Kuestencode.Werkbank.Offerte.Services.Pdf
 @using Kuestencode.Shared.UI.Auth
-@attribute [Authorize]
+@attribute [Authorize(Roles = "Admin,Buero")]

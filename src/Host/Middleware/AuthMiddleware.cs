@@ -13,7 +13,7 @@ public class AuthMiddleware
     public const string AuthDisabledType = "NoAuth";
 
     private readonly RequestDelegate _next;
-    private readonly IJwtTokenService _jwtTokenService;
+    private readonly ISessionValidator _sessionValidator;
     private readonly ILogger<AuthMiddleware> _logger;
 
     private static readonly HashSet<string> PublicPaths = new(StringComparer.OrdinalIgnoreCase)
@@ -33,10 +33,10 @@ public class AuthMiddleware
         "/api/v1/"       // Feedback-Hub-API: authentifiziert per X-Api-Key (FeedbackApiKeyFilter)
     };
 
-    public AuthMiddleware(RequestDelegate next, IJwtTokenService jwtTokenService, ILogger<AuthMiddleware> logger)
+    public AuthMiddleware(RequestDelegate next, ISessionValidator sessionValidator, ILogger<AuthMiddleware> logger)
     {
         _next = next;
-        _jwtTokenService = jwtTokenService;
+        _sessionValidator = sessionValidator;
         _logger = logger;
     }
 
@@ -103,7 +103,7 @@ public class AuthMiddleware
             return;
         }
 
-        var principal = _jwtTokenService.ValidateToken(token);
+        var principal = await _sessionValidator.ValidateAsync(token);
         if (principal == null)
         {
             // Ungültiger Token: API-Requests bekommen 401
