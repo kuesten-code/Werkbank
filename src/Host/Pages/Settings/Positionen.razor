@@ -1,0 +1,190 @@
+@page "/settings/positionen"
+@attribute [Authorize]
+@using Kuestencode.Werkbank.Host.Models
+@using Kuestencode.Werkbank.Host.Services.Positionskatalog
+@using Kuestencode.Shared.UI.Components.Positionskatalog
+@inject IPositionskatalogService Positionskatalog
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+
+<PageTitle>Einstellungen | Positionen - Küstencode Werkbank</PageTitle>
+
+<RoleGuard AllowedRoles="@(new List<UserRole> { UserRole.Admin })" RedirectTo="/rapport">
+<MudContainer MaxWidth="MaxWidth.Large" Class="mt-4">
+    <MudText Typo="Typo.h4" GutterBottom="true">Positionen</MudText>
+    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">
+        Positionsvorlagen, die Faktura und Offerte beim Erfassen vorschlagen. Neue Positionen aus Rechnungen
+        und Angeboten werden automatisch gemerkt; Stundenpositionen werden nicht aufgenommen.
+    </MudText>
+
+    <MudPaper Class="pa-4 mb-4">
+        <MudText Typo="Typo.h6" Class="mb-2">@(_bearbeiteteId is null ? "Neue Position" : "Position bearbeiten")</MudText>
+        <MudGrid Spacing="2">
+            <MudItem xs="12" md="7">
+                <MudTextField T="string" @bind-Value="_text" Label="Text" Variant="Variant.Outlined"
+                              Lines="3" AutoGrow="true" MaxLength="@PositionskatalogService.MaxTextLaenge" />
+            </MudItem>
+            <MudItem xs="6" md="2">
+                <MudAutocomplete T="string" @bind-Value="_einheit" Label="Einheit" Variant="Variant.Outlined"
+                                 SearchFunc="EinheitenSuchen" CoerceValue="true" Dense="true"
+                                 MaxLength="@PositionskatalogService.MaxEinheitLaenge" />
+            </MudItem>
+            <MudItem xs="6" md="3">
+                <MudNumericField T="decimal" @bind-Value="_einzelpreis" Label="Einzelpreis" Variant="Variant.Outlined"
+                                 Min="0" Format="N2" Culture="@Kultur" HideSpinButtons="true"
+                                 Adornment="Adornment.End" AdornmentText="€" />
+            </MudItem>
+        </MudGrid>
+        <MudStack Row="true" Spacing="2" Justify="Justify.FlexEnd" Class="mt-3">
+            @if (_bearbeiteteId is not null)
+            {
+                <MudButton Variant="Variant.Text" OnClick="FormularLeeren">Abbrechen</MudButton>
+            }
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SpeichernAsync"
+                       Disabled="@string.IsNullOrWhiteSpace(_text)">
+                @(_bearbeiteteId is null ? "Hinzufügen" : "Speichern")
+            </MudButton>
+        </MudStack>
+    </MudPaper>
+
+    <MudPaper Class="pa-4">
+        <MudTextField T="string" Value="@_suche" ValueChanged="SucheGeaendert" Immediate="true" DebounceInterval="200"
+                      Placeholder="Suchen (Tippfehler werden toleriert)" Variant="Variant.Outlined" Margin="Margin.Dense"
+                      Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" Clearable="true" Class="mb-3" />
+
+        <MudTable Items="@_angezeigt" Dense="true" Hover="true" Loading="@_laedt" RowsPerPage="50">
+            <ToolBarContent>
+                <MudText Typo="Typo.caption" Color="Color.Secondary">@_angezeigt.Count von @_alle.Count Positionen</MudText>
+            </ToolBarContent>
+            <HeaderContent>
+                <MudTh>Text</MudTh>
+                <MudTh>Einheit</MudTh>
+                <MudTh Style="text-align: right">Einzelpreis</MudTh>
+                <MudTh>Zuletzt verwendet</MudTh>
+                <MudTh Style="text-align: right">Aktionen</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd Style="white-space: pre-line;">@context.Text</MudTd>
+                <MudTd>@context.Einheit</MudTd>
+                <MudTd Style="text-align: right; white-space: nowrap;">@context.Einzelpreis.ToString("C2", Kultur)</MudTd>
+                <MudTd>@context.ZuletztVerwendetAm.ToLocalTime().ToString("dd.MM.yyyy")</MudTd>
+                <MudTd Style="text-align: right; white-space: nowrap;">
+                    <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small" OnClick="@(() => Bearbeiten(context))" />
+                    <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small"
+                                   OnClick="@(() => LoeschenAsync(context))" />
+                </MudTd>
+            </RowTemplate>
+            <NoRecordsContent>
+                <MudText Color="Color.Secondary">Keine Positionen gefunden.</MudText>
+            </NoRecordsContent>
+            <PagerContent>
+                <MudTablePager PageSizeOptions="@(new[] { 25, 50, 100 })" />
+            </PagerContent>
+        </MudTable>
+    </MudPaper>
+</MudContainer>
+</RoleGuard>
+
+@code {
+    private static readonly System.Globalization.CultureInfo Kultur = new("de-DE");
+
+    private List<Positionsvorlage> _alle = [];
+    private List<Positionsvorlage> _angezeigt = [];
+    private List<string> _einheiten = [];
+    private bool _laedt = true;
+    private string? _suche;
+
+    private int? _bearbeiteteId;
+    private string? _text;
+    private string? _einheit;
+    private decimal _einzelpreis;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LadenAsync();
+    }
+
+    private async Task LadenAsync()
+    {
+        _alle = await Positionskatalog.AlleAsync();
+        _einheiten = PositionsEinheitFeld.Zusammenfuehren(await Positionskatalog.GetEinheitenAsync());
+        Filtern();
+        _laedt = false;
+    }
+
+    private void SucheGeaendert(string? suche)
+    {
+        _suche = suche;
+        Filtern();
+    }
+
+    private void Filtern()
+    {
+        _angezeigt = string.IsNullOrWhiteSpace(_suche)
+            ? _alle
+            : PositionsSuche.Suchen(_alle, _suche, _alle.Count);
+    }
+
+    private Task<IEnumerable<string>> EinheitenSuchen(string? text, CancellationToken token)
+        => Task.FromResult(PositionsEinheitFeld.Filtern(_einheiten, text));
+
+    private void Bearbeiten(Positionsvorlage vorlage)
+    {
+        _bearbeiteteId = vorlage.Id;
+        _text = vorlage.Text;
+        _einheit = vorlage.Einheit;
+        _einzelpreis = vorlage.Einzelpreis;
+    }
+
+    private void FormularLeeren()
+    {
+        _bearbeiteteId = null;
+        _text = null;
+        _einheit = null;
+        _einzelpreis = 0;
+    }
+
+    private async Task SpeichernAsync()
+    {
+        var ergebnis = await Positionskatalog.SpeichernAsync(_bearbeiteteId, _text, _einheit, _einzelpreis);
+        if (ergebnis != PositionsvorlageSpeichern.Gespeichert)
+        {
+            Snackbar.Add(Meldung(ergebnis), Severity.Warning);
+            return;
+        }
+
+        Snackbar.Add(_bearbeiteteId is null ? "Position hinzugefügt." : "Position gespeichert.", Severity.Success);
+        FormularLeeren();
+        await LadenAsync();
+    }
+
+    private async Task LoeschenAsync(Positionsvorlage vorlage)
+    {
+        var parameters = new DialogParameters<ConfirmDialog>
+        {
+            { x => x.ContentText, $"Position „{vorlage.Text}“ wirklich löschen? Sie wird wieder aufgenommen, sobald sie erneut in einer Rechnung oder einem Angebot gespeichert wird." },
+            { x => x.ConfirmButtonText, "Löschen" },
+            { x => x.ConfirmButtonColor, Color.Error }
+        };
+
+        var dialog = await DialogService.ShowAsync<ConfirmDialog>("Position löschen", parameters);
+        var result = await dialog.Result;
+        if (result is null || result.Canceled)
+            return;
+
+        await Positionskatalog.LoeschenAsync(vorlage.Id);
+        if (_bearbeiteteId == vorlage.Id)
+            FormularLeeren();
+
+        Snackbar.Add("Position gelöscht.", Severity.Success);
+        await LadenAsync();
+    }
+
+    public static string Meldung(PositionsvorlageSpeichern ergebnis) => ergebnis switch
+    {
+        PositionsvorlageSpeichern.Stundeneinheit => "Stundenpositionen werden nicht im Katalog gespeichert.",
+        PositionsvorlageSpeichern.Dublette => "Eine Position mit diesem Text und dieser Einheit gibt es bereits.",
+        PositionsvorlageSpeichern.NichtGefunden => "Die Position wurde inzwischen gelöscht.",
+        _ => $"Text ist Pflicht (max. {PositionskatalogService.MaxTextLaenge} Zeichen), Einheit max. {PositionskatalogService.MaxEinheitLaenge} Zeichen, Preis nicht negativ."
+    };
+}

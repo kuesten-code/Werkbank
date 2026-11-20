@@ -51,4 +51,13 @@ public class HostNavigationServiceTests
         Flatten(_service.GetVisibleNavigationItems(UserRole.Admin, true)).Select(i => i.Href).Should().Contain("/feedback/hub");
         Flatten(_service.GetVisibleNavigationItems(UserRole.Buero, true)).Select(i => i.Href).Should().NotContain("/feedback/hub");
     }
+
+    [Fact]
+    public void Positionen_StehenUnterAbrechnung()
+    {
+        var einstellungen = _service.GetNavigationItems().Single(i => i.Label == "Einstellungen");
+
+        einstellungen.Children.Single(c => c.Label == "Abrechnung").Children
+            .Select(i => i.Href).Should().Contain("/settings/positionen");
+    }
 }

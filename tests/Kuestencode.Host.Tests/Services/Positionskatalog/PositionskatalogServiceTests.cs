@@ -153,4 +153,106 @@ public sealed class PositionskatalogServiceTests : IDisposable
 
         (await _service.GetEinheitenAsync()).Should().Equal("m", "Stk.");
     }
+
+    [Fact]
+    public async Task Alle_SortiertNachTextUndEinheit()
+    {
+        await Merken(
+            Position("Kabel", "m", 2m, Januar),
+            Position("Anfahrt", null, 35m, Januar),
+            Position("Kabel", "Rolle", 80m, Januar));
+
+        (await _service.AlleAsync()).Select(v => $"{v.Text}|{v.Einheit}")
+            .Should().Equal("Anfahrt|", "Kabel|m", "Kabel|Rolle");
+    }
+
+    [Fact]
+    public async Task Speichern_Neu_LegtGetrimmtMitHeutigemDatumAn()
+    {
+        var ergebnis = await _service.SpeichernAsync(null, " Silikonfuge ", " lfm ", 12m);
+
+        ergebnis.Should().Be(PositionsvorlageSpeichern.Gespeichert);
+        var vorlage = _db.Positionsvorlagen.Single();
+        vorlage.Text.Should().Be("Silikonfuge");
+        vorlage.Einheit.Should().Be("lfm");
+        vorlage.Schluessel.Should().Be(PositionsNormalisierer.Schluessel("Silikonfuge", "lfm"));
+        vorlage.ZuletztVerwendetAm.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromMinutes(1));
+    }
+
+    [Fact]
+    public async Task Speichern_Bearbeiten_AendertTextEinheitPreisUndSchluessel()
+    {
+        await Merken(Position("Fliesn verlegen", "m²", 48m, Januar));
+        var id = _db.Positionsvorlagen.Single().Id;
+
+        var ergebnis = await _service.SpeichernAsync(id, "Fliesen verlegen", "m2", 52m);
+        _db.ChangeTracker.Clear();
+
+        ergebnis.Should().Be(PositionsvorlageSpeichern.Gespeichert);
+        var vorlage = _db.Positionsvorlagen.Single();
+        vorlage.Text.Should().Be("Fliesen verlegen");
+        vorlage.Einzelpreis.Should().Be(52m);
+        vorlage.Schluessel.Should().Be(PositionsNormalisierer.Schluessel("Fliesen verlegen", "m2"));
+    }
+
+    [Fact]
+    public async Task Speichern_GleicheVorlageUnveraendert_IstKeineDublette()
+    {
+        await Merken(Position("Anfahrt", null, 35m, Januar));
+        var id = _db.Positionsvorlagen.Single().Id;
+
+        (await _service.SpeichernAsync(id, "Anfahrt", null, 40m)).Should().Be(PositionsvorlageSpeichern.Gespeichert);
+    }
+
+    [Fact]
+    public async Task Speichern_TextUndEinheitEinerAnderenVorlage_IstDublette()
+    {
+        await Merken(Position("Anfahrt", null, 35m, Januar), Position("Entsorgung", null, 50m, Januar));
+        var id = _db.Positionsvorlagen.Single(v => v.Text == "Entsorgung").Id;
+
+        (await _service.SpeichernAsync(null, "ANFAHRT", " ", 1m)).Should().Be(PositionsvorlageSpeichern.Dublette);
+        (await _service.SpeichernAsync(id, "anfahrt", null, 1m)).Should().Be(PositionsvorlageSpeichern.Dublette);
+    }
+
+    [Theory]
+    [InlineData("", "Stk.", 1, PositionsvorlageSpeichern.Ungueltig)]
+    [InlineData(null, "Stk.", 1, PositionsvorlageSpeichern.Ungueltig)]
+    [InlineData("Dose", "Stk.", -1, PositionsvorlageSpeichern.Ungueltig)]
+    [InlineData("Dose", "xxxxxxxxxxxxxxxxxxxxx", 1, PositionsvorlageSpeichern.Ungueltig)]
+    [InlineData("Geselle", "Std.", 55, PositionsvorlageSpeichern.Stundeneinheit)]
+    public async Task Speichern_UngueltigeEingabe_WirdAbgelehnt(string? text, string einheit, decimal preis, PositionsvorlageSpeichern erwartet)
+    {
+        (await _service.SpeichernAsync(null, text, einheit, preis)).Should().Be(erwartet);
+
+        _db.Positionsvorlagen.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task Speichern_UnbekannteId_NichtGefunden()
+    {
+        (await _service.SpeichernAsync(4711, "Anfahrt", null, 1m)).Should().Be(PositionsvorlageSpeichern.NichtGefunden);
+    }
+
+    [Fact]
+    public async Task Merken_AelteresDokumentNachHandpflege_UeberschreibtNicht()
+    {
+        await _service.SpeichernAsync(null, "Anfahrt", null, 40m);
+        _db.ChangeTracker.Clear();
+
+        await Merken(Position("Anfahrt", null, 35m, Januar));
+
+        _db.Positionsvorlagen.Single().Einzelpreis.Should().Be(40m);
+    }
+
+    [Fact]
+    public async Task Loeschen_EntferntVorlage_UnbekannteIdTutNichts()
+    {
+        await Merken(Position("Anfahrt", null, 35m, Januar));
+        var id = _db.Positionsvorlagen.Single().Id;
+
+        await _service.LoeschenAsync(4711);
+        await _service.LoeschenAsync(id);
+
+        _db.Positionsvorlagen.Should().BeEmpty();
+    }
 }

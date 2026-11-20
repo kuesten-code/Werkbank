@@ -248,6 +248,15 @@ public class HostNavigationService : IHostNavigationService
             AllowedRoles = new List<UserRole> { UserRole.Admin }
         });
 
+        settingsByCategory[NavSettingsCategory.Abrechnung].Add(new NavItemDto
+        {
+            Label = "Positionen",
+            Href = "/settings/positionen",
+            Icon = "",
+            Type = NavItemType.Link,
+            AllowedRoles = new List<UserRole> { UserRole.Admin }
+        });
+
         // Distribute module settings by category
         foreach (var moduleSettings in moduleSettingsItems)
         {
