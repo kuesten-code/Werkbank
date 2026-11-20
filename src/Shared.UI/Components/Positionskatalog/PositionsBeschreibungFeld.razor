@@ -1,0 +1,165 @@
+@using Kuestencode.Shared.ApiClients
+@using Kuestencode.Shared.Contracts.Host
+@implements IAsyncDisposable
+@inject IHostApiClient HostApiClient
+@inject IJSRuntime JS
+
+<div @ref="_wrapper"
+     data-offen="@(_auswahl.ListeAktiv ? "true" : "false")"
+     data-markiert="@(_auswahl.HatMarkierung ? "true" : "false")"
+     @onkeydown="OnKeyDown">
+    <MudTextField T="string" Value="@Value" ValueChanged="OnTextGeaendert" Immediate="true"
+                  Margin="Margin.Dense" Variant="Variant.Outlined" Required="@Required"
+                  Lines="@Lines" AutoGrow="true" Disabled="@Disabled" Placeholder="@Placeholder"
+                  OnBlur="OnFeldVerlassen" />
+    <MudPopover Open="@_auswahl.Offen" AnchorOrigin="Origin.BottomLeft" TransformOrigin="Origin.TopLeft"
+                Paper="true" MaxHeight="320" Style="min-width: 360px; max-width: 640px;">
+        @if (_auswahl.Treffer.Count == 0)
+        {
+            <MudText Typo="Typo.caption" Class="pa-2 d-block">Neue Position – wird beim Speichern gemerkt</MudText>
+        }
+        else
+        {
+            @for (var i = 0; i < _auswahl.Treffer.Count; i++)
+                {
+                    var vorlage = _auswahl.Treffer[i];
+                    var markiert = i == _auswahl.Markiert;
+                    <div class="pa-2" style="cursor: pointer; @(markiert ? "background-color: var(--mud-palette-action-default-hover);" : "")"
+                         @onmousedown="() => UebernehmenAsync(vorlage)" @onmousedown:preventDefault="true">
+                        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Spacing="3">
+                            <MudText Typo="Typo.body2" Style="white-space: pre-line;">@vorlage.Text</MudText>
+                            <MudText Typo="Typo.caption" Color="Color.Secondary" Style="white-space: nowrap;">
+                                @vorlage.Einheit @vorlage.Einzelpreis.ToString("C2", Kultur)
+                            </MudText>
+                        </MudStack>
+                    </div>
+                }
+        }
+    </MudPopover>
+</div>
+
+@code {
+    private const int MinZeichen = 2;
+    private const int MaxTreffer = 8;
+    private static readonly TimeSpan Entprellung = TimeSpan.FromMilliseconds(250);
+    private static readonly System.Globalization.CultureInfo Kultur = new("de-DE");
+
+    private readonly VorschlagsAuswahl _auswahl = new();
+    private ElementReference _wrapper;
+    private IJSObjectReference? _modul;
+    private CancellationTokenSource? _suche;
+
+    [Parameter] public string? Value { get; set; }
+    [Parameter] public EventCallback<string> ValueChanged { get; set; }
+    [Parameter] public EventCallback<PositionsvorlageDto> OnVorlageGewaehlt { get; set; }
+    [Parameter] public EventCallback OnBlur { get; set; }
+    [Parameter] public int Lines { get; set; } = 3;
+    [Parameter] public bool Disabled { get; set; }
+    [Parameter] public bool Required { get; set; }
+    [Parameter] public string? Placeholder { get; set; }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || Disabled)
+            return;
+
+        try
+        {
+            _modul = await JS.InvokeAsync<IJSObjectReference>("import", "./_content/Kuestencode.Shared.UI/js/positionsvorschlag.js");
+            await _modul.InvokeVoidAsync("verbinden", _wrapper);
+        }
+        catch (JSException)
+        {
+            // Ohne Skript bleibt das Feld bedienbar; nur Enter wird dann nicht gezielt abgefangen.
+        }
+    }
+
+    private async Task OnTextGeaendert(string text)
+    {
+        Value = text;
+        await ValueChanged.InvokeAsync(text);
+        await SuchenAsync(text);
+    }
+
+    private async Task SuchenAsync(string? text)
+    {
+        _suche?.Cancel();
+        if ((text?.Trim().Length ?? 0) < MinZeichen)
+        {
+            _auswahl.Schliessen();
+            return;
+        }
+
+        _suche = new CancellationTokenSource();
+        var token = _suche.Token;
+        try
+        {
+            await Task.Delay(Entprellung, token);
+            var treffer = await HostApiClient.SuchePositionsvorlagenAsync(text, MaxTreffer, token);
+            if (token.IsCancellationRequested)
+                return;
+
+            _auswahl.Anzeigen(treffer);
+            StateHasChanged();
+        }
+        catch (OperationCanceledException)
+        {
+        }
+    }
+
+    private async Task OnKeyDown(KeyboardEventArgs e)
+    {
+        switch (e.Key)
+        {
+            case "ArrowDown":
+                _auswahl.Runter();
+                break;
+            case "ArrowUp":
+                _auswahl.Hoch();
+                break;
+            case "Escape":
+                SucheBeenden();
+                break;
+            case "Enter" or "NumpadEnter" when _auswahl.MarkierterTreffer is { } vorlage:
+                await UebernehmenAsync(vorlage);
+                break;
+        }
+    }
+
+    private async Task UebernehmenAsync(PositionsvorlageDto vorlage)
+    {
+        SucheBeenden();
+        Value = vorlage.Text;
+        await ValueChanged.InvokeAsync(vorlage.Text);
+        await OnVorlageGewaehlt.InvokeAsync(vorlage);
+    }
+
+    private async Task OnFeldVerlassen()
+    {
+        SucheBeenden();
+        await OnBlur.InvokeAsync();
+    }
+
+    private void SucheBeenden()
+    {
+        _suche?.Cancel();
+        _auswahl.Schliessen();
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        _suche?.Cancel();
+        _suche?.Dispose();
+        if (_modul == null)
+            return;
+
+        try
+        {
+            await _modul.DisposeAsync();
+        }
+        catch (JSDisconnectedException)
+        {
+            // Verbindung zum Browser ist bereits weg; nichts mehr aufzuräumen.
+        }
+    }
+}

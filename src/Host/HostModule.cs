@@ -10,6 +10,7 @@ using Kuestencode.Werkbank.Host.Services.Feedback;
 using Kuestencode.Werkbank.Host.Services.Feedback.Client;
 using Kuestencode.Werkbank.Host.Services.Feedback.Hub;
 using Kuestencode.Werkbank.Host.Services.Pdf;
+using Kuestencode.Werkbank.Host.Services.Positionskatalog;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.EntityFrameworkCore;
 
@@ -35,6 +36,7 @@ public static class HostModule
         // Services
         services.AddScoped<ICompanyService, CompanyService>();
         services.AddScoped<ICustomerService, CustomerService>();
+        services.AddScoped<IPositionskatalogService, PositionskatalogService>();
         services.AddSingleton<PasswordEncryptionService>();
         services.AddSingleton<IPasswordService, PasswordService>();
         services.AddScoped<ITeamMemberService, TeamMemberService>();

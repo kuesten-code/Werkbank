@@ -237,6 +237,15 @@ public class InvoiceRepository : Repository<Invoice>, IInvoiceRepository
         return invoices;
     }
 
+    public async Task<List<Invoice>> GetRechnungenMitPositionenAsync()
+    {
+        return await _dbSet
+            .AsNoTracking()
+            .Include(i => i.Items)
+            .Where(i => i.Type == InvoiceType.Invoice)
+            .ToListAsync();
+    }
+
     /// <summary>
     /// Lädt den Kunden für eine einzelne Rechnung via Host API.
     /// </summary>

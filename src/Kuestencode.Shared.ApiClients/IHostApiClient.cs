@@ -31,4 +31,10 @@ public interface IHostApiClient
 
     /// <summary>Ob der Host als Feedback-Kunde konfiguriert ist; false auch bei Fehlern.</summary>
     Task<bool> IsFeedbackReportingEnabledAsync();
+
+    /// <summary>Tippfehlertolerante Suche im Positionskatalog; leere Liste auch bei Fehlern.</summary>
+    Task<List<PositionsvorlageDto>> SuchePositionsvorlagenAsync(string? suche, int limit, CancellationToken cancellationToken = default);
+    /// <summary>Im Positionskatalog verwendete Einheiten; leere Liste auch bei Fehlern.</summary>
+    Task<List<string>> GetPositionsEinheitenAsync();
+    Task MerkePositionsvorlagenAsync(List<PositionsvorlageMerkenDto> positionen);
 }

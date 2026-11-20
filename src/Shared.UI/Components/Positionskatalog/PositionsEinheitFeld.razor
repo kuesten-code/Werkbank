@@ -1,0 +1,46 @@
+@using Kuestencode.Shared.ApiClients
+@inject IHostApiClient HostApiClient
+
+<MudAutocomplete T="string" Value="@Value" ValueChanged="OnValueChanged"
+                 SearchFunc="SuchenAsync" CoerceValue="true"
+                 Margin="Margin.Dense" Variant="Variant.Outlined" Dense="true"
+                 Adornment="Adornment.None" Disabled="@Disabled" Placeholder="@Placeholder"
+                 OnBlur="@(_ => OnBlur.InvokeAsync())" />
+
+@code {
+    public static readonly IReadOnlyList<string> Grundliste =
+        ["Stk.", "m", "m²", "m³", "lfm", "kg", "t", "l", "km", "Pauschal"];
+
+    private List<string>? _einheiten;
+
+    [Parameter] public string? Value { get; set; }
+    [Parameter] public EventCallback<string?> ValueChanged { get; set; }
+    [Parameter] public EventCallback OnBlur { get; set; }
+    [Parameter] public bool Disabled { get; set; }
+    [Parameter] public string? Placeholder { get; set; } = "Einh.";
+
+    private async Task OnValueChanged(string? value)
+    {
+        Value = value;
+        await ValueChanged.InvokeAsync(value);
+    }
+
+    private async Task<IEnumerable<string>> SuchenAsync(string? text, CancellationToken token)
+    {
+        // Erst beim Aufklappen laden: eine Rechnung hat viele Zeilen, die meisten brauchen die Liste nie.
+        _einheiten ??= Zusammenfuehren(await HostApiClient.GetPositionsEinheitenAsync());
+        return Filtern(_einheiten, text);
+    }
+
+    public static List<string> Zusammenfuehren(IEnumerable<string> ausKatalog)
+        => Grundliste.Concat(ausKatalog)
+            .Select(e => e.Trim())
+            .Where(e => e.Length > 0)
+            .DistinctBy(e => e.ToLowerInvariant())
+            .ToList();
+
+    public static IEnumerable<string> Filtern(IEnumerable<string> einheiten, string? text)
+        => string.IsNullOrWhiteSpace(text)
+            ? einheiten
+            : einheiten.Where(e => e.Contains(text.Trim(), StringComparison.OrdinalIgnoreCase));
+}

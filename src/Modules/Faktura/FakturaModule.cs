@@ -5,6 +5,8 @@ using Kuestencode.Faktura.Services.Email;
 using Kuestencode.Faktura.Services.Pdf;
 using Kuestencode.Faktura.Services.Pdf.Components;
 using Kuestencode.Faktura.Services.Pdf.Layouts;
+using Kuestencode.Faktura.Services.Positionskatalog;
+using Kuestencode.Shared.UI.Extensions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -42,6 +44,7 @@ public static class FakturaModule
 
         // Register Faktura Services
         services.AddScoped<IInvoiceService, InvoiceService>();
+        services.AddPositionskatalog<FakturaPositionskatalogQuelle>();
         services.AddScoped<IInvoicePaymentService, InvoicePaymentService>();
         services.AddScoped<IDashboardService, DashboardService>();
         services.AddScoped<IOpenItemsService, OpenItemsService>();

@@ -3,6 +3,8 @@ using Kuestencode.Faktura.Data;
 using Kuestencode.Faktura.Data.Repositories;
 using Kuestencode.Faktura.Models;
 using Kuestencode.Faktura.Services;
+using Kuestencode.Shared.ApiClients;
+using Kuestencode.Shared.Contracts.Host;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
@@ -15,6 +17,7 @@ public class InvoiceServiceTests
     private readonly Mock<IInvoiceRepository> _repo = new();
     private readonly Mock<IInvoicePaymentService> _paymentService = new();
     private readonly Mock<IPdfGeneratorService> _pdfGeneratorService = new();
+    private readonly Mock<IPositionskatalogLerner> _positionskatalog = new();
     private readonly FakturaDbContext _context;
     private readonly InvoiceService _service;
 
@@ -25,7 +28,7 @@ public class InvoiceServiceTests
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
             .Options;
         _context = new FakturaDbContext(options);
-        _service = new InvoiceService(_repo.Object, _paymentService.Object, _pdfGeneratorService.Object, _context, NullLogger<InvoiceService>.Instance);
+        _service = new InvoiceService(_repo.Object, _paymentService.Object, _pdfGeneratorService.Object, _context, _positionskatalog.Object, NullLogger<InvoiceService>.Instance);
     }
 
     private static Invoice MakeInvoice(int id = 1, InvoiceStatus status = InvoiceStatus.Draft) =>
@@ -753,5 +756,46 @@ public class InvoiceServiceTests
         await _service.MarkAsPaidAsync(1, new DateTime(2026, 3, 15, 0, 0, 0, DateTimeKind.Utc));
 
         _paymentService.Verify(p => p.ZahlungErfassenAsync(1, 500m, It.IsAny<DateTime>(), It.IsAny<string>()), Times.Once);
+    }
+
+    // ─── Positionskatalog ─────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task Create_UebergibtPositionenAnPositionskatalog()
+    {
+        var inv = MakeInvoice();
+        inv.Items.Add(MakeItem(1, 100m));
+        _repo.Setup(r => r.InvoiceNumberExistsAsync(inv.InvoiceNumber)).ReturnsAsync(false);
+        _repo.Setup(r => r.AddAsync(It.IsAny<Invoice>())).ReturnsAsync(inv);
+
+        await _service.CreateAsync(inv);
+
+        _positionskatalog.Verify(k => k.MerkenAsync(It.Is<IReadOnlyCollection<PositionsvorlageMerkenDto>>(
+            p => p.Count == 1 && p.Single().Einzelpreis == 100m)), Times.Once);
+    }
+
+    [Fact]
+    public async Task Create_DoppelteNummer_MerktNichts()
+    {
+        var inv = MakeInvoice();
+        _repo.Setup(r => r.InvoiceNumberExistsAsync(inv.InvoiceNumber)).ReturnsAsync(true);
+
+        await FluentActions.Invoking(() => _service.CreateAsync(inv)).Should().ThrowAsync<InvalidOperationException>();
+
+        _positionskatalog.Verify(k => k.MerkenAsync(It.IsAny<IReadOnlyCollection<PositionsvorlageMerkenDto>>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task Update_UebergibtPositionenAnPositionskatalog()
+    {
+        var inv = MakeInvoice();
+        inv.Items.Add(MakeItem(1, 80m));
+        _repo.Setup(r => r.GetByIdAsync(inv.Id)).ReturnsAsync(inv);
+        _repo.Setup(r => r.UpdateAsync(It.IsAny<Invoice>())).Returns(Task.CompletedTask);
+
+        await _service.UpdateAsync(inv);
+
+        _positionskatalog.Verify(k => k.MerkenAsync(It.Is<IReadOnlyCollection<PositionsvorlageMerkenDto>>(
+            p => p.Single().Einzelpreis == 80m)), Times.Once);
     }
 }

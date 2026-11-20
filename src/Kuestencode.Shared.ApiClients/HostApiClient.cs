@@ -264,4 +264,39 @@ public class HostApiClient : IHostApiClient
             return false;
         }
     }
+
+    public async Task<List<PositionsvorlageDto>> SuchePositionsvorlagenAsync(string? suche, int limit, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var url = $"/api/positionsvorlagen?suche={Uri.EscapeDataString(suche ?? string.Empty)}&limit={limit}";
+            var response = await _httpClient.GetAsync(url, cancellationToken).ConfigureAwait(false);
+            if (!response.IsSuccessStatusCode) return [];
+            return await response.Content.ReadFromJsonAsync<List<PositionsvorlageDto>>(cancellationToken).ConfigureAwait(false) ?? [];
+        }
+        catch (Exception) when (!cancellationToken.IsCancellationRequested)
+        {
+            return [];
+        }
+    }
+
+    public async Task<List<string>> GetPositionsEinheitenAsync()
+    {
+        try
+        {
+            var response = await _httpClient.GetAsync("/api/positionsvorlagen/einheiten").ConfigureAwait(false);
+            if (!response.IsSuccessStatusCode) return [];
+            return await response.Content.ReadFromJsonAsync<List<string>>().ConfigureAwait(false) ?? [];
+        }
+        catch
+        {
+            return [];
+        }
+    }
+
+    public async Task MerkePositionsvorlagenAsync(List<PositionsvorlageMerkenDto> positionen)
+    {
+        var response = await _httpClient.PostAsJsonAsync("/api/positionsvorlagen/merken", positionen).ConfigureAwait(false);
+        response.EnsureSuccessStatusCode();
+    }
 }

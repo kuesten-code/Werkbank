@@ -2,6 +2,8 @@ using Kuestencode.Core.Auditing;
 using Kuestencode.Faktura.Data;
 using Kuestencode.Faktura.Data.Repositories;
 using Kuestencode.Faktura.Models;
+using Kuestencode.Faktura.Services.Positionskatalog;
+using Kuestencode.Shared.ApiClients;
 using Kuestencode.Shared.Contracts.Faktura;
 using Microsoft.EntityFrameworkCore;
 
@@ -38,6 +40,7 @@ public class InvoiceService : IInvoiceService
     private readonly IInvoicePaymentService _paymentService;
     private readonly IPdfGeneratorService _pdfGeneratorService;
     private readonly FakturaDbContext _context;
+    private readonly IPositionskatalogLerner _positionskatalog;
     private readonly ILogger<InvoiceService> _logger;
 
     public InvoiceService(
@@ -45,12 +48,14 @@ public class InvoiceService : IInvoiceService
         IInvoicePaymentService paymentService,
         IPdfGeneratorService pdfGeneratorService,
         FakturaDbContext context,
+        IPositionskatalogLerner positionskatalog,
         ILogger<InvoiceService> logger)
     {
         _invoiceRepository = invoiceRepository;
         _paymentService = paymentService;
         _pdfGeneratorService = pdfGeneratorService;
         _context = context;
+        _positionskatalog = positionskatalog;
         _logger = logger;
     }
 
@@ -162,7 +167,9 @@ public class InvoiceService : IInvoiceService
                 invoice.Items[i].Position = i + 1;
             }
 
-            return await _invoiceRepository.AddAsync(invoice);
+            var created = await _invoiceRepository.AddAsync(invoice);
+            await _positionskatalog.MerkenAsync(FakturaPositionskatalog.AusRechnung(created));
+            return created;
         }
         catch (Exception ex)
         {
@@ -246,6 +253,7 @@ public class InvoiceService : IInvoiceService
             }
 
             await _invoiceRepository.UpdateAsync(invoice);
+            await _positionskatalog.MerkenAsync(FakturaPositionskatalog.AusRechnung(invoice));
         }
         catch (Exception ex)
         {

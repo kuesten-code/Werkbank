@@ -1,7 +1,7 @@
-host=2.18.0
-faktura=3.21.0
+host=2.19.0
+faktura=3.22.0
 rapport=2.9.0
-offerte=2.8.0
+offerte=2.9.0
 acta=2.8.0
 recepta=2.14.0
 saldo=1.6.0

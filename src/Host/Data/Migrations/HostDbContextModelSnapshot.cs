@@ -1029,6 +1029,42 @@ namespace Kuestencode.Werkbank.Host.Data.Migrations
                     b.ToTable("MitarbeiterRollen", "host");
                 });
 
+            modelBuilder.Entity("Kuestencode.Werkbank.Host.Models.Positionsvorlage", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Einheit")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<decimal>("Einzelpreis")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("Schluessel")
+                        .IsRequired()
+                        .HasMaxLength(1100)
+                        .HasColumnType("character varying(1100)");
+
+                    b.Property<string>("Text")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<DateTime>("ZuletztVerwendetAm")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Schluessel")
+                        .IsUnique();
+
+                    b.ToTable("Positionsvorlagen", "host");
+                });
+
             modelBuilder.Entity("Kuestencode.Werkbank.Host.Models.TeamMember", b =>
                 {
                     b.Property<Guid>("Id")

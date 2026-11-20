@@ -7,6 +7,7 @@ using Kuestencode.Werkbank.Offerte.Domain.Validation;
 using Kuestencode.Werkbank.Offerte.Services;
 using Kuestencode.Werkbank.Offerte.Services.Email;
 using Kuestencode.Werkbank.Offerte.Services.Pdf;
+using Kuestencode.Shared.UI.Extensions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -44,6 +45,8 @@ public static class OfferteModule
         services.AddScoped<IOfferteVersandService, OfferteVersandService>();
         services.AddScoped<IOfferteDruckService, OfferteDruckService>();
         services.AddScoped<IOfferteKopierService, OfferteKopierService>();
+        services.AddScoped<IAngebotPositionskatalogService, AngebotPositionskatalogService>();
+        services.AddPositionskatalog<OffertePositionskatalogQuelle>();
         services.AddScoped<IOfferteUeberfuehrungService, OfferteUeberfuehrungService>();
         services.AddScoped<IOfferteSettingsService, OfferteSettingsService>();
         services.AddScoped<IOffertePreviewService, OffertePreviewService>();

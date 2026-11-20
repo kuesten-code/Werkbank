@@ -15,4 +15,5 @@ public interface IInvoiceRepository : IRepository<Invoice>
     Task<IEnumerable<Invoice>> GetOpenInvoicesByInvoiceDateRangeAsync(DateTime from, DateTime to);
     Task<Invoice?> GetWithDetailsAsync(int id);
     Task<IEnumerable<Invoice>> GetByProjectIdAsync(int projectId);
+    Task<List<Invoice>> GetRechnungenMitPositionenAsync();
 }

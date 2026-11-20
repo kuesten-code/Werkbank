@@ -67,16 +67,14 @@
                 <tr>
                     <td>@posCounter</td>
                     <td>
-                        <MudTextField @bind-Value="position.Text" Margin="Margin.Dense"
-                                     Variant="Variant.Outlined" Required="true"
-                                     Lines="2" AutoGrow="true" Disabled="@Readonly"
-                                     OnBlur="@(() => OnPositionChanged.InvokeAsync())" />
+                        <PositionsBeschreibungFeld @bind-Value="position.Text" Required="true" Lines="2"
+                                                   Disabled="@Readonly"
+                                                   OnVorlageGewaehlt="@(v => VorlageUebernehmen(position, v))"
+                                                   OnBlur="@(() => OnPositionChanged.InvokeAsync())" />
                     </td>
                     <td>
-                        <MudTextField @bind-Value="position.Einheit" Margin="Margin.Dense"
-                                     Variant="Variant.Outlined" Disabled="@Readonly"
-                                     Placeholder="Einh."
-                                     OnBlur="@(() => OnPositionChanged.InvokeAsync())" />
+                        <PositionsEinheitFeld @bind-Value="position.Einheit" Disabled="@Readonly"
+                                              OnBlur="@(() => OnPositionChanged.InvokeAsync())" />
                     </td>
                     <td style="text-align: right">
                         <MudNumericField @bind-Value="position.Menge" Margin="Margin.Dense"
@@ -266,6 +264,12 @@
             await PositionenChanged.InvokeAsync(Positionen);
             await OnPositionChanged.InvokeAsync();
         }
+    }
+
+    private async Task VorlageUebernehmen(Angebotsposition position, Kuestencode.Shared.Contracts.Host.PositionsvorlageDto vorlage)
+    {
+        AngebotPositionskatalogService.Uebernehmen(position, vorlage);
+        await OnPositionChanged.InvokeAsync();
     }
 
     private void ReorderPositions()

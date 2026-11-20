@@ -151,16 +151,12 @@
                             {
                                 <tr>
                                     <td>
-                                        <MudTextField @bind-Value="item.Description" Margin="Margin.Dense"
-                                                     Variant="Variant.Outlined" Required="true"
-                                                     Lines="3" AutoGrow="true"
-                                                     OnBlur="RecalculateTotals" />
+                                        <PositionsBeschreibungFeld @bind-Value="item.Description" Required="true" Lines="3"
+                                                                   OnVorlageGewaehlt="@(v => { FakturaPositionskatalog.Uebernehmen(item, v); RecalculateTotals(); })"
+                                                                   OnBlur="RecalculateTotals" />
                                     </td>
                                     <td>
-                                        <MudTextField @bind-Value="item.Unit" Margin="Margin.Dense"
-                                                     Variant="Variant.Outlined"
-                                                     Placeholder="z.B. h, Stk."
-                                                     OnBlur="RecalculateTotals" />
+                                        <PositionsEinheitFeld @bind-Value="item.Unit" OnBlur="RecalculateTotals" />
                                     </td>
                                     <td style="text-align: right">
                                         <MudNumericField @bind-Value="item.Quantity" Margin="Margin.Dense"

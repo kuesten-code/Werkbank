@@ -73,4 +73,17 @@ public class FakeHostApiClient : IHostApiClient
 
     public Task<(bool Success, string? ErrorMessage)> TestEmailConnectionAsync() => Task.FromResult<(bool, string?)>((true, null));
     public Task<bool> IsFeedbackReportingEnabledAsync() => Task.FromResult(false);
+
+    public List<List<PositionsvorlageMerkenDto>> GemerktePositionen { get; } = [];
+
+    public Task<List<PositionsvorlageDto>> SuchePositionsvorlagenAsync(string? suche, int limit, CancellationToken cancellationToken = default)
+        => Task.FromResult(new List<PositionsvorlageDto>());
+
+    public Task<List<string>> GetPositionsEinheitenAsync() => Task.FromResult(new List<string>());
+
+    public Task MerkePositionsvorlagenAsync(List<PositionsvorlageMerkenDto> positionen)
+    {
+        GemerktePositionen.Add(positionen);
+        return Task.CompletedTask;
+    }
 }

@@ -1,6 +1,7 @@
 @page "/angebote/{Id:guid}/bearbeiten"
 @using Kuestencode.Core.Interfaces
 @inject IAngebotRepository AngebotRepository
+@inject IAngebotPositionskatalogService Positionskatalog
 @inject ICustomerService CustomerService
 @inject CoreInterfaces.ICompanyService CompanyService
 @inject AngebotValidator Validator
@@ -317,6 +318,7 @@
             }
 
             await AngebotRepository.UpdateAsync(_angebot);
+            await Positionskatalog.MerkenAsync(_angebot);
             Snackbar.Add($"Angebot {_angebot.Angebotsnummer} wurde aktualisiert.", Severity.Success);
             NavigationManager.NavigateTo($"/offerte/angebote/{_angebot.Id}");
         }

@@ -22,6 +22,7 @@ public class HostDbContext : DbContext
     public DbSet<TeamMember> TeamMembers => Set<TeamMember>();
     public DbSet<WerkbankSettings> WerkbankSettings => Set<WerkbankSettings>();
     public DbSet<MitarbeiterRolle> MitarbeiterRollen => Set<MitarbeiterRolle>();
+    public DbSet<Positionsvorlage> Positionsvorlagen => Set<Positionsvorlage>();
     public DbSet<BackupSettings> BackupSettings => Set<BackupSettings>();
     public DbSet<BackupTarget> BackupTargets => Set<BackupTarget>();
     public DbSet<BackupHistory> BackupHistory => Set<BackupHistory>();
@@ -135,6 +136,12 @@ public class HostDbContext : DbContext
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Name).HasMaxLength(100).IsRequired();
             entity.Property(e => e.SortOrder).HasDefaultValue(0);
+        });
+
+        modelBuilder.Entity<Positionsvorlage>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.Schluessel).IsUnique();
         });
 
         // TeamMember FK zu MitarbeiterRolle
